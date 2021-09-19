@@ -1,6 +1,6 @@
 import os
 
-from dotenv import load_dotenv, dotenv_values
+from dotenv import dotenv_values
 import hikari
 
 import lightbulb
@@ -8,7 +8,7 @@ import lightbulb
 conf = dotenv_values()
 for key, value in conf.items():
     print(f"key: {key}\nvalue: {value}")
-
+print(os.getcwd())
 logs = {
     "version": 1,
     "incremental": True,
@@ -35,16 +35,16 @@ async def create_rest_bot(rest_app: hikari.RESTApp):
 
 
 def load_slash(bot: lightbulb.Bot):
-    for extension in os.listdir(os.path.join(os.getcwd(), "extensions/slash")):
+    for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/slash")):
         if extension == "__init__.py" or not extension.endswith(".py"):
             continue
-        bot.load_extension(f"extensions.slash.{extension[:-3]}")
+        bot.load_extension(f"ext.slash.{extension[:-3]}")
 
 def load_prefix(bot: lightbulb.Bot):
-    for extension in os.listdir(os.path.join(os.getcwd(), "extensions/prefix")):
+    for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/prefix")):
         if extension == "__init__.py" or not extension.endswith(".py"):
             continue
-        bot.load_extension(f"extensions.prefix.{extension[:-3]}")
+        bot.load_extension(f"ext.prefix.{extension[:-3]}")
 
 load_prefix(bot)
 load_slash(bot)
