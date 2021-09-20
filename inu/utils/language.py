@@ -1,6 +1,6 @@
 import discord
 import datetime
-from typing import Union
+from typing import Union, List
 
 def human_bool(bool_, twisted=False):
     if not twisted:
@@ -31,7 +31,8 @@ def opposite(boolean: bool):
 
 
 class Multiple():
-    def endswith(word: str, ends_w: list):
+    @staticmethod
+    def endswith_(word: str, ends_w: list):
         """checks for multiple words endswith()"""
         for w in ends_w:
             if word.endswith(w):
@@ -56,7 +57,7 @@ class Human():
     def datetime_(
             time: datetime.datetime,
             long_: bool = True,
-    ) -> Union[str, list]:
+    ) -> str:
         """
         converts datetime to a long or short readable string.
         Returning datatype is given datatype
@@ -73,11 +74,14 @@ class Human():
                         {time.day}{day_suffix} {time.strftime("%B")}\
                         , {time.year} \
                         ({time.hour}:{time.minute}:{time.second})"""
+        else:
+            raise NotImplementedError()
 
+    @staticmethod
     def plural_(
         word_s: Union[str, list],
         relation: Union[int, bool],
-    ):
+    ) -> List[str]:
         """ 
         returns a words plural.
         word_s: the word or words with will be converted relating to <relation>
@@ -90,30 +94,33 @@ class Human():
             plural = relation
 
         if not plural:
-            return word_s
+            if isinstance(word_s, list):
+                return word_s
+            else:
+                return [word_s]
         
-        def mk_plural(word_s: list):
+        def mk_plural(word_s: list) -> List[str]:
             pl_word_s = []
             for w in word_s:
-                if Multiple.endswith(w, ['s', 'ss', 'sh', 'ch', 'x' 'z']):
+                if Multiple.endswith_(w, ['s', 'ss', 'sh', 'ch', 'x' 'z']):
                     pl_word_s.append(f'{w}es')
-                elif Multiple.endswith(w, ['f', 'fe']):
+                elif Multiple.endswith_(w, ['f', 'fe']):
                     if w.endswith('f'):
                         pl_word_s.append(f'{w[:-2]}ves')
                     else:
                         pl_word_s.append(f'{w[:-3]}ves')
-                elif Multiple.endswith(w, ['y']):
+                elif Multiple.endswith_(w, ['y']):
                     if w[-2] in 'aeiou':
                         pl_word_s.append(f'{w[:-2]}ies')
                     else:
                         pl_word_s.append(f'{w}s')
-                elif Multiple.endswith(w, ['o']):
+                elif Multiple.endswith_(w, ['o']):
                     pl_word_s.append(f'{w}es')
-                elif Multiple.endswith(w, ['us']):
+                elif Multiple.endswith_(w, ['us']):
                     pl_word_s.append(f'{w[:-3]}i')
-                elif Multiple.endswith(w, ['os']):
+                elif Multiple.endswith_(w, ['os']):
                     pl_word_s.append(f'{w[:-3]}i')
-                elif Multiple.endswith(w, ['is']):
+                elif Multiple.endswith_(w, ['is']):
                     pl_word_s.append(f'{w[:-3]}es')
                 else:
                     pl_word_s.append(f'{w}s')
@@ -122,4 +129,4 @@ class Human():
         if isinstance(word_s, list):
             return mk_plural(word_s)
         else:
-            return mk_plural([word_s])[0]
+            return mk_plural([word_s])
