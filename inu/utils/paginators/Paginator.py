@@ -31,10 +31,11 @@ import re
 import traceback
 from functools import wraps
 
-import discord
-from discord import embeds
-from discord.ext.commands.errors import BadArgument
-from discord.ext.commands import Context
+import hikari
+from hikari.embeds import Embed
+import lightbulb
+from lightbulb.context import Context
+
 
 
 class Paginator:
@@ -77,7 +78,7 @@ class Paginator:
     def __init__(
         self,
         *,
-        pages: Optional[Union[List[discord.Embed], discord.Embed]] = None,
+        pages: Optional[Union[List[Embed], Embed]] = None,
         compact: bool = False,
         timeout: float = 90.0,
         has_input: bool = True,
@@ -88,7 +89,7 @@ class Paginator:
         self.has_input = has_input
 
         self.ctx = None
-        self.bot = None
+        self.bot: Optional[lightbulb.Bot] = None
         self.loop = None
         self.message = None
 
@@ -109,7 +110,7 @@ class Paginator:
         if self.has_input is True:
             self.reactions["🔢"] = "input"
 
-        if self.pages is not None:
+        if self.pages is not None and not isinstance(self.pages, Embed):
             if len(self.pages) == 2:
                 self.compact = True
 
@@ -134,10 +135,10 @@ class Paginator:
 
         elif react == "input":
             to_delete = []
-            message = await self.ctx.send("What page do you want to go to?")
-            to_delete.append(message)
+            #message = await self.ctx.send("What page do you want to go to?")
+            #to_delete.append(message)
 
-            def check(m):
+            def check(m) -> bool:
                 if m.author.id != self.ctx.author.id:
                     return False
                 if self.ctx.channel.id != m.channel.id:
@@ -238,7 +239,7 @@ class Paginator:
                 task.cancel()
             self.__tasks.clear()
 
-    async def start(self, ctx):
+    async def start(self, ctx: Context):
         """Start paginator session.
 
         Parameters
