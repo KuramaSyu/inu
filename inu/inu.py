@@ -1,4 +1,5 @@
 import os
+import asyncio
 
 from dotenv import dotenv_values
 import hikari
@@ -29,23 +30,45 @@ bot = lightbulb.Bot(
 rest_app = hikari.RESTApp(
     max_rate_limit=1
 )
-async def create_rest_bot(rest_app: hikari.RESTApp):
-    async with rest_app.acquire(token=conf["DISCORD_BOT_TOKEN"], token_type="Bot") as client:
-        return await client.fetch_my_user()
 
+class Inu(lightbulb.Bot):
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.load_prefix()
+        self.load_slash()
 
-def load_slash(bot: lightbulb.Bot):
-    for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/slash")):
-        if extension == "__init__.py" or not extension.endswith(".py"):
-            continue
-        bot.load_extension(f"ext.slash.{extension[:-3]}")
+    @property
+    def loop(self) -> asyncio.AbstractEventLoop:
+        if not (loop := asyncio.get_running_loop()):
+            raise RuntimeError("Eventloop could not be returned")
+        return loop
 
-def load_prefix(bot: lightbulb.Bot):
-    for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/prefix")):
-        if extension == "__init__.py" or not extension.endswith(".py"):
-            continue
-        bot.load_extension(f"ext.prefix.{extension[:-3]}")
+    @property
+    def me(self) -> hikari.User:
+        if not (user := self.cache.get_me()):
+            raise RuntimeError("Own user can't be accessed from cache")
+        return user
 
-load_prefix(bot)
-load_slash(bot)
-bot.run()
+    @property 
+    def user(self) -> hikari.User:
+        return self.me
+
+    def load_slash(self):
+        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/slash")):
+            if extension == "__init__.py" or not extension.endswith(".py"):
+                continue
+            bot.load_extension(f"ext.slash.{extension[:-3]}")
+
+    def load_prefix(self):
+        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/prefix")):
+            if extension == "__init__.py" or not extension.endswith(".py"):
+                continue
+            bot.load_extension(f"ext.prefix.{extension[:-3]}")
+
+inu = Inu(
+    prefix="inu-",
+    token=conf["DISCORD_BOT_TOKEN"],
+    intents=hikari.Intents.ALL,
+    logs=logs,
+)
+inu.run()
