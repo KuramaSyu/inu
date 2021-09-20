@@ -19,7 +19,6 @@ log = build_logger(__name__)
 class inu_random(lightbulb.Plugin):
     def __init__(self, bot):
         self.bot = bot
-        self.bot.user = self.bot.cache.get_me()
         super().__init__(name="Random")
 
     @plugins.listener(events.CommandErrorEvent)
