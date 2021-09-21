@@ -18,7 +18,7 @@ logs = {
     "version": 1,
     "incremental": True,
     "loggers": {
-        "hikari": {"level": "INFO"},
+        "hikari": {"level": "DEBUG"},
         "hikari.ratelimits": {"level": "TRACE_HIKARI"},
         "lightbulb": {"level": "DEBUG"},
     },
@@ -31,5 +31,5 @@ inu = Inu(
     logs=logs,
 )
 
-logger = build_logger(name=None)
+logger = build_logger(name=None, level=None)
 inu.run()
