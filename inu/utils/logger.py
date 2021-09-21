@@ -3,8 +3,6 @@ import typing
 from typing import (
     Mapping,
     Union,
-    Optional,
-    List
 )
 
 LOG_LEVEL: Union[logging._Level, int, None] = logging.DEBUG
@@ -14,7 +12,7 @@ LOG_COLORS: Mapping[str, str] = {
 		'INFO':     'green',
 		'WARNING':  'yellow',
 		'ERROR':    'red',
-		'CRITICAL': 'red',#,bg_white',
+		'CRITICAL': 'purple',#,bg_white',
 	}
 
 from colorlog import ColoredFormatter
