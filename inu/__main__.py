@@ -30,4 +30,6 @@ inu = Inu(
     intents=hikari.Intents.ALL,
     logs=logs,
 )
+
+logger = build_logger(name=None)
 inu.run()
