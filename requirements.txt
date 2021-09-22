@@ -1,29 +1,12 @@
 aiohttp==3.7.4.post0
-anytree==2.8.0
-appdirs==1.4.4
-async-timeout==3.0.1
 asyncpg==0.24.0
-attrs==21.2.0
-Automat==20.2.0
-btrfsutil==5.13.1
-CacheControl==0.12.6
-ceph==1.0.0
-ceph-volume==1.0.0
-cephfs==2.0.0
-cephfs-shell==0.0.1
-cffi==1.14.6
-chardet==4.0.0
-click==8.0.1
-colorama==0.4.4
-colorlog==6.4.1
-constantly==15.1.0
-contextlib2==0.6.0.post1
-cryptography==3.4.8
-distlib==0.3.2
-distro==1.6.0
-dnspython==1.16.0
 hikari @ git+https://github.com/hikari-py/hikari.git@a7569dab22b43ed37fc30969cd623390b9883c99
 hikari-lightbulb @ git+https://github.com/tandemdude/hikari-lightbulb.git@358a1b2ab6d57d8032acf91dbd3cd4b84e27b5b8
 python-dotenv==0.19.0
+<<<<<<< Updated upstream
 aiofiles==0.7.0
 
+=======
+asyncache==0.1.1
+cachetools==4.2.2
+>>>>>>> Stashed changes

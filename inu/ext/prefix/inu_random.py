@@ -1,10 +1,12 @@
+
 import random
 from fractions import Fraction
 import os
 import traceback
+import typing
+from typing import Union
 
 import hikari
-from hikari import embeds
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import plugins
@@ -31,7 +33,8 @@ class inu_random(lightbulb.Plugin):
         error: commands.CommandError
             The Exception raised.
         """
-        ctx: lightbulb.Context = event.context
+        ctx: Union[Context, FakeContext] = event.context
+
         error = event.exception
 
         if not ctx:
@@ -307,7 +310,7 @@ class inu_random(lightbulb.Plugin):
             await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
 
     @lightbulb.command(aliases=['cube'])
-    @lightbulb.cooldowns.cooldown(1, 2.5, lightbulb.UserBucket)
+    @lightbulb.cooldowns.cooldown(1, 2.5, lightbulb.UserBucket) #type: ignore
     async def dice(self, ctx, eyes: int = 6) -> None:
         '''
         Roll a dice!
@@ -326,11 +329,11 @@ class inu_random(lightbulb.Plugin):
         ]
         all_eyes = [eye_ids[eye_num-1] for eye_num in range(1, eyes+1)]
         await ctx.respond(
-            attachment=hikari.files.File(random.choice(all_eyes))
+            attachment=hikari.File(random.choice(all_eyes))
             )
         return
 
-    @lightbulb.cooldown(1, 2.5, lightbulb.UserBucket)
+    @lightbulb.cooldown(1, 2.5, lightbulb.UserBucket) #type: ignore
     @lightbulb.command()
     async def coin(self, ctx) -> None:
         '''
@@ -344,7 +347,7 @@ class inu_random(lightbulb.Plugin):
         if random.choice(probability):
             coin = random.choice(["head", "tail"])
             await ctx.respond(
-                file=hikari.files.File(
+                file=hikari.File(
                     f'{os.getcwd()}/other/pictures/coins/{coin}.png'
                     ),
                 content=coin
@@ -353,7 +356,7 @@ class inu_random(lightbulb.Plugin):
         await ctx.respond('Your coin stands! probability 1:100')
         return
 
-    @lightbulb.cooldowns.cooldown(1, 4, lightbulb.GuildBucket)
+    @lightbulb.cooldowns.cooldown(1, 4, lightbulb.GuildBucket) #type: ignore
     @lightbulb.command(aliases=['prob'])
     async def probability(self, ctx, probability: float = 0.25, probability2: int = None) -> None:
         '''
@@ -392,15 +395,15 @@ class inu_random(lightbulb.Plugin):
             ])
 
         # creating dc embed
-        embed = hikari.embeds.Embed()
+        embed = hikari.Embed()
         embed.title = f'probability: {str(n)} in {str(d)}'
         embed.description = f'{symbol[0]} x {n}\n{symbol[1]} x {d - n}'
         embed.add_field(
             name='You got:', 
             value=f'{symbol[0] if random.choice(probabilities) else symbol[1]}'
         )
-        embed.set_thumbnail(url=ctx.author.avatar_url)
-        embed.color = hikari.colors.Color(0x2A48A8)
+        embed.set_thumbnail(ctx.author.avatar_url)
+        embed.color = hikari.Color(0x2A48A8)
         await ctx.respond(embed=embed)
         return
 
