@@ -1,8 +1,14 @@
 import asyncio
 import os
+import typing
+from typing import (
+    Mapping,
+    Union
+)
 
 import lightbulb
 import hikari
+from dotenv import dotenv_values
 
 from utils import build_logger #type: ignore
 
@@ -13,6 +19,7 @@ class Inu(lightbulb.Bot):
         super().__init__(*args, **kwargs)
         self.load_prefix()
         self.load_slash()
+        self.conf: Mapping[str, Union[str, None]] = dotenv_values()
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:

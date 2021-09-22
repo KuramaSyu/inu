@@ -6,7 +6,7 @@ from inspect import (
     ismethod,
     signature,
 )
-from typing import Union
+from typing import Union, List, Mapping
 
 
 class ObjectTreeViewer():
@@ -19,7 +19,8 @@ class ObjectTreeViewer():
             with_docs=False,
             with_dunder_attr=False,
             depth=2,
-    ) -> list[dict[str, Union[str, list]]]:
+            method_sign=True,
+    ) -> List[Mapping[str, Union[str, list]]]:
 
         info_list = []
         dir_list = [attr for attr in dir(object) if search_for in attr]
@@ -53,10 +54,10 @@ class ObjectTreeViewer():
             try:
                 if isinstance(attr, (int, str, dict, list, tuple, float, bool)):
                     prefix = str(type(attr))[8:-2] + " "
-                elif is_method_or_func:
-                    prefix = "func "
                 elif is_coro:
                     prefix = "coro "
+                elif is_method_or_func:
+                    prefix = "func "
                 elif remove_dunder(dir_list):
                     prefix = "obj "
                 else:
@@ -76,13 +77,14 @@ class ObjectTreeViewer():
                     with_docs=with_docs,
                     depth=depth-1,
                     with_dunder_attr=with_dunder_attr,
+                    method_sign=False,
                 )
 
             # creates dict of object and all its subobjects
             info = {
                 "prefix": prefix,
                 "attr": 
-                f'{str_attr}{signature(attr) if is_method_or_func else ""}',
+                f'{str_attr}{signature(attr) if is_method_or_func and method_sign else ""}',
                 "docs": f'{docs if docs else ""}',
                 "sub_attrs": sub_attrs,
             }
@@ -91,7 +93,7 @@ class ObjectTreeViewer():
 
     @staticmethod
     def _to_tree(
-        info: list[dict],
+        info: List[Mapping[str, Union[str, list]]],
         depth=2,
         with_docs=False,
         _indent="|",
@@ -158,6 +160,7 @@ class ObjectTreeViewer():
         depth=0,
         with_docs=False,
         with_dunder=False,
+        with_method_sign: bool = False,
     ) -> str:
         """
         Converts <object> to a tree with <depth> sub_objects if any. 
@@ -172,6 +175,7 @@ class ObjectTreeViewer():
             with_docs=with_docs,
             with_dunder_attr=with_dunder,
             depth=depth,
+            method_sign=with_method_sign,
         )
         # wr_obj_tree_list = __class__._wrap_objects_by_root_object(
         #     object_=object,
@@ -189,6 +193,7 @@ def tree(
     obj=None,
     depth: int = 0,
     search_for: str = '',
+    with_method_sign: bool = False,
     with_docs: bool = False,
     with_private: bool = False,
 ) -> str:
@@ -213,4 +218,5 @@ def tree(
         depth=depth,
         with_docs=with_docs,
         with_dunder=with_private,
+        with_method_sign=with_method_sign,
     )

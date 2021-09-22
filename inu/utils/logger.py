@@ -5,7 +5,7 @@ from typing import (
     Union,
 )
 
-LOG_LEVEL: Union[logging._Level, int, None] = logging.DEBUG
+LOG_LEVEL: Union[int, None] = logging.DEBUG
 LOGFORMAT: str = "%(log_color)s%(levelname)-8s%(reset)s[%(name)-20s] %(log_color)s%(message)s%(reset)s"
 LOG_COLORS: Mapping[str, str] = {
 		'DEBUG':    'cyan',
@@ -19,10 +19,13 @@ from colorlog import ColoredFormatter
 
 
 def build_logger(
-    name: str=__name__,
-    level: Union[logging._Level, int, None]=logging.DEBUG
+    name: Union[str, None] = __name__,
+    level: Union[int, None] = logging.DEBUG
     ) -> logging.Logger:
-    """Returns a custom logger"""
+    """
+    Returns a custom logger.
+    If level is None: level wont be overridden
+    """
     logger = logging.getLogger(name)
     if level:
         logger.setLevel(level)

@@ -25,3 +25,5 @@ dnspython==1.16.0
 hikari @ git+https://github.com/hikari-py/hikari.git@a7569dab22b43ed37fc30969cd623390b9883c99
 hikari-lightbulb @ git+https://github.com/tandemdude/hikari-lightbulb.git@358a1b2ab6d57d8032acf91dbd3cd4b84e27b5b8
 python-dotenv==0.19.0
+aiofiles==0.7.0
+

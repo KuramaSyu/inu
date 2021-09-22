@@ -1,3 +1,5 @@
+"""The entrance point of the bot"""
+
 import os
 import asyncio
 
@@ -8,28 +10,32 @@ import lightbulb
 from utils import build_logger
 from core import Inu
 
-log = build_logger()
+def main():
+    log = build_logger()
 
-conf = dotenv_values()
-for key, value in conf.items():
-    print(f"key: {key}\nvalue: {value}")
-print(os.getcwd())
-logs = {
-    "version": 1,
-    "incremental": True,
-    "loggers": {
-        "hikari": {"level": "DEBUG"},
-        "hikari.ratelimits": {"level": "TRACE_HIKARI"},
-        "lightbulb": {"level": "DEBUG"},
-    },
-}
+    conf = dotenv_values()
+    for key, value in conf.items():
+        print(f"key: {key}\nvalue: {value}")
+    print(os.getcwd())
+    logs = {
+        "version": 1,
+        "incremental": True,
+        "loggers": {
+            "hikari": {"level": "DEBUG"},
+            "hikari.ratelimits": {"level": "TRACE_HIKARI"},
+            "lightbulb": {"level": "DEBUG"},
+        },
+    }
 
-inu = Inu(
-    prefix="inu-",
-    token=conf["DISCORD_BOT_TOKEN"],
-    intents=hikari.Intents.ALL,
-    logs=logs,
-)
+    inu = Inu(
+        prefix="inu-",
+        token=conf["DISCORD_BOT_TOKEN"],
+        intents=hikari.Intents.ALL,
+        logs=logs,
+    )
 
-logger = build_logger(name=None, level=None)
-inu.run()
+    logger = build_logger(name=None, level=None)
+    inu.run()
+
+if __name__ == "__main__":
+    main()
