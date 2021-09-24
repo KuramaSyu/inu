@@ -15,11 +15,11 @@ from core import Inu
 
 T_bot = typing.Union[lightbulb.Bot, Inu]
 
-class Help(lightbulb.Plugin):
+class Help(lightbulb.help.HelpCommand):
     def __init__(self, bot: T_bot):
         self.bot = bot
         self.cmds_per_list: int = 8
-        super().__init__(name="Help")
+        super().__init__(bot=bot)
 
     @lightbulb.command()
     async def help(self, ctx: lightbulb.Context, query: Optional[str] = None):
