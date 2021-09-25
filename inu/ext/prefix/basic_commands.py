@@ -5,6 +5,7 @@ from typing import (
     List,
 )
 import asyncio
+import logging
 
 from hikari import ActionRowComponent, Embed, embeds
 from hikari.messages import ButtonStyle
@@ -17,9 +18,13 @@ import hikari
 from core import Inu
 from utils import build_logger
 from utils.tree import tree
-from utils.paginators import BasePaginator
+from utils import Paginator
 
-logg = build_logger(__name__)
+
+# from utils.logging import LoggingHandler
+# logging.setLoggerClass(LoggingHandler)
+
+log = logging.getLogger(__name__)
 
 class Basics(lightbulb.Plugin):
     def __init__(self, bot: Inu) -> None:
@@ -69,7 +74,7 @@ class Basics(lightbulb.Plugin):
                 "Button clicked"
             )
         except asyncio.TimeoutError as e:
-            logg.debug(e)
+            log.debug(e)
 
     @ping.command()
     async def ping_sub1(self, ctx):
@@ -81,11 +86,11 @@ class Basics(lightbulb.Plugin):
 
     @lightbulb.command()
     async def test(self, ctx: Context) -> None:
-        logg.debug("called test")
+        log.warning("called test")
         embeds = []
         for x in range(10):
             embeds.append(hikari.Embed(description=x))
-        b = BasePaginator(page_s = embeds)
+        b = Paginator(page_s = embeds)
         await b.start(ctx)
 
         
