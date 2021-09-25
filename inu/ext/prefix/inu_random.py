@@ -18,98 +18,13 @@ from utils.logger import build_logger
 
 log = build_logger(__name__)
 
-class inu_random(lightbulb.Plugin):
+class RandomCommands(lightbulb.Plugin):
     def __init__(self, bot):
         self.bot = bot
-        super().__init__(name="Random")
-
-    @plugins.listener(events.CommandErrorEvent)
-    async def on_error(self, event):
-        """The event triggered when an error is raised while invoking a command.
-        Parameters
-        ------------
-        ctx: commands.Context
-            The context used for command invocation.
-        error: commands.CommandError
-            The Exception raised.
-        """
-        ctx: Union[Context, FakeContext] = event.context
-
-        error = event.exception
-
-        if not ctx:
-            # creating fake context which has the method respond
-            ctx = FakeContext(event.message)
-        # This prevents any commands with local handlers being handled here in on_command_error.
+        super().__init__(name=self.__class__.__name__)
 
 
-        # All other Errors not returned come here. And we can just print the default TraceBack. 
-        log.info(
-            msg = f"{''.join(traceback.format_exception(type(error), error, error.__traceback__))}"
-        )
-        #traceback.print_exception(type(error), error, error.__traceback__)#, file=sys.stderr
-        
 
-        def check(event):
-            if event.user_id != self.bot.user.id and reaction.message_id == message.id:
-                return True
-            return False
-        try:
-            title = random.choice(
-                ['ERROR', '3RR0R', 'Th3r3 w4s s0m3th1ing wr0ng', '3RR0R 404']
-            )
-            error_embed = hikari.Embed()
-            error_embed.title = title
-            error_embed.description = f'{error}'
-            message = await ctx.respond(embed = error_embed)
-            for reaction in ['🍭', '❔']:
-                await message.add_reaction(reaction)
-            try:
-                event = await self.bot.wait_for(
-                    hikari.events.reaction_events.ReactionAddEvent,
-                    timeout=int(60*10),
-                    predicate=check,
-                )
-                if str(event.emoji_name) == '🍭':
-                    # setting invoker
-                    error_embed.set_author(
-                        name=f'Invoked by: {ctx.author.nick if ctx.author.nick else ctx.author.name}',
-                        icon_url=ctx.author.avatar_url,
-                    )
-                    # formating traceback to a list ## with .join to a str
-                    traceback_list = traceback.format_tb(error.__traceback__)
-                    # set error field
-                    error_embed.add_field(
-                        name=f'{str(error.__class__)[8:-2]}',
-                        value=f'Error:\n{error}',
-                        )
-                    for index, tb in enumerate(traceback_list):
-                        # print as codeblock to have \n as newline
-                        error_embed.add_field(
-                            name=f'Traceback - layer {index + 1}',
-                            value=f'```python\n{tb}```',
-                            inline=False
-                        )
-
-                    if hasattr(error, 'original'):
-                        error_embed.add_field(
-                            name=f'Original Error - {type(error.original)}',
-                            value=f'{error.original}',
-                        )
-                    await message.edit(embed=error_embed, delete_after=int(20*60))
-                    await message.clear_reactions()
-                elif str(reaction.emoji) == '❔':
-                    help_cog = self.client.get_cog("Help")
-                    try:
-                        await help_cog.search(ctx, ctx.invoked_with)
-                    except Exception:
-                        pass
-            except Exception:
-                pass
-        except Exception:
-            await ctx.send(f'Fehler mit einer Länge von über 2000 Zeichen!')
-
-    """Below is an example of a Local Error Handler for our command do_repeat"""
     @lightbulb.command(aliases=['random', 'randomize'])
     async def fact_randomizer(self, ctx, *, facts):
         '''
@@ -407,18 +322,5 @@ class inu_random(lightbulb.Plugin):
         await ctx.respond(embed=embed)
         return
 
-
-class FakeContext():
-    def __init__(
-        self,
-        message,
-    ) -> None:
-        self.message = message
-
-    async def respond(self, *args, **kwargs):
-        return await self.message.respond(*args, **kwargs)
-
-
-
-def load(bot):
-    bot.add_plugin(inu_random(bot))
+def load(bot: lightbulb.Bot):
+    bot.add_plugin(RandomCommands(bot))
