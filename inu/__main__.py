@@ -21,9 +21,9 @@ def main():
         "version": 1,
         "incremental": True,
         "loggers": {
-            "hikari": {"level": "DEBUG"},
-            "hikari.ratelimits": {"level": "TRACE_HIKARI"},
-            "lightbulb": {"level": "DEBUG"},
+            "hikari": {"level": 0},
+            "hikari.ratelimits": {"level": 0}, # TRACE_HIKARI
+            "lightbulb": {"level": 0},
         },
     }
 
@@ -34,7 +34,6 @@ def main():
         logs=logs,
     )
 
-    logger = build_logger(name=None, level=None)
     inu.run()
 
 if __name__ == "__main__":
