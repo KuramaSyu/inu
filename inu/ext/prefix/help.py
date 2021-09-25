@@ -14,7 +14,7 @@ from lightbulb.help import get_command_signature, get_help_text
 from matplotlib.colors import cnames
 
 from core import Inu
-from utils.paginators.h_pag import BasePaginator
+from utils import Paginator
 
 T_bot = typing.Union[lightbulb.Bot, Inu]
 
@@ -37,13 +37,13 @@ class Help(lightbulb.Plugin):
         """
         Sends help for all or a given query
         Arguments:
-        [Optional] query: the command you want to search
+        [Optional] query: the thing you want to search for
         """
         cmds = self.search(ctx, query)
         await self.create_help(ctx, cmds)
 
     def search(
-        self, 
+        self,
         ctx: lightbulb.Context, 
         query: Optional[str] = None
     ) -> List[lightbulb.Command]:
@@ -62,7 +62,7 @@ class Help(lightbulb.Plugin):
         if not filtered_cmds:
             return
         embeds = await self.create_embed_from(filtered_cmds, ctx)
-        pag = BasePaginator(page_s=embeds)
+        pag = Paginator(page_s=embeds)
         await pag.start(ctx)
         
     def filter_hidden(
