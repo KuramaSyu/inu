@@ -27,7 +27,7 @@ class Basics(lightbulb.Plugin):
         super().__init__(name="Basic Commands")
 
 
-    @lightbulb.command()
+    @lightbulb.group()
     async def ping(self, ctx: Context) -> None:
         embed = hikari.Embed()
         embed.title = "Ping"
@@ -71,7 +71,13 @@ class Basics(lightbulb.Plugin):
         except asyncio.TimeoutError as e:
             logg.debug(e)
 
+    @ping.command()
+    async def ping_sub1(self, ctx):
+        await ctx.respond("ping subcommand 1")
 
+    @ping.command()
+    async def ping_sub2(self, ctx):
+        await ctx.respond("ping subcommand 2")
 
     @lightbulb.command()
     async def test(self, ctx: Context) -> None:
