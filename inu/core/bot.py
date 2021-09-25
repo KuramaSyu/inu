@@ -1,18 +1,22 @@
 import asyncio
+from distutils.debug import DEBUG
 import os
+import traceback
 import typing
 from typing import (
     Mapping,
     Union
 )
+import logging
+from utils.logging import LoggingHandler
+logging.setLoggerClass(LoggingHandler)
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 import lightbulb
 import hikari
 from dotenv import dotenv_values
 
-from utils import build_logger #type: ignore
-
-log = build_logger(__name__)
 
 class Inu(lightbulb.Bot):
     def __init__(self, *args, **kwargs):
@@ -33,7 +37,7 @@ class Inu(lightbulb.Bot):
             raise RuntimeError("Own user can't be accessed from cache")
         return user
 
-    @property 
+    @property
     def user(self) -> hikari.User:
         return self.me
 
@@ -48,9 +52,14 @@ class Inu(lightbulb.Bot):
 
     def load_prefix(self):
         for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/prefix")):
-            if extension == "__init__.py" or not extension.endswith(".py"):
+            if (
+                extension == "__init__.py" 
+                or not extension.endswith(".py")
+                or extension.startswith("_")
+            ):
                 continue
             try:
                 self.load_extension(f"ext.prefix.{extension[:-3]}")
+                log.debug(f"loaded plugin: {extension}")
             except Exception as e:
-                log.critical(f"can't load {extension}", exc_info=True)
+                log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
