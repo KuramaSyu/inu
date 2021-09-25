@@ -38,7 +38,7 @@ class Inu(lightbulb.Bot):
         return self.me
 
     def load_slash(self):
-        for extension in os.listdir(os.path.join(os.getcwd(), "ext/slash")):
+        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/slash")):
             if extension == "__init__.py" or not extension.endswith(".py"):
                 continue
             try:
@@ -47,7 +47,7 @@ class Inu(lightbulb.Bot):
                 log.critical(f"slash command {extension} can't load", exc_info=True)
 
     def load_prefix(self):
-        for extension in os.listdir(os.path.join(os.getcwd(), "ext/prefix")):
+        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/prefix")):
             if extension == "__init__.py" or not extension.endswith(".py"):
                 continue
             try:
