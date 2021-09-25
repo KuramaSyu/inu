@@ -1,4 +1,5 @@
 from contextlib import suppress
+import logging
 import random
 import asyncio
 from typing import (
@@ -12,9 +13,8 @@ import lightbulb
 from lightbulb import events, plugins, Context, errors
 
 from core import Inu
-from utils import build_logger
 
-log = build_logger(__name__)
+log = logging.getLogger(__name__)
 
 
 class ErrorHandler(lightbulb.Plugin):
@@ -24,6 +24,7 @@ class ErrorHandler(lightbulb.Plugin):
 
     @plugins.listener(events.CommandErrorEvent)
     async def on_error(self, event: events.CommandErrorEvent):
+        log.warning("error")
         """The event triggered when an error is raised while invoking a command.
         Parameters
         ------------
@@ -54,7 +55,7 @@ class ErrorHandler(lightbulb.Plugin):
 
         error_embed = hikari.Embed()
         error_embed.title = random.choice(['ERROR', '3RR0R'])
-        error_embed.description = f'{error}'
+        error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
 
         message = await ctx.respond(embed = error_embed)
         for reaction in ['🍭', '❔']:
