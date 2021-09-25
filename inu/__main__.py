@@ -2,16 +2,24 @@
 
 import os
 import asyncio
+import logging
+
+from utils.logging import LoggingHandler
+logging.setLoggerClass(LoggingHandler)
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 from dotenv import dotenv_values
 import hikari
 import lightbulb
 
-from utils import build_logger
 from core import Inu
 
+
+
+
+
 def main():
-    log = build_logger()
 
     conf = dotenv_values()
     for key, value in conf.items():
@@ -21,9 +29,10 @@ def main():
         "version": 1,
         "incremental": True,
         "loggers": {
-            "hikari": {"level": 0},
-            "hikari.ratelimits": {"level": 0}, # TRACE_HIKARI
-            "lightbulb": {"level": 0},
+            "hikari": {"level": "DEBUG"},
+            "hikari.gateway": {"level": "DEBUG"},
+            "hikari.ratelimits": {"level": "TRACE_HIKARI"},
+            "lightbulb": {"level": "DEBUG"},
         },
     }
 
@@ -33,7 +42,6 @@ def main():
         intents=hikari.Intents.ALL,
         logs=logs,
     )
-
     inu.run()
 
 if __name__ == "__main__":
