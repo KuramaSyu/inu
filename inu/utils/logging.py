@@ -24,16 +24,16 @@ from colorama import init, Fore, Style
 
 init()
 
-colors = {
+msg_colors = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
     "TRACE_HIKARI": f"{Fore.WHITE}{Style.DIM}",
     "DEBUG": f"{Fore.LIGHTBLUE_EX}{Style.NORMAL}",
-    "INFO": "",
+    "INFO": f"{Fore.LIGHTMAGENTA_EX}{Style.NORMAL}",
     "WARNING": f"{Fore.YELLOW}{Style.BRIGHT}",
     "ERROR": f"{Fore.LIGHTRED_EX}{Style.BRIGHT}",
     "CRITICAL": f"{Fore.RED}{Style.BRIGHT}",
 }
-colors2 = {
+level_color = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
     "TRACE_HIKARI": f"{Fore.WHITE}{Style.DIM}",
     "DEBUG": f"{Fore.LIGHTMAGENTA_EX}{Style.NORMAL}",
@@ -42,7 +42,7 @@ colors2 = {
     "ERROR": Fore.LIGHTRED_EX,
     "CRITICAL": Fore.RED,
 }
-styles = {
+level_style = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
     "TRACE_HIKARI": f"{Fore.WHITE}{Style.DIM}",
     "DEBUG": f"{Fore.LIGHTGREEN_EX}{Style.DIM}",
@@ -76,24 +76,28 @@ class LoggingHandler(logging.Logger):
     def handle(self, record: logging.LogRecord) -> None:
         # if record.msg in ignored.get(record.name, ()):
         #     return
-        name = record.name
+        module = record.name
         level = record.levelno  # noqa F841
         level_name = record.levelname
-        message = record.msg % record.args
+        try:
+            message = record.msg % record.args
+        except Exception:
+            message = record.msg
         date = datetime.datetime.now()
         time_stemp = date.strftime("%b %d %H:%M:%S")
-        print(f"{colors2[level_name]}{styles[level_name]}{level_name:<8}{Style.RESET_ALL}"
+        print(f"{level_color[level_name]}{level_style[level_name]}{level_name:<8}{Style.RESET_ALL}"
               f" "
-              f"{Style.BRIGHT}{self._get_color(name)}{name:<20}{Style.RESET_ALL} " +
+              f"{Style.BRIGHT}{self._get_color(module)}{module:<20}{Style.RESET_ALL} " +
               f"» "
-              f"{colors[level_name]}{message}{Style.RESET_ALL}")
+              f"{msg_colors[level_name]}{message}{Style.RESET_ALL}")
 
         with open(f"{os.getcwd()}/inu/inu.log", "a", encoding="utf-8") as log_file:
-            log_entry = f"{level_name:<8}[{name:<20}] [{time_stemp:<8}] {str(message)}\n"
+            log_entry = f"{level_name:<8}[{module:<20}] [{time_stemp:<8}] {str(message)}\n"
             log_file.write(log_entry)
 
     # noinspection PyMethodMayBeStatic
     def _get_color(self, name: str) -> str:
+        """get color for the module name"""
         if name in color_patterns_cache:
             return color_patterns_cache[name]
         for nm, color in color_patterns.items():
