@@ -127,7 +127,12 @@ class Owner(lightbulb.Plugin):
             if not output or len(output) < 1800:
                 basic_message += f'**OUTPUT**\n```py\n{output if output else None}```\n'
                 basic_message += f'{round(ms, 4)} ms'
-                await ctx.respond(basic_message)
+                embeds = []
+                for page in crumble(basic_message, 1950):
+                    em = hikari.Embed(description=page)
+                    embeds.append(em)
+                pag = Paginator(embeds)
+                await pag.start(ctx)
                 return
 
             pages = []
