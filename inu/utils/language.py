@@ -33,7 +33,7 @@ def opposite(boolean: bool):
 class Multiple():
     @staticmethod
     def endswith_(word: str, ends_w: list):
-        """checks for multiple words endswith()"""
+        """returns True, if `word` ends with <0 entries of list `ends_w`"""
         for w in ends_w:
             if word.endswith(w):
                 return True
