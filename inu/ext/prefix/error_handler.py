@@ -74,7 +74,9 @@ class ErrorHandler(lightbulb.Plugin):
                 name=f'Invoked by: {ctx.member.display_name if ctx.member else ctx.author.username}',
                 url=str(ctx.author.avatar_url)
             )
-            traceback_list = traceback.format_tb(error.__traceback__)
+            traceback_list = traceback.format_exception(*event.exc_info)
+            if len(traceback_list) > 0:
+                log.warning(str("\n".join(traceback_list)))
             error_embed.add_field(
                 name=f'{str(error.__class__)[8:-2]}',
                 value=f'Error:\n{error}',
