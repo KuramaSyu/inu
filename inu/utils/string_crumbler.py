@@ -1,8 +1,12 @@
 from typing import (
     Any,
+    Iterable,
     Union,
     List,
+    Generator,
 )
+
+from .language import Multiple
 
 
 class StringCutter():
@@ -76,15 +80,23 @@ class PeekIterator():
     """Iterator with 1 peak look ahead with peek atribute"""
 
     def __init__(self, 
-        to_iter: Union[str, list], 
+        to_iter: Union[str, List[str]], 
         seperator: str = ' '
         ) -> None:
-        if isinstance(to_iter, list):
+        if isinstance(to_iter, str):
             self._gen = (item if item else '' for item in to_iter)
         elif isinstance(to_iter, str):
-            self._gen = (f"{item}{seperator}" 
-            if item else '' 
-            for item in to_iter.split(seperator))
+            def generator(to_iter: str = to_iter, seperator: str = seperator) -> Generator[str, None, None]:
+                for item in str(to_iter).split(seperator):
+                    if not item:
+                        yield ''
+                    elif len(item) > 2000:
+                        generator(item)
+                    else:
+                        yield item
+            self._gen = generator()
+            #self._gen = (f"{item}{seperator}" if item and len(item) < 2000 else '' if not item else sub_item if sub_item else '' for sub_item in crumble(item, 1980) for item in to_iter.split(seperator))
+        
         self.peek = ''
         self.eof = False
         self._step
