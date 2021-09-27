@@ -49,7 +49,8 @@ class Paginator():
         self.timeout = timeout
         self._stop = False
         self._position: int
-        log = logging.getLogger(__name__)
+        self.log = logging.getLogger(__name__)
+        self.compact = len(page_s) <= 2
 
     def interaction_pred(self, event: InteractionCreateEvent):
         if not isinstance((i := event.interaction), ComponentInteraction):
@@ -97,35 +98,39 @@ class Paginator():
                     .add_to_container()
                 )
             return btn
+
+        action_row = None
+        if not self.compact:
+            action_row = button_factory(
+                custom_id="first", 
+                emoji="⏮", 
+                disable_when_index_is=lambda p: p == 0
+            )
         action_row = button_factory(
-            custom_id="first", 
-            emoji="⏮", 
-            disable_when_index_is=lambda p: p == 0
-        )
-        button_factory(
             custom_id="previous",
-            emoji="⏪",
-            action_row_builder=action_row,
+            emoji="◀",
+            action_row_builder=action_row or ActionRowBuilder(),
             disable_when_index_is=lambda p: p == 0,
         )
         button_factory(
             custom_id="stop",
-            emoji="⏹",
+            emoji="✖",
             action_row_builder=action_row,
             style=ButtonStyle.DANGER,
         )
         button_factory(
             custom_id="next",
-            emoji="⏩",
+            emoji="▶",
             action_row_builder=action_row,
             disable_when_index_is=lambda p: p == len(self.pages)-1,
         )
-        button_factory(
-            custom_id="last",
-            emoji="⏭",
-            action_row_builder=action_row,
-            disable_when_index_is=lambda p: p == len(self.pages)-1,
-        )
+        if not self.compact:
+            button_factory(
+                custom_id="last",
+                emoji="⏭",
+                action_row_builder=action_row,
+                disable_when_index_is=lambda p: p == len(self.pages)-1,
+            )
 
         return action_row
 
@@ -239,6 +244,7 @@ class Paginator():
                 return
             self._position -= 1
         elif id == "stop":
+            await self.delete_presence()
             await self.stop()
         elif id == "next":
             if self._position == (len(self.pages)-1):
@@ -249,6 +255,14 @@ class Paginator():
 
         if last_position != self._position:
             await self._update_position(interaction=event.interaction)
+
+    async def delete_presence(self):
+        """Deletes this message, and invokation message, if invocation was in a guild"""
+        if self.ctx.channel is not None:
+            await self.ctx.channel.delete_messages(
+                self._message,
+                self.ctx.message,
+            )
 
     async def _update_position(self, interaction: ComponentInteraction):
         await self.send(content=self.pages[self._position], interaction=interaction)
