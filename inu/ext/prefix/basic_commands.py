@@ -31,6 +31,10 @@ class Basics(lightbulb.Plugin):
         self.bot = bot
         super().__init__(name="Basic Commands")
 
+    @lightbulb.listener(hikari.StartedEvent)
+    async def start(self, event: hikari.StartedEvent):
+        await self.bot.db.connect()
+        print(self.bot.db)
 
     @lightbulb.group()
     async def ping(self, ctx: Context) -> None:
@@ -96,5 +100,5 @@ class Basics(lightbulb.Plugin):
         
 
 
-def load(bot):
+def load(bot: Inu):
     bot.add_plugin(Basics(bot))
