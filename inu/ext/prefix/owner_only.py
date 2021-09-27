@@ -5,6 +5,7 @@ import io
 import os
 import traceback
 import typing
+import asyncio
 
 import hikari
 import lightbulb
@@ -13,7 +14,8 @@ import logging
 
 from utils import crumble
 from utils import Paginator
-from utils import tree as tree_
+from utils.tree import tree as tree_
+from core import Inu
 log = logging.getLogger(__name__)
 
 
@@ -21,13 +23,14 @@ class Owner(lightbulb.Plugin):
     """
     A class wich is only accessable to the Owner
     """
-    def __init__(self, bot):
+    def __init__(self, bot: Inu):
         self.bot = bot
         super().__init__(name="Owner Commands")
 
-    async def cog_check(self, ctx):
-        return await self.bot.is_owner(ctx.author)
-
+    @lightbulb.listener(hikari.StartedEvent)
+    async def start(self, event):
+        await asyncio.sleep(5)
+        print(self.bot.db)
     @lightbulb.command(name = "log")
     async def log(self, ctx):
         """
@@ -63,6 +66,7 @@ class Owner(lightbulb.Plugin):
         env = {
             'client': self.bot,
             'bot': self.bot,
+            'db': self.bot.db,
             'ctx': ctx,
             'p': print,
             'getmembers': getmembers,
@@ -183,5 +187,5 @@ class Owner(lightbulb.Plugin):
 
 
 
-def load(bot: lightbulb.Bot):
+def load(bot: Inu):
     bot.add_plugin(Owner(bot))
