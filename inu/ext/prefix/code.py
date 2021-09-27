@@ -63,7 +63,6 @@ class CodeSize(lightbulb.Plugin):
             f"{round(float(size_in_bytes / 1000 / 1000),1)}mb**)\n"
             f"1 typical letter is 1 byte/ 8 bit big\nMeans that'"
             f"I am written out of\n**{size_in_bytes} letters**\n"
-            f""
             f"or\n**{lines} lines**\nof code"
         )
         embed = hikari.Embed(
