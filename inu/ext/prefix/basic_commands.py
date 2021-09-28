@@ -20,6 +20,7 @@ from utils import build_logger
 from utils.tree import tree
 from utils import Paginator
 from utils.db import Database
+from utils.tag_mamager import TagManager
 
 
 # from utils.logging import LoggingHandler
@@ -35,6 +36,7 @@ class Basics(lightbulb.Plugin):
     @lightbulb.listener(hikari.StartedEvent)
     async def start(self, event: hikari.StartedEvent):
         await self.bot.db.connect()
+        TagManager.set_db(self.bot.db)
 
 
     @lightbulb.group()
