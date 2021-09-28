@@ -1,4 +1,3 @@
-from ast import alias
 import re
 import typing
 from typing import (
@@ -7,16 +6,22 @@ from typing import (
     Union,
 
 )
-
+import logging
+from logging import DEBUG
 import hikari
 import lightbulb
 from lightbulb import Context
+from lightbulb.converters import Greedy
 import asyncpg
 
 from core import Inu
 from utils.tag_mamager import TagIsTakenError, TagManager
 from utils import crumble
 from utils.colors import Colors
+from utils import Paginator
+
+log = logging.getLogger(__name__)
+log.setLevel(DEBUG)
 
 class Tags(lightbulb.Plugin):
 
@@ -36,28 +41,30 @@ class Tags(lightbulb.Plugin):
                 if not r["guild_id"] == ctx.guild_id:
                     continue
                 record = r
+        elif len(records) == 0:
+            return await ctx.respond(f"I can't find a tag with name `{key}` in my storage")
         else:
             record = records[0]
-        embeds = []
+        messages = []
 
         for value in crumble("\n".join(record["tag_value"])):
-            tag_embed = hikari.Embed()
-            tag_embed.title = f"{key}"
-            tag_embed.description = value
-            tag_embed.color = Colors.random_color()
-            embeds.append(tag_embed)
+            message = f"**{key}**\n\n{value}\n\n`created by {self.bot.cache.get_user(record['creator_id']).username}`"
+            messages.append(message)
+        pag = Paginator(messages)
+        await pag.start(ctx)
 
     @tag.command()
-    async def add(self, ctx: Context, key: str, value: Optional[str] = None):
+    async def add(self, ctx: Context, key: str, *, value: str):
         """Add a tag"""
+        print(value)
         if value == None:
             return
         typing.cast(str, value)
         try:
-            await TagManager.set(key, value, ctx.author.id)
+            await TagManager.set(key, value, ctx.member or ctx.author)
         except TagIsTakenError:
             return await ctx.respond("Your tag is already taken")
-        return await ctx.respond("Your tag `{key}` has been added to my storage")
+        return await ctx.respond(f"Your tag `{key}` has been added to my storage")
         
 
 
