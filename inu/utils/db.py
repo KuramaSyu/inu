@@ -16,6 +16,7 @@ from functools import wraps
 
 import aiofiles
 import asyncpg
+from click import MissingParameter
 
 from utils import Singleton
 from core import Inu
@@ -42,8 +43,10 @@ class Database(metaclass=Singleton):
     __slots__: Sequence[str] = ("bot", "_connected", "_pool", "calls", "log")
     instance = None
 
-    def __init__(self, bot: "Inu") -> None:
-        self.bot = bot
+    def __init__(self, bot: Optional["Inu"] = None) -> None:
+        if bot is None:
+            raise RuntimeError("`Database` object need the `Bot|Inu` object when init first")
+        self.bot: Inu = bot
         self._connected = asyncio.Event()
         self.calls = 0
         self.log = logging.getLogger(__name__)
@@ -65,6 +68,7 @@ class Database(metaclass=Singleton):
         assert not self.is_connected, "Already connected."
         pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.DSN)
         if not isinstance(pool, asyncpg.Pool):
+            typing.cast(Inu, self.bot)
             msg = (
                 f"Requsting a pool from DSN `{self.bot.conf.DSN}` is not possible. "
                 f"Try to change DSN"
@@ -109,20 +113,23 @@ class Database(metaclass=Singleton):
 
     @acquire
     async def val(self, query: str, *values: Any, column: int = 0, _cxn: asyncpg.Connection) -> Any:
+        """Returns a value of the first row from a given query"""
         return await _cxn.fetchval(query, *values, column=column)
 
     @acquire
     async def column(
-        self, query: str, *values: Any, column: int = 0, _cxn: asyncpg.Connection
+        self, query: str, *values: Any, column: Union[int, str] = 0, _cxn: asyncpg.Connection
     ) -> List[Any]:
         return [record[column] for record in await _cxn.fetch(query, *values)]
 
     @acquire
     async def row(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> Optional[List[Any]]:
+        """Returns first row of query"""
         return await _cxn.fetchrow(query=query, *values)
 
     @acquire
-    async def all(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> List[asyncpg.Record]:
+    async def fetch(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> List[asyncpg.Record]:
+        """Executes and returns (if specified) a given `query`"""
         return await _cxn.fetch(query, *values)
 
     @acquire
@@ -130,3 +137,8 @@ class Database(metaclass=Singleton):
         async with aiofiles.open(path, "r") as script:
             await _cxn.execute((await script.read()) % args)
 
+######Database
+#### tables
+## guilds: guildid
+####
+## tags: id INT, tag_key - TEXT; tag_value - List[TEXT]; creator - INT
