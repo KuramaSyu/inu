@@ -15,10 +15,6 @@ import lightbulb
 
 from core import Inu
 
-
-
-
-
 def main():
 
     conf = dotenv_values()
