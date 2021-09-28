@@ -2,6 +2,7 @@ from sys import maxsize
 from typing import (
     Any,
     Iterable,
+    Optional,
     Union,
     List,
     Generator,
@@ -204,15 +205,21 @@ class WordToBig(Exception):
 
 def crumble(
     string: str,
-    max_length_per_string: int = 1900,
-    seperator: str = ' ',
+    max_length_per_string: int = 2000,
+    seperator: Optional[str] = None,
     clean_code: bool = True,
     _autochange_seperator = True
     ) -> List[str]:
-    """Splits a string into strings which length <= max_length is"""
+    """Splits a string into strings which length <= max_length is. If seperator is None, the SentenceIterator will be userd"""
 
     if clean_code:
         string = string.strip()
+
+    if len(string) <= max_length_per_string:
+        return [string]
+    
+    if seperator is None:
+        return [part for part in SentenceInterator(string, max_length_per_string)]
 
     # some strings only have \n to seperate - not " "
     if seperator == " " and seperator not in string and _autochange_seperator:

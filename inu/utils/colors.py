@@ -40,7 +40,7 @@ class ColorNotFoundError(Exception):
 
 class Color():
     @staticmethod
-    def get(color: str) -> hikari.Color:
+    def from_name(color: str) -> hikari.Color:
         hex_ = cnames.get(str(color), None)
         if not isinstance(hex_, str):
             raise ColorNotFoundError(f"A color with name '{color}' wasn't found")

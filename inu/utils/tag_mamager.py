@@ -1,32 +1,40 @@
-from optparse import Option
-from os import stat
-from pydoc import _OldStyleClass
 from typing import (
     Optional,
     List,
     Union
 )
+import typing
 
 import asyncpg
 from asyncache import cached
 from cachetools import TTLCache, LRUCache
+from hikari import User
 
 from .db import Database
 
 class TagManager():
-    db = Database()
+    db: Database
     
     def __init__(self, key: Optional[str] = None):
         self.key = key
+
+    @classmethod
+    def set_db(cls, database: Database):
+        cls.db = database
 
     @classmethod
     async def set(
         cls, 
         key: str, 
         value: str, 
-        creator: int,
+        creator_id: int,
         check_if_taken: bool = True,
     ):
+        """
+        Creates a db entry for given args.
+        :Raises:
+        TagIsTakenError if tag is taken
+        """
         await cls._do_check_if_taken(key, check_if_taken)
         await cls.db.execute(
             """
@@ -35,7 +43,7 @@ class TagManager():
             """,
             key,
             value,
-            creator,
+            creator_id,
         )
 
     @classmethod
@@ -54,15 +62,23 @@ class TagManager():
 
 
     @classmethod
-    async def remove(cls, key: str, creator: int) -> List[asyncpg.Record]:
+    async def remove(cls, key: str, creator: User) -> List[asyncpg.Record]:
         """Remove where arguments are eqaul and return those records"""
         sql = """
             DELETE FROM tags
-            WHERE tag_key = $1 AND creator = $2
+            WHERE tag_key = $1 AND creator_id = $2
             RETURNING *
             """
-        return await cls.db.fetch(sql, key, creator)
+        return await cls.db.fetch(sql, key, creator.id)
 
+    @classmethod
+    async def get(cls, key: str, guild_id: int = 0) -> List[asyncpg.Record]:
+        """Returns the tag of the key, or multiple, if overridden in guild"""
+        sql = """
+            SELECT * FROM tags
+            WHERE tag_key = $1 AND (guild_id = $2 OR guild_id IS NULL)
+            """
+        return await cls.db.fetch(sql, key, guild_id)
 
     @classmethod
     async def sync_record(

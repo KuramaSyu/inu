@@ -44,8 +44,10 @@ class Database(metaclass=Singleton):
     instance = None
 
     def __init__(self, bot: Optional["Inu"] = None) -> None:
-        if bot is None:
-            raise RuntimeError("`Database` object need the `Bot|Inu` object when init first")
+        #if bot is None:
+            #raise RuntimeError("`Database` object need the `Bot|Inu` object when init first")
+            #return
+        typing.cast(Inu, bot)
         self.bot: Inu = bot
         self._connected = asyncio.Event()
         self.calls = 0
@@ -141,4 +143,4 @@ class Database(metaclass=Singleton):
 #### tables
 ## guilds: guildid
 ####
-## tags: id INT, tag_key - TEXT; tag_value - List[TEXT]; creator - INT
+## tags: id INT, tag_key - TEXT; tag_value - List[TEXT]; creator_id - INT; guild_id - INT

@@ -76,6 +76,7 @@ class Inu(lightbulb.Bot):
     async def init_db(self):
         await self.db.connect()
 
+
     #override
     def run(self):
         super().run()
