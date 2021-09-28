@@ -8,7 +8,8 @@ import typing
 import asyncpg
 from asyncache import cached
 from cachetools import TTLCache, LRUCache
-from hikari import User
+import hikari
+from hikari import User, Member
 
 from .db import Database
 
@@ -25,9 +26,9 @@ class TagManager():
     @classmethod
     async def set(
         cls, 
-        key: str, 
-        value: str, 
-        creator_id: int,
+        key: str,
+        value: str,
+        author: Union[User, Member],
         check_if_taken: bool = True,
     ):
         """
@@ -35,15 +36,17 @@ class TagManager():
         :Raises:
         TagIsTakenError if tag is taken
         """
+        guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
         await cls._do_check_if_taken(key, check_if_taken)
         await cls.db.execute(
             """
-            INSERT INTO tags(tag_key, tag_value, creator)
-            VALUES($1, $2, $3)
+            INSERT INTO tags(tag_key, tag_value, creator_id, guild_id)
+            VALUES($1, $2, $3, $4)
             """,
             key,
-            value,
-            creator_id,
+            [value],
+            author.id,
+            guild_id,
         )
 
     @classmethod
@@ -76,9 +79,10 @@ class TagManager():
         """Returns the tag of the key, or multiple, if overridden in guild"""
         sql = """
             SELECT * FROM tags
-            WHERE tag_key = $1 AND (guild_id = $2 OR guild_id IS NULL)
+            WHERE (tag_key = $1) AND (guild_id = $2::BIGINT OR guild_id IS NULL)
             """
         return await cls.db.fetch(sql, key, guild_id)
+
 
     @classmethod
     async def sync_record(
@@ -95,8 +99,8 @@ class TagManager():
     @classmethod
     async def is_taken(cls, key, tags: Optional[List[str]] = None):
         if not tags:
-            tags = cls.db.column(
-                """SELECT * FROM tags""", 
+            tags = await cls.db.column(
+                """SELECT * FROM tags""",
                 column="tag_key"
             )
         if key in tags:
