@@ -7,5 +7,5 @@ CREATE TABLE IF NOT EXISTS tags (
     tag_key TEXT,
     tag_value TEXT [],
     creator_id BIGINT NOT NULL,
-    guild_id INT
+    guild_id BIGINT
 );
