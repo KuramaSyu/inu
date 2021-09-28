@@ -19,6 +19,7 @@ from core import Inu
 from utils import build_logger
 from utils.tree import tree
 from utils import Paginator
+from utils.db import Database
 
 
 # from utils.logging import LoggingHandler
@@ -34,7 +35,7 @@ class Basics(lightbulb.Plugin):
     @lightbulb.listener(hikari.StartedEvent)
     async def start(self, event: hikari.StartedEvent):
         await self.bot.db.connect()
-        print(self.bot.db)
+
 
     @lightbulb.group()
     async def ping(self, ctx: Context) -> None:
