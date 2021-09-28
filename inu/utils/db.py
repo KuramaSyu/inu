@@ -16,7 +16,6 @@ from functools import wraps
 
 import aiofiles
 import asyncpg
-from click import MissingParameter
 
 from utils import Singleton
 from core import Inu
@@ -48,7 +47,7 @@ class Database(metaclass=Singleton):
             #raise RuntimeError("`Database` object need the `Bot|Inu` object when init first")
             #return
         typing.cast(Inu, bot)
-        self.bot: Inu = bot
+        self.bot: Inu = bot #type: ignore
         self._connected = asyncio.Event()
         self.calls = 0
         self.log = logging.getLogger(__name__)
