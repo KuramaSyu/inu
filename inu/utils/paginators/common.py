@@ -14,15 +14,18 @@ from typing import (
 import traceback    
 from contextlib import suppress
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC, abstractmethod, ABCMeta
 
 import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import ActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, InteractionCreateEvent, MessageCreateEvent, Event
+from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent
+from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
+
+log = logging.getLogger(__name__)
 
 
 
@@ -33,7 +36,9 @@ __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "Event
 _Sendable = Union[Embed, str]
 T = TypeVar("T")
 
-class BaseListener(ABC):
+# I know this is kinda to much just for a paginator - but I want to learn design patterns, so I do it
+
+class BaseListener(metaclass=ABCMeta):
     """A Base Listener. This will later notify all observers on event"""
     @property
     def observers(self):
@@ -52,7 +57,7 @@ class BaseListener(ABC):
         pass
 
 
-class BaseObserver(ABC):
+class BaseObserver(metaclass=ABCMeta):
     """A Base Observer. It will receive events from a Listener"""
     @property
     def callback(self):
@@ -65,45 +70,64 @@ class BaseObserver(ABC):
 
 
 
+
 class EventObserver(BaseObserver):
     """An Observer used to trigger hikari events, given from the paginator"""
-    def __init__(self, callback: Callable, event: Event):
+    def __init__(self, callback: Callable, event: str):
         self._callback = callback
         self.event = event
+        self.name: Optional[str] = None
+        self.paginator: Paginator
 
     @property
     def callback(self) -> Callable:
         return self._callback
 
-    @abstractmethod
     async def on_event(self, event: Event):
-        await self.callback(event)
+       
+        print(f"in observer: call callback")
+        await self.callback(self.paginator, event)
 
 
 
 class EventListener(BaseListener):
     """A Listener which receives events from a Paginator and notifies its observers about it"""
     def __init__(self):
-        self._observers: Dict[Event, List[EventObserver]] = {}
+        self._observers: Dict[str, List[EventObserver]] = {}
     @property
     def observers(self):
         return self._observers
 
     def subscribe(self, observer: EventObserver, event: Event):
         if event not in self._observers.keys():
-            self._observers[event] = []
-        self._observers[event].append(observer)
+            self._observers[str(event)] = []
+        self._observers[str(event)].append(observer)
     
     def unsubscribe(self, observer: EventObserver, event: Event):
         if event not in self._observers.keys():
             return
-        self._observers[event].remove(observer)
+        self._observers[str(event)].remove(observer)
 
     async def notify(self, event: Event):
-        if event not in self._observers.keys():#
-            return
-        for observer in self._observers[event]:
-            await observer.on_event(event)
+        print(f"listener notify called. Subscribers: {self._observers}")
+        try:
+            print("type:")
+            print(str(type(event)))
+            if str(type(event)) not in self._observers.keys():
+                print("no event")
+                return
+            for observer in self._observers[str(type(event))]:
+                print("call obs")
+                await observer.on_event(event)
+        except Exception as e:
+            print(e)
+            traceback.print_exc()
+
+def listener(event: Any):
+    """A decorator to add listeners to a paginator"""
+    def decorator(func: Callable):
+        return EventObserver(callback=func, event=str(event))
+    return decorator
 
 
 
@@ -113,19 +137,75 @@ class Paginator():
         page_s: Union[Sequence[Embed], Sequence[str]],
         convert_to_embed = True,
         timeout: int = 120,
+        component_factory: Callable[[int], ActionRowBuilder] = None,
+        components_factory: Callable[[int], List[ActionRowBuilder]] = None,
+        disable_pagination: bool = False,
     ):
-        self.pages: Union[Sequence[Embed], Sequence[str]] = page_s
-        self.bot: lightbulb.Bot
-        self.ctx: Context
+        self._pages: Union[Sequence[Embed], Sequence[str]] = page_s
+        self._component: Optional[ActionRowBuilder] = None
+        self._components: Optional[List[ActionRowBuilder]] = None
         self._task: asyncio.Task
         self._message: Message
-        self.components: List[ActionRowBuilder]
+        self._component_factory = component_factory
+        self._components_factory = components_factory
+        self.bot: lightbulb.Bot
+        self.ctx: Context
 
-        self.timeout = timeout
-        self._stop = False
-        self._position: int
+        
+        self.listener = EventListener()
         self.log = logging.getLogger(__name__)
-        self.compact = len(page_s) <= 2
+        self.timeout = timeout
+
+        # paginator configuration
+        self.pagination = not disable_pagination
+        if self.pagination:
+            self._stop = False
+            self._position: int = 0
+            self.compact = len(page_s) <= 2
+        
+
+        # register all listeners
+
+        for name, obj in type(self).__dict__.items():
+            if isinstance(obj, EventObserver):
+                obj = getattr(self, name)
+                obj.name = name
+                obj.paginator = self
+                self.listener.subscribe(obj, obj.event)
+
+    @property
+    def pages(self):
+        return self._pages
+
+    @property
+    def component(self) -> ActionRowBuilder:
+        if self._component_factory is not None:
+            return self._component_factory(self._position)
+        elif self._component is not None:
+            return self._component
+        elif hasattr(self, "build_default_component"):
+            return getattr(self, "build_default_component")()
+        else:
+            raise RuntimeError((
+                "Nothing specified for `component`. "
+                "Consider passing in a component factory or set"
+                "a value for `instance`._component"
+                ))
+
+    @property
+    def components(self):
+        if self._components_factory is not None:
+            return self._components_factory(self._position)
+        elif self._components is not None:
+            return self._components
+        elif hasattr(self, "build_default_component"):
+            return getattr(self, "build_default_component")()
+        else:
+            raise RuntimeError((
+                "Nothing specified for `components`. "
+                "Consider passing in a components_factory or set"
+                "a value for `instance`._components"
+                ))
 
     def interaction_pred(self, event: InteractionCreateEvent):
         if not isinstance((i := event.interaction), ComponentInteraction):
@@ -142,8 +222,9 @@ class Paginator():
             and self.ctx.author.id == msg.author.id
         )
 
-    def build_default_components(self) -> ActionRowBuilder:
-
+    def build_default_component(self) -> Optional[ActionRowBuilder]:
+        if not self.pagination:
+            return None
         def button_factory( 
             disable_when_index_is: Union[Callable[[Optional[int]], bool]] = (lambda x: False),
             label: str = "",
@@ -217,7 +298,7 @@ class Paginator():
             if interaction:
                 update_message = interaction.create_initial_response
                 kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
-                kwargs["component"] = self.build_default_components()
+                kwargs["component"] = self.build_default_component()
             else:
                 update_message = self._message.edit
             if isinstance(content, str):
@@ -254,12 +335,12 @@ class Paginator():
         if isinstance(self.pages[0], Embed):
             self._message = await ctx.respond(
                 embed=self.pages[0],
-                component=self.build_default_components()
+                component=self.build_default_component()
             )
         else:
             self._message = await ctx.respond(
                 content=self.pages[0],
-                component=self.build_default_components()
+                component=self.build_default_component()
             )
         
         if len(self.pages) == 1:
@@ -304,12 +385,15 @@ class Paginator():
                 e.cancel()
             await self.dispatch_event(event)
             
-    async def dispatch_event(self, event: typing.Any):
+    async def dispatch_event(self, event: Event):
         if isinstance(event, InteractionCreateEvent):
             await self.paginate(event)
+        print("notify")
+        await self.listener.notify(event)
+        print("finished")
 
     async def paginate(self, event):
-        id = event.interaction.custom_id
+        id = event.interaction.custom_id or None
         last_position = self._position
 
         if id == "first":
@@ -342,8 +426,14 @@ class Paginator():
     async def _update_position(self, interaction: ComponentInteraction):
         await self.send(content=self.pages[self._position], interaction=interaction)
 
-    async def on_interaction(self, interaction):
-        pass
+    # usage
+    # @listener(InteractionCreateEvent)
+    # async def on_interaction(self, event):
+    #     print("interaction received")
+
+    # @listener(GuildMessageCreateEvent)
+    # async def on_message(self, event):
+    #     print("message received")
 
             
             
