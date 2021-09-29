@@ -140,7 +140,6 @@ class SentenceInterator():
                 pos: int = 0
                 symbols = ["\n\n\n", "\n\n", "\n", ";", ". ", "? ", "! ", ",", ") ", "} ", "] " ,": ", " ", ""]
                 while pos + max_size < len(to_iter):
-                    print(pos+max_size, len(to_iter))
                     subitem = to_iter[pos:pos+max_size]
                     for symbol in symbols:
                         if (
@@ -158,14 +157,12 @@ class SentenceInterator():
                             ):
                                 
                                 if sub_occurence < occurence / 4 * 3:
-                                    print("cont")
                                     continue
                                 # new phrase detected -> starting next iter with new phrase
                                 yield subitem[:sub_occurence]
                                 pos = pos + sub_occurence + len(symbol)
                                 break
                             else:
-                                print("sx", symbol)
                                 yield subitem[:occurence+len(symbol)]
                                 pos = pos + occurence + len(symbol)
                                 break
