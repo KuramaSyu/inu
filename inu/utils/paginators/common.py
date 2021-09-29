@@ -11,15 +11,16 @@ from typing import (
     Final,
     Dict
 )
-import traceback
+import traceback    
 from contextlib import suppress
 import logging
+from abc import ABC, abstractmethod
 
 import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import ActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, InteractionCreateEvent, MessageCreateEvent, ResponseType
+from hikari import ButtonStyle, ComponentInteraction, InteractionCreateEvent, MessageCreateEvent, Event
 import lightbulb
 from lightbulb.context import Context
 
@@ -28,9 +29,83 @@ from lightbulb.context import Context
 
 
 
-__all__: Final[List[str]] = ["Paginator"]
+__all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
 _Sendable = Union[Embed, str]
 T = TypeVar("T")
+
+class BaseListener(ABC):
+    """A Base Listener. This will later notify all observers on event"""
+    @property
+    def observers(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    def subscribe():
+        pass
+    
+    @abstractmethod
+    def unsubscribe():
+        pass
+
+    @abstractmethod
+    async def notify():
+        pass
+
+
+class BaseObserver(ABC):
+    """A Base Observer. It will receive events from a Listener"""
+    @property
+    def callback(self):
+        raise NotImplementedError
+
+    @abstractmethod
+    async def on_event(self, event):
+        raise NotImplementedError
+
+
+
+
+class EventObserver(BaseObserver):
+    """An Observer used to trigger hikari events, given from the paginator"""
+    def __init__(self, callback: Callable, event: Event):
+        self._callback = callback
+        self.event = event
+
+    @property
+    def callback(self) -> Callable:
+        return self._callback
+
+    @abstractmethod
+    async def on_event(self, event: Event):
+        await self.callback(event)
+
+
+
+class EventListener(BaseListener):
+    """A Listener which receives events from a Paginator and notifies its observers about it"""
+    def __init__(self):
+        self._observers: Dict[Event, List[EventObserver]] = {}
+    @property
+    def observers(self):
+        return self._observers
+
+    def subscribe(self, observer: EventObserver, event: Event):
+        if event not in self._observers.keys():
+            self._observers[event] = []
+        self._observers[event].append(observer)
+    
+    def unsubscribe(self, observer: EventObserver, event: Event):
+        if event not in self._observers.keys():
+            return
+        self._observers[event].remove(observer)
+
+    async def notify(self, event: Event):
+        if event not in self._observers.keys():#
+            return
+        for observer in self._observers[event]:
+            await observer.on_event(event)
+
+
 
 class Paginator():
     def __init__(
