@@ -103,8 +103,8 @@ class Tags(lightbulb.Plugin):
         ), navigation_row(position, compact=True, len_pages=0)]
         add_tag = [(
             ActionRowBuilder()
-            .add_button(ButtonStyle.PRIMARY, "add_tag")
-            .set_label("Add tag")
+            .add_button(ButtonStyle.PRIMARY, "set_key")
+            .set_label("Set a name")
             .add_to_container()
             .add_button(ButtonStyle.PRIMARY, "edit_tag")
             .set_label("Edit tag")
@@ -132,7 +132,8 @@ class Tags(lightbulb.Plugin):
             .add_to_container()
         )]
 
-    async def 
+    async def tag_add_i(self, ctx):
+        pass
 
 
 def load(bot: Inu):
