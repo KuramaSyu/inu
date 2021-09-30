@@ -134,8 +134,7 @@ def listener(event: Any):
 class Paginator():
     def __init__(
         self,
-        page_s: Union[Sequence[Embed], Sequence[str]],
-        convert_to_embed = True,
+        page_s: Union[List[Embed], List[str]],
         timeout: int = 120,
         component_factory: Callable[[int], ActionRowBuilder] = None,
         components_factory: Callable[[int], List[ActionRowBuilder]] = None,
@@ -144,7 +143,7 @@ class Paginator():
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
     ):
-        self._pages: Union[Sequence[Embed], Sequence[str]] = page_s
+        self._pages: Union[List[Embed], List[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
         self._components: Optional[List[ActionRowBuilder]] = None
         self._disable_components = disable_components
@@ -192,7 +191,7 @@ class Paginator():
         elif self._component is not None:
             return self._component
         elif hasattr(self, "build_default_component"):
-            return getattr(self, "build_default_component")()
+            return getattr(self, "build_default_component")(self._position)
         else:
             raise RuntimeError((
                 "Nothing specified for `component`. "
@@ -209,7 +208,7 @@ class Paginator():
         elif self._components is not None:
             return self._components
         elif hasattr(self, "build_default_component"):
-            return getattr(self, "build_default_component")()
+            return getattr(self, "build_default_component")(self._position)
         else:
             raise RuntimeError((
                 "Nothing specified for `components`. "
