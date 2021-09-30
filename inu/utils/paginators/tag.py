@@ -27,7 +27,6 @@ class TagHandler(Paginator):
     """An interactive handler for tags"""
     def __init__(
         self,
-        page_s: Union[List[Embed], List[str]],
         timeout: int = 15*60,
         component_factory: Callable[[int], ActionRowBuilder] = None,
         components_factory: Callable[[int], List[ActionRowBuilder]] = None,
@@ -36,16 +35,7 @@ class TagHandler(Paginator):
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = False,
     ):
-        super().__init__(
-            page_s=page_s,
-            timeout=timeout,
-            component_factory=component_factory,
-            components_factory=components_factory,
-            disable_pagination=disable_pagination,
-            disable_component=disable_component,
-            disable_components=disable_components,
-            disable_paginator_when_one_site=disable_paginator_when_one_site,  
-        )
+
         self._name = None
         self._value = None
         self._options = {
@@ -57,6 +47,18 @@ class TagHandler(Paginator):
         self.embed.title = "Name of your tag (not set)"
         self.embed.description = "Value of your tag (not set)"
         self._pages = [self.embed]
+    
+        super().__init__(
+            page_s=self._pages,
+            timeout=timeout,
+            component_factory=component_factory,
+            components_factory=components_factory,
+            disable_pagination=disable_pagination,
+            disable_component=disable_component,
+            disable_components=disable_components,
+            disable_paginator_when_one_site=disable_paginator_when_one_site,  
+        )
+
 
     async def update_page(self, update_value: bool = False):
         """to_update: N"""
