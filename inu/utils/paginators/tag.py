@@ -167,6 +167,7 @@ class NewTagHandler(Paginator):
         pass
 
     async def change_owner(self, interaction: ComponentInteraction):
+        pass
 
     def build_default_components(self, position) -> List[ActionRowBuilder]:
         navi = super().build_default_component(position)
