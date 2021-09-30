@@ -20,6 +20,7 @@ from utils.tree import tree
 from utils import Paginator
 from utils.db import Database
 from utils.tag_mamager import TagManager
+from utils.paginators.tag import TagHandler
 
 
 # from utils.logging import LoggingHandler
@@ -98,7 +99,10 @@ class Basics(lightbulb.Plugin):
         b = Paginator(page_s = embeds)
         await b.start(ctx)
 
-        
+    @lightbulb.command()
+    async def test2(self, ctx: Context):
+        t = TagHandler()
+        await t.start(ctx)
 
 
 def load(bot: Inu):
