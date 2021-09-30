@@ -8,7 +8,11 @@ from typing import (
 )
 import logging
 from logging import DEBUG
+
 import hikari
+from hikari import Embed
+from hikari.impl import ActionRowBuilder
+from hikari.messages import ButtonStyle
 import lightbulb
 from lightbulb import Context
 from lightbulb.converters import Greedy
@@ -19,9 +23,11 @@ from utils.tag_mamager import TagIsTakenError, TagManager
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator
+from utils.paginators.common import navigation_row
 
 log = logging.getLogger(__name__)
 log.setLevel(DEBUG)
+
 
 class Tags(lightbulb.Plugin):
 
@@ -76,6 +82,58 @@ class Tags(lightbulb.Plugin):
     @tag.command()
     async def edit(self, key):
         pass
+
+
+    def tag_embed_builder(self) -> List[Embed]:
+        start_page = hikari.Embed()
+        start_page.title = "Select what you want to do"
+
+    def components_builder(self, position: int) -> List[ActionRowComponent]:
+        start_page = [(
+            ActionRowBuilder()
+            .add_button(ButtonStyle.PRIMARY, "add_tag")
+            .set_label("Add tag")
+            .add_to_container()
+            .add_button(ButtonStyle.PRIMARY, "edit_tag")
+            .set_label("Edit tag")
+            .add_to_container()
+            .add_button(ButtonStyle.DANGER, "remove_tag")
+            .set_label("Remove tag")
+            .add_to_container()
+        ), navigation_row(position, compact=True, len_pages=0)]
+        add_tag = [(
+            ActionRowBuilder()
+            .add_button(ButtonStyle.PRIMARY, "add_tag")
+            .set_label("Add tag")
+            .add_to_container()
+            .add_button(ButtonStyle.PRIMARY, "edit_tag")
+            .set_label("Edit tag")
+            .add_to_container()
+            .add_button(ButtonStyle.DANGER, "remove_tag")
+            .set_label("Remove tag")
+            .add_to_container()
+        ), navigation_row(position, compact=True, len_pages=0)]
+        edit_tag = [(
+            ActionRowBuilder()
+            .add_button(ButtonStyle.PRIMARY, "remove_tag")
+            .set_label("Remove tag")
+            .add_to_container()
+            .add_button(ButtonStyle.PRIMARY, "rename_tag")
+            .set_label("Rename tag")
+            .add_to_container()
+            .add_button(ButtonStyle.DANGER, "change_owner")
+            .set_label("Change owner")
+            .add_to_container()
+            .add_button(ButtonStyle.PRIMARY, "tag_set")
+            .set_label("new value")
+            .add_to_container()
+            .add_button(ButtonStyle.PRIMARY, "tag_append")
+            .set_label("extend Value")
+            .add_to_container()
+        )]
+
+    async def 
+
 
 def load(bot: Inu):
     bot.add_plugin(Tags(bot))
