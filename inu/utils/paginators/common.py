@@ -140,10 +140,14 @@ class Paginator():
         component_factory: Callable[[int], ActionRowBuilder] = None,
         components_factory: Callable[[int], List[ActionRowBuilder]] = None,
         disable_pagination: bool = False,
+        disable_component: bool = False,
+        disable_components: bool = False,
     ):
         self._pages: Union[Sequence[Embed], Sequence[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
         self._components: Optional[List[ActionRowBuilder]] = None
+        self._disable_components = disable_components
+        self._disable_component = disable_component
         self._task: asyncio.Task
         self._message: Message
         self._component_factory = component_factory
@@ -178,7 +182,9 @@ class Paginator():
         return self._pages
 
     @property
-    def component(self) -> ActionRowBuilder:
+    def component(self) -> Optional[ActionRowBuilder]:
+        if self._disable_component:
+            return None
         if self._component_factory is not None:
             return self._component_factory(self._position)
         elif self._component is not None:
@@ -193,7 +199,9 @@ class Paginator():
                 ))
 
     @property
-    def components(self):
+    def components(self) -> Union[List[ActionRowBuilder]]:
+        if self._disable_components:
+            return []
         if self._components_factory is not None:
             return self._components_factory(self._position)
         elif self._components is not None:
@@ -222,7 +230,7 @@ class Paginator():
             and self.ctx.author.id == msg.author.id
         )
 
-    def build_default_component(self) -> Optional[ActionRowBuilder]:
+    def build_default_component(self, position = None) -> Optional[ActionRowBuilder]:
         if not self.pagination:
             return None
         def button_factory( 
@@ -436,4 +444,74 @@ class Paginator():
     #     print("message received")
 
             
+
+def navigation_row(
+    position: int, 
+    len_pages: int,
+    compact: bool = False,
+) -> ActionRowBuilder:
+    def button_factory( 
+        disable_when_index_is: Union[Callable[[Optional[int]], bool]] = (lambda x: False),
+        label: str = "",
+        style = ButtonStyle.SECONDARY,
+        custom_id: Optional[str] = None,
+        emoji: Optional[str] = None,
+        action_row_builder: ActionRowBuilder = ActionRowBuilder(),
+        
+    ) -> ActionRowBuilder:
+        state: bool = disable_when_index_is(position)
+        if not custom_id:
+            custom_id = label
+        if not emoji:
+            btn = (
+                action_row_builder
+                .add_button(style, custom_id)
+                .set_is_disabled(state)
+                .set_label(label)
+                .add_to_container()
+            )
+        else:
+            btn = (
+                action_row_builder
+                .add_button(style, custom_id)
+                .set_is_disabled(state)
+                .set_emoji(emoji)
+                .add_to_container()
+            )
+        return btn
+
+    action_row = None
+    if not compact:
+        action_row = button_factory(
+            custom_id="first", 
+            emoji="⏮", 
+            disable_when_index_is=lambda p: p == 0
+        )
+    action_row = button_factory(
+        custom_id="previous",
+        emoji="◀",
+        action_row_builder=action_row or ActionRowBuilder(),
+        disable_when_index_is=lambda p: p == 0,
+    )
+    button_factory(
+        custom_id="stop",
+        emoji="✖",
+        action_row_builder=action_row,
+        style=ButtonStyle.DANGER,
+    )
+    button_factory(
+        custom_id="next",
+        emoji="▶",
+        action_row_builder=action_row,
+        disable_when_index_is=lambda p: p == len_pages-1,
+    )
+    if not compact:
+        button_factory(
+            custom_id="last",
+            emoji="⏭",
+            action_row_builder=action_row,
+            disable_when_index_is=lambda p: p == len_pages-1,
+        )
+
+    return action_row
             
