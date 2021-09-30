@@ -142,12 +142,14 @@ class Paginator():
         disable_pagination: bool = False,
         disable_component: bool = False,
         disable_components: bool = False,
+        disable_paginator_when_one_site: bool = True,
     ):
         self._pages: Union[Sequence[Embed], Sequence[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
         self._components: Optional[List[ActionRowBuilder]] = None
         self._disable_components = disable_components
         self._disable_component = disable_component
+        self._exit_when_one_site = disable_paginator_when_one_site
         self._task: asyncio.Task
         self._message: Message
         self._component_factory = component_factory
@@ -329,7 +331,7 @@ class Paginator():
         self.bot = ctx.bot
         if len(self.pages) < 1:
             raise RuntimeError("<pages> must have minimum 1 item")
-        elif len(self.pages) == 1:
+        elif len(self.pages) == 1 and self._exit_when_one_site:
             if isinstance(self.pages[0], Embed):
                 self._message = await ctx.respond(
                     embed=self.pages[0],
@@ -339,6 +341,7 @@ class Paginator():
                     content=self.pages[0],
                 )
             return
+
         self._position = 0
         if isinstance(self.pages[0], Embed):
             self._message = await ctx.respond(
