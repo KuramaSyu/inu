@@ -88,7 +88,7 @@ class Tags(lightbulb.Plugin):
         start_page = hikari.Embed()
         start_page.title = "Select what you want to do"
 
-    def components_builder(self, position: int) -> List[ActionRowComponent]:
+    def components_builder(self, position: int) -> List[ActionRowBuilder]:
         start_page = [(
             ActionRowBuilder()
             .add_button(ButtonStyle.PRIMARY, "add_tag")
