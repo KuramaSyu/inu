@@ -207,8 +207,8 @@ class Paginator():
             return self._components_factory(self._position)
         elif self._components is not None:
             return self._components
-        elif hasattr(self, "build_default_component"):
-            return getattr(self, "build_default_component")(self._position)
+        elif hasattr(self, "build_default_components"):
+            return getattr(self, "build_default_components")(self._position)
         else:
             raise RuntimeError((
                 "Nothing specified for `components`. "
@@ -307,9 +307,13 @@ class Paginator():
             if interaction:
                 update_message = interaction.create_initial_response
                 kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
-                kwargs["component"] = self.build_default_component()
             else:
                 update_message = self._message.edit
+            if not self._disable_component:
+                kwargs["component"] = self.component
+            elif not self._disable_components:
+                kwargs["components"] = self.components
+
             if isinstance(content, str):
                 kwargs["content"] = content
                 await update_message(**kwargs)
@@ -323,7 +327,10 @@ class Paginator():
 
     async def stop(self):
         self._stop = True
-        await self._message.edit(component=None)
+        if not self._disable_component:
+            await self._message.edit(component=None)
+        elif not self._disable_components:
+            await self._message.edit(components=[])
 
     async def start(self, ctx: Context) -> None:
         self.ctx = ctx
@@ -342,18 +349,23 @@ class Paginator():
             return
 
         self._position = 0
+        kwargs = {}
+        if not self._disable_component:
+            kwargs["component"] = self.component
+        elif not self._disable_components:
+            kwargs["components"] = self.components
         if isinstance(self.pages[0], Embed):
             self._message = await ctx.respond(
                 embed=self.pages[0],
-                component=self.build_default_component()
+                **kwargs
             )
         else:
             self._message = await ctx.respond(
                 content=self.pages[0],
-                component=self.build_default_component()
+                **kwargs
             )
         
-        if len(self.pages) == 1:
+        if len(self.pages) == 1 and self._exit_when_one_site:
             return
         self._position = 0
         self._task = asyncio.create_task(self.pagination_loop())
