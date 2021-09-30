@@ -20,7 +20,7 @@ from utils.tree import tree
 from utils import Paginator
 from utils.db import Database
 from utils.tag_mamager import TagManager
-from utils.paginators.tag import TagHandler
+from utils.paginators.tag import NewTagHandler
 
 
 # from utils.logging import LoggingHandler
@@ -101,7 +101,7 @@ class Basics(lightbulb.Plugin):
 
     @lightbulb.command()
     async def test2(self, ctx: Context):
-        t = TagHandler()
+        t = NewTagHandler()
         await t.start(ctx)
 
 
