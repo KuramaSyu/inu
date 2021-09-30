@@ -70,7 +70,7 @@ class CodeSize(lightbulb.Plugin):
             description=text,
         )
         embed.set_thumbnail(str(self.bot.me.avatar_url))
-        embed.color = Color.get("slateblue")
+        embed.color = Color.from_name("slateblue")
         await ctx.respond(embed=embed)
 
 def load(bot: Inu):
