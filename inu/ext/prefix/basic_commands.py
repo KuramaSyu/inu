@@ -87,7 +87,7 @@ class Basics(lightbulb.Plugin):
 
     @ping.command()
     async def ping_sub2(self, ctx):
-        await ctx.respond("ping subcommand 2")
+        await ctx.respond(ctx.guild.name)
 
     @lightbulb.command()
     async def test(self, ctx: Context) -> None:
