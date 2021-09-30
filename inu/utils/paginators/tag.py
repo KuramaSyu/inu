@@ -17,13 +17,14 @@ from .common import (
     EventObserver,
     listener,
 )
+import asyncpg
 
 from utils import crumble
 from utils.tag_mamager import TagManager
 from utils.language import Human
 
 
-class TagHandler(Paginator):
+class NewTagHandler(Paginator):
     """An interactive handler for tags"""
     def __init__(
         self,
@@ -37,7 +38,7 @@ class TagHandler(Paginator):
     ):
 
         self._name = None
-        self._value = None
+        self._value = "Value of your tag (not set)"
         self._options = {
             "is local": True,
             "owner": None,
@@ -45,7 +46,8 @@ class TagHandler(Paginator):
         }
         self.embed = Embed()
         self.embed.title = "Name of your tag (not set)"
-        self.embed.description = "Value of your tag (not set)"
+        self.embed.description = self._value
+        self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
         self._pages = [self.embed]
     
         super().__init__(
@@ -61,7 +63,7 @@ class TagHandler(Paginator):
 
 
     async def update_page(self, update_value: bool = False):
-        """to_update: N"""
+        """Updates the embed, if the interaction wasn't for interaction"""
         self.embed.title = self._name or "Name your Tag (not set)"
         if update_value:
             pages = []
@@ -71,13 +73,17 @@ class TagHandler(Paginator):
                     description=page
                 ))
             self._pages.extend(pages)
+        local_taken, global_taken = await TagManager.is_taken(self._name, self.ctx.guild_id or 0)
         options = (
-            f"is local: {Human.bool_(self._options['is local'])}"
+            f"global or local: {'local' if self._options['is local'] else 'global'}\n"
+            f"owner: {self.ctx.author.username}\n"
+            f"tag name local available: {Human.bool_(local_taken, True)}\n"
+            f"tag name global available: {Human.bool_(global_taken, True)}"
         )
-
+        self.embed.edit_field(0, "Status", options)
         await self._message.edit(
             embed=self.embed, 
-            components=self.build_default_components(self._position)
+            components=self.components
         )
 
 
@@ -86,16 +92,17 @@ class TagHandler(Paginator):
         if not isinstance(event.interaction, ComponentInteraction):
             return
         custom_id = event.interaction.custom_id or None
+        print(custom_id)
         if custom_id == "set_name":
             await self.set_name(event.interaction)
-        elif custom_id == "set_value" and isinstance(self._value, str):
+        elif custom_id == "set_value":
             await self.set_value(event.interaction)
         elif custom_id == "extend_value":
             await self.extend_value(event.interaction)
         elif custom_id == "change_visibility":
             await self.change_visibility(event.interaction)
         elif custom_id == "change_owner":
-            pass
+            await self.change_owner(event.interaction)
         elif custom_id == "finish":
             await self.finish()
 
@@ -124,23 +131,31 @@ class TagHandler(Paginator):
             ResponseType.MESSAGE_CREATE, 
             embed=embed
         )
+        bot_message = await interaction.fetch_initial_response()
         try:
-            message = await self.bot.wait_for(
+            event = await self.bot.wait_for(
                 events.MessageCreateEvent, 
                 self.timeout,
                 lambda m: m.author_id == interaction.user.id and m.channel_id == interaction.channel_id
             )
         except asyncio.TimeoutError:
+            await interaction.delete_initial_response()
             return
-        if not message.content:
+
+        if not event.message.content:
+            await interaction.delete_initial_response()
             return
-        if append and self._name:
-            self._name += message.content
-        self._name = message.content
+
+        
+        if append and self._value:
+            self._value += event.message.content
+        self._value = event.message.content
         await self.update_page(update_value=True)
+        if self.ctx.channel:
+            await self.ctx.channel.delete_messages(bot_message, event.message)
 
     async def extend_value(self, interaction: ComponentInteraction):
-        await self.set_value(interaction, True)
+        await self.set_value(interaction, append=True)
 
     async def change_visibility(self, interaction: ComponentInteraction):
         if self._options["is local"]:
@@ -151,14 +166,16 @@ class TagHandler(Paginator):
     async def finish(self):
         pass
 
+    async def change_owner(self, interaction: ComponentInteraction):
+
     def build_default_components(self, position) -> List[ActionRowBuilder]:
         navi = super().build_default_component(position)
         tag_specific = (
             ActionRowBuilder()
-            .add_button(ButtonStyle.PRIMARY, "edit_name")
+            .add_button(ButtonStyle.PRIMARY, "set_name")
             .set_label("edit name")
             .add_to_container()
-            .add_button(ButtonStyle.PRIMARY, "set value")
+            .add_button(ButtonStyle.PRIMARY, "set_value")
             .set_label("edit value")
             .add_to_container()
             .add_button(ButtonStyle.PRIMARY, "extend_value")
@@ -180,6 +197,8 @@ class TagHandler(Paginator):
         if self.pagination:
             return [navi, tag_specific, finish] #type: ignore
         return [tag_specific, finish]
+
+
 
 
 
