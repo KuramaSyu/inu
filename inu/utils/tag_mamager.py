@@ -1,6 +1,7 @@
 from typing import (
     Optional,
     List,
+    Tuple,
     Union
 )
 import typing
@@ -10,6 +11,7 @@ from asyncache import cached
 from cachetools import TTLCache, LRUCache
 import hikari
 from hikari import User, Member
+from numpy import column_stack
 
 from .db import Database
 
@@ -97,7 +99,16 @@ class TagManager():
         await cls.db.execute(sql, record["tag_value"], record["tag_ID"])
 
     @classmethod
-    async def is_taken(cls, key, tags: Optional[List[str]] = None):
+    async def is_global_taken(cls, key, tags: Optional[List[str]] = None):
+        """
+        Args:
+        `key`: the key to search
+        `tags`: an already fetched column (list) of all tags
+        """
+        sql = """
+            SELECT tags, guild_id FROM tags
+            WHERE tags = $1
+            """
         if not tags:
             tags = await cls.db.column(
                 """SELECT * FROM tags""",
@@ -108,9 +119,41 @@ class TagManager():
         return False
 
     @classmethod
+    async def is_taken(cls, key, guild_id: int) -> Tuple[bool, bool]:
+        """
+        Args:
+        `key`: the key to search
+
+        RETURNS
+        1 - is local taken: bool
+        2 - is global taken: bool
+        3 - is it your key? global/local/None
+        """
+        sql = """
+            SELECT tags FROM tags
+            WHERE tag_key = $1
+            """
+        records = await cls.db.column(sql, key, column="tags")
+        if len(records) == 0:
+            return False, False
+
+        global_taken = False
+        local_taken = False
+        for record in records:
+            if record["guild_id"] == guild_id:
+                local_taken = True
+            elif record["guild_id"] is None:
+                global_taken = True
+            if global_taken and local_taken:
+                return True, True
+
+        return local_taken, global_taken
+
+    
+    @classmethod
     async def _do_check_if_taken(cls, key, b):
         if b:
-            is_taken = await cls.is_taken(key)
+            is_taken = await cls.is_global_taken(key)
             if is_taken:
                 raise TagIsTakenError
 
