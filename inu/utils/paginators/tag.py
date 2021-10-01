@@ -11,6 +11,8 @@ import hikari
 from hikari import ComponentInteraction, events, ResponseType, Embed
 from hikari.messages import ButtonStyle
 from hikari.impl import ActionRowBuilder
+from lightbulb.converters import WrappedArg
+from lightbulb.converters import member_converter
 from .common import (
     Paginator,
     EventListener,
@@ -25,7 +27,7 @@ from utils.language import Human
 
 
 class NewTagHandler(Paginator):
-    """An interactive handler for tags"""
+    """An interactive handler for new tags"""
     def __init__(
         self,
         timeout: int = 15*60,
@@ -40,9 +42,11 @@ class NewTagHandler(Paginator):
         self._name = None
         self._value = "Value of your tag (not set)"
         self._options = {
-            "is local": True,
+            "is local": True if self.ctx.guild_id else False,
             "owner": None,
-            "is tag name available": None,
+            "is local available": False,
+            "is global available": False,
+            "is stored": False,
         }
         self.embed = Embed()
         self.embed.title = "Name of your tag (not set)"
@@ -60,11 +64,25 @@ class NewTagHandler(Paginator):
             disable_components=disable_components,
             disable_paginator_when_one_site=disable_paginator_when_one_site,  
         )
+    def options_to_string(self) -> str:
+        return (
+            f"global or local: {'local' if self._options['is local'] else 'global'}\n"
+            f"owner: {self._options['owner']}\n"
+            f"tag stored: {Human.bool_(self._options['is stored'])}\n"
+            f"tag name local available: {Human.bool_(self._options['is local available'], True)}\n"
+            f"tag name global available: {Human.bool_(self._options['is global available'], True)}\n"
+        )
 
+    async def update_options(self) -> None:
+        local_taken, global_taken = await TagManager.is_taken(self._name, self.ctx.guild_id or 0)
+        self._options["owner"] = self.ctx.author.username
+        self._options["is local available"] = not local_taken
+        self._options["is global available"] = not global_taken
 
     async def update_page(self, update_value: bool = False):
-        """Updates the embed, if the interaction wasn't for interaction"""
+        """Updates the embed, if the interaction wasn't for pagination"""
         self.embed.title = self._name or "Name your Tag (not set)"
+
         if update_value:
             pages = []
             for page in crumble(str(self._value), 2048):
@@ -73,14 +91,10 @@ class NewTagHandler(Paginator):
                     description=page
                 ))
             self._pages.extend(pages)
-        local_taken, global_taken = await TagManager.is_taken(self._name, self.ctx.guild_id or 0)
-        options = (
-            f"global or local: {'local' if self._options['is local'] else 'global'}\n"
-            f"owner: {self.ctx.author.username}\n"
-            f"tag name local available: {Human.bool_(local_taken, True)}\n"
-            f"tag name global available: {Human.bool_(global_taken, True)}"
-        )
-        self.embed.edit_field(0, "Status", options)
+
+        await self.update_options()
+
+        self.embed.edit_field(0, "Status", self.options_to_string())
         await self._message.edit(
             embed=self.embed, 
             components=self.components
@@ -147,9 +161,10 @@ class NewTagHandler(Paginator):
             return
 
         
-        if append and self._value:
+        if append:
             self._value += event.message.content
-        self._value = event.message.content
+        else:
+            self._value = event.message.content
         await self.update_page(update_value=True)
         if self.ctx.channel:
             await self.ctx.channel.delete_messages(bot_message, event.message)
@@ -171,6 +186,7 @@ class NewTagHandler(Paginator):
 
     def build_default_components(self, position) -> List[ActionRowBuilder]:
         navi = super().build_default_component(position)
+        disable_remove_when = lambda self: self._name is None or self._value is None
         tag_specific = (
             ActionRowBuilder()
             .add_button(ButtonStyle.PRIMARY, "set_name")
@@ -185,6 +201,14 @@ class NewTagHandler(Paginator):
             .add_button(ButtonStyle.PRIMARY, "change_visibility")
             .set_label("local/global")
             .add_to_container()
+
+        )
+        danger_tags = (
+            ActionRowBuilder()
+            .add_button(ButtonStyle.DANGER, "remove_tag")
+            .set_label("remove tag")
+            .set_is_disabled(disable_remove_when(self))
+            .add_to_container()
             .add_button(ButtonStyle.DANGER, "change_owner")
             .set_label("change tag owner")
             .add_to_container()
@@ -196,10 +220,31 @@ class NewTagHandler(Paginator):
             .add_to_container()
         )
         if self.pagination:
-            return [navi, tag_specific, finish] #type: ignore
+            return [navi, tag_specific, danger_tags, finish] #type: ignore
         return [tag_specific, finish]
 
+    async def load_tag(self, tag: asyncpg.Record, guild_id: Optional[int] = None):
+        self._name = tag["tag_key"]
+        self._value = tag["key_value"]
+        self._options["is stored"] = True
+        self._options["owner"] = tag["creator_id"]
+        self._options["is local"] = True if tag["guild_id"] == guild_id and guild_id is not None else False
+        local_taken, global_taken = await TagManager.is_taken(key=self._name, guild_id = guild_id or 0)
+        self._options["local available"] = not local_taken
+        self._options["global available"] = not global_taken
 
+        self.embed = Embed()
+        self.embed.title = self._name
+        self.embed.description = self._value
+        self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
+        self._pages = [self.embed]
+
+    async def save(self) -> bool:
+        """
+        Saves the current tag
+        Returns:
+            bool: wether successfull or not
+        """
 
 
 
