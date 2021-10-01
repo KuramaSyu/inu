@@ -6,6 +6,7 @@ from typing import (
     Callable,
 )
 import asyncio
+import logging
 
 import hikari
 from hikari import ComponentInteraction, events, ResponseType, Embed
@@ -14,6 +15,8 @@ from hikari.impl import ActionRowBuilder
 import lightbulb
 from lightbulb.converters import WrappedArg
 from lightbulb.converters import user_converter
+
+from inu.utils.tag_mamager import TagIsTakenError
 from .common import (
     Paginator,
     EventListener,
@@ -25,6 +28,59 @@ import asyncpg
 from utils import crumble
 from utils.tag_mamager import TagManager
 from utils.language import Human
+
+class Tag():
+    def __init__(self, owner: hikari.User):
+        """
+        Members:
+        --------
+            - is_local: (bool) if tag is local or global. default=True if invoked from guild else default=False
+            - owner: (User | Member) the owner of the Tag
+            - name: (str) the key of the tag
+            - is_local_available: (bool) whether or not the tag can be stored local
+            - is_global_available: (bool) whter or not the tag can be stored global
+            - is_stored: (bool) wether or not the tag is already in the db stored
+        """
+        self.owner: Union[hikari.User, hikari.Member] = owner
+        self._name: Optional[str] = None
+        self._value: Optional[str] = None
+        self.is_local_available: bool
+        self.is_global_available: bool
+        self._is_local: bool = True
+        self.is_stored: bool
+
+    @property
+    def is_local(self) -> bool:
+        if not isinstance(self.owner, hikari.Member):
+            self._is_local = False
+            return False
+        return self.is_local
+
+    @property
+    def guild_id(self) -> Optional[int]:
+        if not isinstance(self.owner, hikari.Member):
+            return None
+        return self.owner.guild_id
+
+    @property
+    def value(self) -> str:
+        if not self._value:
+            raise RuntimeError("Can't store a tag without a value")
+        return self.value
+    
+    @value.setter
+    def value(self, value):
+        self._value = value
+
+    @property
+    def name(self) -> str:
+        if not self._value:
+            raise RuntimeError("Can't store a tag without a value")
+        return self.value
+    
+    @name.setter
+    def name(self, value):
+        self._value = value
 
 
 class NewTagHandler(Paginator):
@@ -42,7 +98,9 @@ class NewTagHandler(Paginator):
 
         self.tag: Tag
         self._pages: List[Embed] = []
-    
+        self.log = logging.getLogger(__name__)
+        self.log.setLevel(logging.DEBUG)
+
         super().__init__(
             page_s=self._pages,
             timeout=timeout,
@@ -177,10 +235,10 @@ class NewTagHandler(Paginator):
         await self.set_value(interaction, append=True)
 
     async def change_visibility(self, interaction: ComponentInteraction):
-        if self._options["is local"]:
-            self._options["is local"] = False
+        if self.tag.is_local:
+            self.tag._is_local = False
             return
-        self._options["is local"] = True
+        self.tag._is_local = True
 
     async def finish(self):
         pass
@@ -211,7 +269,7 @@ class NewTagHandler(Paginator):
             )
         if user and self.ctx.channel:
             await self.ctx.channel.delete_messages(bot_message, event.message)
-        self._options.owner
+        self.tag.owner
         
         
 
@@ -294,31 +352,23 @@ class NewTagHandler(Paginator):
         Returns:
             bool: wether successfull or not
         """
-
-
-class Tag():
-    def __init__(self, owner: hikari.User):
-        """
-        Members:
-        --------
-            - is_local: (bool) if tag is local or global. default=True if invoked from guild else default=False
-            - owner: (User | Member) the owner of the Tag
-            - name: (str) the key of the tag
-            - is_local_available: (bool) whether or not the tag can be stored local
-            - is_global_available: (bool) whter or not the tag can be stored global
-            - is_stored: (bool) wether or not the tag is already in the db stored
-        """
-        self.owner: Union[hikari.User, hikari.Member] = owner
-        self.name: Optional[str] = None
-        self.value: Optional[str] = None
-        self.is_local_available: bool
-        self.is_global_available: bool
-        self._is_local: bool = True
-        self.is_stored: bool
-
-    @property
-    def is_local(self) -> bool:
-        if not isinstance(self.owner, hikari.Member):
-            self._is_local = False
+        db_method: Callable
+        if self.tag.is_stored:
+            db_method = TagManager.edit
+        else:
+            db_method = TagManager.set
+        try:
+                await db_method(
+                    key=self.tag.name,
+                    value=self.tag.value,
+                    author=self.tag.owner,
+                )
+        except TagIsTakenError:
             return False
-        return self.is_local
+        except Exception:
+            self.log.exception("exception while storing to db:")
+
+
+
+
+
