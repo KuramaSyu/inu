@@ -68,7 +68,9 @@ class TagManager():
             check: wether the check should be executed or not
         Raises:
             utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
-
+        Returns:
+        -------
+            - asyncpg.record: the removed record
         """
         await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row("""SELECT * FROM tags""")
