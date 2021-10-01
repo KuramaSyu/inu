@@ -11,8 +11,9 @@ import hikari
 from hikari import ComponentInteraction, events, ResponseType, Embed
 from hikari.messages import ButtonStyle
 from hikari.impl import ActionRowBuilder
+import lightbulb
 from lightbulb.converters import WrappedArg
-from lightbulb.converters import member_converter
+from lightbulb.converters import user_converter
 from .common import (
     Paginator,
     EventListener,
@@ -39,20 +40,8 @@ class NewTagHandler(Paginator):
         disable_paginator_when_one_site: bool = False,
     ):
 
-        self._name = None
-        self._value = "Value of your tag (not set)"
-        self._options = {
-            "is local": True if self.ctx.guild_id else False,
-            "owner": None,
-            "is local available": False,
-            "is global available": False,
-            "is stored": False,
-        }
-        self.embed = Embed()
-        self.embed.title = "Name of your tag (not set)"
-        self.embed.description = self._value
-        self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
-        self._pages = [self.embed]
+        self.tag: Tag
+        self._pages: List[Embed] = []
     
         super().__init__(
             page_s=self._pages,
@@ -64,6 +53,21 @@ class NewTagHandler(Paginator):
             disable_components=disable_components,
             disable_paginator_when_one_site=disable_paginator_when_one_site,  
         )
+
+    async def start(self, ctx: lightbulb.Context, tag: dict = None):
+        """
+        Starts the paginator and initializes the tag
+        Args:
+            ctx: (lightbulb.Context) the Context
+            tag: (dict, default=None) the tag which should be
+                initialized. Creates new tag, if tag is None 
+        """
+        if not tag:
+            await self.prepare_new_tag(ctx)
+        else:
+            await self.load_tag(tag, ctx.guild_id)
+            
+        await super().start(ctx)
     def options_to_string(self) -> str:
         return (
             f"global or local: {'local' if self._options['is local'] else 'global'}\n"
@@ -182,7 +186,34 @@ class NewTagHandler(Paginator):
         pass
 
     async def change_owner(self, interaction: ComponentInteraction):
-        pass
+        embed = Embed(title="Enter the value for your tag:").set_footer(text=f"timeout after {self.timeout}s")
+        await interaction.create_initial_response(
+            ResponseType.MESSAGE_CREATE, 
+            embed=embed
+        )
+        bot_message = await interaction.fetch_initial_response()
+        try:
+            event = await self.bot.wait_for(
+                events.MessageCreateEvent, 
+                self.timeout,
+                lambda m: m.author_id == interaction.user.id and m.channel_id == interaction.channel_id
+            )
+        except asyncio.TimeoutError:
+            await interaction.delete_initial_response()
+            return
+        if event.message.content is None:
+            return
+        user = await user_converter(WrappedArg(event.message.content, self.ctx))
+        if not user:
+            return await self.ctx.respond(
+                "I'm sorry, with your given text I can't found anyone", 
+                reply=event.message
+            )
+        if user and self.ctx.channel:
+            await self.ctx.channel.delete_messages(bot_message, event.message)
+        self._options.owner
+        
+        
 
     def build_default_components(self, position) -> List[ActionRowBuilder]:
         navi = super().build_default_component(position)
@@ -239,6 +270,25 @@ class NewTagHandler(Paginator):
         self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
         self._pages = [self.embed]
 
+    async def prepare_new_tag(self, ctx: lightbulb.Context):
+        tag = Tag(ctx.author)
+        tag.name = None
+        tag.value = None
+        ctx = ctx or self.ctx
+        self._options = {
+            "is local": True if ctx.guild_id else False,
+            "owner": None,
+            "is local available": False,
+            "is global available": False,
+            "is stored": False,
+        }
+        tag.is_local = True if tag.guild_id else False
+        self.embed = Embed()
+        self.embed.title = "Name of your tag (not set)"
+        self.embed.description = self._value
+        self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
+        self._pages.append(self.embed)
+
     async def save(self) -> bool:
         """
         Saves the current tag
@@ -247,4 +297,16 @@ class NewTagHandler(Paginator):
         """
 
 
+class Tag():
+    def __init__(self, owner: hikari.User):
+        self.owner: hikari.User = owner
+        self.name: Optional[str] = None
+        self.value: Optional[str] = None
+        self.is_local_available: bool
+        self.is_global_available: bool
+        self.is_local: bool
+        self.is_stored: bool
 
+    @property
+    def is_local(self) -> bool:
+        return self.owner.g
