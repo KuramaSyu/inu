@@ -53,7 +53,8 @@ class Tags(lightbulb.Plugin):
             record = records[0]
         messages = []
 
-        for value in crumble("\n".join(record["tag_value"])):
+        print(record)
+        for value in crumble("\n".join(v for v in record["tag_value"])):
             message = f"**{key}**\n\n{value}\n\n`created by {self.bot.cache.get_user(record['creator_id']).username}`"
             messages.append(message)
         pag = Paginator(messages)
