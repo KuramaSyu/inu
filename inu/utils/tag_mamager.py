@@ -35,8 +35,8 @@ class TagManager():
     ):
         """
         Creates a db entry for given args.
-        :Raises:
-        TagIsTakenError if tag is taken
+        Raises:
+            TagIsTakenError if tag is taken
         """
         guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
         await cls._do_check_if_taken(key, check_if_taken)
@@ -52,14 +52,25 @@ class TagManager():
         )
 
     @classmethod
-    async def append(
+    async def edit(
         cls, 
         key: str,
         value: str,
-        log_like: bool = False,
+        guild_id: Optional[int] = None,
         check_if_taken: bool = False,
     ) -> asyncpg.Record:
-        await cls._do_check_if_taken(key, check_if_taken)
+        """
+        Updates a tag by key
+        Args:
+            key: the key to match for#
+            guild_id: the guild id to check for.
+            NOTE: if its None it will only check global, otherwise only local
+            check: wether the check should be executed or not
+        Raises:
+            utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
+
+        """
+        await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row("""SELECT * FROM tags""")
         record["tag_value"].append(value)
         await cls.sync_record(record)
@@ -91,6 +102,12 @@ class TagManager():
         cls,
         record: asyncpg.Record,
     ):
+        """
+        Updates a record in the db
+        Args:
+            record: (asyncpg.record) the record which should be updated
+        
+        """
         sql = """
             UPDATE tags
             SET tag_value = $1
@@ -102,8 +119,10 @@ class TagManager():
     async def is_global_taken(cls, key, tags: Optional[List[str]] = None):
         """
         Args:
-        `key`: the key to search
-        `tags`: an already fetched column (list) of all tags
+            key: the key to search
+            tags: an already fetched column (list) of all tags
+        Raises:
+            utils.tag_manager.TagIsTakenError
         """
         sql = """
             SELECT tags, guild_id FROM tags
@@ -119,20 +138,23 @@ class TagManager():
         return False
 
     @classmethod
-    async def is_taken(cls, key, guild_id: int) -> Tuple[bool, bool]:
+    async def is_taken(cls, key, guild_id: Optional[int]) -> Tuple[bool, bool]:
         """
         Args:
-        `key`: the key to search
+            key: the key to search
+            guild_id: the guild if to check for.
+            NOTE: if its None it will only check global, otherwise only local
 
-        RETURNS
-        1 - is local taken: bool
-        2 - is global taken: bool
-        3 - is it your key? global/local/None
+        Returns:
+            bool: is local taken
+            bool: is global taken
         """
         sql = """
             SELECT tags FROM tags
             WHERE tag_key = $1
             """
+        if guild_id is None:
+            guild_id = 0
         records = await cls.db.column(sql, key, column="tags")
         if len(records) == 0:
             return False, False
@@ -151,11 +173,26 @@ class TagManager():
 
     
     @classmethod
-    async def _do_check_if_taken(cls, key, b):
-        if b:
-            is_taken = await cls.is_global_taken(key)
-            if is_taken:
-                raise TagIsTakenError
+    async def _do_check_if_taken(cls, key: str, guild_id: Optional[int], check: bool = True):
+        """
+        Tests if a tag is taken by key.
+        Args:
+            key: the key to match for#
+            guild_id: the guild if to check for.
+            NOTE: if its None it will only check global, otherwise only local
+            check: wether the check should be executed or not
+        Raises:
+            utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
+        """
+        if not check:
+            return
+        local_taken, global_taken = await cls.is_taken(key, guild_id)
+        if local_taken and global_taken:
+            raise TagIsTakenError(f"Tag `{key}` is global and local taken")
+        if global_taken and guild_id is None:
+            raise TagIsTakenError(f"Tag `{key}` is global taken")
+        if local_taken and guild_id is not None:
+            raise TagIsTakenError(f"Tag `{key}` is local taken")
 
 class Tag():
     def __init__(self, key: Optional[str] = None):
