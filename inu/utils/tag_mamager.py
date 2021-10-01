@@ -149,8 +149,8 @@ class TagManager():
             """
         if not tags:
             tags = await cls.db.column(
-                """SELECT * FROM tags""",
-                column="tag_key"
+                sql,
+                column="tag_key",
             )
         if key in tags:
             return True
