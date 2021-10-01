@@ -48,6 +48,7 @@ class Tag():
         self.is_global_available: bool
         self._is_local: bool = True
         self.is_stored: bool
+        self._id: Optional[int] = None
 
     @property
     def is_local(self) -> bool:
@@ -82,6 +83,15 @@ class Tag():
     def name(self, value):
         self._value = value
 
+    @property
+    def id(self) -> int:
+        if not self._id:
+            raise RuntimeError("Can't store an ID without a number")
+        return self._id
+    
+    @id.setter
+    def id(self, value):
+        self._id = value
 
 class NewTagHandler(Paginator):
     """An interactive handler for new tags"""
@@ -120,26 +130,27 @@ class NewTagHandler(Paginator):
             tag: (dict, default=None) the tag which should be
                 initialized. Creates new tag, if tag is None 
         """
+        self.ctx = ctx
         if not tag:
-            await self.prepare_new_tag(ctx)
+            await self.prepare_new_tag(ctx.author)
         else:
-            await self.load_tag(tag, ctx.guild_id)
+            await self.load_tag(tag, ctx.author)
             
         await super().start(ctx)
     def options_to_string(self) -> str:
         return (
-            f"global or local: {'local' if self._options['is local'] else 'global'}\n"
-            f"owner: {self._options['owner']}\n"
-            f"tag stored: {Human.bool_(self._options['is stored'])}\n"
-            f"tag name local available: {Human.bool_(self._options['is local available'], True)}\n"
-            f"tag name global available: {Human.bool_(self._options['is global available'], True)}\n"
+            f"global or local: {'local' if self.tag.is_local else 'global'}\n"
+            f"owner: {self.tag.owner.username}\n"
+            f"tag stored: {Human.bool_(self.tag.is_stored)}\n"
+            f"tag name local available: {Human.bool_(self.tag.is_local_available, True)}\n"
+            f"tag name global available: {Human.bool_(self.tag.is_global_available, True)}\n"
         )
 
-    async def update_options(self) -> None:
+    async def update_tag(self) -> None:
         local_taken, global_taken = await TagManager.is_taken(self._name, self.ctx.guild_id or 0)
-        self._options["owner"] = self.ctx.author.username
-        self._options["is local available"] = not local_taken
-        self._options["is global available"] = not global_taken
+        self.tag.owner = self.ctx.author
+        self.tag.is_global_available = not global_taken
+        self.tag.is_local_available = not global_taken
 
     async def update_page(self, update_value: bool = False):
         """Updates the embed, if the interaction wasn't for pagination"""
@@ -154,7 +165,7 @@ class NewTagHandler(Paginator):
                 ))
             self._pages.extend(pages)
 
-        await self.update_options()
+        await self.update_tag()
 
         self.embed.edit_field(0, "Status", self.options_to_string())
         await self._message.edit(
@@ -165,6 +176,14 @@ class NewTagHandler(Paginator):
 
     @listener(events.InteractionCreateEvent)
     async def on_interaction(self, event: events.InteractionCreateEvent):
+        """
+        The starting point of all interactions. 
+        The interaction custom_id will be checked,
+        and the right method will be called, to handle the event
+        Args:
+        -----
+            - event: (InteractionCreateEvent) the invoked event; passed from the listener
+        """
         if not isinstance(event.interaction, ComponentInteraction):
             return
         custom_id = event.interaction.custom_id or None
@@ -312,39 +331,62 @@ class NewTagHandler(Paginator):
             return [navi, tag_specific, danger_tags, finish] #type: ignore
         return [tag_specific, finish]
 
-    async def load_tag(self, tag: asyncpg.Record, guild_id: Optional[int] = None):
-        self._name = tag["tag_key"]
-        self._value = tag["key_value"]
-        self._options["is stored"] = True
-        self._options["owner"] = tag["creator_id"]
-        self._options["is local"] = True if tag["guild_id"] == guild_id and guild_id is not None else False
+    async def load_tag(self, tag: asyncpg.Record, author: Union[hikari.Member, hikari.User]):
+        """
+        loads an existing tag in form of a dict like object into self.tag (`Tag`)
+        Args:
+        -----
+            - tag: (asyncpg.Record) the tag which should be loaded
+            - author: (Member, User) the user which stored the tag
+        """
+        guild_id = author.guild_id if isinstance(author, hikari.Member) else 0
         local_taken, global_taken = await TagManager.is_taken(key=self._name, guild_id = guild_id or 0)
-        self._options["local available"] = not local_taken
-        self._options["global available"] = not global_taken
+        new_tag: Tag = Tag(author)
+        new_tag.name = tag["tag_key"]
+        new_tag.value = tag["key_value"]
+        new_tag.is_stored = True
+        if (
+            isinstance(author, hikari.Member)
+            and tag["guild_id"] is not None
+            and author.guild_id == tag["guild_id"]
+        ):
+            new_tag._is_local = True
+        else:
+            new_tag._is_local = False
+        new_tag.is_global_available = not global_taken
+        new_tag.is_local_available = not local_taken
+        self.tag = new_tag
 
         self.embed = Embed()
-        self.embed.title = self._name
-        self.embed.description = self._value
+        self.embed.title = self.tag.name
+        self.embed.description = self.tag.value
         self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
         self._pages = [self.embed]
 
-    async def prepare_new_tag(self, ctx: lightbulb.Context):
-        tag = Tag(ctx.member or ctx.author)
+    async def prepare_new_tag(self, author):
+        """
+        creates a new tag in form of `Tag`
+        Args:
+        -----
+            - author: (Member, User) the user which stored the tag
+        """
+        tag = Tag(self.ctx.member or self.ctx.author)
         tag.name = None
         tag.value = None
-        ctx = ctx or self.ctx
-        self._options = {
-            "is local": True if ctx.guild_id else False,
-            "owner": None,
-            "is local available": False,
-            "is global available": False,
-            "is stored": False,
-        }
+        tag.is_stored = False
+        if isinstance(author, hikari.Member):
+            tag._is_local = True
+        else:
+            tag._is_local = False
+        tag.is_global_available = False
+        tag.is_local_available = False
+        self.tag = tag
+
         self.embed = Embed()
-        self.embed.title = "Name of your tag (not set)"
-        self.embed.description = self._value
+        self.embed.title = self.tag.name
+        self.embed.description = self.tag.value
         self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
-        self._pages.append(self.embed)
+        self._pages = [self.embed]
 
     async def save(self) -> bool:
         """
@@ -352,21 +394,32 @@ class NewTagHandler(Paginator):
         Returns:
             bool: wether successfull or not
         """
-        db_method: Callable
         if self.tag.is_stored:
-            db_method = TagManager.edit
-        else:
-            db_method = TagManager.set
-        try:
-                await db_method(
+            try:
+                await TagManager.edit(
                     key=self.tag.name,
                     value=self.tag.value,
                     author=self.tag.owner,
-                )
-        except TagIsTakenError:
-            return False
-        except Exception:
-            self.log.exception("exception while storing to db:")
+                    tag_id=self.tag.id,
+                    )
+            except TagIsTakenError:
+                return False
+            except Exception:
+                self.log.exception("exception while storing to db:")
+                return False
+        else:
+            try:
+                await TagManager.set(
+                    key=self.tag.name,
+                    value=self.tag.value,
+                    author=self.tag.owner,
+                    )
+            except TagIsTakenError:
+                return False
+            except Exception:
+                self.log.exception("exception while storing to db:")
+                return False
+        return True
 
 
 
