@@ -271,7 +271,7 @@ class NewTagHandler(Paginator):
         self._pages = [self.embed]
 
     async def prepare_new_tag(self, ctx: lightbulb.Context):
-        tag = Tag(ctx.author)
+        tag = Tag(ctx.member or ctx.author)
         tag.name = None
         tag.value = None
         ctx = ctx or self.ctx
@@ -282,7 +282,6 @@ class NewTagHandler(Paginator):
             "is global available": False,
             "is stored": False,
         }
-        tag.is_local = True if tag.guild_id else False
         self.embed = Embed()
         self.embed.title = "Name of your tag (not set)"
         self.embed.description = self._value
@@ -299,14 +298,27 @@ class NewTagHandler(Paginator):
 
 class Tag():
     def __init__(self, owner: hikari.User):
-        self.owner: hikari.User = owner
+        """
+        Members:
+        --------
+            - is_local: (bool) if tag is local or global. default=True if invoked from guild else default=False
+            - owner: (User | Member) the owner of the Tag
+            - name: (str) the key of the tag
+            - is_local_available: (bool) whether or not the tag can be stored local
+            - is_global_available: (bool) whter or not the tag can be stored global
+            - is_stored: (bool) wether or not the tag is already in the db stored
+        """
+        self.owner: Union[hikari.User, hikari.Member] = owner
         self.name: Optional[str] = None
         self.value: Optional[str] = None
         self.is_local_available: bool
         self.is_global_available: bool
-        self.is_local: bool
+        self._is_local: bool = True
         self.is_stored: bool
 
     @property
     def is_local(self) -> bool:
-        return self.owner.g
+        if not isinstance(self.owner, hikari.Member):
+            self._is_local = False
+            return False
+        return self.is_local
