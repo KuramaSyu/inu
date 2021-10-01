@@ -5,6 +5,7 @@ from typing import (
     Union
 )
 import typing
+from copy import deepcopy
 
 import asyncpg
 from asyncache import cached
@@ -56,7 +57,8 @@ class TagManager():
         cls, 
         key: str,
         value: str,
-        guild_id: Optional[int] = None,
+        author: Union[hikari.User, hikari.Member],
+        tag_id: int,
         check_if_taken: bool = False,
     ) -> asyncpg.Record:
         """
@@ -70,9 +72,18 @@ class TagManager():
             utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
 
         """
+        sql = """
+            SELECT tag_id FROM tags
+            WHERE tag_id = $1
+            """
+        guild_id = author.guild_id if isinstance(author, hikari.Member) else None
         await cls._do_check_if_taken(key, guild_id, check_if_taken)
-        record = await cls.db.row("""SELECT * FROM tags""")
-        record["tag_value"].append(value)
+        record = await cls.db.row(sql, tag_id)
+        record["author"] = author.id
+        record["tag_value"] = [value]
+        record["tag_key"] = key
+        record["guild_id"] = guild_id
+
         await cls.sync_record(record)
         return record
 
@@ -106,14 +117,22 @@ class TagManager():
         Updates a record in the db
         Args:
             record: (asyncpg.record) the record which should be updated
+            old_record: (asyncpg.Record) the old record, how it is stored in the db
         
         """
         sql = """
             UPDATE tags
-            SET tag_value = $1
-            WHERE tag_ID = $2
+            SET (tag_value, tag_key, creator_id, guild_id) = ($1, $2, $3, $4)
+            WHERE tag_ID = $5
             """
-        await cls.db.execute(sql, record["tag_value"], record["tag_ID"])
+        await cls.db.execute(
+            sql,
+            record["tag_value"],
+            record["tag_key"],
+            record["creator_id"],
+            record["guild_id"],
+            record["tag_ID"],
+        )
 
     @classmethod
     async def is_global_taken(cls, key, tags: Optional[List[str]] = None):
