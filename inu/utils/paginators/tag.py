@@ -109,7 +109,7 @@ class NewTagHandler(Paginator):
         Args:
             ctx: (lightbulb.Context) the Context
             tag: (dict, default=None) the tag which should be
-                initialized. Creates new tag, if tag is None 
+                initialized. Creates new tag, if tag is None
         """
         self.ctx = ctx
         if not tag:
@@ -129,10 +129,10 @@ class NewTagHandler(Paginator):
         )
 
     async def update_tag(self) -> None:
-        local_taken, global_taken = await TagManager.is_taken(self.tag.name, self.ctx.guild_id or 0)
-        self.tag.owner = self.ctx.author
+        local_taken, global_taken = await TagManager.is_taken(self.tag.name, self.tag.guild_id or 0)
+        self.tag.owner = self.ctx.member or self.ctx.author
         self.tag.is_global_available = not global_taken
-        self.tag.is_local_available = not global_taken
+        self.tag.is_local_available = not local_taken
 
     async def update_page(self, update_value: bool = False):
         """Updates the embed, if the interaction wasn't for pagination"""
@@ -252,6 +252,11 @@ class NewTagHandler(Paginator):
     async def finish(self, interaction: ComponentInteraction):
         try:
             await self.save()
+        except TagIsTakenError:
+            return await interaction.create_initial_response(
+                ResponseType.MESSAGE_CREATE,
+                f"Your tag name {self.tag.name}` is {'locally' if self.tag._is_local else 'globally'} already taken"
+            )
         except Exception:
             tb = traceback.format_exc()
             pages: List[Embed] = []
@@ -293,7 +298,7 @@ class NewTagHandler(Paginator):
             )
         if user and self.ctx.channel:
             await self.ctx.channel.delete_messages(bot_message, event.message)
-        self.tag.owner
+        self.tag.owner = user
         
         
 
@@ -328,7 +333,7 @@ class NewTagHandler(Paginator):
         finish = (
             ActionRowBuilder()
             .add_button(ButtonStyle.PRIMARY, "finish")
-            .set_label("Finish")
+            .set_label("save")
             .add_to_container()
         )
         if self.pagination:
@@ -399,34 +404,26 @@ class NewTagHandler(Paginator):
         Returns:
         --------
             - bool: wether successfull or not
+
+        Raises:
+        -------
+            - TagIsTakenError
         """
         if not self.tag.name or not self.tag.value:
             raise RuntimeError("I can't store a tag without a name and value")
         if self.tag.is_stored:
-            try:
-                await TagManager.edit(
-                    key=self.tag.name,
-                    value=self.tag.value,
-                    author=self.tag.owner,
-                    tag_id=self.tag.id,
-                    )
-            except TagIsTakenError:
-                return False
-            except Exception:
-                self.log.exception("exception while storing to db:")
-                return False
+            await TagManager.edit(
+                key=self.tag.name,
+                value=self.tag.value,
+                author=self.tag.owner,
+                tag_id=self.tag.id,
+            )
         else:
-            try:
-                await TagManager.set(
-                    key=self.tag.name,
-                    value=self.tag.value,
-                    author=self.tag.owner,
-                    )
-            except TagIsTakenError:
-                return False
-            except Exception:
-                self.log.exception("exception while storing to db:")
-                return False
+            await TagManager.set(
+                key=self.tag.name,
+                value=self.tag.value,
+                author=self.tag.owner,
+            )
         return True
 
 
