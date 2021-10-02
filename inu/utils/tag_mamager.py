@@ -40,7 +40,7 @@ class TagManager():
             TagIsTakenError if tag is taken
         """
         guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
-        await cls._do_check_if_taken(key, check_if_taken)
+        await cls._do_check_if_taken(key, guild_id, check_if_taken)
         await cls.db.execute(
             """
             INSERT INTO tags(tag_key, tag_value, creator_id, guild_id)
