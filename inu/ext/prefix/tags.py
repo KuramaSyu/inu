@@ -39,18 +39,20 @@ class Tags(lightbulb.Plugin):
     async def tag(self, ctx: Context, key: str):
         """Get the tag by `key`"""
         records = await TagManager.get(key, ctx.guild_id or 0)
-        record: asyncpg.Record
+        record: Optional[asyncpg.Record] = None
         # if records are > 1 return the local overridden one
-        if len(records) > 1:
+        if len(records) >= 1:
+            print(">1")
+            print(records)
             typing.cast(int, ctx.guild_id)
             for r in records:
-                if not r["guild_id"] == ctx.guild_id:
-                    continue
-                record = r
-        elif len(records) == 0:
-            return await ctx.respond(f"I can't find a tag with name `{key}` in my storage")
-        else:
-            record = records[0]
+                if r["guild_id"] == ctx.guild_id:
+                    record = r
+                    break
+                elif r["guild_id"] is None:
+                    record = r
+        if record is None:
+            return await ctx.respond("I can't found a tag named `{key}` in my storage")
         messages = []
 
         print(record)
