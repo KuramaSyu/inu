@@ -19,7 +19,6 @@ from lightbulb.converters import Greedy
 import asyncpg
 
 from core import Inu
-from inu.utils.paginators.tag import TagHandler
 from utils.tag_mamager import TagIsTakenError, TagManager
 from utils import crumble
 from utils.colors import Colors
