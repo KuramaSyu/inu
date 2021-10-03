@@ -89,14 +89,14 @@ class TagManager():
 
 
     @classmethod
-    async def remove(cls, key: str, creator: User) -> List[asyncpg.Record]:
-        """Remove where arguments are eqaul and return those records"""
+    async def remove(cls, id: int) -> List[asyncpg.Record]:
+        """Remove where id mathes and return all matched records"""
         sql = """
             DELETE FROM tags
-            WHERE tag_key = $1 AND creator_id = $2
+            WHERE tag_id = $1
             RETURNING *
             """
-        return await cls.db.fetch(sql, key, creator.id)
+        return await cls.db.fetch(sql, id)
 
     @classmethod
     async def get(cls, key: str, guild_id: int = 0) -> List[asyncpg.Record]:
@@ -188,8 +188,7 @@ class TagManager():
             if global_taken and local_taken:
                 return True, True
 
-        return local_taken, global_taken
-
+        return local_taken, global_taken      
     
     @classmethod
     async def _do_check_if_taken(cls, key: str, guild_id: Optional[int], check: bool = True):
