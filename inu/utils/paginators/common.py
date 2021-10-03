@@ -1,5 +1,4 @@
 import asyncio
-import typing
 from typing import (
     Any,
     Callable,
@@ -11,25 +10,18 @@ from typing import (
     Final,
     Dict
 )
-import traceback    
-from contextlib import suppress
+import traceback
 import logging
-from abc import ABC, abstractmethod, ABCMeta
+from abc import abstractmethod, ABCMeta
 
 import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import ActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent
+from hikari import ButtonStyle, ComponentInteraction, InteractionCreateEvent, MessageCreateEvent
 from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
-
-log = logging.getLogger(__name__)
-
-
-
-
 
 
 __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
@@ -84,8 +76,6 @@ class EventObserver(BaseObserver):
         return self._callback
 
     async def on_event(self, event: Event):
-       
-        print(f"in observer: call callback")
         await self.callback(self.paginator, event)
 
 
@@ -109,18 +99,12 @@ class EventListener(BaseListener):
         self._observers[str(event)].remove(observer)
 
     async def notify(self, event: Event):
-        print(f"listener notify called. Subscribers: {self._observers}")
         try:
-            print("type:")
-            print(str(type(event)))
             if str(type(event)) not in self._observers.keys():
-                print("no event")
                 return
             for observer in self._observers[str(type(event))]:
-                print("call obs")
                 await observer.on_event(event)
         except Exception as e:
-            print(e)
             traceback.print_exc()
 
 def listener(event: Any):
@@ -159,6 +143,7 @@ class Paginator():
         
         self.listener = EventListener()
         self.log = logging.getLogger(__name__)
+        self.log.setLevel(logging.DEBUG)
         self.timeout = timeout
 
         # paginator configuration
@@ -410,9 +395,7 @@ class Paginator():
     async def dispatch_event(self, event: Event):
         if isinstance(event, InteractionCreateEvent):
             await self.paginate(event)
-        print("notify")
         await self.listener.notify(event)
-        print("finished")
 
     async def paginate(self, event):
         id = event.interaction.custom_id or None
