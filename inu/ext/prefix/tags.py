@@ -24,6 +24,7 @@ from utils import crumble
 from utils.colors import Colors
 from utils import Paginator
 from utils.paginators.common import navigation_row
+from utils.paginators import TagHandler
 
 log = logging.getLogger(__name__)
 log.setLevel(DEBUG)
