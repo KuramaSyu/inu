@@ -1,6 +1,8 @@
 import re
 import typing
 from typing import (
+    Dict,
+    Mapping,
     Optional,
     List,
     Union,
@@ -99,7 +101,15 @@ class Tags(lightbulb.Plugin):
             NOTE: the key is the first word you type in! Not more and not less!!!
             - value: that what the tag should return when you type in the name. The value is all after the fist word
         """
+
+        async def handle_tag(tag: Dict):
+            if tag["author"] != ctx.author.id:
+                pass
+
         results: List[asyncpg.Record] = await TagManager.get(key)
+        # case 0: no entry in database
+        # case 1: 1 entry in db; check if global or in guild
+        # case _: let user select if he wants the global or local one
         if len(results) == 0:
             return await ctx.respond(f"I can't find a tag with the name `{key}` in my storage :/")
         elif len(results) == 1:
