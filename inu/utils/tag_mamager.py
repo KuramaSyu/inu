@@ -1,4 +1,5 @@
 from typing import (
+    Dict,
     Optional,
     List,
     Tuple,
@@ -13,6 +14,7 @@ from cachetools import TTLCache, LRUCache
 import hikari
 from hikari import User, Member
 from numpy import column_stack
+
 
 from .db import Database
 
@@ -99,13 +101,42 @@ class TagManager():
         return await cls.db.fetch(sql, id)
 
     @classmethod
-    async def get(cls, key: str, guild_id: int = 0) -> List[asyncpg.Record]:
-        """Returns the tag of the key, or multiple, if overridden in guild"""
+    async def get(
+        cls,
+        key: str,
+        guild_id: Optional[int] = None,
+        only_accessable: bool = True
+    ) -> List[asyncpg.Record]:
+        """
+        Returns the tag of the key, or multiple, if overridden in guild.
+        This function is a corotine.
+
+        Args:
+        -----
+        key: (str) the key to search
+        - guild_id: (int) [default None] the guild_id the tag should have
+            - Note: None is equivilant with `global` tag
+        - only_accessable: (bool) wehter or not the function should return only 
+            the gobal and/or local one instead of every tag with matching `key`
+        """
         sql = """
             SELECT * FROM tags
             WHERE (tag_key = $1) AND (guild_id = $2::BIGINT OR guild_id IS NULL)
             """
-        return await cls.db.fetch(sql, key, guild_id)
+        records: Optional[List[asyncpg.Record]] = await cls.db.fetch(sql, key, guild_id)
+
+        if not records:
+            return []
+        if not only_accessable:
+            return records
+        filtered_records = []
+        for record in records:
+            if (
+                record["guild_id"] == guild_id
+                or record["guild_id"] is None
+            ):
+                filtered_records.append(record)
+        return filtered_records
 
 
     @classmethod
