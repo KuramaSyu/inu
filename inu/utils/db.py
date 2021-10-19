@@ -126,7 +126,8 @@ class Database(metaclass=Singleton):
     @acquire
     async def row(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> Optional[List[Any]]:
         """Returns first row of query"""
-        return await _cxn.fetchrow(query=query, *values)
+        print(*values, values)
+        return await _cxn.fetchrow(query, *values)
 
     @acquire
     async def fetch(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> List[asyncpg.Record]:
