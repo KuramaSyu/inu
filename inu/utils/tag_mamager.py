@@ -3,7 +3,9 @@ from typing import (
     Optional,
     List,
     Tuple,
-    Union
+    Union,
+    Mapping,
+    Any
 )
 import typing
 from copy import deepcopy
@@ -62,7 +64,7 @@ class TagManager():
         author: Union[hikari.User, hikari.Member],
         tag_id: int,
         check_if_taken: bool = False,
-    ) -> asyncpg.Record:
+    ) -> Mapping[str, Any]:
         """
         Updates a tag by key
         Args:
@@ -74,24 +76,37 @@ class TagManager():
             utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
 
         """
+        def correct_value(value) -> List[str]: #type: ignore
+            if isinstance(value, str):
+                return [value]
+            elif isinstance(value, list):
+                if isinstance(value[0], list):
+                    correct_value(value[0])
+                else:
+                    return value
+            else:
+                raise TypeError
         sql = """
-            SELECT tag_id FROM tags
+            SELECT * FROM tags
             WHERE tag_id = $1
             """
         guild_id = author.guild_id if isinstance(author, hikari.Member) else None
         await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(sql, tag_id)
-        record["author"] = author.id
-        record["tag_value"] = [value]
-        record["tag_key"] = key
-        record["guild_id"] = guild_id
+        new_record = {
+            "creator_id": author.id,
+            "tag_value": correct_value(value),  # is already in a list
+            "tag_key": key,
+            "guild_id": guild_id,
+            "tag_ID": record["tag_id"]
+        }
 
-        await cls.sync_record(record)
+        await cls.sync_record(new_record)
         return record
 
 
     @classmethod
-    async def remove(cls, id: int) -> List[asyncpg.Record]:
+    async def remove(cls, id: int) -> List[Mapping[str, Any]]:
         """Remove where id mathes and return all matched records"""
         sql = """
             DELETE FROM tags
@@ -106,7 +121,7 @@ class TagManager():
         key: str,
         guild_id: Optional[int] = None,
         only_accessable: bool = True
-    ) -> List[asyncpg.Record]:
+    ) -> List[Mapping[str, Any]]:
         """
         Returns the tag of the key, or multiple, if overridden in guild.
         This function is a corotine.
@@ -123,7 +138,7 @@ class TagManager():
             SELECT * FROM tags
             WHERE (tag_key = $1) AND (guild_id = $2::BIGINT OR guild_id IS NULL)
             """
-        records: Optional[List[asyncpg.Record]] = await cls.db.fetch(sql, key, guild_id)
+        records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id)
 
         if not records:
             return []
@@ -142,13 +157,13 @@ class TagManager():
     @classmethod
     async def sync_record(
         cls,
-        record: asyncpg.Record,
+        record: Mapping[str, Any],
     ):
         """
         Updates a record in the db
         Args:
-            record: (asyncpg.record) the record which should be updated
-            old_record: (asyncpg.Record) the old record, how it is stored in the db
+            record: (Mapping[str, Any]) the record which should be updated
+            old_record: (Mapping[str, Any]) the old record, how it is stored in the db
         
         """
         sql = """
