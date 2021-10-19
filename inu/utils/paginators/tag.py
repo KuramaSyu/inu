@@ -6,6 +6,8 @@ from typing import (
     Optional,
     List,
     Callable,
+    Mapping,
+    Any
 )
 import asyncio
 import logging
@@ -103,12 +105,12 @@ class Tag():
                 author=self.owner,
             )
 
-    async def load_tag(self, tag: asyncpg.Record):
+    async def load_tag(self, tag: Mapping[str, Any]):
         """
         loads an existing tag in form of a dict like object into self.tag (`Tag`)
         Args:
         -----
-            - tag: (asyncpg.Record) the tag which should be loaded
+            - tag: (Mapping[str, Any]) the tag which should be loaded
             - author: (Member, User) the user which stored the tag
         """
         guild_id = self.owner.guild_id if isinstance(self.owner, hikari.Member) else 0
@@ -223,7 +225,7 @@ class TagHandler(Paginator):
             disable_paginator_when_one_site=disable_paginator_when_one_site,  
         )
 
-    async def start(self, ctx: lightbulb.Context, tag: dict = None):
+    async def start(self, ctx: lightbulb.Context, tag: Mapping = None):
         """
         Starts the paginator and initializes the tag
         Args:
@@ -379,6 +381,9 @@ class TagHandler(Paginator):
                 embed.title = "Saving the tag failed"
                 embed.description = page
                 pages.append(embed)
+            await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
+            paginator = Paginator(pages)
+            await paginator.start(self.ctx)
             return
         await interaction.create_initial_response(
             ResponseType.MESSAGE_CREATE,
@@ -454,19 +459,19 @@ class TagHandler(Paginator):
             return [navi, tag_specific, danger_tags, finish] #type: ignore
         return [tag_specific, finish]
 
-    async def load_tag(self, tag: asyncpg.Record, author: Union[hikari.Member, hikari.User]):
+    async def load_tag(self, tag: Mapping[str, Any], author: Union[hikari.Member, hikari.User]):
         """
         loads an existing tag in form of a dict like object into self.tag (`Tag`)
         Args:
         -----
-            - tag: (asyncpg.Record) the tag which should be loaded
+            - tag: (Mapping[str, Any]) the tag which should be loaded
             - author: (Member, User) the user which stored the tag
         """
         guild_id = author.guild_id if isinstance(author, hikari.Member) else 0
-        local_taken, global_taken = await TagManager.is_taken(key=self.tag.name, guild_id = guild_id or 0)
+        local_taken, global_taken = await TagManager.is_taken(key=tag["tag_key"], guild_id = guild_id or 0)
         new_tag: Tag = Tag(author)
         new_tag.name = tag["tag_key"]
-        new_tag.value = tag["key_value"]
+        new_tag.value = tag["tag_value"]
         new_tag.is_stored = True
         new_tag.id = tag["tag_id"]
         if (
