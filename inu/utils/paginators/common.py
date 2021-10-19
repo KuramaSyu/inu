@@ -1,4 +1,5 @@
 import asyncio
+from contextlib import suppress
 from typing import (
     Any,
     Callable,
@@ -18,7 +19,7 @@ import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import ActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, InteractionCreateEvent, MessageCreateEvent
+from hikari import ButtonStyle, ComponentInteraction, InteractionCreateEvent, MessageCreateEvent, NotFoundError
 from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
@@ -312,10 +313,11 @@ class Paginator():
 
     async def stop(self):
         self._stop = True
-        if not self._disable_component:
-            await self._message.edit(component=None)
-        elif not self._disable_components:
-            await self._message.edit(components=[])
+        with suppress(NotFoundError):
+            if not self._disable_component:
+                await self._message.edit(component=None)
+            elif not self._disable_components:
+                await self._message.edit(components=[])
 
     async def start(self, ctx: Context) -> None:
         self.ctx = ctx
