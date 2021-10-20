@@ -13,7 +13,7 @@ import asyncio
 import logging
 
 import hikari
-from hikari import ComponentInteraction, InteractionCreateEvent, events, ResponseType, Embed
+from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, events, ResponseType, Embed
 from hikari.messages import ButtonStyle
 from hikari.impl import ActionRowBuilder
 import lightbulb
@@ -63,11 +63,13 @@ class Tag():
         if not isinstance(self.owner, hikari.Member):
             self._is_local = False
             return False
-        return self.is_local
+        return self._is_local
 
     @property
     def guild_id(self) -> Optional[int]:
         if not isinstance(self.owner, hikari.Member):
+            return None
+        if not self._is_local:
             return None
         return self.owner.guild_id
 
@@ -97,12 +99,14 @@ class Tag():
                 value=self.value,
                 author=self.owner,
                 tag_id=self.id,
+                guild_id=self.guild_id,
             )
         else:
             await TagManager.set(
                 key=self.name,
                 value=self.value,
                 author=self.owner,
+                guild_id=self.guild_id,
             )
 
     async def load_tag(self, tag: Mapping[str, Any]):
@@ -247,21 +251,18 @@ class TagHandler(Paginator):
 
         if update_value:
             pages = []
-            for index, page in enumerate(crumble(str(self.tag.value), 2048)):
-                if index == 0:
-                    self._pages[0].description = self.tag.value or "Tag value not set yet"
-                else:
-                    pages.append(Embed(
-                        title=self.tag.name or "Tag name not set yet",
-                        description=page
-                    ))
-            self._pages.extend(pages)
-
+            for index, page in enumerate(crumble(str(self.tag.value), 2000)):
+                pages.append(Embed(
+                    title=self.tag.name or "Tag name not set yet",
+                    description=page
+                ))
+            self._pages = pages
+            self._pages[0].add_field(name="not set", value="not set")
         await self.tag.update()
 
-        self.embed.edit_field(0, "Status", str(self.tag))
+        self._pages[0].edit_field(0, "Status", str(self.tag))
         await self._message.edit(
-            embed=self.embed, 
+            embed=self._pages[0],
             components=self.components
         )
 
@@ -296,6 +297,10 @@ class TagHandler(Paginator):
 
     async def delete(self, interaction: ComponentInteraction):
         await self.tag.delete()
+        await interaction.create_initial_response(
+            ResponseType.MESSAGE_CREATE,
+            f"I removed {'local' if self.tag.is_local else 'global'} tag `{self.tag.name}`"
+        )
         self.tag.name = None
         self.tag.value = None
         self.tag.is_local_available = False
@@ -392,7 +397,10 @@ class TagHandler(Paginator):
 
 
     async def change_owner(self, interaction: ComponentInteraction):
-        embed = Embed(title="Enter the value for your tag:").set_footer(text=f"timeout after {self.timeout}s")
+        embed = (
+            Embed(title="Enter the ID of the new owner or ping him/her/it or enter the complete name with #XXXX")
+            .set_footer(text=f"timeout after {self.timeout}s")
+        )
         await interaction.create_initial_response(
             ResponseType.MESSAGE_CREATE, 
             embed=embed
@@ -409,7 +417,10 @@ class TagHandler(Paginator):
             return
         if event.message.content is None:
             return
-        user = await user_converter(WrappedArg(event.message.content, self.ctx))
+        try:
+            user = await user_converter(WrappedArg(event.message.content, self.ctx))
+        except NotFoundError:
+            user = None
         if not user:
             return await self.ctx.respond(
                 "I'm sorry, with your given text I can't found anyone", 
@@ -489,7 +500,7 @@ class TagHandler(Paginator):
         self.embed = Embed()
         self.embed.title = self.tag.name
         self.embed.description = self.tag.value
-        self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
+        self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
 
     async def prepare_new_tag(self, author):
