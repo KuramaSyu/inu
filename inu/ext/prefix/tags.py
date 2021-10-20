@@ -67,7 +67,7 @@ class Tags(lightbulb.Plugin):
         if record is None:
             return await ctx.respond(f"I can't found a tag named `{key}` in my storage")
         messages = []
-        for value in crumble("\n".join(v for v in record["tag_value"])):
+        for value in crumble("\n".join(v for v in record["tag_value"]), 1900):
             message = f"**{key}**\n\n{value}\n\n`created by {self.bot.cache.get_user(record['creator_id']).username}`"
             messages.append(message)
         pag = Paginator(messages)
@@ -171,8 +171,9 @@ class Tags(lightbulb.Plugin):
         if len(results) == 0:
             return await ctx.respond(f"I can't find a tag with the name `{key}` where you are the owner :/")
         elif len(results) == 1:
-            taghandler = TagHandler()
-            return await taghandler.start(ctx, results[0])
+            tag = results[0]
+            await TagManager.remove(tag["tag_id"])
+            return await ctx.respond(f"I removed the {'local' if tag['guild_id'] else 'global'} tag `{tag['tag_key']}`")
         else:
             #  select between global and local - needs to lookup the results if there are tags of author
             records = {}
@@ -198,9 +199,11 @@ class Tags(lightbulb.Plugin):
                 )
                 if not isinstance(event.interaction, ComponentInteraction):
                     return
-                await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
-                taghandler = TagHandler()
-                await taghandler.start(ctx, records[event.interaction.values[0]])
+                await TagManager.remove(records[event.interaction.values[0]]['tag_id'])
+                await event.interaction.create_initial_response(
+                    ResponseType.MESSAGE_CREATE,
+                    f"I removed the {event.interaction.values[0]} tag `{key}`"
+                )
 
             except asyncio.TimeoutError:
                 pass
