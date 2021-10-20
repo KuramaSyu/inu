@@ -36,14 +36,26 @@ class TagManager():
         key: str,
         value: str,
         author: Union[User, Member],
+        guild_id: Optional[int] = None,
         check_if_taken: bool = True,
     ):
         """
         Creates a db entry for given args.
-        Raises:
-            TagIsTakenError if tag is taken
+
+        Args
+        -----
+            - key: (str) the tag name
+            - value: (str) the tag value
+            - author: (User | Member) the user who created the tag
+            - guild_id: (int | None, default=None) the guild_id if the tag should be local;
+            to make a tag global set guild_id to None
+            - check_if_taken: (bool, default=True) check if the tag is already taken
+
+        Raises
+        -------
+            - TagIsTakenError if tag is taken
         """
-        guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
+        #guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
         await cls._do_check_if_taken(key, guild_id, check_if_taken)
         await cls.db.execute(
             """
@@ -63,17 +75,22 @@ class TagManager():
         value: str,
         author: Union[hikari.User, hikari.Member],
         tag_id: int,
+        guild_id: Optional[int] = None,
         check_if_taken: bool = False,
     ) -> Mapping[str, Any]:
         """
         Updates a tag by key
         Args:
-            key: the key to match for#
-            guild_id: the guild id to check for.
+        -----
+            - key: (str) the name which the tag should have
+            - value: (str) the value of the tag
+            - guild_id: (int | None, default=None) the guild id to check for. None=global
             NOTE: if its None it will only check global, otherwise only local
-            check: wether the check should be executed or not
+            - check_if_taken: wether the check should be executed or not
+
         Raises:
-            utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
+        -------
+            - utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
 
         """
         def correct_value(value) -> List[str]: #type: ignore
@@ -90,7 +107,7 @@ class TagManager():
             SELECT * FROM tags
             WHERE tag_id = $1
             """
-        guild_id = author.guild_id if isinstance(author, hikari.Member) else None
+        # guild_id = author.guild_id if isinstance(author, hikari.Member) else None
         await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(sql, tag_id)
         new_record = {
