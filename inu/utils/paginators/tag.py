@@ -83,6 +83,29 @@ class Tag():
     def id(self, value):
         self._id = value
 
+    @property
+    def to_do(self) -> Optional[str]:
+        """returns a string with things which have to be done before storing the tag"""
+        to_do_msg = ""
+        if self.name is None:
+            to_do_msg += "- Enter a name\n"
+        if self.value is None:
+            to_do_msg += "- Enter a value\n"
+        if (
+            not self.is_stored
+            and self._is_local
+            and not self.is_local_available
+        ):
+            to_do_msg += "- Your tag isn't local available\n"
+        if (
+            not self.is_stored
+            and not self._is_local
+            and not self.is_global_available
+        ):
+            to_do_msg += "- Your tag isn't global available\n"
+        return to_do_msg or None
+        
+
     async def save(self):
         """
         Saves the current tag.
@@ -161,33 +184,31 @@ class Tag():
         self.tag = tag
 
         self.embed = Embed()
-        self.embed.title = self.tag.name or "Not set"
-        self.embed.description = self.tag.value or "Not set"
-        self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
+        self.embed.title = self.tag.name or "Name - Not set"
+        self.embed.description = self.tag.value or "Value - Not set"
+        self.embed.add_field(name="Status", value=str(self.tag))
         self._pages = [self.embed]
 
     def __str__(self) -> str:
-        return (
-            f"global or local: {'local' if self._is_local else 'global'}\n"
-            f"owner: {self.owner.username}\n"
-            f"tag stored: {Human.bool_(self.is_stored)}\n"
-            f"tag name local available: {Human.bool_(self.is_local_available)}\n"
-            f"tag name global available: {Human.bool_(self.is_global_available)}\n"
+        msg = (
+            f"your tag is: {'local' if self._is_local else 'global'}\n"
+            f"the owner is: {self.owner.username}\n"
+            f"is the tag stored: {Human.bool_(self.is_stored)}\n"
+            f"is the tag name local available: {Human.bool_(self.is_local_available)}\n"
+            f"is the tag name global available: {Human.bool_(self.is_global_available)}\n"
         )
+        if to_do := self.to_do:
+            msg += (
+                f"\n**TO DO:**\n{to_do}"
+            )
+        return msg
 
-    async def update(self, new_author: Optional[Union[hikari.Member, hikari.User]] = None) -> None:
+    async def update(self) -> None:
         """
-        Updates the tags owner if given and updates the availability
+        Updates self.is_global_available and self.is_local_available
         - is a coroutine
-
-        Args:
-        -----
-            - new_author: (Member | User | None) the auhtor which should be bound to `self.owner`
-                - NOTE: if new_auhtor is None, than it wont reasign the owner
         """
         local_taken, global_taken = await TagManager.is_taken(self.name, self.guild_id or 0)
-        if new_author:
-            self.owner = new_author
         self.is_global_available = not global_taken
         self.is_local_available = not local_taken
 
@@ -247,20 +268,21 @@ class TagHandler(Paginator):
 
     async def update_page(self, update_value: bool = False):
         """Updates the embed, if the interaction wasn't for pagination"""
-        self.embed.title = self.tag.name or "Tag name not set yet"
-
         if update_value:
             pages = []
             for index, page in enumerate(crumble(str(self.tag.value), 2000)):
                 pages.append(Embed(
-                    title=self.tag.name or "Tag name not set yet",
+                    title="",
                     description=page
                 ))
             self._pages = pages
-            self._pages[0].add_field(name="not set", value="not set")
+            self._pages[0].add_field(name="Info", value="not set")
+        # updating embed titles
+        for page in self._pages:
+            page.title = self.tag.name or "Name - not set"
         await self.tag.update()
 
-        self._pages[0].edit_field(0, "Status", str(self.tag))
+        self._pages[0].edit_field(0, "Info", str(self.tag))
         await self._message.edit(
             embed=self._pages[0],
             components=self.components
@@ -323,6 +345,14 @@ class TagHandler(Paginator):
             )
         except asyncio.TimeoutError:
             return
+
+        if event.message.content is None:
+            return
+
+        if (l := len(event.message.content)) > 256:
+            return await event.message.respond(
+                f"Your name is {l - 256} letters too long"
+            )
         self.tag.name = event.message.content
         await self.update_page()
         if self.ctx.channel:
@@ -390,11 +420,11 @@ class TagHandler(Paginator):
             paginator = Paginator(pages)
             await paginator.start(self.ctx)
             return
+
         await interaction.create_initial_response(
             ResponseType.MESSAGE_CREATE,
             f"Your tag `{self.tag.name}` was successfully added to my storage :)"
         )
-
 
     async def change_owner(self, interaction: ComponentInteraction):
         embed = (
@@ -406,47 +436,52 @@ class TagHandler(Paginator):
             embed=embed
         )
         bot_message = await interaction.fetch_initial_response()
+
         try:
             event = await self.bot.wait_for(
-                events.MessageCreateEvent, 
+                events.MessageCreateEvent,
                 self.timeout,
                 lambda m: m.author_id == interaction.user.id and m.channel_id == interaction.channel_id
             )
         except asyncio.TimeoutError:
             await interaction.delete_initial_response()
             return
+
         if event.message.content is None:
             return
+
         try:
             user = await user_converter(WrappedArg(event.message.content, self.ctx))
         except NotFoundError:
             user = None
+
         if not user:
-            return await self.ctx.respond(
-                "I'm sorry, with your given text I can't found anyone", 
-                reply=event.message
+            return await event.message.respond(
+                "I can't find anyone",
+                reply=event.message,
             )
         if user and self.ctx.channel:
             await self.ctx.channel.delete_messages(bot_message, event.message)
         self.tag.owner = user
-        
-        
+        await self.update_page()
 
     def build_default_components(self, position) -> List[ActionRowBuilder]:
         navi = super().build_default_component(position)
-        disable_remove_when = lambda self: self.tag.name is None or self.tag.name is None
+        disable_remove_when = lambda self: self.tag.name is None or self.tag.value is None
+        disable_save_when = lambda self: self.tag.name is None or self.tag.value is None
+        intelligent_button_style = lambda value: ButtonStyle.PRIMARY if not value else ButtonStyle.SECONDARY
         tag_specific = (
             ActionRowBuilder()
-            .add_button(ButtonStyle.PRIMARY, "set_name")
-            .set_label("edit name")
+            .add_button(intelligent_button_style(self.tag.name), "set_name")
+            .set_label("set name")
             .add_to_container()
-            .add_button(ButtonStyle.PRIMARY, "set_value")
-            .set_label("edit value")
+            .add_button(intelligent_button_style(self.tag.value), "set_value")
+            .set_label("set value")
             .add_to_container()
-            .add_button(ButtonStyle.PRIMARY, "extend_value")
+            .add_button(ButtonStyle.SECONDARY, "extend_value")
             .set_label("append to value")
             .add_to_container()
-            .add_button(ButtonStyle.PRIMARY, "change_visibility")
+            .add_button(ButtonStyle.SECONDARY, "change_visibility")
             .set_label("local/global")
             .add_to_container()
         )
@@ -464,6 +499,7 @@ class TagHandler(Paginator):
             ActionRowBuilder()
             .add_button(ButtonStyle.PRIMARY, "finish")
             .set_label("save")
+            .set_is_disabled(disable_save_when(self))
             .add_to_container()
         )
         if self.pagination:
@@ -525,7 +561,7 @@ class TagHandler(Paginator):
         self.embed = Embed()
         self.embed.title = self.tag.name or "Not set"
         self.embed.description = self.tag.value or "Not set"
-        self.embed.add_field(name="Status", value="Unknown - Will be loaded after settig a name")
+        self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
 
 
