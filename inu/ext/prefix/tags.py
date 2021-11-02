@@ -42,12 +42,13 @@ class Tags(lightbulb.Plugin):
 
     @lightbulb.group()
     async def tag(self, ctx: Context, *, key: str = None):
-        """Get the tag by `key`
-        
+        """
+        Get the tag by `key`
         Args:
         ----
-            - key: the name of the tag
-                - if `key` isn't provided I'll start an interactive tag creation menu
+
+        key: the name of the tag
+        if `key` isn't provided I'll start an interactive tag creation menu
         """
         if key is None:
             taghandler = TagHandler()
@@ -94,7 +95,7 @@ class Tags(lightbulb.Plugin):
         return await ctx.respond(f"Your tag `{key}` has been added to my storage")
 
     @tag.command()
-    async def edit(self, ctx: Context, key: str):
+    async def edit(self, ctx, key: str):
         """Add a tag to my storage
         
         Args:
