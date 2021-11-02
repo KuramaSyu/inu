@@ -18,6 +18,8 @@ import lightbulb
 import hikari
 from dotenv import dotenv_values
 
+import lavasnek_rs
+
 
 class Inu(lightbulb.Bot):
     def __init__(self, *args, **kwargs):
@@ -30,6 +32,7 @@ class Inu(lightbulb.Bot):
         self._me: Optional[hikari.User] = None
         from utils.db import Database
         self.db = Database(self)
+        self.data = Data()
 
 
     @property
@@ -80,6 +83,12 @@ class Inu(lightbulb.Bot):
     #override
     def run(self):
         super().run()
+
+class Data:
+    """Global data shared across the entire bot, used to store dashboard values."""
+
+    def __init__(self) -> None:
+        self.lavalink: lavasnek_rs.Lavalink = None  # type: ignore
 
 class Configuration():
     """Wrapper for the config file"""
