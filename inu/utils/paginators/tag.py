@@ -96,13 +96,13 @@ class Tag():
             and self._is_local
             and not self.is_local_available
         ):
-            to_do_msg += "- Your tag isn't local available\n"
+            to_do_msg += "- Your tag isn't local available -> change the name\n"
         if (
             not self.is_stored
             and not self._is_local
             and not self.is_global_available
         ):
-            to_do_msg += "- Your tag isn't global available\n"
+            to_do_msg += "- Your tag isn't global available -> change the name\n"
         return to_do_msg or None
         
 
@@ -131,6 +131,7 @@ class Tag():
                 author=self.owner,
                 guild_id=self.guild_id,
             )
+        self.is_stored = True
 
     async def load_tag(self, tag: Mapping[str, Any]):
         """
@@ -217,6 +218,7 @@ class Tag():
         if not self.is_stored:
             return
         await TagManager.remove(self.id)
+        self.is_stored = False
         return
 
 
@@ -328,7 +330,7 @@ class TagHandler(Paginator):
         self.tag.is_local_available = False
         self.tag.is_global_available = False
         await self.tag.update()
-        await self.update_page()
+        await self.update_page(update_value=True)
 
     async def set_name(self, interaction: ComponentInteraction):
         embed = Embed(title="Enter a name for your tag:", description=f"You have {self.timeout}s")
@@ -559,8 +561,8 @@ class TagHandler(Paginator):
         self.tag = tag
 
         self.embed = Embed()
-        self.embed.title = self.tag.name or "Not set"
-        self.embed.description = self.tag.value or "Not set"
+        self.embed.title = self.tag.name or "Name - not set"
+        self.embed.description = self.tag.value or "Value - not set"
         self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
 
