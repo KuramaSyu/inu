@@ -8,6 +8,7 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+dependencies/music/*
 build/
 develop-eggs/
 dist/
