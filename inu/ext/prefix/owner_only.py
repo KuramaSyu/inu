@@ -54,7 +54,7 @@ class Owner(lightbulb.Plugin):
         paginator = Paginator(page_s=embeds, timeout=10*60)
         await paginator.start(ctx)
 
-    @lightbulb.owner_only() #type: ignore
+    @lightbulb.check(lightbulb.owner_only) #type: ignore
     @lightbulb.command(aliases=['py', 'exec', 'run'])
     async def execute(self, ctx: lightbulb.Context, *, code: str):
         '''
