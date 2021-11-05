@@ -26,13 +26,15 @@ class Inu(lightbulb.Bot):
         super().__init__(*args, **kwargs)
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
-        self.load_prefix()
-        self.load_slash()
         self.conf: Configuration = Configuration(dotenv_values())
         self._me: Optional[hikari.User] = None
         from utils.db import Database
         self.db = Database(self)
         self.data = Data()
+        self.load_prefix()
+        self.load_slash()
+
+
 
 
     @property
