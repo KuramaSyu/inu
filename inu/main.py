@@ -19,7 +19,7 @@ def main():
 
     conf = dotenv_values()
     for key, value in conf.items():
-        print(f"key: {key}\nvalue: {value}")
+        print(f"name: {key}\nvalue: {value}")
     print(os.getcwd())
     logs = {
         "version": 1,
