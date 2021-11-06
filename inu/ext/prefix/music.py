@@ -13,6 +13,7 @@ import logging
 import asyncio
 import datetime
 from pprint import pformat
+import random
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
@@ -117,27 +118,30 @@ class Interactive:
         log.debug(pformat([track.info.title for track in query_information.tracks]))
         log.debug(query_information.tracks[track_num].info.title)
         return query_information.tracks[track_num]
-        # await self.lavalink.play(ctx.guild_id, query_information.tracks[track_num]).requester(ctx.author.id).queue()
-        # music_embed = hikari.Embed()
-        # music_embed.title = "Track added to the queue"
-        # music_embed.description = f"[{query_information.tracks[track_num].info.title}]({query_information.tracks[track_num].info.uri})"
-        # music_embed.color = 
 
-        # if not query_information.tracks:  # tracks is empty
-        #     await ctx.respond("Could not find any video of the search query.")
-        #     return
 
-        # try:
-        #     # `.requester()` To set who requested the track, so you can show it on now-playing or queue.
-        #     # `.queue()` To add the track to the queue rather than starting to play the track now.
-        #     await self.bot.data.lavalink.play(ctx.guild_id, query_information.tracks[0]).requester(
-        #         ctx.author.id
-        #     ).queue()
-        # except lavasnek_rs.NoSessionPresent:
-        #     await ctx.respond(f"Use `{self.bot.conf.DEFAULT_PREFIX}join` first")
-        #     return
+class MusicHelper:
+    def __init__(self):
+        pass
 
-        # await ctx.respond(f"Added to queue: {query_information.tracks[0].info.title}")
+
+class MusicLog:
+    def __init__(self, guild_id: int):
+        self.guild_id = guild_id
+        self.music_log = []
+
+    def add_to_log():
+        pass
+
+    def format_time_now(self):
+        """
+        Returns:
+        --------
+            - (str) `hour`:`minute`:`second` - `month_day_num`. `month`
+        """
+        time = datetime.datetime.now()
+        return f'{time.hour}:{time.minute}:{time.second} - {time.day}. {time.month}'
+        
 
 
 
@@ -148,13 +152,7 @@ class Music(lightbulb.Plugin):
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
         self.interactive = Interactive(self.bot)
-        self.music_message = {}  # guild_id: hikari.Message
-
-    @lightbulb.listener(hikari.ShardReadyEvent)
-    async def on_ready(self, event: ShardReadyEvent):
-        pass
-
-        self.log.info("Lavalink is connected")
+        self.music_message: Dict[int, hikari.Message] = {}  # guild_id: hikari.Message
 
     @lightbulb.listener(hikari.VoiceStateUpdateEvent)
     async def on_voice_state_update(self, event: VoiceStateUpdateEvent):
@@ -168,6 +166,69 @@ class Music(lightbulb.Plugin):
         elif event.state.channel_id is None and not event.old_state is None:
             await self._leave(event.guild_id)
 
+    @lightbulb.listener(hikari.ReactionAddEvent)
+    async def on_reaction_add(self, event: hikari.ReactionAddEvent):
+        if event.message_id not in self.music_message.keys():
+            return
+        try:
+            message = self.bot.cache.get_message(event.message_id)
+
+            guild_id = message.guild_id  # type: ignore
+            if not isinstance(message, hikari.Message) or guild_id is None:
+                return
+        except AttributeError:
+            return
+        emoji = event.emoji_name
+        if emoji == '🔀':
+
+            node = self.lavalink.get_guild_node(guild_id)
+            random.shuffle(player.queue)
+            await self.queue(ctx=user, fetch_ctx=True)
+            await message.remove_reaction(emoji, user=event.user_id)
+            await self.append_music_log(guild_id = str(guild_id), info = f'🔀 Music was shuffled by {user.name}')
+        elif emoji == '▶':
+            await self.append_music_log(guild_id = str(guild_id), info = f'▶ Music was resumed by {user.name}')
+            await message.remove_reaction(emoji, user=event.user_id)
+            await message.remove_reaction(emoji, user=self.bot.me)
+            await asyncio.sleep(0.1)
+            await message.add_reaction(str('⏸'))
+            await self._resume(reaction.message.guild)
+        elif emoji == '1️⃣':
+            await self._skip(guild_id, amount = 1)
+            await message.remove_reaction(emoji, user=event.user_id)
+            await self.append_music_log(guild_id = str(guild_id), info = f'1️⃣ Music was skipped by {user.name} (once)')
+        elif emoji == '2️⃣':
+            await self._skip(guild_id, amount = 2)
+            await message.remove_reaction(emoji, user=event.user_id)
+            await self.append_music_log(
+                guild_id = str(guild_id), 
+                info = f'2️⃣ Music was skipped by {self.bot.cache.get_member(guild_id, event.user_id).display_name} (twice)'
+            )
+        elif emoji == '3️⃣':
+            await self._skip(guild_id, amount = 3)
+            await reaction.message.remove_reaction(emoji,user)
+            await self.append_music_log(guild_id = str(guild_id), info = f'3️⃣ Music was skipped by {user.name} (3 times)')
+        elif emoji == '4️⃣':
+            await self._skip(guild_id, amount = 4)
+            await reaction.message.remove_reaction(emoji,user)
+            await self.append_music_log(guild_id = str(guild_id), info = f'4️⃣ Music was skipped by {user.name} (4 times)')
+        elif emoji == '⏸':
+            await self.append_music_log(guild_id = str(guild_id), info = f'⏸ Music was paused by {user.name}')
+            await reaction.message.remove_reaction(emoji,user)
+            await reaction.message.remove_reaction(emoji,self.client.user)
+            await asyncio.sleep(0.1)
+            await reaction.message.add_reaction(str('▶'))
+            await self._pause(reaction.message)
+        elif emoji == '🗑':
+            await reaction.message.remove_reaction(emoji,user)
+            await information_message(reaction.message.channel, info=f'🗑 Queue was cleared by {user.name}', del_after=int(4*60), user=user, small = True)
+            await self.append_music_log(guild_id = str(guild_id), info = f'🗑 Queue was cleared by {user.name}')
+            await self._clear(reaction.message)
+            await self.queue(ctx = user, fetch_ctx=True)
+        elif emoji == '🛑':
+            await information_message(reaction.message.channel, info=f'🛑 Music was stopped by {user.name}', del_after=int(5*60), user=user, small = True)
+            await self.append_music_log(guild_id = str(guild_id), info = f'🛑 Music was stopped by {user.name}')
+            await self._leave(user.guild)
 
     async def _join(self, ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
         if not (guild := ctx.get_guild()) or not ctx.guild_id:
