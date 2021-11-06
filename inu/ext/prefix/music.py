@@ -265,7 +265,7 @@ class Music(lightbulb.Plugin):
             # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
             lavasnek_rs.LavalinkBuilder(self.bot.me.id, self.bot.conf.DISCORD_TOKEN) #, 
             # This is the default value, so this is redundant, but it's here to show how to set a custom one.
-            .set_host("127.0.0.1").set_password("youshallnotpass")
+            .set_host("127.0.0.1").set_password(self.bot.conf.LAVALINK_PASSWORD)
         )
 
         if HIKARI_VOICE:
