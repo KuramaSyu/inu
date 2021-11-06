@@ -100,5 +100,5 @@ class Configuration():
     def __getattr__(self, name: str) -> str:
         result = self.config[name]
         if result == None:
-            raise AttributeError(f"`Configuration` has no attribute `{name}`")
+            raise AttributeError(f"`Configuration` (.env in root dir) has no attribute `{name}`")
         return result
