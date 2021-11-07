@@ -123,18 +123,74 @@ class Interactive:
 
 class MusicHelper:
     def __init__(self):
-        pass
+        self.music_logs: Dict[int, MusicLog]
+    
+    def add_to_log(self, guild_id: int, entry: str):
+        """
+        adds the <entry> to the `MusicLog` object of the guild with id <guild_id>
 
+        Args:
+        -----
+            - guild_id: (int) the id of the guild
+            - entry: (str) the entry which should be added
+
+        Note:
+        -----
+            - if there is no log for the guild with id <guild_id>, than a new one will be created
+        """
+
+        log = self.music_logs.get(guild_id)
+        if log is None:
+            log = MusicLog(guild_id)
+            self.music_logs[guild_id] = log
+        log.add(entry)
+
+    def get_log(self, guild_id: int, max_log_entry_len: int = 1980):
+        """
+        returns the log of <guild_id>
+        
+        Args:
+        -----
+            - guild_id: (int) the id of the guild
+            - max_log_entry_len: (int, default=1980) the max len a string (log entry) of the returning list (the log)
+        
+        Returns:
+            - (List[str] | None) the log with its entries or `None`
+        """
+
+        raw_log = self.get_raw_log(guild_id)
+        if raw_log is None:
+            return None
+        return raw_log.to_string_list(max_log_entry_len)
+
+    def get_raw_log(self, guild_id):
+        """
+        returns the raw log of <guild_id>
+        
+        Args:
+        -----
+            - guild_id: (int) the id of the guild
+        
+        Returns:
+            - (`MusicLog` | None) the log with its entries or `None`
+        """
+        return self.music_logs.get(guild_id)
 
 class MusicLog:
     """
-    A class which handels one guild music log
+    A class which handels one guild music log.
+    The internally the log is a `collections.deque` object
+    
+    Properties:
+    -----------
+        - guild_id: (int) the id of the guild the log belongs to
+        - music_log: (collections.deque) the list which contains the log entries (most recent first)
     """
     def __init__(self, guild_id: int):
         self.guild_id = guild_id
         self.music_log = deque()
 
-    def add_to_log(self, log_entry: str):
+    def add(self, log_entry: str):
         self.music_log.appendleft(f"{self.format_time_now()}: {log_entry}")
 
     def format_time_now(self):
