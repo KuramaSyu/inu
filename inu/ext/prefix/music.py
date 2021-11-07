@@ -24,6 +24,8 @@ from lightbulb import Context, command, check
 import lavasnek_rs
 
 from core import Inu
+from utils import Paginator
+from utils import Color
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -35,16 +37,18 @@ HIKARI_VOICE = False
 
 class EventHandler:
     """Events from the Lavalink server"""
-
+    def __init__(self, ext: "Music"):
+        self.ext = ext
     async def track_start(self, _: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         log.info("Track started on guild: %s", event.guild_id)
+        await self.ext.queue(guild_id=event.guild_id)
 
     async def track_finish(self, _: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
         log.info("Track finished on guild: %s", event.guild_id)
 
     async def track_exception(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackException) -> None:
         log.warning("Track exception event happened on guild: %d", event.guild_id)
-
+        log.warning(event.exception_message)
         # If a track was unable to be played, skip it
         skip = await lavalink.skip(event.guild_id)
         node = await lavalink.get_guild_node(event.guild_id)
@@ -123,7 +127,7 @@ class Interactive:
 
 class MusicHelper:
     def __init__(self):
-        self.music_logs: Dict[int, MusicLog]
+        self.music_logs: Dict[int, MusicLog] = {}
     
     def add_to_log(self, guild_id: int, entry: str):
         """
@@ -175,6 +179,30 @@ class MusicHelper:
             - (`MusicLog` | None) the log with its entries or `None`
         """
         return self.music_logs.get(guild_id)
+
+    @staticmethod
+    def get_id_from_yt_url(url: str) -> Optional[str]:
+        """Returns the id of a video or None out of th given url"""
+        start = url.find("watch?v=")
+        if start == -1:
+            return None
+        start += 7
+        end = url[start:].find("&")
+        if end == -1:
+            return url[start:]
+        return url[start:end]
+
+    @staticmethod
+    def thumb_url_from_yt_url(url: str) -> Optional[str]:
+        """Returns the thumbnail url of a video or None out of th given url"""
+        start = url.find("watch?v=")
+        if start == -1:
+            return None
+        start += 7
+        end = url[start:].find("&")
+        if end == -1:
+            return url[start:]
+        return url[start:end]
 
 class MusicLog:
     """
@@ -262,7 +290,9 @@ class Music(lightbulb.Plugin):
 
     @lightbulb.listener(hikari.ReactionAddEvent)
     async def on_reaction_add(self, event: hikari.ReactionAddEvent):
-        if event.message_id not in self.music_message.keys():
+        if event.user_id == self.bot.get_me().id:
+            return
+        if event.message_id not in [m.id for m in self.music_message.values()]:
             return
         try:
             message = self.bot.cache.get_message(event.message_id)
@@ -272,18 +302,22 @@ class Music(lightbulb.Plugin):
             member = self.bot.cache.get_member(guild_id, event.user_id)
             if not isinstance(member, hikari.Member):
                 return
+            if not (ctx := self.last_context.get(guild_id)):
+                return
         except AttributeError:
             return
+
         emoji = event.emoji_name
         if emoji == '🔀':
-
             node = await self.lavalink.get_guild_node(guild_id)
             if node is None:
                 return
-            if not (ctx := self.last_context.get(guild_id)):
-                return
-            random.shuffle(node.queue)
-            await self.queue(ctx)
+
+            queue = node.queue[1:]
+            random.shuffle(queue)
+            queue = [node.queue[0], *queue]
+            node.queue = queue
+            await self.lavalink.set_guild_node(guild_id, node)
             await message.remove_reaction(emoji, user=event.user_id)
             self.music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
         elif emoji == '▶':
@@ -292,7 +326,7 @@ class Music(lightbulb.Plugin):
             await message.remove_reaction(emoji, user=self.bot.me)
             await asyncio.sleep(0.1)
             await message.add_reaction(str('⏸'))
-            await self._resume(message.guild)
+            await self._resume(guild_id)
         elif emoji == '1️⃣':
             await self._skip(guild_id, amount = 1)
             await message.remove_reaction(emoji, user=event.user_id)
@@ -315,10 +349,10 @@ class Music(lightbulb.Plugin):
         elif emoji == '⏸':
             self.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
             await message.remove_reaction(emoji, user=event.user_id)
-            await message.remove_reaction(emoji,self.bot.get_me().id)  # type: ignore
+            await message.remove_reaction(emoji, user=self.bot.get_me().id)  # type: ignore
             await asyncio.sleep(0.1)
             await message.add_reaction(str('▶'))
-            await self._pause(message)
+            await self._pause(guild_id)
         elif emoji == '🗑':
             await message.remove_reaction(emoji, user=event.user_id)
             await message.respond(
@@ -327,11 +361,10 @@ class Music(lightbulb.Plugin):
                     .set_footer(text=f"music queue was cleared by {member.display_name}", icon=member.avatar_url)
                 )
             )
-            self.music_helper.add_to_log(guild_id =guild_id, entry = f'🗑 Queue was cleared by member.display_name}')
-            await self._clear(message)
+            self.music_helper.add_to_log(guild_id=guild_id, entry=f'🗑 Queue was cleared by {member.display_name}')
+            await self._clear(guild_id)
             if not (ctx := self.last_context.get(guild_id)):
                 return
-            await self.queue(ctx)
         elif emoji == '🛑':
             await message.respond(
                 embed=(
@@ -340,8 +373,10 @@ class Music(lightbulb.Plugin):
                 )
             )
             self.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
-            await self._leave(user.guild)
-        # changed message sendings, changed log calles completly
+            await self._leave(guild_id)
+        if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
+            await self.queue(ctx)
+
     async def _join(self, ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
         if not (guild := ctx.get_guild()) or not ctx.guild_id:
             return
@@ -383,7 +418,7 @@ class Music(lightbulb.Plugin):
         if HIKARI_VOICE:
             builder.set_start_gateway(False)
 
-        lava_client = await builder.build(EventHandler())
+        lava_client = await builder.build(EventHandler(self))
         self.bot.data.lavalink = lava_client
         self.lavalink = self.interactive.lavalink = self.bot.data.lavalink
         log.debug(type(self.interactive.lavalink))
@@ -420,8 +455,8 @@ class Music(lightbulb.Plugin):
         await self.bot.data.lavalink.remove_guild_node(guild_id)
         await self.bot.data.lavalink.remove_guild_from_loops(guild_id)
         
-    @lightbulb.check(lightbulb.guild_only)
-    @lightbulb.command()
+    # @lightbulb.check(lightbulb.guild_only)
+    @lightbulb.group()
     async def play(self, ctx: lightbulb.Context, *, query: str) -> None:
         """Searches the query on youtube, or adds the URL to the queue."""
         if not ctx.guild_id or not ctx.member:
@@ -441,14 +476,39 @@ class Music(lightbulb.Plugin):
                 return
             await self.load_track(ctx, track)
 
-
-        # play the track
-        
-
-
         self.log.debug("start queue()")
         await self.queue(ctx)
         self.log.debug("ended queue()")
+
+    @play.command(aliases=["1st", "st"])
+    async def now(self, ctx: Context, *, query: str) -> None:
+        """Adds a song infront of the queue. So the track will be played next"""
+        await self.play_at_pos(ctx, 1, query)
+
+    @play.command(aliases=["nd", "2nd"])
+    async def second(self, ctx: Context, *, query: str) -> None:
+        """Adds a song at the second position of the queue. So the track will be played soon"""
+        await self.play_at_pos(ctx, 2, query)
+
+    @play.command(aliases=["pos"])
+    async def position(self, ctx: Context, position: int, *, query: str) -> None:
+        """Adds a song at the <position> position of the queue. So the track will be played soon"""
+        await self.play_at_pos(ctx, position, query)
+
+    async def play_at_pos(self, ctx: Context, pos: int, query: str):
+        track = await self.search_track(ctx, query)
+        if track is None:
+            await ctx.respond("Can't find anything")
+            return
+        await self.load_track(ctx, track)
+        if not (node := await self.lavalink.get_guild_node(ctx.guild_id)):
+            return
+        if not len(node.queue) > pos:
+            return
+        track = node.queue.pop()
+        node.queue.insert(pos, track)
+        await self.lavalink.set_guild_node(ctx.guild_id, node)
+        await self.queue(ctx)
 
     async def load_track(self, ctx: Context, track: lavasnek_rs.Track):
         guild_id = ctx.guild_id
@@ -528,39 +588,60 @@ class Music(lightbulb.Plugin):
 
     @lightbulb.check(lightbulb.guild_only)
     @lightbulb.command()
-    async def skip(self, ctx: lightbulb.Context) -> None:
-        """Skips the current song."""
+    async def skip(self, ctx: lightbulb.Context, amount: int = 1) -> None:
+        """
+        Skips the current song.
+        
+        Args:
+        -----
+            - [amount]: How many songs you want to skip. Default = 1
+        """
 
-        skip = await self.bot.data.lavalink.skip(ctx.guild_id)
-        if not (node := await self.bot.data.lavalink.get_guild_node(ctx.guild_id)):
-            return
+        await self._skip(ctx.guild_id, amount)
+        await self.queue(ctx)
 
-        if not skip:
-            await ctx.respond("Nothing to skip")
-        else:
-            # If the queue is empty, the next track won't start playing (because there isn't any),
-            # so we stop the player.
-            if not node.queue and not node.now_playing:
-                await self.bot.data.lavalink.stop(ctx.guild_id)
 
-            await ctx.respond(f"Skipped: {skip.track.info.title}")
+    async def _skip(self, guild_id: int, amount: int) -> bool:
+        """
+        Returns:
+        --------
+            - (bool) wether the skip(s) was/where successfull
+        """
+        for _ in range(amount):
+            skip = await self.bot.data.lavalink.skip(guild_id)
+            
+            if not (node := await self.bot.data.lavalink.get_guild_node(guild_id)):
+                return False
+
+            if not skip:
+                return False
+            else:
+                # If the queue is empty, the next track won't start playing (because there isn't any),
+                # so we stop the player.
+                if not node.queue and not node.now_playing:
+                    await self.bot.data.lavalink.stop(guild_id)
+        return True
 
     @lightbulb.check(lightbulb.guild_only)
     @lightbulb.command()
     async def pause(self, ctx: lightbulb.Context) -> None:
         """Pauses the current song."""
-
-        await self.bot.data.lavalink.pause(ctx.guild_id)
+        await self._pause(ctx.guild_id)
         await ctx.respond("Paused player")
+
+    async def _pause(self, guild_id: int):
+        await self.bot.data.lavalink.pause(guild_id)
 
     @lightbulb.check(lightbulb.guild_only)
     @lightbulb.command()
     async def resume(self, ctx: lightbulb.Context) -> None:
         """Resumes playing the current song."""
-
-        await self.bot.data.lavalink.resume(ctx.guild_id)
+        await self._resume(ctx.guild_id)
         await ctx.respond("Resumed player")
 
+    async def _resume(self, guild_id: int):
+        await self.bot.data.lavalink.resume(guild_id)
+        
     @lightbulb.check(lightbulb.guild_only)
     @lightbulb.command(aliases=["np"])
     async def now_playing(self, ctx: lightbulb.Context) -> None:
@@ -611,10 +692,66 @@ class Music(lightbulb.Plugin):
                 event.guild_id, event.endpoint, event.token
             )
 
-    async def queue(self, ctx: Context):
+    #  @lightbulb.check(lightbulb.guild_only)
+    @lightbulb.group()
+    async def music(self, ctx: Context):
+        pass
+
+    @lightbulb.check(lightbulb.guild_only)
+    @music.command()
+    async def log(self, ctx: Context):
+        """Sends the music log"""
+        if not ctx.guild_id or not ctx.member:
+            return
+        if not (log_sites := self.music_helper.get_log(ctx.guild_id, 2000)):
+            return
+        has_perm = False  
+        for role in ctx.member.get_roles():
+            if role.name == self.bot.conf.SPECIAL_ROLE_NAME or role.permissions.ADMINISTRATOR:
+                has_perm = True
+                break
+        if not has_perm:
+            return
+        embeds = []
+        for i, log_site in enumerate(log_sites):
+            embeds.append(
+                Embed(title=f"log {i+1}/{len(log_sites)}", description=log_site, color=Color.from_name("maroon"))
+            )
+        pag = Paginator(embeds)
+        await pag.start(ctx)
+
+
+    @lightbulb.check(lightbulb.guild_only)
+    @lightbulb.command()
+    async def clear(self, ctx: Context):
+        """clears the music queue"""
+        if not ctx.guild_id or not ctx.member:
+            return
+
+        await self._clear(ctx.guild_id)
+        self.music_helper.add_to_log(
+            ctx.guild_id,
+            f"music was cleared by {ctx.member.display_name}"
+        )
+        await self.queue(ctx)
+
+    async def _clear(self, guild_id: int):
+        node = await self.lavalink.get_guild_node(guild_id)
+        if not node:
+            return
+        queue = [node.queue[0]]
+        node.queue = queue
+        await self.lavalink.set_guild_node(guild_id, node)
+
+    async def queue(self, ctx: Context = None, guild_id: int = None):
         '''
         refreshes the queue of the player
+        uses ctx if not None, otherwise it will fetch the last context with the guild_id
         '''
+        if ctx is None and isinstance(guild_id, int):
+            ctx = self.last_context.get(guild_id) #  type: ignore
+        if not ctx:
+            return
         if not ctx.guild_id:
             return
         self.last_context[ctx.guild_id] = ctx
@@ -627,15 +764,13 @@ class Music(lightbulb.Plugin):
             return
         numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
         upcoming_songs = ''
-        for track in node.queue:
-            self.log.debug(track.track.info.title)
-        for x in range (1,5,1):
+        for x in range(1,5,1):
             try:
                 num = numbers[int(x) - 1]
                 upcoming_songs = (
                     f'{upcoming_songs}\n' 
-                    f'{num} {str(datetime.timedelta(milliseconds=int(int(node.queue[x - 1].track.info.length))))} '
-                    f'- {node.queue[x - 1].track.info.title}'
+                    f'{num} {str(datetime.timedelta(milliseconds=int(int(node.queue[x].track.info.length))))} '
+                    f'- {node.queue[x].track.info.title}'
                 )
             except:
                 break
@@ -654,16 +789,16 @@ class Music(lightbulb.Plugin):
         if queue is None:
             queue = f'Queue: ---N0TH1NG---'
         try:
-            track = node.now_playing.track
-        except Exception:
-            return self.log.warning("can't get current playing song")
+            track = node.queue[0].track
+        except Exception as e:
+            return self.log.warning(f"can't get current playing song: {e}")
 
-        if not node.now_playing.requester:
+        if not node.queue[0].requester:
             self.log.warning("no requester of current track - returning")
         #get thumbnail of the video
 
         self.log.debug(track.info.uri)
-        requester = ctx.get_guild().get_member(int(node.now_playing.requester))
+        requester = ctx.get_guild().get_member(int(node.queue[0].requester))
         current_duration = str(datetime.timedelta(milliseconds=int(int(track.info.length))))
         music_embed = hikari.Embed(
             colour=hikari.Color.from_rgb(71, 89, 211)
