@@ -65,7 +65,13 @@ class Interactive:
         self.queue_msg: Optional[hikari.Message] = None
 
 
-    async def ask_for_song(self, ctx: lightbulb.Context, query: str, displayed_song_count: int = 3) -> Optional[lavasnek_rs.Track]:
+    async def ask_for_song(
+        self,
+        ctx: lightbulb.Context,
+        query: str,
+        displayed_song_count: int = 30,
+        query_information: lavasnek_rs.Tracks = None,
+    ) -> Optional[lavasnek_rs.Track]:
         """
         Creates an interactive menu for choosing a song
 
@@ -73,7 +79,8 @@ class Interactive:
         ----
             - ctx: (Context) the context invoked with
             - query: (str) the query to search; either an url or just a string
-            - displayed_song_count: (int, default=3) the amount of songs which will be showen in the interactive message
+            - displayed_song_count: (int, default=30) the amount of songs which will be showen in the interactive message
+            - query_information: (lavasnek_rs.Tracks, default=None) existing information to lower footprint
             
         returns
         -------
@@ -82,7 +89,8 @@ class Interactive:
         if not ctx.guild_id:
             return
         query_print = ""
-        query_information = await self.lavalink.auto_search_tracks(query)
+        if not query_information:
+            query_information = await self.lavalink.auto_search_tracks(query)
         menu = (
             ActionRowBuilder()
             .add_select_menu("query_menu")
@@ -97,7 +105,6 @@ class Interactive:
             if len(query_print) > 100:
                 query_print = query_print[:100]
             menu.add_option(query_print, str(x)).add_to_menu()
-
         menu = menu.add_to_container()
         menu_msg = await ctx.respond(f"Choose the song which should be added", component=menu)
 
@@ -128,8 +135,6 @@ class Interactive:
 class MusicHelper:
     def __init__(self):
         self.music_logs: Dict[int, MusicLog] = {}
-        self.__class__.thumb_url_from_yt_url("https://music.youtube.com/watch?v=Vd_nkokQwnQ&list=OLAK5uy_momGwUZ9oagpTGS8PsTOoaJb2hatdutg0")
-        self.youtube = YouTubeHelper
     
     def add_to_log(self, guild_id: int, entry: str):
         """
@@ -195,18 +200,28 @@ class YouTubeHelper:
             return None
         start += 7
         end = url[start:].find("&")
-        end += start
+        
+        log.debug(f'{start=}{end=}{url=}')
         if end == -1:
             return url[start+1:]
-        return url[start+1:end]
+        return url[start+1:end+start]
 
     @staticmethod
     def thumbnail_from_url(url: str) -> Optional[str]:
         """Returns the thumbnail url of a video or None out of th given url"""
         video_id = __class__.id_from_url(url)
+        log.debug(f"http://img.youtube.com/vi/{video_id}/hqdefault.jpg")
         if not video_id:
             return
         return f"http://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+
+    @staticmethod
+    def remove_playlist_info(url: str):
+        start = url.find("watch?v=")
+        end = url[start:].find("&")
+        if end == -1:
+            return url
+        return url[:end+start]
         
 
 class MusicLog:
@@ -464,6 +479,9 @@ class Music(lightbulb.Plugin):
     @lightbulb.group()
     async def play(self, ctx: lightbulb.Context, *, query: str) -> None:
         """Searches the query on youtube, or adds the URL to the queue."""
+        await self._play(ctx, query)
+
+    async def _play(self, ctx: Context, query: str) -> None:
         if not ctx.guild_id or not ctx.member:
             return  # just for pylance
         con = await self.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id)
@@ -475,9 +493,14 @@ class Music(lightbulb.Plugin):
         if 'youtube' in query and 'playlist?list=' in query:
             await self.load_yt_playlist(ctx, query)
         else:
+            if (
+                "watch?v=" in query
+                and "youtube" in query
+                and "&list" in query
+            ):
+                query = YouTubeHelper.remove_playlist_info(query)
             track = await self.search_track(ctx, query)
             if track is None:
-                await ctx.respond("I can't find anything with your query")
                 return
             await self.load_track(ctx, track)
 
@@ -501,17 +524,14 @@ class Music(lightbulb.Plugin):
         await self.play_at_pos(ctx, position, query)
 
     async def play_at_pos(self, ctx: Context, pos: int, query: str):
-        track = await self.search_track(ctx, query)
-        if track is None:
-            await ctx.respond("Can't find anything")
-            return
-        await self.load_track(ctx, track)
-        if not (node := await self.lavalink.get_guild_node(ctx.guild_id)):
-            return
-        if not len(node.queue) > pos:
+        await self._play(ctx, query)
+        node = await self.lavalink.get_guild_node(ctx.guild_id)
+        if node is None or not ctx.guild_id:
             return
         track = node.queue.pop()
-        node.queue.insert(pos, track)
+        queue = node.queue
+        queue.insert(pos, track)
+        node.queue = queue
         await self.lavalink.set_guild_node(ctx.guild_id, node)
         await self.queue(ctx)
 
@@ -569,12 +589,11 @@ class Music(lightbulb.Plugin):
 
         if len(query_information.tracks) > 1:
             try:
-                track = await self.interactive.ask_for_song(ctx, query)
+                track = await self.interactive.ask_for_song(ctx, query, query_information=query_information)
                 if track is None:
-                    self.log.warning("track is None - error")
+                    return
             except Exception:
                 self.log.error(traceback.print_exc())
-                await ctx.respond("Error")
 
         else:
             track = query_information.tracks[0]
@@ -631,8 +650,14 @@ class Music(lightbulb.Plugin):
     @lightbulb.command()
     async def pause(self, ctx: lightbulb.Context) -> None:
         """Pauses the current song."""
+        if not ctx.guild_id:
+            return
         await self._pause(ctx.guild_id)
-        await ctx.respond("Paused player")
+        message = self.music_message[ctx.guild_id]
+        await message.remove_reaction(str('▶'), user=ctx.author)
+        await message.remove_reaction(str('▶'), user=self.bot.me)
+        await asyncio.sleep(0.1)
+        await message.add_reaction(str('⏸'))
 
     async def _pause(self, guild_id: int):
         await self.bot.data.lavalink.pause(guild_id)
@@ -641,8 +666,14 @@ class Music(lightbulb.Plugin):
     @lightbulb.command()
     async def resume(self, ctx: lightbulb.Context) -> None:
         """Resumes playing the current song."""
+        if not ctx.guild_id:
+            return
         await self._resume(ctx.guild_id)
-        await ctx.respond("Resumed player")
+        message = self.music_message[ctx.guild_id]
+        await message.remove_reaction(str('▶'), user=ctx.author)
+        await message.remove_reaction(str('▶'), user=self.bot.me)
+        await asyncio.sleep(0.1)
+        await message.add_reaction(str('⏸'))
 
     async def _resume(self, guild_id: int):
         await self.bot.data.lavalink.resume(guild_id)
@@ -818,6 +849,7 @@ class Music(lightbulb.Plugin):
         # music_embed.set_thumbnail(url=f'{video_thumbnail}')
         music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
         music_embed.set_footer(text = f'{queue or "/"}')
+        music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or self.bot.me.avatar_url)
         try:
             self.music_message[ctx.guild_id]
         except:
