@@ -128,6 +128,19 @@ class Paginator():
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
     ):
+        """
+        A Paginator with many options
+
+        Args:
+        -----
+            - pege_s: (List[Embed] | List[str]) the page*s the Paginator should paginate
+            - timeout: (int, default=120) the seconds the paginator has to be inactive to "shutdown"; maximum is 15*60 min
+            - component_factory: (Callable[[int], ActionRowBuilder], default=None) a custom component builder; the input is the index of the site
+            - components_factory: (Callable[[int], ActionRowBuilder], default=None) a custom components builder; the input is the index of the site
+            - disable_component: (bool, default=False) wether or not the component of the paginator should be disabled
+            - disable_components: (bool, default=False) wether or not the components of the paginator should be disabled
+            - disable_paginator_when_one_site: (bool, default=True) wether or not the pagination should be disabled when the length of the pages is 1
+        """
         self._pages: Union[List[Embed], List[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
         self._components: Optional[List[ActionRowBuilder]] = None
@@ -186,7 +199,7 @@ class Paginator():
                 ))
 
     @property
-    def components(self) -> Union[List[ActionRowBuilder]]:
+    def components(self) -> List[ActionRowBuilder]:
         if self._disable_components:
             return []
         if self._components_factory is not None:
