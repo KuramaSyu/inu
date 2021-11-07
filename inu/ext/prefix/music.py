@@ -128,6 +128,8 @@ class Interactive:
 class MusicHelper:
     def __init__(self):
         self.music_logs: Dict[int, MusicLog] = {}
+        self.__class__.thumb_url_from_yt_url("https://music.youtube.com/watch?v=Vd_nkokQwnQ&list=OLAK5uy_momGwUZ9oagpTGS8PsTOoaJb2hatdutg0")
+        self.youtube = YouTubeHelper
     
     def add_to_log(self, guild_id: int, entry: str):
         """
@@ -180,29 +182,32 @@ class MusicHelper:
         """
         return self.music_logs.get(guild_id)
 
+
+
+
+class YouTubeHelper:
+    """A YouTube helper to convert some stuff - more like a collection"""
     @staticmethod
-    def get_id_from_yt_url(url: str) -> Optional[str]:
+    def id_from_url(url: str) -> Optional[str]:
         """Returns the id of a video or None out of th given url"""
         start = url.find("watch?v=")
         if start == -1:
             return None
         start += 7
         end = url[start:].find("&")
+        end += start
         if end == -1:
-            return url[start:]
-        return url[start:end]
+            return url[start+1:]
+        return url[start+1:end]
 
     @staticmethod
-    def thumb_url_from_yt_url(url: str) -> Optional[str]:
+    def thumbnail_from_url(url: str) -> Optional[str]:
         """Returns the thumbnail url of a video or None out of th given url"""
-        start = url.find("watch?v=")
-        if start == -1:
-            return None
-        start += 7
-        end = url[start:].find("&")
-        if end == -1:
-            return url[start:]
-        return url[start:end]
+        video_id = __class__.id_from_url(url)
+        if not video_id:
+            return
+        return f"http://img.youtube.com/vi/{video_id}/hqdefault.jpg"
+        
 
 class MusicLog:
     """
