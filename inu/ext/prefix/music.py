@@ -14,6 +14,7 @@ import asyncio
 import datetime
 from pprint import pformat
 import random
+from collections import deque
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
@@ -126,12 +127,15 @@ class MusicHelper:
 
 
 class MusicLog:
+    """
+    A class which handels one guild music log
+    """
     def __init__(self, guild_id: int):
         self.guild_id = guild_id
-        self.music_log = []
+        self.music_log = deque()
 
-    def add_to_log():
-        pass
+    def add_to_log(self, log_entry: str):
+        self.music_log.appendleft(f"{self.format_time_now()}: {log_entry}")
 
     def format_time_now(self):
         """
@@ -141,7 +145,39 @@ class MusicLog:
         """
         time = datetime.datetime.now()
         return f'{time.hour}:{time.minute}:{time.second} - {time.day}. {time.month}'
-        
+
+    def to_string_list(self, max_str_len: int = 1980) -> List[str]:
+        """
+        converts this to a list with all the log entries. Each entry in the list
+        has a max lenth <max_str_len>. Helpfull for sending the log into discord.
+        Most recent log entries first
+
+        Args:
+        -----
+            - max_str_len: (int, default=1980) the maximum length of a string in the return list
+
+        Returns:
+        --------
+            - (List[str]) the converted list
+        """
+        str_list = []
+        new_entry = ""
+        for entry in self.music_log:
+            if len(entry) > max_str_len:
+                index = 0
+                while index < len(entry):
+                    str_list.append(entry[index:index + max_str_len])
+                    index += max_str_len
+            else:
+                if len(new_entry) + len(entry) < max_str_len:
+                    new_entry += f"{entry}\n"
+                else:
+                    str_list.append(new_entry)
+                    new_entry = entry
+        if new_entry:
+            str_list.append(new_entry)
+        return str_list
+
 
 
 
@@ -153,6 +189,7 @@ class Music(lightbulb.Plugin):
         self.log.setLevel(logging.DEBUG)
         self.interactive = Interactive(self.bot)
         self.music_message: Dict[int, hikari.Message] = {}  # guild_id: hikari.Message
+        self.last_context: Dict[int, lightbulb.Context] = {} # guild_id: lightbulb.Context
 
     @lightbulb.listener(hikari.VoiceStateUpdateEvent)
     async def on_voice_state_update(self, event: VoiceStateUpdateEvent):
@@ -181,9 +218,13 @@ class Music(lightbulb.Plugin):
         emoji = event.emoji_name
         if emoji == '🔀':
 
-            node = self.lavalink.get_guild_node(guild_id)
-            random.shuffle(player.queue)
-            await self.queue(ctx=user, fetch_ctx=True)
+            node = await self.lavalink.get_guild_node(guild_id)
+            if node is None:
+                return
+            if not (ctx := self.last_context.get(guild_id)):
+                return
+            random.shuffle(node.queue)
+            await self.queue(ctx)
             await message.remove_reaction(emoji, user=event.user_id)
             await self.append_music_log(guild_id = str(guild_id), info = f'🔀 Music was shuffled by {user.name}')
         elif emoji == '▶':
@@ -503,6 +544,9 @@ class Music(lightbulb.Plugin):
         '''
         refreshes the queue of the player
         '''
+        if not ctx.guild_id:
+            return
+        self.last_context[ctx.guild_id] = ctx
         if not ctx.guild_id:
             return
         channel = ctx.get_channel()
