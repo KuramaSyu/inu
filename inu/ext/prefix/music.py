@@ -246,6 +246,7 @@ class Music(lightbulb.Plugin):
         self.interactive = Interactive(self.bot)
         self.music_message: Dict[int, hikari.Message] = {}  # guild_id: hikari.Message
         self.last_context: Dict[int, lightbulb.Context] = {} # guild_id: lightbulb.Context
+        self.music_helper = MusicHelper()
 
     @lightbulb.listener(hikari.VoiceStateUpdateEvent)
     async def on_voice_state_update(self, event: VoiceStateUpdateEvent):
@@ -265,9 +266,11 @@ class Music(lightbulb.Plugin):
             return
         try:
             message = self.bot.cache.get_message(event.message_id)
-
             guild_id = message.guild_id  # type: ignore
             if not isinstance(message, hikari.Message) or guild_id is None:
+                return
+            member = self.bot.cache.get_member(guild_id, event.user_id)
+            if not isinstance(member, hikari.Member):
                 return
         except AttributeError:
             return
@@ -282,51 +285,63 @@ class Music(lightbulb.Plugin):
             random.shuffle(node.queue)
             await self.queue(ctx)
             await message.remove_reaction(emoji, user=event.user_id)
-            await self.append_music_log(guild_id = str(guild_id), info = f'🔀 Music was shuffled by {user.name}')
+            self.music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
         elif emoji == '▶':
-            await self.append_music_log(guild_id = str(guild_id), info = f'▶ Music was resumed by {user.name}')
+            self.music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
             await message.remove_reaction(emoji, user=event.user_id)
             await message.remove_reaction(emoji, user=self.bot.me)
             await asyncio.sleep(0.1)
             await message.add_reaction(str('⏸'))
-            await self._resume(reaction.message.guild)
+            await self._resume(message.guild)
         elif emoji == '1️⃣':
             await self._skip(guild_id, amount = 1)
             await message.remove_reaction(emoji, user=event.user_id)
-            await self.append_music_log(guild_id = str(guild_id), info = f'1️⃣ Music was skipped by {user.name} (once)')
+            self.music_helper.add_to_log(guild_id = guild_id, entry = f'1️⃣ Music was skipped by {member.display_name} (once)')
         elif emoji == '2️⃣':
             await self._skip(guild_id, amount = 2)
             await message.remove_reaction(emoji, user=event.user_id)
-            await self.append_music_log(
-                guild_id = str(guild_id), 
-                info = f'2️⃣ Music was skipped by {self.bot.cache.get_member(guild_id, event.user_id).display_name} (twice)'
+            self.music_helper.add_to_log(
+                guild_id =guild_id, 
+                entry = f'2️⃣ Music was skipped by {member.display_name} (twice)'
             )
         elif emoji == '3️⃣':
             await self._skip(guild_id, amount = 3)
-            await reaction.message.remove_reaction(emoji,user)
-            await self.append_music_log(guild_id = str(guild_id), info = f'3️⃣ Music was skipped by {user.name} (3 times)')
+            await message.remove_reaction(emoji, user=event.user_id)
+            self.music_helper.add_to_log(guild_id = guild_id, entry = f'3️⃣ Music was skipped by {member.display_name} (3 times)')
         elif emoji == '4️⃣':
             await self._skip(guild_id, amount = 4)
-            await reaction.message.remove_reaction(emoji,user)
-            await self.append_music_log(guild_id = str(guild_id), info = f'4️⃣ Music was skipped by {user.name} (4 times)')
+            await message.remove_reaction(emoji, user=event.user_id)
+            self.music_helper.add_to_log(guild_id =guild_id, entry = f'4️⃣ Music was skipped by {member.display_name} (4 times)')
         elif emoji == '⏸':
-            await self.append_music_log(guild_id = str(guild_id), info = f'⏸ Music was paused by {user.name}')
-            await reaction.message.remove_reaction(emoji,user)
-            await reaction.message.remove_reaction(emoji,self.client.user)
+            self.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
+            await message.remove_reaction(emoji, user=event.user_id)
+            await message.remove_reaction(emoji,self.bot.get_me().id)  # type: ignore
             await asyncio.sleep(0.1)
-            await reaction.message.add_reaction(str('▶'))
-            await self._pause(reaction.message)
+            await message.add_reaction(str('▶'))
+            await self._pause(message)
         elif emoji == '🗑':
-            await reaction.message.remove_reaction(emoji,user)
-            await information_message(reaction.message.channel, info=f'🗑 Queue was cleared by {user.name}', del_after=int(4*60), user=user, small = True)
-            await self.append_music_log(guild_id = str(guild_id), info = f'🗑 Queue was cleared by {user.name}')
-            await self._clear(reaction.message)
-            await self.queue(ctx = user, fetch_ctx=True)
+            await message.remove_reaction(emoji, user=event.user_id)
+            await message.respond(
+                embed=(
+                    Embed(title="🗑 queue cleared")
+                    .set_footer(text=f"music queue was cleared by {member.display_name}", icon=member.avatar_url)
+                )
+            )
+            self.music_helper.add_to_log(guild_id =guild_id, entry = f'🗑 Queue was cleared by member.display_name}')
+            await self._clear(message)
+            if not (ctx := self.last_context.get(guild_id)):
+                return
+            await self.queue(ctx)
         elif emoji == '🛑':
-            await information_message(reaction.message.channel, info=f'🛑 Music was stopped by {user.name}', del_after=int(5*60), user=user, small = True)
-            await self.append_music_log(guild_id = str(guild_id), info = f'🛑 Music was stopped by {user.name}')
+            await message.respond(
+                embed=(
+                    Embed(title="🛑 music stopped")
+                    .set_footer(text=f"music was stopped by {member.display_name}", icon=member.avatar_url)
+                )
+            )
+            self.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
             await self._leave(user.guild)
-
+        # changed message sendings, changed log calles completly
     async def _join(self, ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
         if not (guild := ctx.get_guild()) or not ctx.guild_id:
             return
