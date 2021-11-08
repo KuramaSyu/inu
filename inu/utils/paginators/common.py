@@ -19,11 +19,15 @@ import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import ActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError
+from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType
 from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
 
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+log.info("Test")
 
 __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
 _Sendable = Union[Embed, str]
@@ -134,7 +138,7 @@ class Paginator():
         disable_component: bool = False,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
-        listen_to_events: List[hikari.Event] = [],
+        listen_to_events: List[Any] = [],
     ):
         """
         A Paginator with many options
@@ -205,6 +209,7 @@ class Paginator():
 
     @property
     def component(self) -> Optional[ActionRowBuilder]:
+        print("call comp")
         if self._disable_component:
             return None
         if self._component_factory is not None:
@@ -222,6 +227,7 @@ class Paginator():
 
     @property
     def components(self) -> List[ActionRowBuilder]:
+        print("call comps")
         if self._disable_components:
             return []
         if self._components_factory is not None:
@@ -412,7 +418,7 @@ class Paginator():
                     create_event(GuildMessageCreateEvent, self.message_pred),
                 ]
                 # adding user specific events
-                always_true = lambda: True
+                always_true = lambda _ : True
                 for event in self.listen_to_events:
                     events.append(create_event(event, always_true))
                 done, pending = await asyncio.wait(
@@ -424,22 +430,25 @@ class Paginator():
                 self._stop = True
                 return
             # maybe called from outside
+            for e in pending:
+                e.cancel()
             if self._stop:
                 return
             try:
                 event = done.pop().result()
             except Exception:
                 continue
-            for e in pending:
-                e.cancel()
+
             await self.dispatch_event(event)
             
     async def dispatch_event(self, event: Event):
-        if isinstance(event, InteractionCreateEvent):
+        if isinstance(event, InteractionCreateEvent) and self.interaction_pred(event):
             await self.paginate(event)
         await self.listener.notify(event)
 
-    async def paginate(self, event):
+    async def paginate(self, event: InteractionCreateEvent):
+        if not isinstance(event.interaction, ComponentInteraction):
+            return
         id = event.interaction.custom_id or None
         last_position = self._position
 
@@ -450,6 +459,9 @@ class Paginator():
                 return
             self._position -= 1
         elif id == "stop":
+            await event.interaction.create_initial_response(
+                ResponseType.MESSAGE_UPDATE
+            )
             await self.delete_presence()
             await self.stop()
         elif id == "next":
@@ -464,8 +476,8 @@ class Paginator():
 
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
-        if self.ctx.channel is not None:
-            await self.ctx.channel.delete_messages(
+        if (channel := self.ctx.get_channel()) is not None:
+            await channel.delete_messages(
                 self._message,
                 self.ctx.message,
             )
