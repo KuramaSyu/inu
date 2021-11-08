@@ -19,7 +19,7 @@ import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import ActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, InteractionCreateEvent, MessageCreateEvent, NotFoundError
+from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError
 from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
@@ -30,6 +30,13 @@ _Sendable = Union[Embed, str]
 T = TypeVar("T")
 
 # I know this is kinda to much just for a paginator - but I want to learn design patterns, so I do it
+class PaginatorReadyEvent(hikari.Event):
+    def __init__(self, bot: lightbulb.Bot):
+        self.bot = bot
+
+    @property
+    def app(self):
+        return self.bot
 
 class BaseListener(metaclass=ABCMeta):
     """A Base Listener. This will later notify all observers on event"""
@@ -127,6 +134,7 @@ class Paginator():
         disable_component: bool = False,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
+        listen_to_events: List[hikari.Event] = [],
     ):
         """
         A Paginator with many options
@@ -140,6 +148,14 @@ class Paginator():
             - disable_component: (bool, default=False) wether or not the component of the paginator should be disabled
             - disable_components: (bool, default=False) wether or not the components of the paginator should be disabled
             - disable_paginator_when_one_site: (bool, default=True) wether or not the pagination should be disabled when the length of the pages is 1
+            - listen_to_events: (List[hikari.Event]) events the bot should listen to. These are needed to use them later with the `listener` decorator
+
+        Note:
+        -----
+            - the listener is always listening to 2 events:
+                - GuildMessageCreateEvent (only when in context with the Paginator)
+                - ComponentInteractionEvent (only component interaction, only when in context with the paginator)
+                - PaginatorReadyEvent
         """
         self._pages: Union[List[Embed], List[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
@@ -368,6 +384,7 @@ class Paginator():
         if len(self.pages) == 1 and self._exit_when_one_site:
             return
         self._position = 0
+        await self.dispatch_event(PaginatorReadyEvent(self.bot))
         self._task = asyncio.create_task(self.pagination_loop())
         
 
@@ -381,12 +398,12 @@ class Paginator():
                 timeout=self.timeout,
                 predicate=predicate
             )
-
+        event = hikari.ShardReadyEvent(None, None, None, None, None)
         while not self._stop:
             try:
                 events = [
                     create_event(InteractionCreateEvent, self.interaction_pred),
-                    create_event(MessageCreateEvent, self.message_pred),
+                    create_event(GuildMessageCreateEvent, self.message_pred),
                 ]
                 done, pending = await asyncio.wait(
                     [asyncio.create_task(task) for task in events],
