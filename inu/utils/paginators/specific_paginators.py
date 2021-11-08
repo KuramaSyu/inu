@@ -1,8 +1,7 @@
-from argparse import Action
-from types import TracebackType
-import discord
 from typing import Union, Optional, List, Dict
 import traceback
+import logging
+
 
 import hikari
 from hikari.impl import ActionRowBuilder
@@ -12,6 +11,10 @@ from .common import PaginatorReadyEvent
 from .common import Paginator
 from .common import listener
 from utils import Color
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+log.debug("Test")
 
 class MusicHistoryPaginator(Paginator):
     def __init__(
@@ -25,12 +28,17 @@ class MusicHistoryPaginator(Paginator):
         super().__init__(
             page_s=pages,
             timeout=timeout,
+            listen_to_events=[hikari.InteractionCreateEvent],
+            disable_component=True,
+            disable_components=False,
+            disable_paginator_when_one_site=False
         )
         self.not_valid = 0
         self.song_list = history
         self.items_per_site = items_per_site
     
     def build_default_components(self, position: int):
+        log.debug("build comps")
         components = [self.build_default_component(position)]
         start = self._position * self.items_per_site
         menu = (
@@ -38,16 +46,19 @@ class MusicHistoryPaginator(Paginator):
             .add_select_menu("history menu")
         )
         for x in range(self.items_per_site):
-            menu.add_option(
-                f"{x+start} | {self.song_list[x+start]['title']}",
-                str(int(x+start))
-            ).add_to_menu()
+            try:
+                menu.add_option(
+                    f"{x+start} | {self.song_list[x+start]['title']}",
+                    str(int(x+start))
+                ).add_to_menu()
+            except IndexError:
+                break
         menu = menu.add_to_container()
         components.append(menu)
         return components
 
     @listener(PaginatorReadyEvent)
-    async def on_start(self):
+    async def on_start(self, event: PaginatorReadyEvent):
         print("on_start")
         try:
             ext = self.bot.get_plugin("Music")
@@ -56,6 +67,22 @@ class MusicHistoryPaginator(Paginator):
         except:
             traceback.print_exc()
         
+    @listener(hikari.InteractionCreateEvent)
+    async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
+        if not isinstance(event.interaction, hikari.ComponentInteraction):
+            return
+        if not event.interaction.custom_id == "history menu":
+            return
+        if not event.interaction.message.id == self._message.id:
+            return
+        # play the selected song
+        uri = self.song_list[int(event.interaction.values[0])]["uri"]
+        await event.interaction.create_initial_response(
+            hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
+        )
+        await self.play(self.ctx, uri)
+
+    
     @listener(hikari.GuildMessageCreateEvent)
     async def on_message(self, event: hikari.MessageCreateEvent):
         message = event.message
