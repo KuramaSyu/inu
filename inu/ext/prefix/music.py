@@ -1,4 +1,5 @@
 import os
+from pickle import HIGHEST_PROTOCOL
 import traceback
 import typing
 from typing import (
@@ -7,6 +8,7 @@ from typing import (
     List,
     Dict,
     Any,
+    Tuple
 )
 import asyncio
 import logging
@@ -15,6 +17,8 @@ import datetime
 from pprint import pformat
 import random
 from collections import deque
+import json
+from unittest.util import _MAX_LENGTH
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
@@ -22,10 +26,13 @@ from hikari.impl import ActionRowBuilder
 import lightbulb
 from lightbulb import Context, command, check
 import lavasnek_rs
+from matplotlib.pyplot import hist
 
 from core import Inu
 from utils import Paginator
 from utils import Color
+from utils.db import Database
+from utils.paginators.specific_paginators import MusicHistoryPaginator
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -222,7 +229,56 @@ class YouTubeHelper:
         if end == -1:
             return url
         return url[:end+start]
-        
+
+
+class MusicHistoryHandler:
+    """A class which handles music history stuff and syncs it with postgre"""
+    db: Database = Database()
+    max_length: int = 200  # max length of music history list¡
+
+    @classmethod
+    async def add(cls, guild_id: int, title: str, url: str):
+
+        json_ = await cls.get(guild_id)
+        history: List[Dict] = json_["data"]  # type: ignore
+        history.append(                
+            {
+                "uri": url,
+                "title": title,
+            }
+        )
+        if len(history) > cls.max_length:
+            history.pop(0)
+        json_ = json.dumps({"data": history})
+        sql = """
+            UPDATE music_history
+            SET history = $1
+            WHERE guild_id = $2
+        """
+        await cls.db.execute(sql, json_, guild_id)
+
+    @classmethod
+    async def get(cls, guild_id: int) -> Dict[str, Union[str, List[Dict]]]:
+        """"""
+        sql = """
+            SELECT * FROM music_history
+            WHERE guild_id = $1
+        """
+        record = await cls.db.row(sql, guild_id)
+
+        if record:
+            json_ = record["history"]
+            return json.loads(json_)
+        else:
+            sql = """
+                INSERT INTO music_history(guild_id, history)
+                VALUES ($1, $2)
+            """
+            # create new entry for this guild
+            await cls.db.execute(sql, guild_id, json.dumps({"data": []}))
+            return {"data": []}
+
+
 
 class MusicLog:
     """
@@ -296,12 +352,22 @@ class Music(lightbulb.Plugin):
         self.last_context: Dict[int, lightbulb.Context] = {} # guild_id: lightbulb.Context
         self.music_helper = MusicHelper()
 
+    @lightbulb.listener(hikari.ShardReadyEvent)
+    async def on_ready(self, event: hikari.ShardReadyEvent):
+        pass
+        # await asyncio.sleep(6)
+        # await MusicHistoryHandler.add(
+        #     538398443006066728,
+        #     "test",
+        #     "test uri"
+        # )
+        # self.log.debug(await MusicHistoryHandler.get(538398443006066728))
+
     @lightbulb.listener(hikari.VoiceStateUpdateEvent)
     async def on_voice_state_update(self, event: VoiceStateUpdateEvent):
         # check if the user is the bot
         if not event.state.user_id == self.bot.get_me().id: # type: ignore
             return
-
         # bot connected (No channel -> channel)
         if event.old_state is None and event.state.channel_id:
             pass
@@ -350,7 +416,10 @@ class Music(lightbulb.Plugin):
         elif emoji == '1️⃣':
             await self._skip(guild_id, amount = 1)
             await message.remove_reaction(emoji, user=event.user_id)
-            self.music_helper.add_to_log(guild_id = guild_id, entry = f'1️⃣ Music was skipped by {member.display_name} (once)')
+            self.music_helper.add_to_log(
+                guild_id = guild_id, 
+                entry = f'1️⃣ Music was skipped by {member.display_name} (once)'
+            )
         elif emoji == '2️⃣':
             await self._skip(guild_id, amount = 2)
             await message.remove_reaction(emoji, user=event.user_id)
@@ -361,11 +430,17 @@ class Music(lightbulb.Plugin):
         elif emoji == '3️⃣':
             await self._skip(guild_id, amount = 3)
             await message.remove_reaction(emoji, user=event.user_id)
-            self.music_helper.add_to_log(guild_id = guild_id, entry = f'3️⃣ Music was skipped by {member.display_name} (3 times)')
+            self.music_helper.add_to_log(
+                guild_id = guild_id, 
+                entry = f'3️⃣ Music was skipped by {member.display_name} (3 times)'
+            )
         elif emoji == '4️⃣':
             await self._skip(guild_id, amount = 4)
             await message.remove_reaction(emoji, user=event.user_id)
-            self.music_helper.add_to_log(guild_id =guild_id, entry = f'4️⃣ Music was skipped by {member.display_name} (4 times)')
+            self.music_helper.add_to_log(
+                guild_id =guild_id, 
+                entry = f'4️⃣ Music was skipped by {member.display_name} (4 times)'
+            )
         elif emoji == '⏸':
             self.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
             await message.remove_reaction(emoji, user=event.user_id)
@@ -538,13 +613,18 @@ class Music(lightbulb.Plugin):
     async def load_track(self, ctx: Context, track: lavasnek_rs.Track):
         guild_id = ctx.guild_id
         author_id = ctx.author.id
-        if not guild_id:
+        if not ctx.guild_id or not guild_id:
             raise Exception("guild_id is missing in `lightbulb.Context`")
         try:
             # `.queue()` To add the track to the queue rather than starting to play the track now.
             await self.bot.data.lavalink.play(guild_id, track).requester(
                 author_id
             ).queue()
+            await MusicHistoryHandler.add(
+                ctx.guild_id,
+                track.info.title,
+                track.info.uri
+            )
         except lavasnek_rs.NoSessionPresent:
             await ctx.respond(f"Use `{self.bot.conf.DEFAULT_PREFIX}join` first")
             return
@@ -554,6 +634,11 @@ class Music(lightbulb.Plugin):
             description=f'[{track.info.title}]({track.info.uri})'
         ).set_thumbnail(ctx.member.avatar_url)  # type: ignore
         await ctx.respond(embed=embed)
+        await MusicHistoryHandler.add(
+            ctx.guild_id, 
+            str(track.info.title), 
+            track.info.uri
+        )
 
     async def load_yt_playlist(self, ctx: Context, query) -> lavasnek_rs.Tracks:
         """
@@ -564,7 +649,6 @@ class Music(lightbulb.Plugin):
             - (lavasnek_rs.Track) the first track of the playlist
         """
         tracks = await self.lavalink.get_tracks(query)
-        log.debug(len(tracks.tracks))
         for track in tracks.tracks:
             await self.bot.data.lavalink.play(ctx.guild_id, track).requester(
                 ctx.author.id
@@ -574,6 +658,11 @@ class Music(lightbulb.Plugin):
                 title=f'Playlist added',
                 description=f'[{tracks.playlist_info.name}]({query})'
             ).set_thumbnail(ctx.member.avatar_url)
+            await MusicHistoryHandler.add(
+                ctx.guild_id, 
+                str(tracks.playlist_info.name), 
+                query
+            )
             await ctx.respond(embed=embed)
         return tracks
 
@@ -734,8 +823,8 @@ class Music(lightbulb.Plugin):
         pass
 
     @lightbulb.check(lightbulb.guild_only)
-    @music.command()
-    async def log(self, ctx: Context):
+    @music.command(name="log")
+    async def events(self, ctx: Context):
         """Sends the music log"""
         if not ctx.guild_id or not ctx.member:
             return
@@ -751,7 +840,11 @@ class Music(lightbulb.Plugin):
         embeds = []
         for i, log_site in enumerate(log_sites):
             embeds.append(
-                Embed(title=f"log {i+1}/{len(log_sites)}", description=log_site, color=Color.from_name("maroon"))
+                Embed(
+                    title=f"log {i+1}/{len(log_sites)}", 
+                    description=log_site, 
+                    color=Color.from_name("maroon")
+                )
             )
         pag = Paginator(embeds)
         await pag.start(ctx)
@@ -778,6 +871,41 @@ class Music(lightbulb.Plugin):
         queue = [node.queue[0]]
         node.queue = queue
         await self.lavalink.set_guild_node(guild_id, node)
+
+    @lightbulb.check(lightbulb.guild_only)
+    @music.command(aliases=['h'])
+    async def history(self, ctx: Context):
+        if not ctx.guild_id:
+            return
+        json_ = await MusicHistoryHandler.get(ctx.guild_id)
+        history: List[Dict] = json_["data"]  # type: ignore
+        embeds = []
+        description = ""
+        for i, record in enumerate(history):
+            if i % 20 == 0 and not i == 0:
+                embeds.append(
+                    Embed(
+                        title=f"Music history {i+1-20} - {i+1}",
+                        description=description,
+                    )
+                )
+                description = ""
+            description += f"[{record['title']}]({record['uri']})"
+            if i+1 == len(history):
+                embeds.append(
+                    Embed(
+                        title=f"Music history {i+1-20} - {i+1}",
+                        description=description,
+                    )
+                )
+        pag = MusicHistoryPaginator(
+            history=history,
+            pages=embeds
+        )
+        await pag.start(ctx)
+        
+            
+
 
     async def queue(self, ctx: Context = None, guild_id: int = None):
         '''
