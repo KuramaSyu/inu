@@ -27,7 +27,7 @@ def main():
         "loggers": {
             "hikari": {"level": "DEBUG"},
             "hikari.gateway": {"level": "DEBUG"},
-            "hikari.ratelimits": {"level": "TRACE_HIKARI"},
+            "hikari.ratelimits": {"level": "INFO"}, #TRACE_HIKARI
             "lightbulb": {"level": "DEBUG"},
         },
     }
@@ -38,6 +38,7 @@ def main():
         intents=hikari.Intents.ALL,
         logs=logs,
     )
+    logging.setLoggerClass(LoggingHandler)
     inu.run()
 
 if __name__ == "__main__":
