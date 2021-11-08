@@ -46,9 +46,14 @@ class EventHandler:
     """Events from the Lavalink server"""
     def __init__(self, ext: "Music"):
         self.ext = ext
-    async def track_start(self, _: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
-        log.info("Track started on guild: %s", event.guild_id)
+    async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
+        # log.info("Track started on guild: %s", event.guild_id)
         await self.ext.queue(guild_id=event.guild_id)
+        node = await lavalink.get_guild_node(event.guild_id)
+        if node is None:
+            return
+        track = node.queue[0].track
+        await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
     async def track_finish(self, _: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
         log.info("Track finished on guild: %s", event.guild_id)
@@ -658,10 +663,14 @@ class Music(lightbulb.Plugin):
                 title=f'Playlist added',
                 description=f'[{tracks.playlist_info.name}]({query})'
             ).set_thumbnail(ctx.member.avatar_url)
-            await MusicHistoryHandler.add(
+            self.music_helper.add_to_log(
                 ctx.guild_id, 
                 str(tracks.playlist_info.name), 
-                query
+            )
+            await MusicHistoryHandler.add(
+                ctx.guild_id, 
+                str(tracks.playlist_info.name),
+                query,
             )
             await ctx.respond(embed=embed)
         return tracks
@@ -879,28 +888,24 @@ class Music(lightbulb.Plugin):
             return
         json_ = await MusicHistoryHandler.get(ctx.guild_id)
         history: List[Dict] = json_["data"]  # type: ignore
+        history.reverse()  # now recent first
         embeds = []
-        description = ""
+        embed = None
         for i, record in enumerate(history):
-            if i % 20 == 0 and not i == 0:
-                embeds.append(
-                    Embed(
-                        title=f"Music history {i+1-20} - {i+1}",
-                        description=description,
-                    )
+            if i % 20 == 0:
+                if not embed == None:
+                    embeds.append(embed)
+                embed = Embed(
+                    title=f"Music history {i} - {i+19}",
+                    description="",
                 )
-                description = ""
-            description += f"[{record['title']}]({record['uri']})"
-            if i+1 == len(history):
-                embeds.append(
-                    Embed(
-                        title=f"Music history {i+1-20} - {i+1}",
-                        description=description,
-                    )
-                )
+            embed.description += f"{i} | [{record['title']}]({record['uri']})\n"
+        if embed:
+            embeds.append(embed)
         pag = MusicHistoryPaginator(
             history=history,
-            pages=embeds
+            pages=embeds,
+            items_per_site=20,
         )
         await pag.start(ctx)
         
