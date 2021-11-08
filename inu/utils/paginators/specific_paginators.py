@@ -14,7 +14,6 @@ from utils import Color
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
-log.debug("Test")
 
 class MusicHistoryPaginator(Paginator):
     def __init__(
@@ -38,7 +37,6 @@ class MusicHistoryPaginator(Paginator):
         self.items_per_site = items_per_site
     
     def build_default_components(self, position: int):
-        log.debug("build comps")
         components = [self.build_default_component(position)]
         start = self._position * self.items_per_site
         menu = (
@@ -59,7 +57,6 @@ class MusicHistoryPaginator(Paginator):
 
     @listener(PaginatorReadyEvent)
     async def on_start(self, event: PaginatorReadyEvent):
-        print("on_start")
         try:
             ext = self.bot.get_plugin("Music")
             self.play = ext._play
@@ -90,13 +87,11 @@ class MusicHistoryPaginator(Paginator):
             return
         if self.not_valid > 2:
             self.timeout = 10
-        print(message.content)
         valid = [str(num) for num in range(10)]
         valid.extend([" ", ","])
         for char in set(message.content):
             if char not in valid:
                 self.not_valid += 1
-                print("unvalid char ", char)
                 return
         numbers = []
         number = ""
@@ -106,7 +101,6 @@ class MusicHistoryPaginator(Paginator):
             elif char in [" ", ","] and number:
                 numbers.append(int(number))
                 number = ""
-            print(numbers, "X", number)
         else:
             if number:
                 numbers.append(int(number))
@@ -125,19 +119,15 @@ class MusicHistoryPaginator(Paginator):
             text=f"{len(numbers)} {'track is' if len(numbers) <= 1 else 'tracks are'} "\
                  f"added by {self.ctx.member.display_name}"
         )
-        menu = (
-            ActionRowBuilder()
-            .add_select_menu("music menu")
-        )
+
         for num in numbers:
             d = self.song_list[num]
             embed.description += f"{num} | [{d['title']}]({d['uri']})\n"
-            menu = menu.add_option(f"{num} | {d['title']}", str(num)).add_to_menu()
             links.append(d["uri"])
         embed.set_author(name="Enter number(s) OR select in the menu")
-        menu.add_to_container()
-        await self.ctx.respond(embed=embed, component=menu)
-        await self.play(self.ctx, query=links)
+        await self.ctx.respond(embed=embed)
+        for link in links:
+            await self.play(self.ctx, query=link, be_quiet=True)
 
 
         
