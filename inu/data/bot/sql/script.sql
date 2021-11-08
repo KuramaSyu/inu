@@ -9,3 +9,7 @@ CREATE TABLE IF NOT EXISTS tags (
     creator_id BIGINT NOT NULL,
     guild_id BIGINT
 );
+CREATE TABLE IF NOT EXISTS music_history (
+    guild_id BIGINT NOT NULL PRIMARY KEY,
+    history JSONB
+);
