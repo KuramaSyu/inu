@@ -156,6 +156,11 @@ class Paginator():
                 - GuildMessageCreateEvent (only when in context with the Paginator)
                 - ComponentInteractionEvent (only component interaction, only when in context with the paginator)
                 - PaginatorReadyEvent
+            - create custom components with:
+                either 
+                - passing in `component(s)_factory`
+                or
+                - overriding `build_default_component(s)`; args: self, position (int)
         """
         self._pages: Union[List[Embed], List[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
@@ -175,6 +180,7 @@ class Paginator():
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
         self.timeout = timeout
+        self.listen_to_events = listen_to_events
 
         # paginator configuration
         self.pagination = not disable_pagination
@@ -398,13 +404,17 @@ class Paginator():
                 timeout=self.timeout,
                 predicate=predicate
             )
-        event = hikari.ShardReadyEvent(None, None, None, None, None)
+
         while not self._stop:
             try:
                 events = [
                     create_event(InteractionCreateEvent, self.interaction_pred),
                     create_event(GuildMessageCreateEvent, self.message_pred),
                 ]
+                # adding user specific events
+                always_true = lambda: True
+                for event in self.listen_to_events:
+                    events.append(create_event(event, always_true))
                 done, pending = await asyncio.wait(
                     [asyncio.create_task(task) for task in events],
                     return_when=asyncio.FIRST_COMPLETED,
@@ -419,7 +429,7 @@ class Paginator():
             try:
                 event = done.pop().result()
             except Exception:
-                pass
+                continue
             for e in pending:
                 e.cancel()
             await self.dispatch_event(event)
@@ -543,4 +553,3 @@ def navigation_row(
         )
 
     return action_row
-            
