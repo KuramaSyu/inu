@@ -135,12 +135,9 @@ class Interactive:
             track_num = int(event.interaction.values[0])
         except asyncio.TimeoutError as e:
             return None
-        log.debug(f"track num: {track_num}")
         await event.interaction.create_initial_response(
             ResponseType.DEFERRED_MESSAGE_UPDATE
         )
-        log.debug(pformat([track.info.title for track in query_information.tracks]))
-        log.debug(query_information.tracks[track_num].info.title)
         return query_information.tracks[track_num]
 
 
@@ -213,7 +210,6 @@ class YouTubeHelper:
         start += 7
         end = url[start:].find("&")
         
-        log.debug(f'{start=}{end=}{url=}')
         if end == -1:
             return url[start+1:]
         return url[start+1:end+start]
@@ -222,7 +218,6 @@ class YouTubeHelper:
     def thumbnail_from_url(url: str) -> Optional[str]:
         """Returns the thumbnail url of a video or None out of th given url"""
         video_id = __class__.id_from_url(url)
-        log.debug(f"http://img.youtube.com/vi/{video_id}/hqdefault.jpg")
         if not video_id:
             return
         return f"http://img.youtube.com/vi/{video_id}/hqdefault.jpg"
@@ -521,7 +516,6 @@ class Music(lightbulb.Plugin):
         lava_client = await builder.build(EventHandler(self))
         self.bot.data.lavalink = lava_client
         self.lavalink = self.interactive.lavalink = self.bot.data.lavalink
-        log.debug(type(self.interactive.lavalink))
         logging.info("lavalink is connected")
 
     @lightbulb.check(lightbulb.guild_only)
@@ -561,7 +555,7 @@ class Music(lightbulb.Plugin):
         """Searches the query on youtube, or adds the URL to the queue."""
         await self._play(ctx, query)
 
-    async def _play(self, ctx: Context, query: str) -> None:
+    async def _play(self, ctx: Context, query: str, be_quiet: bool = False) -> None:
         if not ctx.guild_id or not ctx.member:
             return  # just for pylance
         con = await self.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id)
@@ -571,7 +565,7 @@ class Music(lightbulb.Plugin):
 
         # check for youtube playlist
         if 'youtube' in query and 'playlist?list=' in query:
-            await self.load_yt_playlist(ctx, query)
+            await self.load_yt_playlist(ctx, query, be_quiet)
         else:
             if (
                 "watch?v=" in query
@@ -579,14 +573,11 @@ class Music(lightbulb.Plugin):
                 and "&list" in query
             ):
                 query = YouTubeHelper.remove_playlist_info(query)
-            track = await self.search_track(ctx, query)
+            track = await self.search_track(ctx, query, be_quiet)
             if track is None:
                 return
-            await self.load_track(ctx, track)
-
-        self.log.debug("start queue()")
+            await self.load_track(ctx, track, be_quiet)
         await self.queue(ctx)
-        self.log.debug("ended queue()")
 
     @play.command(aliases=["1st", "st"])
     async def now(self, ctx: Context, *, query: str) -> None:
@@ -615,7 +606,7 @@ class Music(lightbulb.Plugin):
         await self.lavalink.set_guild_node(ctx.guild_id, node)
         await self.queue(ctx)
 
-    async def load_track(self, ctx: Context, track: lavasnek_rs.Track):
+    async def load_track(self, ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
         guild_id = ctx.guild_id
         author_id = ctx.author.id
         if not ctx.guild_id or not guild_id:
@@ -633,19 +624,20 @@ class Music(lightbulb.Plugin):
         except lavasnek_rs.NoSessionPresent:
             await ctx.respond(f"Use `{self.bot.conf.DEFAULT_PREFIX}join` first")
             return
-
-        embed = Embed(
-            title=f'Title added',
-            description=f'[{track.info.title}]({track.info.uri})'
-        ).set_thumbnail(ctx.member.avatar_url)  # type: ignore
-        await ctx.respond(embed=embed)
+        
+        if not be_quiet:
+            embed = Embed(
+                title=f'Title added',
+                description=f'[{track.info.title}]({track.info.uri})'
+            ).set_thumbnail(ctx.member.avatar_url)  # type: ignore
+            await ctx.respond(embed=embed)
         await MusicHistoryHandler.add(
             ctx.guild_id, 
             str(track.info.title), 
             track.info.uri
         )
 
-    async def load_yt_playlist(self, ctx: Context, query) -> lavasnek_rs.Tracks:
+    async def load_yt_playlist(self, ctx: Context, query: str, be_quiet: bool = False) -> lavasnek_rs.Tracks:
         """
         loads a youtube playlist
 
@@ -672,16 +664,17 @@ class Music(lightbulb.Plugin):
                 str(tracks.playlist_info.name),
                 query,
             )
-            await ctx.respond(embed=embed)
+            if not be_quiet:
+                await ctx.respond(embed=embed)
         return tracks
 
-    async def search_track(self, ctx: Context, query: str) -> Optional[lavasnek_rs.Track]:
+    async def search_track(self, ctx: Context, query: str, be_quiet: bool = False) -> Optional[lavasnek_rs.Track]:
         """
         searches the query and returns the Track or None
         """
         query_information = await self.bot.data.lavalink.auto_search_tracks(query)
         track = None
-        if not query_information.tracks:  # tracks is empty
+        if not query_information.tracks and not be_quiet:  # tracks is empty
             await ctx.respond("Could not find any video of the search query.")
             return None
 
@@ -966,7 +959,6 @@ class Music(lightbulb.Plugin):
             self.log.warning("no requester of current track - returning")
         #get thumbnail of the video
 
-        self.log.debug(track.info.uri)
         requester = ctx.get_guild().get_member(int(node.queue[0].requester))
         current_duration = str(datetime.timedelta(milliseconds=int(int(track.info.length))))
         music_embed = hikari.Embed(
