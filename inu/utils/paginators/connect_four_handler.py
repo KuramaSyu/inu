@@ -17,6 +17,18 @@ from utils import Color
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+class Board:
+    """A class which represents a connect 4 board"""
+    def __init__(self):
+        self.board =[   '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
+                        '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
+                        '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
+                        '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
+                        '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
+                        '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
+                        '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
+                        '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛' ]
+
 
 class Connect4Handler(Paginator):
     def __init__(
@@ -34,5 +46,33 @@ class Connect4Handler(Paginator):
             listen_to_events=[hikari.ReactionAddEvent]
         )
 
+        self.last_ctx = None
+
+        self.winning_conditions = []
+        self.gameOver = True
+        self.player1 = int()
+        self.player2 = int()
+        self.turn = 'initialisierung...'
+        self.board_message = ''
+        self.mark = ''
+        self.turn_count = int(0)
+        self.error_message = ''
+        self.board_message_id = int()
+        self.game_board = ''
+        self.board_title = '——————————Vier Gewinnt——————————'
+        self.board_description = 'Spiel läuft'
+        self.value1_title = f'Zug {self.turn_count}'
+        self.board_footer = f'{self.turn}'
+        self.value2_title = 'Log'
+        self.value2 = '———————\n'
+        self.mark1 = ''
+        self.mark2 = ''
+        self.should_logic_run = None
+        self.old_player1 = None
+        self.old_player2 = None
+        self.old_board_message_id = None
+        self.inu = None
+
     def build_message(self):
         pass
+
