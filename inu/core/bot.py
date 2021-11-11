@@ -17,6 +17,7 @@ logging.setLoggerClass(LoggingHandler)
 import lightbulb
 import hikari
 from dotenv import dotenv_values
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
 import lavasnek_rs
 
@@ -33,8 +34,7 @@ class Inu(lightbulb.Bot):
         self.data = Data()
         self.load_prefix()
         self.load_slash()
-
-
+        self.scheduler = AsyncIOScheduler()
 
 
     @property
