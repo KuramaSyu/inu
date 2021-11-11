@@ -7,3 +7,4 @@ aiofiles==0.7.0
 matplotlib==3.4.3
 asyncache==0.1.1
 cachetools==4.2.2
+APScheduler==3.8.1
