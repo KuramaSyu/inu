@@ -5,4 +5,5 @@ from .colors import Color, Colors
 from .logging import LoggingHandler
 from .paginators import Paginator
 import logging
+from .reddit import Reddit
 logging.setLoggerClass(LoggingHandler)
