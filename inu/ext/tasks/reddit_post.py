@@ -92,9 +92,14 @@ class DailyPosts(Plugin):
                 break
         if subreddit is None:
             return
+        tasks = []
         for r in records:
             for channel_id in r["channel_ids"]:
-                await self.send_top_x_pics(subreddit, channel_id)
+                asyncio.create_task(self.send_top_x_pics(subreddit, channel_id))
+        if not tasks:
+            log.debug("No channel to send pictures to")
+        await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+        log.debug("sent pictures in all channels")
 
     async def send_top_x_pics(self, subreddit: str, channel_id: int, count: int = 3):
         channel = self.bot.cache.get_guild_channel(channel_id)
@@ -103,7 +108,6 @@ class DailyPosts(Plugin):
                 f"Channel `channel_id: {channel_id}` `type: {type(channel)}` is not a textable channel"
             )
         hours = int(tm.strftime("%H", tm.localtime()))
-        
         try:
             posts = await Reddit.get_posts(
                 subreddit=subreddit,
