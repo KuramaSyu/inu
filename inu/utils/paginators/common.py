@@ -209,7 +209,6 @@ class Paginator():
 
     @property
     def component(self) -> Optional[ActionRowBuilder]:
-        print("call comp")
         if self._disable_component:
             return None
         if self._component_factory is not None:
@@ -227,7 +226,6 @@ class Paginator():
 
     @property
     def components(self) -> List[ActionRowBuilder]:
-        print("call comps")
         if self._disable_components:
             return []
         if self._components_factory is not None:
@@ -476,10 +474,9 @@ class Paginator():
 
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
-        if (channel := self.ctx.get_channel()) is not None:
+        if (channel := self.ctx.get_channel()):
             await channel.delete_messages(
-                self._message,
-                self.ctx.message,
+                [self._message, self.ctx.message]
             )
 
     async def _update_position(self, interaction: ComponentInteraction):
