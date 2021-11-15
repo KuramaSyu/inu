@@ -34,7 +34,7 @@ def main():
 
     inu = Inu(
         prefix="inu-",
-        token=conf["DISCORD_BOT_TOKEN"],
+        token=conf["DISCORD_TOKEN"],
         intents=hikari.Intents.ALL,
         logs=logs,
     )
