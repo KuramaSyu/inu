@@ -260,7 +260,7 @@ class Paginator():
         if not self.pagination:
             return None
         def button_factory( 
-            disable_when_index_is: Union[Callable[[Optional[int]], bool]] = (lambda x: False),
+            disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
             label: str = "",
             style = ButtonStyle.SECONDARY,
             custom_id: Optional[str] = None,
@@ -499,7 +499,7 @@ def navigation_row(
     compact: bool = False,
 ) -> ActionRowBuilder:
     def button_factory( 
-        disable_when_index_is: Union[Callable[[Optional[int]], bool]] = (lambda x: False),
+        disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
         label: str = "",
         style = ButtonStyle.SECONDARY,
         custom_id: Optional[str] = None,
