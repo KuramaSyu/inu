@@ -1,7 +1,7 @@
 import random
 import asyncpraw
 import traceback
-from typing import Union
+from typing import Union, List
 import logging
 import os
 
@@ -113,7 +113,7 @@ class Reddit():
         top: bool = False,
         minimum: int = 10,
         time_filter: str = 'day',
-    ) -> list[object]:
+    ) -> List[object]:
 
         if not reddit_client:
             raise UnvalidRedditClient
