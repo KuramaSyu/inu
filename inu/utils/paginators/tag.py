@@ -520,7 +520,7 @@ class TagHandler(Paginator):
         local_taken, global_taken = await TagManager.is_taken(key=tag["tag_key"], guild_id = guild_id or 0)
         new_tag: Tag = Tag(author)
         new_tag.name = tag["tag_key"]
-        new_tag.value = tag["tag_value"]
+        new_tag.value = tag["tag_value"][0]
         new_tag.is_stored = True
         new_tag.id = tag["tag_id"]
         if (
