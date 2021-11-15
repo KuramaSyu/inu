@@ -1,10 +1,14 @@
 from typing import (
+    Dict,
     Optional,
     List,
     Tuple,
-    Union
+    Union,
+    Mapping,
+    Any
 )
 import typing
+from copy import deepcopy
 
 import asyncpg
 from asyncache import cached
@@ -12,6 +16,7 @@ from cachetools import TTLCache, LRUCache
 import hikari
 from hikari import User, Member
 from numpy import column_stack
+
 
 from .db import Database
 
@@ -31,15 +36,27 @@ class TagManager():
         key: str,
         value: str,
         author: Union[User, Member],
+        guild_id: Optional[int] = None,
         check_if_taken: bool = True,
     ):
         """
         Creates a db entry for given args.
-        Raises:
-            TagIsTakenError if tag is taken
+
+        Args
+        -----
+            - key: (str) the tag name
+            - value: (str) the tag value
+            - author: (User | Member) the user who created the tag
+            - guild_id: (int | None, default=None) the guild_id if the tag should be local;
+            to make a tag global set guild_id to None
+            - check_if_taken: (bool, default=True) check if the tag is already taken
+
+        Raises
+        -------
+            - TagIsTakenError if tag is taken
         """
-        guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
-        await cls._do_check_if_taken(key, check_if_taken)
+        #guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
+        await cls._do_check_if_taken(key, guild_id, check_if_taken)
         await cls.db.execute(
             """
             INSERT INTO tags(tag_key, tag_value, creator_id, guild_id)
@@ -56,66 +73,129 @@ class TagManager():
         cls, 
         key: str,
         value: str,
+        author: Union[hikari.User, hikari.Member],
+        tag_id: int,
         guild_id: Optional[int] = None,
         check_if_taken: bool = False,
-    ) -> asyncpg.Record:
+    ) -> Mapping[str, Any]:
         """
         Updates a tag by key
         Args:
-            key: the key to match for#
-            guild_id: the guild id to check for.
+        -----
+            - key: (str) the name which the tag should have
+            - value: (str) the value of the tag
+            - guild_id: (int | None, default=None) the guild id to check for. None=global
             NOTE: if its None it will only check global, otherwise only local
-            check: wether the check should be executed or not
+            - check_if_taken: wether the check should be executed or not
+
         Raises:
-            utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
-        Returns:
         -------
-            - asyncpg.record: the removed record
+            - utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
+
         """
+        def correct_value(value) -> List[str]: #type: ignore
+            if isinstance(value, str):
+                return [value]
+            elif isinstance(value, list):
+                if isinstance(value[0], list):
+                    correct_value(value[0])
+                else:
+                    return value
+            else:
+                raise TypeError
+        sql = """
+            SELECT * FROM tags
+            WHERE tag_id = $1
+            """
+        # guild_id = author.guild_id if isinstance(author, hikari.Member) else None
         await cls._do_check_if_taken(key, guild_id, check_if_taken)
-        record = await cls.db.row("""SELECT * FROM tags""")
-        record["tag_value"].append(value)
-        await cls.sync_record(record)
+        record = await cls.db.row(sql, tag_id)
+        new_record = {
+            "creator_id": author.id,
+            "tag_value": correct_value(value),  # is already in a list
+            "tag_key": key,
+            "guild_id": guild_id,
+            "tag_ID": record["tag_id"]
+        }
+
+        await cls.sync_record(new_record)
         return record
 
 
     @classmethod
-    async def remove(cls, key: str, creator: User) -> List[asyncpg.Record]:
-        """Remove where arguments are eqaul and return those records"""
+    async def remove(cls, id: int) -> List[Mapping[str, Any]]:
+        """Remove where id mathes and return all matched records"""
         sql = """
             DELETE FROM tags
-            WHERE tag_key = $1 AND creator_id = $2
+            WHERE tag_id = $1
             RETURNING *
             """
-        return await cls.db.fetch(sql, key, creator.id)
+        return await cls.db.fetch(sql, id)
 
     @classmethod
-    async def get(cls, key: str, guild_id: int = 0) -> List[asyncpg.Record]:
-        """Returns the tag of the key, or multiple, if overridden in guild"""
+    async def get(
+        cls,
+        key: str,
+        guild_id: Optional[int] = None,
+        only_accessable: bool = True
+    ) -> List[Mapping[str, Any]]:
+        """
+        Returns the tag of the key, or multiple, if overridden in guild.
+        This function is a corotine.
+
+        Args:
+        -----
+        key: (str) the key to search
+        - guild_id: (int) [default None] the guild_id the tag should have
+            - Note: None is equivilant with `global` tag
+        - only_accessable: (bool) wehter or not the function should return only 
+            the gobal and/or local one instead of every tag with matching `key`
+        """
         sql = """
             SELECT * FROM tags
             WHERE (tag_key = $1) AND (guild_id = $2::BIGINT OR guild_id IS NULL)
             """
-        return await cls.db.fetch(sql, key, guild_id)
+        records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id)
+
+        if not records:
+            return []
+        if not only_accessable:
+            return records
+        filtered_records = []
+        for record in records:
+            if (
+                record["guild_id"] == guild_id
+                or record["guild_id"] is None
+            ):
+                filtered_records.append(record)
+        return filtered_records
 
 
     @classmethod
     async def sync_record(
         cls,
-        record: asyncpg.Record,
+        record: Mapping[str, Any],
     ):
         """
         Updates a record in the db
         Args:
-            record: (asyncpg.record) the record which should be updated
+            record: (Mapping[str, Any]) the record which should be updated
+            old_record: (Mapping[str, Any]) the old record, how it is stored in the db
         
         """
         sql = """
             UPDATE tags
-            SET tag_value = $1
-            WHERE tag_ID = $2
+            SET (tag_value, tag_key, creator_id, guild_id) = ($1, $2, $3, $4)
+            WHERE tag_ID = $5
             """
-        await cls.db.execute(sql, record["tag_value"], record["tag_ID"])
+        await cls.db.execute(
+            sql,
+            record["tag_value"],
+            record["tag_key"],
+            record["creator_id"],
+            record["guild_id"],
+            record["tag_ID"],
+        )
 
     @classmethod
     async def is_global_taken(cls, key, tags: Optional[List[str]] = None):
@@ -132,8 +212,8 @@ class TagManager():
             """
         if not tags:
             tags = await cls.db.column(
-                """SELECT * FROM tags""",
-                column="tag_key"
+                sql,
+                column="tag_key",
             )
         if key in tags:
             return True
@@ -171,8 +251,7 @@ class TagManager():
             if global_taken and local_taken:
                 return True, True
 
-        return local_taken, global_taken
-
+        return local_taken, global_taken      
     
     @classmethod
     async def _do_check_if_taken(cls, key: str, guild_id: Optional[int], check: bool = True):

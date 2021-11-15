@@ -8,6 +8,8 @@ __pycache__/
 
 # Distribution / packaging
 .Python
+*dependencies/music/Lavalink.jar
+*dependencies/music/application.yml
 build/
 develop-eggs/
 dist/

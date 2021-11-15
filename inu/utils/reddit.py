@@ -2,12 +2,18 @@ import random
 import asyncpraw
 import traceback
 from typing import Union
+import logging
+import os
 
 from dataclasses import dataclass
 from asyncache import cached
 from cachetools import TTLCache
+from dotenv import load_dotenv
 
-from .settings import REDDIT_APP_ID, REDDIT_APP_SECRET
+# from .settings import REDDIT_APP_ID, REDDIT_APP_SECRET
+REDDIT_APP_ID = None
+REDDIT_APP_SECRET = None
+log = logging.getLogger(__name__)
 
 if REDDIT_APP_ID and REDDIT_APP_SECRET:
     reddit_client = asyncpraw.Reddit(
@@ -16,7 +22,7 @@ if REDDIT_APP_ID and REDDIT_APP_SECRET:
         user_agent="inu:%s:1.0" % REDDIT_APP_ID,
     )
 else:
-    print('no reddit id or secret')
+    log.error('no reddit id or secret')
 
 
 async def get_a_pic(subreddit, post_to_pick=None, hot=True, top=False):
@@ -100,6 +106,7 @@ class RedditError(Exception):
 #             raise RedditError("You can't filter hot and top both")
 class Reddit():
     @cached(TTLCache(1024, float(3*60*60)))
+    @staticmethod
     async def get_posts(
         subreddit: str,
         hot: bool = False,
@@ -136,8 +143,8 @@ class Reddit():
             return post_list
 
         except Exception as e:
-            print(f'ERROR [utils/get_a_pic - exception] {e}')
-            print(f'ERROR in utils get_a_pic - exception log {traceback.print_exc()}')
+            log.error(f'ERROR [utils/get_a_pic - exception] {e}')
+            log.error(f'ERROR in utils get_a_pic - exception log {traceback.print_exc()}')
         return []
 
 

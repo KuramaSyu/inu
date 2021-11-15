@@ -9,3 +9,11 @@ CREATE TABLE IF NOT EXISTS tags (
     creator_id BIGINT NOT NULL,
     guild_id BIGINT
 );
+CREATE TABLE IF NOT EXISTS music_history (
+    guild_id BIGINT NOT NULL PRIMARY KEY,
+    history JSONB
+);
+CREATE TABLE IF NOT EXISTS reddit_channels (
+    guild_id BIGINT NOT NULL PRIMARY KEY,
+    channel_ids BIGINT []
+);

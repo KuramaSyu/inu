@@ -1,5 +1,5 @@
 import asyncio
-import typing
+from contextlib import suppress
 from typing import (
     Any,
     Callable,
@@ -11,32 +11,36 @@ from typing import (
     Final,
     Dict
 )
-import traceback    
-from contextlib import suppress
+import traceback
 import logging
-from abc import ABC, abstractmethod, ABCMeta
+from abc import abstractmethod, ABCMeta
 
 import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import ActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent
+from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType
 from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
 
+
 log = logging.getLogger(__name__)
-
-
-
-
-
+log.setLevel(logging.DEBUG)
+log.info("Test")
 
 __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
 _Sendable = Union[Embed, str]
 T = TypeVar("T")
 
 # I know this is kinda to much just for a paginator - but I want to learn design patterns, so I do it
+class PaginatorReadyEvent(hikari.Event):
+    def __init__(self, bot: lightbulb.Bot):
+        self.bot = bot
+
+    @property
+    def app(self):
+        return self.bot
 
 class BaseListener(metaclass=ABCMeta):
     """A Base Listener. This will later notify all observers on event"""
@@ -84,8 +88,6 @@ class EventObserver(BaseObserver):
         return self._callback
 
     async def on_event(self, event: Event):
-       
-        print(f"in observer: call callback")
         await self.callback(self.paginator, event)
 
 
@@ -109,18 +111,12 @@ class EventListener(BaseListener):
         self._observers[str(event)].remove(observer)
 
     async def notify(self, event: Event):
-        print(f"listener notify called. Subscribers: {self._observers}")
         try:
-            print("type:")
-            print(str(type(event)))
             if str(type(event)) not in self._observers.keys():
-                print("no event")
                 return
             for observer in self._observers[str(type(event))]:
-                print("call obs")
                 await observer.on_event(event)
         except Exception as e:
-            print(e)
             traceback.print_exc()
 
 def listener(event: Any):
@@ -142,7 +138,34 @@ class Paginator():
         disable_component: bool = False,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
+        listen_to_events: List[Any] = [],
     ):
+        """
+        A Paginator with many options
+
+        Args:
+        -----
+            - pege_s: (List[Embed] | List[str]) the page*s the Paginator should paginate
+            - timeout: (int, default=120) the seconds the paginator has to be inactive to "shutdown"; maximum is 15*60 min
+            - component_factory: (Callable[[int], ActionRowBuilder], default=None) a custom component builder; the input is the index of the site
+            - components_factory: (Callable[[int], ActionRowBuilder], default=None) a custom components builder; the input is the index of the site
+            - disable_component: (bool, default=False) wether or not the component of the paginator should be disabled
+            - disable_components: (bool, default=False) wether or not the components of the paginator should be disabled
+            - disable_paginator_when_one_site: (bool, default=True) wether or not the pagination should be disabled when the length of the pages is 1
+            - listen_to_events: (List[hikari.Event]) events the bot should listen to. These are needed to use them later with the `listener` decorator
+
+        Note:
+        -----
+            - the listener is always listening to 2 events:
+                - GuildMessageCreateEvent (only when in context with the Paginator)
+                - ComponentInteractionEvent (only component interaction, only when in context with the paginator)
+                - PaginatorReadyEvent
+            - create custom components with:
+                either 
+                - passing in `component(s)_factory`
+                or
+                - overriding `build_default_component(s)`; args: self, position (int)
+        """
         self._pages: Union[List[Embed], List[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
         self._components: Optional[List[ActionRowBuilder]] = None
@@ -159,7 +182,9 @@ class Paginator():
         
         self.listener = EventListener()
         self.log = logging.getLogger(__name__)
+        self.log.setLevel(logging.DEBUG)
         self.timeout = timeout
+        self.listen_to_events = listen_to_events
 
         # paginator configuration
         self.pagination = not disable_pagination
@@ -184,6 +209,7 @@ class Paginator():
 
     @property
     def component(self) -> Optional[ActionRowBuilder]:
+        print("call comp")
         if self._disable_component:
             return None
         if self._component_factory is not None:
@@ -200,7 +226,8 @@ class Paginator():
                 ))
 
     @property
-    def components(self) -> Union[List[ActionRowBuilder]]:
+    def components(self) -> List[ActionRowBuilder]:
+        print("call comps")
         if self._disable_components:
             return []
         if self._components_factory is not None:
@@ -327,10 +354,11 @@ class Paginator():
 
     async def stop(self):
         self._stop = True
-        if not self._disable_component:
-            await self._message.edit(component=None)
-        elif not self._disable_components:
-            await self._message.edit(components=[])
+        with suppress(NotFoundError):
+            if not self._disable_component:
+                await self._message.edit(component=None)
+            elif not self._disable_components:
+                await self._message.edit(components=[])
 
     async def start(self, ctx: Context) -> None:
         self.ctx = ctx
@@ -368,6 +396,7 @@ class Paginator():
         if len(self.pages) == 1 and self._exit_when_one_site:
             return
         self._position = 0
+        await self.dispatch_event(PaginatorReadyEvent(self.bot))
         self._task = asyncio.create_task(self.pagination_loop())
         
 
@@ -386,8 +415,12 @@ class Paginator():
             try:
                 events = [
                     create_event(InteractionCreateEvent, self.interaction_pred),
-                    create_event(MessageCreateEvent, self.message_pred),
+                    create_event(GuildMessageCreateEvent, self.message_pred),
                 ]
+                # adding user specific events
+                always_true = lambda _ : True
+                for event in self.listen_to_events:
+                    events.append(create_event(event, always_true))
                 done, pending = await asyncio.wait(
                     [asyncio.create_task(task) for task in events],
                     return_when=asyncio.FIRST_COMPLETED,
@@ -397,24 +430,25 @@ class Paginator():
                 self._stop = True
                 return
             # maybe called from outside
+            for e in pending:
+                e.cancel()
             if self._stop:
                 return
             try:
                 event = done.pop().result()
             except Exception:
-                pass
-            for e in pending:
-                e.cancel()
+                continue
+
             await self.dispatch_event(event)
             
     async def dispatch_event(self, event: Event):
-        if isinstance(event, InteractionCreateEvent):
+        if isinstance(event, InteractionCreateEvent) and self.interaction_pred(event):
             await self.paginate(event)
-        print("notify")
         await self.listener.notify(event)
-        print("finished")
 
-    async def paginate(self, event):
+    async def paginate(self, event: InteractionCreateEvent):
+        if not isinstance(event.interaction, ComponentInteraction):
+            return
         id = event.interaction.custom_id or None
         last_position = self._position
 
@@ -425,6 +459,9 @@ class Paginator():
                 return
             self._position -= 1
         elif id == "stop":
+            await event.interaction.create_initial_response(
+                ResponseType.MESSAGE_UPDATE
+            )
             await self.delete_presence()
             await self.stop()
         elif id == "next":
@@ -439,8 +476,8 @@ class Paginator():
 
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
-        if self.ctx.channel is not None:
-            await self.ctx.channel.delete_messages(
+        if (channel := self.ctx.get_channel()) is not None:
+            await channel.delete_messages(
                 self._message,
                 self.ctx.message,
             )
@@ -528,4 +565,3 @@ def navigation_row(
         )
 
     return action_row
-            

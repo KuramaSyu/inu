@@ -8,15 +8,45 @@ from typing import (
     Optional,
     Mapping,
 )
+import sys
+import inspect
+from inspect import isclass
+
 import hikari
 import lightbulb
-from lightbulb.help import get_command_signature, get_help_text
+from lightbulb.help import get_command_signature
 from matplotlib.colors import cnames
 
 from core import Inu
 from utils import Paginator
 
 T_bot = typing.Union[lightbulb.Bot, Inu]
+
+def _format_help_text(help_text: str) -> str:
+    # segments = help_text.split("\n\n")
+    # return "\n".join(seg.replace("\n", " ").strip() for seg in segments)
+    return help_text
+
+def get_help_text(obj: typing.Union[lightbulb.Command, lightbulb.Plugin]) -> str:
+    """
+    Get the help text for a command, group or plugin, extracted from its docstring.
+
+    Args:
+        obj (Union[ :obj:`~.commands.Command`, :obj:`~.commands.Group`, :obj:`~.plugins.Plugin` ]): The
+            object to get the help text for.
+
+    Returns:
+        :obj:`str`: The extracted help text, or an empty string if no help text has
+        been provided for the object.
+    """
+    if not isinstance(obj, lightbulb.Plugin):
+        doc = inspect.getdoc(obj._callback)
+        return _format_help_text(doc if doc is not None else "")
+    else:
+        doc = inspect.getdoc(obj)
+        return _format_help_text(doc if doc != inspect.getdoc(lightbulb.Plugin) else "") # type: ignore
+
+
 
 class CustomHelp(lightbulb.help.HelpCommand):
     def __init__(self, bot: T_bot):
@@ -47,7 +77,7 @@ class Help(lightbulb.Plugin):
         ctx: lightbulb.Context, 
         query: Optional[str] = None
     ) -> List[lightbulb.Command]:
-        cmds: Sequence[lightbulb.Command] = []
+        cmds: List[lightbulb.Command] = []
         for cmd in self.bot.walk_commands():
             if query == None or query in cmd.qualified_name:
                 cmds.append(cmd)
@@ -80,13 +110,13 @@ class Help(lightbulb.Plugin):
         self,
         cmds: Sequence[lightbulb.Command],
         ctx: lightbulb.Context,
-    ) -> Sequence[hikari.Embed]:
-        pages = []
+    ) -> List[hikari.Embed]:
+        pages: List[List[str]] = []
         
         for i, cmd in enumerate(cmds):
             if i % self.cmds_per_list == 0:
-                pages.append([])
-            command_entry = "<....> needed\n[....] optional\n\n"
+                pages.append(["<....> needed\n[....] optional\n\n"])
+            command_entry = ""
             desc = get_help_text(cmd)
             signature = self.get_command_signature(cmd, ctx)
             subcommand = ""
@@ -118,6 +148,9 @@ class Help(lightbulb.Plugin):
         return embeds
 
     def remove_defaults(self, cmd_signature: str) -> str:
+        """removes defaults and <ctx>"""
+        if (i:=cmd_signature.find("<ctx>")) != -1:
+            cmd_signature = f"{cmd_signature[:i]}{cmd_signature[i+6:]}"
         start = cmd_signature.find("=")
         if start == -1:
             return cmd_signature
@@ -145,14 +178,8 @@ class Help(lightbulb.Plugin):
         signature += f"\nequal to '{cmd_invoke}': {aliases}" if aliases else ''
         return signature
 
+
                     
-
-
-
-
-
-
-
 def load(bot: T_bot):
     bot.add_plugin(Help(bot))
 

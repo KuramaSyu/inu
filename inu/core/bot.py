@@ -17,6 +17,9 @@ logging.setLoggerClass(LoggingHandler)
 import lightbulb
 import hikari
 from dotenv import dotenv_values
+from apscheduler.schedulers.asyncio import AsyncIOScheduler
+
+import lavasnek_rs
 
 
 class Inu(lightbulb.Bot):
@@ -24,12 +27,14 @@ class Inu(lightbulb.Bot):
         super().__init__(*args, **kwargs)
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
-        self.load_prefix()
-        self.load_slash()
         self.conf: Configuration = Configuration(dotenv_values())
         self._me: Optional[hikari.User] = None
         from utils.db import Database
         self.db = Database(self)
+        self.data = Data()
+        self.load_prefix()
+        self.load_slash()
+        self.scheduler = AsyncIOScheduler()
 
 
     @property
@@ -81,6 +86,12 @@ class Inu(lightbulb.Bot):
     def run(self):
         super().run()
 
+class Data:
+    """Global data shared across the entire bot, used to store dashboard values."""
+
+    def __init__(self) -> None:
+        self.lavalink: lavasnek_rs.Lavalink = None  # type: ignore
+
 class Configuration():
     """Wrapper for the config file"""
     def __init__(self, config: Mapping[str, Union[str, None]]):
@@ -89,5 +100,5 @@ class Configuration():
     def __getattr__(self, name: str) -> str:
         result = self.config[name]
         if result == None:
-            raise AttributeError(f"`Configuration` has no attribute `{name}`")
+            raise AttributeError(f"`Configuration` (.env in root dir) has no attribute `{name}`")
         return result
