@@ -1,4 +1,6 @@
+FROM ubuntu:20.04
 FROM python:3.9
+ADD requirements.txt requirements.txt
+RUN pip install -r requirements.txt
 COPY . .
-RUN pip3 install requests beautifulsoup4
-CMD [ "python3", "main.py" ]
+CMD [ "sh", "entry.sh" ]
