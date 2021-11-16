@@ -1,4 +1,3 @@
-import discord
 import datetime
 from typing import Union, List
 
