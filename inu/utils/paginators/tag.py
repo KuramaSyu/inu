@@ -357,8 +357,8 @@ class TagHandler(Paginator):
             )
         self.tag.name = event.message.content
         await self.update_page()
-        if self.ctx.channel:
-            await self.ctx.channel.delete_messages(bot_message, event.message)
+        if (channel := self.ctx.get_channel()):
+            await channel.delete_messages(bot_message, event.message)
 
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
