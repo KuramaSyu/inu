@@ -1,0 +1,8 @@
+version: "3.8"
+services:
+  app:
+    build: .
+  db:
+    build: ./dependencies/postgres/
+  lava:
+    build: ./dependencies/music/
