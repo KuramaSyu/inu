@@ -525,6 +525,10 @@ class Music(lightbulb.Plugin):
                     return self.log.error(traceback.format_exc())
                 else:
                     await asyncio.sleep(3)
+                    
+    @lightbulb.command()
+    async def restart(self, ctx: Context):
+        await self.start_lavalink(None)
             
 
     @lightbulb.check(lightbulb.guild_only)
