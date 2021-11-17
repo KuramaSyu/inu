@@ -503,20 +503,29 @@ class Music(lightbulb.Plugin):
     @lightbulb.listener(hikari.ShardReadyEvent)
     async def start_lavalink(self, _: hikari.ShardReadyEvent) -> None:
         """Event that triggers when the hikari gateway is ready."""
-        builder = (
-            # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
-            lavasnek_rs.LavalinkBuilder(self.bot.me.id, self.bot.conf.DISCORD_TOKEN) #, 
-            # This is the default value, so this is redundant, but it's here to show how to set a custom one.
-            .set_host(self.bot.conf.LAVALINK_IP).set_password(self.bot.conf.LAVALINK_PASSWORD)
-        )
+        for x in range(3):
+            try:
+                builder = (
+                    # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
+                    lavasnek_rs.LavalinkBuilder(self.bot.me.id, self.bot.conf.DISCORD_TOKEN) #, 
+                    # This is the default value, so this is redundant, but it's here to show how to set a custom one.
+                    .set_host(self.bot.conf.LAVALINK_IP).set_password(self.bot.conf.LAVALINK_PASSWORD)
+                )
 
-        if HIKARI_VOICE:
-            builder.set_start_gateway(False)
+                if HIKARI_VOICE:
+                    builder.set_start_gateway(False)
 
-        lava_client = await builder.build(EventHandler(self))
-        self.bot.data.lavalink = lava_client
-        self.lavalink = self.interactive.lavalink = self.bot.data.lavalink
-        logging.info("lavalink is connected")
+                lava_client = await builder.build(EventHandler(self))
+                self.bot.data.lavalink = lava_client
+                self.lavalink = self.interactive.lavalink = self.bot.data.lavalink
+                logging.info("lavalink is connected")
+                break
+            except Exception:
+                if x == 2:
+                    return self.log.error(traceback.format_exc())
+                else:
+                    await asyncio.sleep(3)
+            
 
     @lightbulb.check(lightbulb.guild_only)
     @lightbulb.command()
