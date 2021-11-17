@@ -1,4 +1,3 @@
-from optparse import Option
 import traceback
 import typing
 from typing import (
@@ -388,8 +387,8 @@ class TagHandler(Paginator):
         else:
             self.tag.value = event.message.content
         await self.update_page(update_value=True)
-        if self.ctx.channel:
-            await self.ctx.channel.delete_messages(bot_message, event.message)
+        if (channel := self.ctx.get_channel()):
+            await channel.delete_messages(bot_message, event.message)
 
     async def extend_value(self, interaction: ComponentInteraction):
         await self.set_value(interaction, append=True)
@@ -462,8 +461,8 @@ class TagHandler(Paginator):
                 "I can't find anyone",
                 reply=event.message,
             )
-        if user and self.ctx.channel:
-            await self.ctx.channel.delete_messages(bot_message, event.message)
+        if user and (channel := self.ctx.get_channel()):
+            await channel.delete_messages(bot_message, event.message)
         self.tag.owner = user
         await self.update_page()
 
