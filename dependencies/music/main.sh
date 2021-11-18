@@ -1,3 +1,5 @@
 cd ~
-apt install -y openjdk-11-jdk
-java --version
+ping
+ping --help
+ping -c 4 www.youtube.de
+java -jar Lavalink.jar
