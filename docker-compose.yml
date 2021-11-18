@@ -4,14 +4,16 @@ services:
     build: ./dependencies/postgres/
   app:
     depends_on:
-#      - lava
+      - lava
       - db
     build: .
+  lava:
+    image: fredboat/lavalink:master
+    configs:
+    - source: my_config
+      target: /opt/Lavalink/application.yml
   # lava:
-  #   image: fredboat/lavalink:master
-  #   configs:
-  #   - source: my_config
-  #     target: /opt/Lavalink/application.yml
+  #   build: dependencies/music/
 configs:
   my_config:
-    file: /dependencies/fredboat/application.yml
+    file: dependencies/fredboat/application.yml
