@@ -20,7 +20,7 @@ from numpy import column_stack
 
 from .db import Database
 
-class DailyContentChannels():
+class DailyContentChannels:
     db: Database
     
     def __init__(self, key: Optional[str] = None):
@@ -66,10 +66,10 @@ class DailyContentChannels():
             channels = list(set(channels))  # remove duplicates
             sql = """
             UPDATE reddit_channels
-            SET (channel_ids) = ($1)
-            WHERE guild_id = $2
+            SET channel_ids = $2
+            WHERE guild_id = $1
             """
-        await cls.db.execute(sql, channels, guild_id)
+        await cls.db.execute(sql, guild_id, channels)
 
     @classmethod
     async def remove_channel(
@@ -100,7 +100,7 @@ class DailyContentChannels():
                 return
             sql = """
             UPDATE reddit_channels
-            SET (channel_ids) = ($1)
+            SET channel_ids = $1
             WHERE guild_id = $2
             """
             await cls.db.execute(sql, channels, guild_id)
@@ -127,11 +127,7 @@ class DailyContentChannels():
         record = await cls.db.row(sql, guild_id)
 
     @classmethod
-    async def get_all_channels(
-        cls,
-        channel_id: int,
-        guild_id: int,
-    ) -> List[int]:
+    async def get_all_channels(cls) -> List[int]:
         """
         Returns:
         --------
@@ -140,10 +136,13 @@ class DailyContentChannels():
         sql = """
         SELECT * FROM reddit_channels
         """
-        records = await cls.db.row(sql)
+        records = await cls.db.fetch(sql)
         if not records:
             return []
         channel_ids = []
         for r in records:
             channel_ids.extend(r["channel_ids"])
         return channel_ids
+
+class test:
+    pass

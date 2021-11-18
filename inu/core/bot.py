@@ -34,7 +34,9 @@ class Inu(lightbulb.Bot):
         self.data = Data()
         self.load_prefix()
         self.load_slash()
+        self.load_task()
         self.scheduler = AsyncIOScheduler()
+        self.scheduler.start()
 
 
     @property
@@ -74,6 +76,20 @@ class Inu(lightbulb.Bot):
                 continue
             try:
                 self.load_extension(f"ext.prefix.{extension[:-3]}")
+                self.log.debug(f"loaded plugin: {extension}")
+            except Exception as e:
+                self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
+
+    def load_task(self):
+        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/tasks")):
+            if (
+                extension == "__init__.py" 
+                or not extension.endswith(".py")
+                or extension.startswith("_")
+            ):
+                continue
+            try:
+                self.load_extension(f"ext.tasks.{extension[:-3]}")
                 self.log.debug(f"loaded plugin: {extension}")
             except Exception as e:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
