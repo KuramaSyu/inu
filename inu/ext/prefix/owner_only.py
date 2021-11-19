@@ -1,3 +1,4 @@
+from argparse import ArgumentError
 import contextlib
 from datetime import datetime
 from inspect import getmembers, getsource
@@ -30,7 +31,61 @@ class Owner(lightbulb.Plugin):
     @lightbulb.listener(hikari.StartedEvent)
     async def start(self, event):
         await asyncio.sleep(5)
-        print(self.bot.db)
+
+
+    @lightbulb.check(lightbulb.owner_only) #type: ignore
+    @lightbulb.group()
+    async def sql(self, ctx: lightbulb.Context, *, sql: str):
+        """
+        executes sql
+        Parameters:
+        code: your code to execute
+        args: your arguments if needed
+
+        NOTE:
+        -----
+            - seperate sql from args with ";;", seperate every arg with ","
+        """
+
+        code = self.build_sql(sql, "execute")
+        await self._execute(ctx, code)
+
+    @lightbulb.check(lightbulb.owner_only) #type: ignore
+    @sql.command(aliases=["-r"])
+    async def fetch(self, ctx: lightbulb.Context, *, sql: str):
+        """
+        fetches sql (returns something)
+        Parameters:
+        code: your code to execute
+        args: your arguments if needed
+
+        NOTE:
+        -----
+            - seperate sql from args with ";;", seperate every arg with ","
+        """
+        code = self.build_sql(sql, "fetch")
+        await self._execute(ctx, code)
+
+
+    def build_sql(self, sql: str, method: str) -> str:
+        parts = sql.split(";;")
+        if len(parts) == 1:
+            line = f"'''{parts[0]}'''"
+        elif len(parts) == 2:
+            line = f"'''{parts[0]}''', {parts[1]}"
+        else:
+            raise TypeError("SQL string has more than 1x ';;' to devide sql from args")
+        code = (
+            f"from pprint import pprint\n"
+            f"resp = await db.{method}(\n"
+            f"{line}\n"
+            f")\n"
+            f"if resp is None: print('None')\n"
+            f"else: pprint(resp)"
+        )
+        return code
+
+
     @lightbulb.command(name = "log")
     async def log(self, ctx):
         """
@@ -62,7 +117,9 @@ class Owner(lightbulb.Plugin):
         Parameters:
         code: your code to execute
         '''
+        await self._execute(ctx, code)
 
+    async def _execute(self, ctx: lightbulb.Context, code: str):
         env = {
             'client': self.bot,
             'bot': self.bot,
