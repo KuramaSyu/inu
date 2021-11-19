@@ -9,6 +9,7 @@ from typing import (
 )
 import typing
 from copy import deepcopy
+import logging
 
 import asyncpg
 from asyncache import cached
@@ -19,6 +20,10 @@ from numpy import column_stack
 
 
 from .db import Database
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 
 class DailyContentChannels:
     db: Database
@@ -49,6 +54,7 @@ class DailyContentChannels:
             - if the channel_id is already in the list for guild_id, than the channel_id wont be added to it
         
         """
+        log.info(f"add channel {channel_id=}, {guild_id=}")
         sql = """
         SELECT * FROM reddit_channels
         WHERE guild_id = $1
@@ -62,7 +68,7 @@ class DailyContentChannels:
             """
         else:
             channels = record["channel_ids"]
-            channels.append(guild_id)
+            channels.append(channel_id)
             channels = list(set(channels))  # remove duplicates
             sql = """
             UPDATE reddit_channels
@@ -127,11 +133,11 @@ class DailyContentChannels:
         record = await cls.db.row(sql, guild_id)
 
     @classmethod
-    async def get_all_channels(cls) -> List[int]:
+    async def get_all_channels(cls) -> List[Dict[int, List[int]]]:
         """
         Returns:
         --------
-            - (List[int]) a list with all channel_ids
+            - (List[Dict[int, List[int]]]) a list with dicts mapping from guild_id to a list of channel ids
         """
         sql = """
         SELECT * FROM reddit_channels
@@ -139,10 +145,11 @@ class DailyContentChannels:
         records = await cls.db.fetch(sql)
         if not records:
             return []
-        channel_ids = []
+        mappings = []
         for r in records:
-            channel_ids.extend(r["channel_ids"])
-        return channel_ids
+            mapping = {r["guild_id"]: r["channel_ids"]}
+            mappings.append(mapping)
+        return mappings
 
 class test:
     pass
