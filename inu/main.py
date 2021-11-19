@@ -4,16 +4,12 @@ import os
 import asyncio
 import logging
 
-from utils.logging import LoggingHandler
-logging.setLoggerClass(LoggingHandler)
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 from dotenv import dotenv_values
 import hikari
 import lightbulb
-
-from core import Inu
 
 def main():
 
@@ -32,13 +28,14 @@ def main():
         },
     }
 
-    inu = Inu(
+    inu = lightbulb.BotApp(
         prefix="inu-",
-        token=conf["DISCORD_TOKEN"],
+        token=str(conf["DISCORD_TOKEN"]),
         intents=hikari.Intents.ALL,
         logs=logs,
     )
-    logging.setLoggerClass(LoggingHandler)
+    
+    inu.load_extensions("ext.prefix.basic_commands")
     inu.run()
 
 if __name__ == "__main__":
