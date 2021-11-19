@@ -6,12 +6,16 @@ from typing import (
     Any,
     Optional
 )
+import logging
 
 import hikari
 import lightbulb
 from lightbulb import Context
 from utils import DailyContentChannels
 from core import Inu
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 
 class BotSettings(lightbulb.Plugin):
@@ -34,35 +38,34 @@ class BotSettings(lightbulb.Plugin):
 
     @lightbulb.check(lightbulb.guild_only)
     @daily_pictures.command()
-    async def add_channel(self, ctx: Context, channel_id: Optional[int] = None):
+    async def add_channel(self, ctx: Context):
         """
         Adds <channel_id> to channels, where daily reddit stuff will be sent.
-        
-        Args:
-        -----
-            - [Optional] channel_id: (int, default: 'channel of this message') The channel you want to add 
         """
         if not ctx.guild_id:
             return
-        if channel_id is None:
-            channel_id = ctx.channel_id
+        channel_id = ctx.channel_id
+        channel = ctx.get_channel()
+        if not channel:
+            await ctx.respond("I am not able to add this channel :/", reply=True)
+            return
         await DailyContentChannels.add_channel(channel_id, ctx.guild_id)
+        await ctx.respond(f"added channel: `{channel.name}` with id `{channel.id}`")
 
     @lightbulb.check(lightbulb.guild_only)
     @daily_pictures.command()
-    async def remove_channel(self, ctx: Context, channel_id: Optional[int] = None):
+    async def remove_channel(self, ctx: Context):
         """
         Removes <channel_id> from channels, where daily reddit stuff will be sent.
-        
-        Args:
-        -----
-            - [Optional] channel_id: (int, default: 'channel of this message') The channel you want to remove 
         """
         if not ctx.guild_id:
             return
-        if channel_id is None:
-            channel_id = ctx.channel_id
+        channel_id = ctx.channel_id
+        if not (channel := await self.bot.rest.fetch_channel(channel_id)):
+            await ctx.respond(f"cant remove this channel - channel not found", reply=True)
+            return            
         await DailyContentChannels.remove_channel(channel_id, ctx.guild_id)
+        await ctx.respond(f"removed channel: `{channel.name}` with id `{channel.id}`")
 
 def load(bot: Inu):
     bot.add_plugin(BotSettings(bot))
