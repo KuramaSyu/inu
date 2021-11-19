@@ -11,6 +11,7 @@ import datetime
 import time as tm
 import traceback
 import logging
+from pprint import pformat
 
 import hikari
 from hikari.events.shard_events import ShardReadyEvent
@@ -78,31 +79,29 @@ class DailyPosts(Plugin):
         registered in the database
         """
         try:
-            log.debug("started task")
-            # now = datetime.datetime.now()
-            # if now.minute != 0:
-            #     return
+            now = datetime.datetime.now()
+            if now.minute != 0:
+                return
             now = datetime.datetime.now()
             log.debug(now)
             subreddit = None
-            for key, value in self.daily_content["time"].items():
-                subreddit, hour = value[0], value[1]
-                if int(hour) != now.hour:
-                    continue
-                if subreddit == '':
-                    return
-                else:
-                    break
-            if subreddit is None:
+            subreddit = self.daily_content["time"][str(now.hour)][0]
+            if not subreddit:
                 return
             tasks = []
-            for channel_id in await DailyContentChannels.get_all_channels():
-                asyncio.create_task(self.send_top_x_pics(subreddit, channel_id))
+            for mapping in await DailyContentChannels.get_all_channels():
+                log.debug(pformat(mapping))
+                for guild_id, channel_ids in mapping.items():
+                    for channel_id in channel_ids:
+                        try:
+                            task = asyncio.create_task(self.send_top_x_pics(subreddit, channel_id))
+                            tasks.append(task)
+                        except Exception:
+                            await DailyContentChannels.remove_channel(channel_id, guild_id)
+                            log.info(f"removed guild channel - was not reachable: {channel_id} from guild: {guild_id}")
             if not tasks:
-                log.debug("No channel to send pictures to")
                 return
-            await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
-            log.debug("sent pictures in all channels")
+            _ = await asyncio.gather(*tasks)
         except Exception:
             log.critical(traceback.format_exc())
 
@@ -126,14 +125,10 @@ class DailyPosts(Plugin):
                 if x == int(count - 1):
                     embed.set_footer(text=f'r/{subreddit}  |  {hours}:00')
                 log.debug(channel_id)
-                try:
-                    await self.bot.rest.create_message(channel_id, embed=embed)
-                except hikari.NotFoundError:
-                    log.info(f"deleting channel_id: {channel_id}")
-                    channel = self.bot.rest.fetch_channel(channel_id)
-                    await DailyContentChannels.remove_channel(channel_id, channel.guild.id)
-        except Exception:
+                await self.bot.rest.create_message(channel_id, embed=embed)
+        except Exception as e:
             log.critical(traceback.format_exc())
+            raise e
             
 def load(bot: Inu):
     bot.add_plugin(DailyPosts(bot))
