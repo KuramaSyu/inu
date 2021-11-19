@@ -132,3 +132,4 @@ dmypy.json
 
 # test folder
 ./test
+.vscode/settings.json
