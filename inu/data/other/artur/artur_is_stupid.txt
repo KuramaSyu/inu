@@ -8,3 +8,11 @@ Artur hat als Hintergrund ein Screenshot seines Desktops!
 
 Du willst zeit umrechnen?:
 Dann hast du hier die neusten Regeln: 20min = 1/5h - frisch definiert aus Arturs Dummheit
+---------------------------------------
+Among Us:
+Artur: Wo soll ich die OtherRole Dateien hin tun?
+Paul: in den Hauptordner von Among Us mit der "Among Us.exe"
+Artur: Da öffnet es Among us
+
+Was hat er nun getun?
+Er hat die Dateien in die exe gezogen
