@@ -12,8 +12,10 @@ from hikari.messages import ButtonStyle
 from hikari.impl.special_endpoints import ActionRowBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
+import lightbulb.utils as lightbulb_utils
 from lightbulb import commands, context
 import hikari
+from numpy import isin
 
 
 # from utils.logging import LoggingHandler
@@ -21,7 +23,11 @@ import hikari
 
 log = logging.getLogger(__name__)
 
-basics = lightbulb.Plugin("Plugin with basic commands")
+basics = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
+if not isinstance(basics.d, lightbulb_utils.DataStore):
+    raise RuntimeError("Plugin don't contain a datastore")
+if basics.d is None:
+    raise RuntimeError("Plugin don't contain a datastore")
 
 
 @basics.command
@@ -30,6 +36,7 @@ basics = lightbulb.Plugin("Plugin with basic commands")
 async def ping(ctx: context.Context):
     await ctx.respond("Bot is alive")
     
+
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(basics)
