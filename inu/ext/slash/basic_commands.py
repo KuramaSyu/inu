@@ -1,7 +1,5 @@
 import hikari
 import lightbulb
-from lightbulb import slash_commands
-from lightbulb.slash_commands import SlashCommand
 import random
 
 

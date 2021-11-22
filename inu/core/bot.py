@@ -9,9 +9,6 @@ from typing import (
     Optional
 )
 import logging
-from utils.logging import LoggingHandler
-
-logging.setLoggerClass(LoggingHandler)
 
 
 import lightbulb
@@ -22,19 +19,19 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 import lavasnek_rs
 
 
-class Inu(lightbulb.Bot):
+class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
+        self.conf: Configuration = Configuration(dotenv_values())
+        super().__init__(*args, prefix="inu-", token=self.conf.DISCORD_TOKEN, **kwargs)
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
-        self.conf: Configuration = Configuration(dotenv_values())
         self._me: Optional[hikari.User] = None
         from utils.db import Database
         self.db = Database(self)
         self.data = Data()
         self.load_prefix()
-        self.load_slash()
-        self.load_task()
+        # self.load_slash()
+        # self.load_task()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
 
@@ -62,7 +59,7 @@ class Inu(lightbulb.Bot):
             if extension == "__init__.py" or not extension.endswith(".py"):
                 continue
             try:
-                self.load_extension(f"ext.slash.{extension[:-3]}")
+                self.load_extensions(f"ext.slash.{extension[:-3]}")
             except Exception as e:
                 self.log.critical(f"slash command {extension} can't load", exc_info=True)
 
@@ -75,7 +72,7 @@ class Inu(lightbulb.Bot):
             ):
                 continue
             try:
-                self.load_extension(f"ext.prefix.{extension[:-3]}")
+                self.load_extensions(f"ext.prefix.{extension[:-3]}")
                 self.log.debug(f"loaded plugin: {extension}")
             except Exception as e:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
