@@ -16,8 +16,7 @@ from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, 
 from hikari.messages import ButtonStyle
 from hikari.impl import ActionRowBuilder
 import lightbulb
-from lightbulb.converters import WrappedArg
-from lightbulb.converters import user_converter
+from lightbulb.context import Context
 
 from utils.tag_mamager import TagIsTakenError
 from .common import (
@@ -251,7 +250,7 @@ class TagHandler(Paginator):
             disable_paginator_when_one_site=disable_paginator_when_one_site,  
         )
 
-    async def start(self, ctx: lightbulb.Context, tag: Mapping = None):
+    async def start(self, ctx: Context, tag: Mapping = None):
         """
         Starts the paginator and initializes the tag
         Args:
