@@ -35,7 +35,7 @@ T = TypeVar("T")
 
 # I know this is kinda to much just for a paginator - but I want to learn design patterns, so I do it
 class PaginatorReadyEvent(hikari.Event):
-    def __init__(self, bot: lightbulb.Bot):
+    def __init__(self, bot: lightbulb.BotApp):
         self.bot = bot
 
     @property
@@ -176,7 +176,7 @@ class Paginator():
         self._message: Message
         self._component_factory = component_factory
         self._components_factory = components_factory
-        self.bot: lightbulb.Bot
+        self.bot: lightbulb.BotApp
         self.ctx: Context
 
         
