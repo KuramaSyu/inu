@@ -11,6 +11,8 @@ from dotenv import dotenv_values
 import hikari
 import lightbulb
 
+from core import Inu
+
 def main():
 
     conf = dotenv_values()
@@ -28,14 +30,11 @@ def main():
         },
     }
 
-    inu = lightbulb.BotApp(
-        prefix="inu-",
-        token=str(conf["DISCORD_TOKEN"]),
-        intents=hikari.Intents.ALL,
-        logs=logs,
-    )
-    
-    inu.load_extensions("ext.prefix.basic_commands")
+    inu = Inu()
+
+    @inu.listen(hikari.ShardReadyEvent)
+    async def on_ready(_: hikari.ShardReadyEvent):
+        await inu.init_db()
     inu.run()
 
 if __name__ == "__main__":

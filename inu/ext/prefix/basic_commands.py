@@ -35,7 +35,22 @@ if basics.d is None:
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
     await ctx.respond("Bot is alive")
-    
+
+
+@basics.command
+@lightbulb.option("to_echo", "the text I should echo", modifier=commands.OptionModifier.CONSUME_REST)
+@lightbulb.command("echo", "echo your input")
+@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
+async def echo(ctx: context.Context):
+    await ctx.respond(ctx.options.to_echo)
+
+@echo.child
+@lightbulb.option("to_echo", "the text I should echo", modifier=commands.OptionModifier.CONSUME_REST)
+@lightbulb.option("multiplier", "How often should I repeat?", type=int)
+@lightbulb.command("multiple", "echo your input multiple times")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def multiple(ctx):
+    await ctx.respond(str(ctx.options.multiplier * ctx.options.to_echo))
 
 
 def load(bot: lightbulb.BotApp):
