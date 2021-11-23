@@ -243,6 +243,7 @@ class Paginator():
 
     def interaction_pred(self, event: InteractionCreateEvent):
         if not isinstance((i := event.interaction), ComponentInteraction):
+            self.log.debug("False interaction pred")
             return False
         return (
             i.user.id == self.ctx.author.id
@@ -365,11 +366,11 @@ class Paginator():
             raise RuntimeError("<pages> must have minimum 1 item")
         elif len(self.pages) == 1 and self._exit_when_one_site:
             if isinstance(self.pages[0], Embed):
-                self._message = await ctx.respond(
+                msg_proxy = await ctx.respond(
                     embed=self.pages[0],
                 )
             else:
-                self._message = await ctx.respond(
+                msg_proxy = await ctx.respond(
                     content=self.pages[0],
                 )
             return
@@ -381,18 +382,19 @@ class Paginator():
         elif not self._disable_components:
             kwargs["components"] = self.components
         if isinstance(self.pages[0], Embed):
-            self._message = await ctx.respond(
+            msg_proxy = await ctx.respond(
                 embed=self.pages[0],
                 **kwargs
             )
         else:
-            self._message = await ctx.respond(
+            msg_proxy = await ctx.respond(
                 content=self.pages[0],
                 **kwargs
             )
-        
+        self._message = await msg_proxy.message()
         if len(self.pages) == 1 and self._exit_when_one_site:
             return
+        self.log.debug("enter loop")
         self._position = 0
         await self.dispatch_event(PaginatorReadyEvent(self.bot))
         self._task = asyncio.create_task(self.pagination_loop())
@@ -410,6 +412,7 @@ class Paginator():
             )
 
         while not self._stop:
+            self.log.debug("loop")
             try:
                 events = [
                     create_event(InteractionCreateEvent, self.interaction_pred),
@@ -429,14 +432,16 @@ class Paginator():
                 return
             # maybe called from outside
             for e in pending:
+                self.log.debug(f"cancel: {e}")
                 e.cancel()
             if self._stop:
                 return
             try:
                 event = done.pop().result()
             except Exception:
+                self.log.error(f"{traceback.format_exc()}")
                 continue
-
+            self.log.debug(f"dispatch event: {event}")
             await self.dispatch_event(event)
             
     async def dispatch_event(self, event: Event):
