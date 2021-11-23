@@ -31,7 +31,13 @@ class Inu(lightbulb.BotApp):
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
 
-        super().__init__(*args, prefix="inu-", token=self.conf.DISCORD_TOKEN, **kwargs)
+        super().__init__(
+            *args, 
+            prefix="inu-", 
+            token=self.conf.DISCORD_TOKEN, 
+            **kwargs,
+            case_insensitive_prefix_commands=True,
+        )
 
         self.load_prefix()
 
