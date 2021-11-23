@@ -258,13 +258,16 @@ class TagHandler(Paginator):
             tag: (dict, default=None) the tag which should be
                 initialized. Creates new tag, if tag is None
         """
-        self.ctx = ctx
-        if not tag:
-            await self.prepare_new_tag(ctx.member or ctx.author)
-        else:
-            await self.load_tag(tag, ctx.member or ctx.author)
-            
-        await super().start(ctx)
+        try:
+            self.ctx = ctx
+            if not tag:
+                await self.prepare_new_tag(ctx.member or ctx.author)
+            else:
+                await self.load_tag(tag, ctx.member or ctx.author)
+                
+            await super().start(ctx)
+        except Exception:
+            self.log.error(traceback.format_exc())
 
     async def update_page(self, update_value: bool = False):
         """Updates the embed, if the interaction wasn't for pagination"""
@@ -299,23 +302,27 @@ class TagHandler(Paginator):
         -----
             - event: (InteractionCreateEvent) the invoked event; passed from the listener
         """
-        if not isinstance(event.interaction, ComponentInteraction):
-            return
-        custom_id = event.interaction.custom_id or None
-        if custom_id == "set_name":
-            await self.set_name(event.interaction)
-        elif custom_id == "set_value":
-            await self.set_value(event.interaction)
-        elif custom_id == "extend_value":
-            await self.extend_value(event.interaction)
-        elif custom_id == "change_visibility":
-            await self.change_visibility(event.interaction)
-        elif custom_id == "change_owner":
-            await self.change_owner(event.interaction)
-        elif custom_id == "finish":
-            await self.finish(event.interaction)
-        elif custom_id == "remove_tag":
-            await self.delete(event.interaction)
+        self.log.info("on interaction")
+        try:
+            if not isinstance(event.interaction, ComponentInteraction):
+                return
+            custom_id = event.interaction.custom_id or None
+            if custom_id == "set_name":
+                await self.set_name(event.interaction)
+            elif custom_id == "set_value":
+                await self.set_value(event.interaction)
+            elif custom_id == "extend_value":
+                await self.extend_value(event.interaction)
+            elif custom_id == "change_visibility":
+                await self.change_visibility(event.interaction)
+            elif custom_id == "change_owner":
+                await self.change_owner(event.interaction)
+            elif custom_id == "finish":
+                await self.finish(event.interaction)
+            elif custom_id == "remove_tag":
+                await self.delete(event.interaction)
+        except Exception:
+            self.log.error(traceback.format_exc())
 
     async def delete(self, interaction: ComponentInteraction):
         await self.tag.delete()
