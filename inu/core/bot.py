@@ -22,18 +22,22 @@ import lavasnek_rs
 class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
         self.conf: Configuration = Configuration(dotenv_values())
-        super().__init__(*args, prefix="inu-", token=self.conf.DISCORD_TOKEN, **kwargs)
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
         self._me: Optional[hikari.User] = None
         from utils.db import Database
         self.db = Database(self)
         self.data = Data()
-        self.load_prefix()
-        # self.load_slash()
-        # self.load_task()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
+
+        super().__init__(*args, prefix="inu-", token=self.conf.DISCORD_TOKEN, **kwargs)
+
+        self.load_prefix()
+
+        # self.load_slash()
+        # self.load_task()
+
 
 
     @property
