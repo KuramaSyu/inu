@@ -523,7 +523,6 @@ async def start_lavalink() -> None:
 
             if HIKARI_VOICE:
                 builder.set_start_gateway(False)
-            print(f"{music.bot.conf.LAVALINK_IP=}{music.bot.conf.DISCORD_TOKEN=}{music.bot.me.id=}")
             lava_client = await builder.build(EventHandler())
             music.bot.data.lavalink = lava_client
             music.d.lavalink = music.d.interactive.lavalink = music.bot.data.lavalink
@@ -617,7 +616,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.")
 @lightbulb.command("now", "enqueue a title at the beginning of the queue", aliases=["1st"])
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
     await play_at_pos(ctx, 1, ctx.options.query)
@@ -626,7 +625,7 @@ async def now(ctx: Context) -> None:
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", type=str)
 @lightbulb.command("second", "enqueue a title at the beginning of the queue", aliases=["2nd"])
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def second(ctx: Context) -> None:
     """Adds a song at the second position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, 2, ctx.options.query)
@@ -635,8 +634,8 @@ async def second(ctx: Context) -> None:
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", type=int)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
-@lightbulb.command("pos", "enqueue a title at the beginning of the queue", aliases=["pos"])
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+@lightbulb.command("pos", "enqueue a title at the beginning of the queue", aliases=[])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def position(ctx: Context) -> None:
     """Adds a song at the <position> position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
