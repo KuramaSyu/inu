@@ -52,6 +52,15 @@ async def echo(ctx: context.Context):
 async def multiple(ctx):
     await ctx.respond(str(ctx.options.multiplier * ctx.options.to_echo))
 
+@basics.command
+@lightbulb.command("test", "/")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def test(ctx):
+    embed = hikari.Embed()
+    embed.title = "test"
+    embed.add_field("```test```", "test")
+    await ctx.respond(embed=embed)
+
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(basics)
