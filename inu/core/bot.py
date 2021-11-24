@@ -1,5 +1,6 @@
 import asyncio
 from distutils.debug import DEBUG
+import datetime
 import os
 import traceback
 import typing
@@ -25,6 +26,7 @@ class Inu(lightbulb.BotApp):
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
         self._me: Optional[hikari.User] = None
+        self.startup = datetime.datetime.now()
         from utils.db import Database
         self.db = Database(self)
         self.data = Data()
@@ -43,8 +45,6 @@ class Inu(lightbulb.BotApp):
 
         # self.load_slash()
         # self.load_task()
-
-
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
