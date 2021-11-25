@@ -15,5 +15,6 @@ CREATE TABLE IF NOT EXISTS music_history (
 );
 CREATE TABLE IF NOT EXISTS reddit_channels (
     guild_id BIGINT NOT NULL PRIMARY KEY,
-    channel_ids BIGINT []
+    channel_ids BIGINT [],
+    top_channel_ids BIGINT []
 );
