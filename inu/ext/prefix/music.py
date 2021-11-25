@@ -34,8 +34,7 @@ import lavasnek_rs
 from matplotlib.pyplot import hist
 
 from core import Inu
-from utils import Paginator
-from utils import Color
+from utils import Paginator, Colors
 from utils.db import Database
 from utils.paginators.specific_paginators import MusicHistoryPaginator
 
