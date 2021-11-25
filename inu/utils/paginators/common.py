@@ -481,7 +481,7 @@ class Paginator():
         """Deletes this message, and invokation message, if invocation was in a guild"""
         if (channel := self.ctx.get_channel()):
             await channel.delete_messages(
-                [self._message, self.ctx.message]
+                [self._message]
             )
 
     async def _update_position(self, interaction: ComponentInteraction):
