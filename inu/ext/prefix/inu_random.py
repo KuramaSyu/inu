@@ -10,7 +10,7 @@ import logging
 import hikari
 import lightbulb
 from lightbulb.context import Context
-from lightbulb import commands
+from lightbulb import Bucket, commands
 from lightbulb import errors
 from lightbulb import events
 
@@ -231,6 +231,7 @@ async def list_(ctx: Context):
         await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
 
 @plugin.command
+@lightbulb.add_cooldown(10, 8, Bucket())
 @lightbulb.option("eyes", "What should ")
 @lightbulb.command("dice", "Roll a dice!", aliases=["cube"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
