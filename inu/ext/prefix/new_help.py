@@ -7,6 +7,7 @@ from typing import (
     Union,
     Optional,
     Mapping,
+    Dict,
 )
 import sys
 import inspect
@@ -22,7 +23,7 @@ from matplotlib.colors import cnames
 from pandas import options
 
 from core import Inu
-from utils import Paginator
+from utils import Paginator, Colors
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -41,20 +42,14 @@ class CustomHelp(help_command.BaseHelpCommand):
         # Override this method to change the message sent when the help command
         # argument is the name or alias of a command.
         log.debug("command help started")
-        await context.respond(self.command_to_str(command, context))
+        dicts = [[self.command_to_dict(command, context)]]
+        await self.dicts_to_pagination(dicts, context)
 
     async def send_group_help(self, context: Context, group):
-        log.debug("help group")
-        # Override this method to change the message sent when the help command
-        # argument is the name or alias of a command group.
-        await context.respond(
-            self.commands_to_str(
-                self.group_to_commands(group, context),
-                context,
-                is_group=True,
-            ),
-            
-        )
+        commands = self.group_to_commands(group, context)
+        dicts = [self.commands_to_dicts(commands, context)]
+        await self.dicts_to_pagination(dicts, context)
+
 
     async def object_not_found(self, context: Context, obj):
         # Override this method to change the message sent when help is
@@ -71,11 +66,6 @@ class CustomHelp(help_command.BaseHelpCommand):
             return self.search(obj[:-1])
         else:
             return results
-        
-        
-
-    def str_to_embed(self, pages: List[str]) -> List[hikari.Embed]:
-        ...
 
     def group_to_commands(self, group: PrefixCommandGroup, ctx: Context):
         log.debug(group.subcommands)
@@ -85,19 +75,41 @@ class CustomHelp(help_command.BaseHelpCommand):
                 commands.append(command)
         log.debug(commands)
         return commands
-    
-    def commands_to_str(self, commands: List[CommandLike], ctx: Context, is_group: bool = False):
-        s = ""
-        if is_group:
-            s += f"↓↓ {commands[0].name} - group ↓↓"
-        s += "\n".join(self.command_to_str(command, ctx) for command in commands)
-        if is_group:
-            s += f"↑↑ {commands[0].name} - group ↑↑"
-        return s
 
-    def command_to_str(self, command: Command, ctx: Context):
+    async def dicts_to_pagination(self, dicts: List[List[Dict[str, str]]], ctx: Context) -> None:
+        """
+        starts the pagination.
+
+        Args
+        ----
+            - dicts (List[List[Dict[str, str]]]) A list which represents all embeds. The second List represents one embed
+              The Dict inside the second List represents one field of the embed (mapping from name: value)
+            - ctx: (Context) the context, to send the message(s)
+        """
+        embeds = []
+        for i, prebuild in enumerate(dicts):
+            name = prebuild[0]["group"]
+            embed = hikari.Embed(title=f"Help {name}- {i+1}/{len(dicts)}")
+            embed.description = "<...> required\n[...] optional"
+            for field in prebuild:
+                embed.add_field(field["sign"], field["description"])
+            embed.color = Colors.random_color()
+            embeds.append(embed)
+        pag = Paginator(page_s=embeds, timeout=500)
+        await pag.start(ctx)
+            
+    
+    def commands_to_dicts(self, commands: List[CommandLike], ctx: Context) -> List[Dict[str, str]]:
+        return [self.command_to_dict(command, ctx) for command in commands]
+
+
+    def command_to_dict(self, command: Command, ctx: Context, group_name: str = None) -> Dict:
         """returns a string with the command signature, aliases and options"""
-        return f"```{self._get_command_signature(command, ctx)}\n\n{self._get_command_description(command)}```"
+        return {
+            "sign": f"\n{self._get_command_signature(command, ctx)}",
+            "description": f"```{self._get_command_description(command)}```",
+            "group": f" for Group: {group_name}" if group_name else ""
+        }
 
     def _remove_defaults(self, cmd_signature: str) -> str:
         """removes defaults and <ctx>"""
