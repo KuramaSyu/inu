@@ -10,7 +10,6 @@ import lightbulb
 from .common import PaginatorReadyEvent
 from .common import Paginator
 from .common import listener
-from utils import Color
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
