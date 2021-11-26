@@ -26,8 +26,7 @@ from lightbulb.context import Context
 
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
-log.info("Test")
+log.setLevel(logging.ERROR)
 
 __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
 _Sendable = Union[Embed, str]
@@ -181,8 +180,7 @@ class Paginator():
 
         
         self.listener = EventListener()
-        self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.DEBUG)
+        self.log = log
         self.timeout = timeout
         self.listen_to_events = listen_to_events
 
@@ -439,8 +437,7 @@ class Paginator():
             try:
                 event = done.pop().result()
             except Exception:
-                self.log.error(f"{traceback.format_exc()}")
-                continue
+                self._stop = True
             self.log.debug(f"dispatch event: {event}")
             await self.dispatch_event(event)
             
