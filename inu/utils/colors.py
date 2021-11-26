@@ -33,6 +33,13 @@ class Colors():
             cls.random_hex()
         )
 
+    @staticmethod
+    def from_name(color: str) -> hikari.Color:
+        hex_ = cnames.get(str(color), None)
+        if not isinstance(hex_, str):
+            raise ColorNotFoundError(f"A color with name '{color}' wasn't found")
+        return hikari.Color.from_hex_code(str(hex_))
+
 class ColorNotFoundError(Exception):
     def __init__(self, message: Optional[str]):
         super().__init__(message)
