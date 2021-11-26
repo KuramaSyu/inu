@@ -168,7 +168,7 @@ class CustomHelp(help_command.BaseHelpCommand):
         for command in group.subcommands.values():
             if not command in commands:
                 commands.append(command)
-        for command in commands:
+        for command in commands[1:]:
             if isinstance(command, PrefixSubGroup):
                 subcommands = self.group_to_commands(command, ctx)[1:]  # remove group, since the group is already in
                 commands.extend(subcommands)
