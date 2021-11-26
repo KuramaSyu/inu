@@ -13,6 +13,7 @@ from lightbulb.context import Context
 from lightbulb import Bucket, commands
 from lightbulb import errors
 from lightbulb import events
+from lightbulb.commands import OptionModifier as OM
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -32,7 +33,7 @@ async def rnd(ctx: Context):
     pass
 
 @rnd.child
-@lightbulb.option("list", 'the list I should shuffle\nNOTE: seperate with comma ","')
+@lightbulb.option("list", 'the list I should shuffle\nNOTE: seperate with comma ","', modifier=OM.CONSUME_REST)
 @lightbulb.command("list", "shuffles a given list", aliases=["l", "facts"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def list_(ctx: Context):
@@ -231,18 +232,17 @@ async def list_(ctx: Context):
         await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
 
 @plugin.command
-@lightbulb.add_cooldown(10, 8, Bucket())
-@lightbulb.option("eyes", "What should ")
+@lightbulb.add_cooldown(10, 8, lightbulb.UserBucket)
+@lightbulb.option("eyes", "How many eyes should the dice have? (1-6)", type=int, default=6)
 @lightbulb.command("dice", "Roll a dice!", aliases=["cube"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-@lightbulb.cooldowns.cooldown(1, 2.5, lightbulb.UserBucket) #type: ignore
 async def dice(ctx: Context) -> None:
     '''
     Roll a dice!
     Parameters:
     [Optional] eyes: how many eyes the cube should have (1-9)
     '''
-
+    eyes = ctx.options.eyes
     if 1 > eyes > 6:
         await ctx.respond('I have dices with 1 to 6 sites. \
             I don\'t know, what kind of magic dices you have')
@@ -258,9 +258,11 @@ async def dice(ctx: Context) -> None:
         )
     return
 
-@lightbulb.cooldown(1, 2.5, lightbulb.UserBucket) #type: ignore
 @plugin.command
-async def coin(self, ctx) -> None:
+@lightbulb.add_cooldown(1, 2.5, lightbulb.UserBucket) #type: ignore
+@lightbulb.command("coin", "flips a coin")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def coin(ctx: Context) -> None:
     '''
     Flips a Coin - two sides + can stand
     Parameter:
@@ -272,18 +274,36 @@ async def coin(self, ctx) -> None:
     if random.choice(probability):
         coin = random.choice(["head", "tail"])
         await ctx.respond(
-            file=hikari.File(
-                f'{os.getcwd()}/other/pictures/coins/{coin}.png'
+            attachment=hikari.File(
+                f'{os.getcwd()}/inu/data/bot/coins/{coin}.png'
                 ),
             content=coin
             )
         return
-    await ctx.respond('Your coin stands! probability 1:100')
+    await ctx.respond('Your coin stands! probability 1 in 100')
     return
 
-@lightbulb.cooldowns.cooldown(1, 4, lightbulb.GuildBucket) #type: ignore
-@plugin.command(aliases=['prob'])
-async def probability(self, ctx, probability: float = 0.25, probability2: int = None) -> None:
+
+@plugin.command
+@lightbulb.add_cooldown(1, 4, lightbulb.GuildBucket)
+@lightbulb.option(
+    "number_2", 
+    "needed if you choose to set propability with 2 numbers. like 3 4 wihch would mean 3 in 4 aka 75%",
+    default=None,
+    type=int,
+    )
+@lightbulb.option(
+    "number_1", 
+    ("The probability. Can be a single num like 0.75 which would mean 75%. Can also be used with a 2nd num"),
+    type=float
+    )
+@lightbulb.command(
+    "probability", 
+    "Rolles a dice with own probability. Dafault is 1/4 or 0.25",
+    aliases=["prob"]
+)
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def probability(ctx: Context) -> None:
     '''
     Rolles a dice with own probability
     Parameters:
@@ -295,6 +315,8 @@ async def probability(self, ctx, probability: float = 0.25, probability2: int = 
         if len(s_num) > 7:
             return False
         return True
+    probability = ctx.options.number_1
+    probability2 = ctx.options.number_2
 
     # test if any number is too big -> avoid memoryError
     num1 = is_float_allowed(probability)
@@ -332,5 +354,5 @@ async def probability(self, ctx, probability: float = 0.25, probability2: int = 
     await ctx.respond(embed=embed)
     return
 
-def load(bot: lightbulb.Bot):
-    bot.add_plugin(RandomCommands(bot))
+def load(bot: lightbulb.BotApp):
+    bot.add_plugin(plugin)
