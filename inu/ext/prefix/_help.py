@@ -99,7 +99,7 @@ class CustomHelp(help_command.BaseHelpCommand):
             return cmds
         
 
-    async def create_help(self, ctx, cmds: List[Prefix]):
+    async def create_help(self, ctx, cmds: List[PrefixCommand]):
         filtered_cmds = self.filter_hidden(cmds)
         if not filtered_cmds:
             return
