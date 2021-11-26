@@ -39,6 +39,7 @@ async def daily_pictures(ctx: Context):
     pass
 
 @daily_pictures.child
+@lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("add_channel", "Adds the channel where you are in, to a channel where I send pictures")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def add_channel(ctx: Context):
@@ -56,6 +57,7 @@ async def add_channel(ctx: Context):
     await ctx.respond(f"added channel: `{channel.name}` with id `{channel.id}`")
 
 @daily_pictures.child
+@lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("rm_channel", "Removes the channel you are in form daily content channels", aliases=["remove_channel"])
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def remove_channel(ctx: Context):
