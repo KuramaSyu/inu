@@ -96,7 +96,7 @@ class Inu(lightbulb.BotApp):
             ):
                 continue
             try:
-                self.load_extension(f"ext.tasks.{extension[:-3]}")
+                self.load_extensions(f"ext.tasks.{extension[:-3]}")
                 self.log.debug(f"loaded plugin: {extension}")
             except Exception as e:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
