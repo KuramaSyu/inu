@@ -14,7 +14,7 @@ from lightbulb import events, errors
 from lightbulb.context import Context
 
 from core import Inu
-from .help import OutsideHelp
+from .inu_help import OutsideHelp
 
 log = logging.getLogger(__name__)
 
