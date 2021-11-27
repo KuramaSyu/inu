@@ -110,13 +110,10 @@ class EventListener(BaseListener):
         self._observers[str(event)].remove(observer)
 
     async def notify(self, event: Event):
-        try:
-            if str(type(event)) not in self._observers.keys():
-                return
-            for observer in self._observers[str(type(event))]:
-                await observer.on_event(event)
-        except Exception as e:
-            traceback.print_exc()
+        if str(type(event)) not in self._observers.keys():
+            return
+        for observer in self._observers[str(type(event))]:
+            await observer.on_event(event)
 
 def listener(event: Any):
     """A decorator to add listeners to a paginator"""
@@ -326,28 +323,25 @@ class Paginator():
 
 
     async def send(self, content: _Sendable, interaction: Optional[ComponentInteraction] = None):
-        try:
-            kwargs: Dict[str, Any] = {}
-            if interaction:
-                update_message = interaction.create_initial_response
-                kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
-            else:
-                update_message = self._message.edit
-            if not self._disable_component:
-                kwargs["component"] = self.component
-            elif not self._disable_components:
-                kwargs["components"] = self.components
+        kwargs: Dict[str, Any] = {}
+        if interaction:
+            update_message = interaction.create_initial_response
+            kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
+        else:
+            update_message = self._message.edit
+        if not self._disable_component:
+            kwargs["component"] = self.component
+        elif not self._disable_components:
+            kwargs["components"] = self.components
 
-            if isinstance(content, str):
-                kwargs["content"] = content
-                await update_message(**kwargs)
-            elif isinstance(content, Embed):
-                kwargs["embed"] = content
-                await update_message(**kwargs)
-            else:
-                raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
-        except Exception as e:
-            print(e)
+        if isinstance(content, str):
+            kwargs["content"] = content
+            await update_message(**kwargs)
+        elif isinstance(content, Embed):
+            kwargs["embed"] = content
+            await update_message(**kwargs)
+        else:
+            raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
 
     async def stop(self):
         self._stop = True
@@ -477,6 +471,8 @@ class Paginator():
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
         if (channel := self.ctx.get_channel()):
+            if isinstance(channel, int):
+                channel = self.bot.cache.get_guild_channel(channel)
             await channel.delete_messages(
                 [self._message]
             )
