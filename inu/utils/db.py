@@ -105,8 +105,9 @@ class Database(metaclass=Singleton):
         self.log.info("Synchronised database.")
 
     @acquire
-    async def execute(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> None:
-        await _cxn.execute(query, *values)
+    async def execute(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> Optional[asyncpg.Record]:
+        return await _cxn.execute(query, *values)
+        
 
     @acquire
     async def execute_many(self, query: str, valueset: List[Any], _cxn: asyncpg.Connection) -> None:
