@@ -123,12 +123,13 @@ class Tag():
                 guild_id=self.guild_id,
             )
         else:
-            await TagManager.set(
+            tag_id = await TagManager.set(
                 key=self.name,
                 value=self.value,
                 author=self.owner,
                 guild_id=self.guild_id,
             )
+            self.id = tag_id
         self.is_stored = True
 
     async def load_tag(self, tag: Mapping[str, Any]):
@@ -306,6 +307,9 @@ class TagHandler(Paginator):
         try:
             if not isinstance(event.interaction, ComponentInteraction):
                 return
+            if (not event.interaction.message.id == self._message.id 
+                or not event.interaction.user.id == self.tag.owner.id):
+                return
             custom_id = event.interaction.custom_id or None
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
@@ -410,8 +414,9 @@ class TagHandler(Paginator):
     async def finish(self, interaction: ComponentInteraction):
         try:
             await self.tag.save()
+            await self.update_page()
         except TagIsTakenError:
-            return await interaction.create_initial_response(
+            await interaction.create_initial_response(
                 ResponseType.MESSAGE_CREATE,
                 f"Your tag name {self.tag.name}` is {'locally' if self.tag._is_local else 'globally'} already taken"
             )
@@ -439,11 +444,10 @@ class TagHandler(Paginator):
             .set_footer(text=f"timeout after {self.timeout}s")
         )
         await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE, 
+            ResponseType.MESSAGE_CREATE,
             embed=embed
         )
         bot_message = await interaction.fetch_initial_response()
-
         try:
             event = await self.bot.wait_for(
                 events.MessageCreateEvent,
@@ -476,7 +480,7 @@ class TagHandler(Paginator):
         navi = super().build_default_component(position)
         disable_remove_when = lambda self: self.tag.name is None or self.tag.value is None
         disable_save_when = lambda self: self.tag.name is None or self.tag.value is None
-        intelligent_button_style = lambda value: ButtonStyle.PRIMARY if not value else ButtonStyle.SECONDARY
+        intelligent_button_style = lambda value: ButtonStyle.PRIMARY if not (value) else ButtonStyle.SECONDARY
         tag_specific = (
             ActionRowBuilder()
             .add_button(intelligent_button_style(self.tag.name), "set_name")
@@ -504,7 +508,7 @@ class TagHandler(Paginator):
         )
         finish = (
             ActionRowBuilder()
-            .add_button(ButtonStyle.PRIMARY, "finish")
+            .add_button(intelligent_button_style(self.tag.is_stored), "finish")
             .set_label("save")
             .set_is_disabled(disable_save_when(self))
             .add_to_container()
