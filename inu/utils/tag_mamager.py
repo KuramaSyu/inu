@@ -38,7 +38,7 @@ class TagManager():
         author: Union[User, Member],
         guild_id: Optional[int] = None,
         check_if_taken: bool = True,
-    ):
+    ) -> int:
         """
         Creates a db entry for given args.
 
@@ -51,22 +51,27 @@ class TagManager():
             to make a tag global set guild_id to None
             - check_if_taken: (bool, default=True) check if the tag is already taken
 
+        Returns
+        -------
+            - (int) the tag_id of the stored tag
         Raises
         -------
             - TagIsTakenError if tag is taken
         """
         #guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
         await cls._do_check_if_taken(key, guild_id, check_if_taken)
-        await cls.db.execute(
+        record = await cls.db.row(
             """
             INSERT INTO tags(tag_key, tag_value, creator_id, guild_id)
             VALUES($1, $2, $3, $4)
+            RETURNING tag_id
             """,
             key,
             [value],
             author.id,
             guild_id,
         )
+        return record["tag_id"]
 
     @classmethod
     async def edit(
