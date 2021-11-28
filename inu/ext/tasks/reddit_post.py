@@ -30,105 +30,102 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 
-class DailyPosts(Plugin):
-    def __init__(self, bot: Inu):
-        super().__init__()
-        self.bot: Inu = bot
-        self.daily_content = {
-            'time':{
-                '1':['ComedyCemetery', 3],
-                '2':['CrappyDesign', 3],
-                '3':['', 3],
-                '4':['', 4],
-                '5':['', 4],
-                '6':['', 4],
-                '7':['', 4],
-                '8':['', 4],
-                '9':['', 4],
-                '10':['', 4],
-                '11':['', 3],
-                '12':['Pictures', 3],
-                '13':['wholesomememes', 3],
-                '14':['Art', 3],
-                '15':['CityPorn', 3],
-                '16':['funny', 3],
-                '17':['EarthPorn', 3],
-                '18':['memes', 3],
-                '19':['itookapicture', 3],
-                '20':['comics', 3],
-                '21':['MostBeautiful', 4],
-                '22':['softwaregore', 3],
-                '23':['bonehurtingjuice', 3],
-                '0':['DesignPorn', 3],
-            }}
+plugin = lightbulb.Plugin("Daily Reddit", "Sends daily automated Reddit pictures", include_datastore=True)
+plugin.d.daily_content = {
+    'time':{
+        '1':['ComedyCemetery', 3],
+        '2':['CrappyDesign', 3],
+        '3':['', 3],
+        '4':['', 4],
+        '5':['', 4],
+        '6':['', 4],
+        '7':['', 4],
+        '8':['', 4],
+        '9':['', 4],
+        '10':['', 4],
+        '11':['', 3],
+        '12':['Pictures', 3],
+        '13':['wholesomememes', 3],
+        '14':['Art', 3],
+        '15':['CityPorn', 3],
+        '16':['funny', 3],
+        '17':['EarthPorn', 3],
+        '18':['memes', 3],
+        '19':['itookapicture', 3],
+        '20':['comics', 3],
+        '21':['MostBeautiful', 4],
+        '22':['softwaregore', 3],
+        '23':['bonehurtingjuice', 3],
+        '0':['DesignPorn', 3],
+    }}
 
         
-    @lightbulb.listener(ShardReadyEvent)
-    async def load_tasks(self, event: ShardReadyEvent):
-        DailyContentChannels.set_db(self.bot.db)
-        await Reddit.init_reddit_credentials(self.bot)
-        trigger = IntervalTrigger(seconds=10)
-        self.bot.scheduler.add_job(self.pics_of_hour, trigger)
-        log.debug(self.bot.scheduler.running)
-        self.bot.scheduler.print_jobs()
+@plugin.listener(ShardReadyEvent)
+async def load_tasks(event: ShardReadyEvent):
+    DailyContentChannels.set_db(plugin.bot.db)
+    await Reddit.init_reddit_credentials(plugin.bot)
+    trigger = IntervalTrigger(seconds=10)
+    plugin.bot.scheduler.add_job(pics_of_hour, trigger)
+    log.debug(plugin.bot.scheduler.running)
+    plugin.bot.scheduler.print_jobs()
 
 
-    async def pics_of_hour(self):
-        """
-        sends 1x/hour images from a specific subreddit into all channels
-        registered in the database
-        """
-        try:
-            now = datetime.datetime.now()
-            if now.minute != 0:
-                return
-            now = datetime.datetime.now()
-            log.debug(now)
-            subreddit = None
-            subreddit = self.daily_content["time"][str(now.hour)][0]
-            if not subreddit:
-                return
-            tasks = []
-            for mapping in await DailyContentChannels.get_all_channels():
-                log.debug(pformat(mapping))
-                for guild_id, channel_ids in mapping.items():
-                    for channel_id in channel_ids:
-                        try:
-                            task = asyncio.create_task(self.send_top_x_pics(subreddit, channel_id))
-                            tasks.append(task)
-                        except Exception:
-                            await DailyContentChannels.remove_channel(channel_id, guild_id)
-                            log.info(f"removed guild channel - was not reachable: {channel_id} from guild: {guild_id}")
-            if not tasks:
-                return
-            _ = await asyncio.gather(*tasks)
-        except Exception:
-            log.critical(traceback.format_exc())
+async def pics_of_hour():
+    """
+    sends 1x/hour images from a specific subreddit into all channels
+    registered in the database
+    """
+    try:
+        now = datetime.datetime.now()
+        if now.minute != 0:
+            return
+        now = datetime.datetime.now()
+        log.debug(now)
+        subreddit = None
+        subreddit = plugin.d.daily_content["time"][str(now.hour)][0]
+        if not subreddit:
+            return
+        tasks = []
+        for mapping in await DailyContentChannels.get_all_channels():
+            log.debug(pformat(mapping))
+            for guild_id, channel_ids in mapping.items():
+                for channel_id in channel_ids:
+                    try:
+                        task = asyncio.create_task(send_top_x_pics(subreddit, channel_id))
+                        tasks.append(task)
+                    except Exception:
+                        await DailyContentChannels.remove_channel(channel_id, guild_id)
+                        log.info(f"removed guild channel - was not reachable: {channel_id} from guild: {guild_id}")
+        if not tasks:
+            return
+        _ = await asyncio.gather(*tasks)
+    except Exception:
+        log.critical(traceback.format_exc())
 
-    async def send_top_x_pics(self, subreddit: str, channel_id: int, count: int = 5):
-        hours = int(tm.strftime("%H", tm.localtime()))
-        try:
-            posts = await Reddit.get_posts(
-                subreddit=subreddit,
-                top=True,
-                hot=False,
-                minimum=count,
-                time_filter="day"
-            )
-            # url, title = await get_a_pic(subreddit=str(subreddit), post_to_pick=int(x), hot=False, top=True)
-            if not posts:
-                return
-            for x in range(0, count, 1):
-                embed = hikari.Embed()
-                embed.title = f'{posts[x].title}'
-                embed.set_image(posts[x].url)
-                if x == int(count - 1):
-                    embed.set_footer(text=f'r/{subreddit}  |  {hours}:00')
-                log.debug(channel_id)
-                await self.bot.rest.create_message(channel_id, embed=embed)
-        except Exception as e:
-            log.critical(traceback.format_exc())
-            raise e
+async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 5):
+    hours = int(tm.strftime("%H", tm.localtime()))
+    try:
+        posts = await Reddit.get_posts(
+            subreddit=subreddit,
+            top=True,
+            hot=False,
+            minimum=count,
+            time_filter="day"
+        )
+        # url, title = await get_a_pic(subreddit=str(subreddit), post_to_pick=int(x), hot=False, top=True)
+        if not posts:
+            return
+        for x in range(0, count, 1):
+            embed = hikari.Embed()
+            embed.title = f'{posts[x].title}'
+            embed.set_image(posts[x].url)
+            if x == int(count - 1):
+                embed.set_footer(text=f'r/{subreddit}  |  {hours}:00')
+            log.debug(channel_id)
+            await plugin.bot.rest.create_message(channel_id, embed=embed)
+    except Exception as e:
+        log.critical(traceback.format_exc())
+        raise e
             
 def load(bot: Inu):
-    bot.add_plugin(DailyPosts(bot))
+    bot.add_plugin(plugin)
