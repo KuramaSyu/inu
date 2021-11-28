@@ -41,10 +41,8 @@ class Inu(lightbulb.BotApp):
             case_insensitive_prefix_commands=True,
         )
 
-        self.load_prefix()
-
-        # self.load_slash()
-        # self.load_task()
+        self.load("inu/ext/commands/")
+        self.load("inu/ext/tasks/")
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -73,8 +71,8 @@ class Inu(lightbulb.BotApp):
             except Exception as e:
                 self.log.critical(f"slash command {extension} can't load", exc_info=True)
 
-    def load_prefix(self):
-        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/prefix")):
+    def load(self, folder_path: str):
+        for extension in os.listdir(os.path.join(os.getcwd(), folder_path)):
             if (
                 extension == "__init__.py" 
                 or not extension.endswith(".py")
@@ -82,9 +80,9 @@ class Inu(lightbulb.BotApp):
             ):
                 continue
             try:
-                self.load_extensions(f"ext.prefix.{extension[:-3]}")
+                self.load_extensions(f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}")
                 self.log.debug(f"loaded plugin: {extension}")
-            except Exception as e:
+            except Exception:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
 
     def load_task(self):
