@@ -14,6 +14,7 @@ from lightbulb.context import Context
 from lightbulb import commands
 from utils import DailyContentChannels
 from core import Inu
+from utils.r_channel_manager import Columns as Col
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -53,7 +54,7 @@ async def add_channel(ctx: Context):
     if not channel:
         await ctx.respond("I am not able to add this channel :/", reply=True)
         return
-    await DailyContentChannels.add_channel(channel_id, ctx.guild_id)
+    await DailyContentChannels.add_channel(Col.CHANNEL_IDS, channel_id, ctx.guild_id)
     await ctx.respond(f"added channel: `{channel.name}` with id `{channel.id}`")
 
 @daily_pictures.child
@@ -70,7 +71,42 @@ async def remove_channel(ctx: Context):
     if not (channel := await plugin.bot.rest.fetch_channel(channel_id)):
         await ctx.respond(f"cant remove this channel - channel not found", reply=True)
         return            
-    await DailyContentChannels.remove_channel(channel_id, ctx.guild_id)
+    await DailyContentChannels.remove_channel(Col.CHANNEL_IDS, channel_id, ctx.guild_id)
+    await ctx.respond(f"removed channel: `{channel.name}` with id `{channel.id}`")
+    
+@daily_pictures.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("add_top_channel", "Adds the channel where you are in, to a channel where I send pictures")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def add_top_channel(ctx: Context):
+    """
+    Adds <channel_id> to channels, where daily reddit stuff will be sent.
+    """
+    if not ctx.guild_id:
+        return
+    channel_id = ctx.channel_id
+    channel = ctx.get_channel()
+    if not channel:
+        await ctx.respond("I am not able to add this channel :/", reply=True)
+        return
+    await DailyContentChannels.add_channel(Col.TOP_CHANNEL_IDS, channel_id, ctx.guild_id)
+    await ctx.respond(f"added channel: `{channel.name}` with id `{channel.id}`")
+
+@daily_pictures.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("rm_top_channel", "Removes the channel you are in form daily content channels", aliases=["remove_top_channel"])
+@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+async def remove_top_channel(ctx: Context):
+    """
+    Removes <channel_id> from channels, where daily reddit stuff will be sent.
+    """
+    if not ctx.guild_id:
+        return
+    channel_id = ctx.channel_id
+    if not (channel := await plugin.bot.rest.fetch_channel(channel_id)):
+        await ctx.respond(f"cant remove this channel - channel not found", reply=True)
+        return
+    await DailyContentChannels.remove_channel(Col.TOP_CHANNEL_IDS, channel_id, ctx.guild_id)
     await ctx.respond(f"removed channel: `{channel.name}` with id `{channel.id}`")
 
 def load(bot: Inu):
