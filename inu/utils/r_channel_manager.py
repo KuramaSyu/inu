@@ -10,6 +10,7 @@ from typing import (
 import typing
 from copy import deepcopy
 import logging
+import enum
 
 import asyncpg
 from asyncache import cached
@@ -24,6 +25,9 @@ from .db import Database
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+class Columns(enum.Enum):
+    CHANNEL_IDS = "channel_ids"
+    TOP_CHANNEL_IDS = "top_channel_ids"
 
 class DailyContentChannels:
     db: Database
@@ -38,6 +42,7 @@ class DailyContentChannels:
     @classmethod
     async def add_channel(
         cls,
+        table_column: Columns,
         channel_id: int,
         guild_id: int,
     ):
@@ -46,6 +51,7 @@ class DailyContentChannels:
 
         Args:
         -----
+            - table_column: (`~.Columns`) Enum for options
             - channel_id: (int) the channel_id
             - guild_id: (int) the id of the guild where the channel is in
 
@@ -62,17 +68,19 @@ class DailyContentChannels:
         record = await cls.db.row(sql, guild_id)
         if record is None:
             channels = [channel_id]
-            sql = """
-            INSERT INTO reddit_channels (guild_id, channel_ids)
+            sql = f"""
+            INSERT INTO reddit_channels (guild_id, {table_column.value})
             VALUES ($1, $2)
             """
         else:
-            channels = record["channel_ids"]
+            channels = record[table_column.value]
+            if not channels:
+                channels = []
             channels.append(channel_id)
             channels = list(set(channels))  # remove duplicates
-            sql = """
+            sql = f"""
             UPDATE reddit_channels
-            SET channel_ids = $2
+            SET {table_column.value} = $2
             WHERE guild_id = $1
             """
         await cls.db.execute(sql, guild_id, channels)
@@ -80,6 +88,7 @@ class DailyContentChannels:
     @classmethod
     async def remove_channel(
         cls,
+        table_column: Columns,
         channel_id: int,
         guild_id: int,
     ):
@@ -88,6 +97,7 @@ class DailyContentChannels:
 
         Args:
         -----
+            - table_column: (`~.Columns`) Enum for options
             - channel_id: (int) the channel_id
             - guild_id: (int) the id of the guild where the channel is in      
         """
@@ -99,14 +109,14 @@ class DailyContentChannels:
         if record is None:
             return
         else:
-            channels = record["channel_ids"]
+            channels = record[table_column.value]
             try:
                 channels.remove(channel_id)
             except ValueError:
                 return
-            sql = """
+            sql = f"""
             UPDATE reddit_channels
-            SET channel_ids = $1
+            SET {table_column.value} = $1
             WHERE guild_id = $2
             """
             await cls.db.execute(sql, channels, guild_id)
@@ -114,6 +124,7 @@ class DailyContentChannels:
     @classmethod
     async def get_channels_from_guild(
         cls,
+        table_column: Columns,
         guild_id: int,
     ):
         """
@@ -122,6 +133,7 @@ class DailyContentChannels:
 
         Args:
         -----
+            - table_column: (`~.Columns`) Enum for options
             - channel_id: (int) the channel_id
             - guild_id: (int) the id of the guild where the channel is in      
         """
@@ -129,14 +141,18 @@ class DailyContentChannels:
         SELECT * FROM reddit_channels
         WHERE guild_id = $1
         """
-        raise NotImplemented
         record = await cls.db.row(sql, guild_id)
+        return record[table_column.value]
 
     @classmethod
-    async def get_all_channels(cls) -> List[Dict[int, List[int]]]:
+    async def get_all_channels(
+        cls,
+        table_column: Columns,
+    ) -> List[Dict[int, List[int]]]:
         """
         Returns:
         --------
+            - table_column: (`~.Columns`) Enum for options
             - (List[Dict[int, List[int]]]) a list with dicts mapping from guild_id to a list of channel ids
         """
         sql = """
@@ -147,9 +163,10 @@ class DailyContentChannels:
             return []
         mappings = []
         for r in records:
-            mapping = {r["guild_id"]: r["channel_ids"]}
+            channels = r[table_column.value]
+            if channels is None: 
+                continue
+            mapping = {r["guild_id"]: channels}
             mappings.append(mapping)
         return mappings
 
-class test:
-    pass
