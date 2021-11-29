@@ -24,6 +24,7 @@ from utils import Reddit
 from utils.db import Database
 from core import Inu
 from utils import DailyContentChannels
+from utils.r_channel_manager import Columns as Col
 
 
 log = logging.getLogger(__name__)
@@ -76,9 +77,9 @@ async def pics_of_hour():
     registered in the database
     """
     try:
-        now = datetime.datetime.now()
-        if now.minute != 0:
-            return
+        # now = datetime.datetime.now()
+        # if now.minute != 0:
+        #     return
         now = datetime.datetime.now()
         log.debug(now)
         subreddit = None
@@ -86,7 +87,7 @@ async def pics_of_hour():
         if not subreddit:
             return
         tasks = []
-        for mapping in await DailyContentChannels.get_all_channels():
+        for mapping in await DailyContentChannels.get_all_channels(Col.CHANNEL_IDS):
             log.debug(pformat(mapping))
             for guild_id, channel_ids in mapping.items():
                 for channel_id in channel_ids:
@@ -94,7 +95,7 @@ async def pics_of_hour():
                         task = asyncio.create_task(send_top_x_pics(subreddit, channel_id))
                         tasks.append(task)
                     except Exception:
-                        await DailyContentChannels.remove_channel(channel_id, guild_id)
+                        await DailyContentChannels.remove_channel(Col.CHANNEL_IDS, channel_id, guild_id)
                         log.info(f"removed guild channel - was not reachable: {channel_id} from guild: {guild_id}")
         if not tasks:
             return
@@ -126,6 +127,27 @@ async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 5):
     except Exception as e:
         log.critical(traceback.format_exc())
         raise e
-            
+    
+@plugin.listener(hikari.ReactionAddEvent)
+async def on_thumb_up(event: hikari.ReactionAddEvent):
+    if event.emoji_name != "👍":
+        return
+    
+    message = await plugin.bot.rest.fetch_message(event.channel_id, event.message_id)
+    if not message or not message.author.id == plugin.bot.get_me().id:
+        return
+    
+    channel = await plugin.bot.rest.fetch_channel(event.channel_id)
+    top_channels = await DailyContentChannels.get_channels_from_guild(Col.TOP_CHANNEL_IDS, channel.guild_id)
+    log.debug("send to top channel")
+    for ch in top_channels:
+        try:
+            log.debug(ch)
+            await plugin.bot.rest.create_message(ch, embed=message.embeds[0])
+        except Exception:
+            log.error(traceback.format_exc())
+            await plugin.bot.rest.create_message(event.channel_id, "I can't send this message anywhere :/")
+    
+         
 def load(bot: Inu):
     bot.add_plugin(plugin)
