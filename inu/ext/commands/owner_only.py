@@ -88,7 +88,7 @@ def build_sql(sql: str, method: str) -> str:
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("log", "Shows the log of the entire me")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def log(ctx: Context):
+async def log_(ctx: Context):
     """
     Shows my LOG file
     """
