@@ -77,9 +77,9 @@ async def pics_of_hour():
     registered in the database
     """
     try:
-        # now = datetime.datetime.now()
-        # if now.minute != 0:
-        #     return
+        now = datetime.datetime.now()
+        if now.minute != 0:
+            return
         now = datetime.datetime.now()
         log.debug(now)
         subreddit = None
