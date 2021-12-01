@@ -1,7 +1,7 @@
 from typing import Union, Optional, List, Dict
 import traceback
 import logging
-
+import random
 
 import hikari
 from hikari import Member
@@ -17,21 +17,28 @@ from utils import Colors
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+class WrongPlayerError(Exception):
+    pass
+        
+class ColumnNotInFieldError(Exception):
+    pass
+    
+
 class PlayerData:
     pass
 
 class Player:
     
-    __slots__: List[str] = ["name", "id", "marker", "d"]
+    __slots__: List[str] = ["name", "id", "token", "d"]
     def __init__(
         self,
         name: str,
         id: str,
-        marker: str,
+        token: str,
     ):
         self.name = name
         self.id = id
-        self.marker = marker
+        self.token = token
         self.d = PlayerData
 
 class Board:
@@ -45,6 +52,9 @@ class Board:
                         '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
                         '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛',
                         '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛' ]
+        
+    def drop_token(self, token: str):
+        pass
 
 
 class Connect4Handler(Paginator):
@@ -100,11 +110,35 @@ class BaseConnect4:
         player1: Player,
         player2: Player,
     ):
-        self.player1 = player1
-        self.player2 = player2
+        self.player1: Player = player1
+        self.player2: Player = player2
+        self.player_turn: Player
         self.winning_conditions = []
-        self.gameOver = True
+        self.game_over = True
         self.board = Board()
+        
+    def start(self):
+        self.game_over = False
+        self.player_turn = random.choice([self.player1, self.player2])
+        
+    def do_turn(self, column: int,  player: Optional[Player] = None):
+        """
+        Make a turn for a player
+        
+        Args:
+        -----
+            - column: (int) the column where to player put in his token. Start with 0
+            - player: (~.Player) the player whos turn is. Just an addidional test. If not given, then the test is skipped
+            
+        Raises:
+        -------
+            - ~.WrongPlayerError: Not the players turn
+            - ~.ColumnNotInFieldError: The chosen Column doesn't exist
+        """
+        if not player is None and player != self.player_turn:
+            raise WrongPlayerError(f"Not {player.name}'s turn")
+        self.board.drop_token(column, player.token)
+        
         
         
         
