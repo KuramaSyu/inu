@@ -2,6 +2,7 @@ from typing import Union, Optional, List, Dict
 import traceback
 import logging
 import random
+import numpy as np
 
 import hikari
 from hikari import Member
@@ -54,8 +55,7 @@ class Board:
                         '⬛','⬛','⬛','⬛','⬛','⬛','⬛','⬛' ]
         
     def drop_token(self, token: str):
-        pass
-
+        
 
 class Connect4Handler(Paginator):
     def __init__(
