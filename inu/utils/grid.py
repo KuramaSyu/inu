@@ -1,7 +1,8 @@
 import typing
-from typing import Sequence
+from typing import Sequence, List, Tuple, Iterable, TypeVar, Union
 
-GridLike = Sequence[Sequence]
+T = TypeVar("T")
+GridLike = Sequence[Sequence[T]]
 
 class Grid:
     """
@@ -10,21 +11,22 @@ class Grid:
     https://stackoverflow.com/questions/6313308/get-all-the-diagonals-in-a-matrix-list-of-lists-in-python
     """
     @classmethod
-    def get_backward_diagonals(cls, grid: GridLike):
+    def get_backward_diagonals(cls, grid: Sequence[Sequence[T]]) -> List[List[T]]:
         b = [None] * (len(grid) - 1)
-        grid = [b[i:] + r + b[:i] for i, r in enumerate(cls.get_rows(grid))]
-        return [[c for c in r if c is not None] for r in cls.get_cols(grid)]
+        new_grid = [[*b[i:], *r, *b[:i]] for i, r in enumerate(cls.get_rows(grid))]
+        return [[c for c in r if c is not None] for r in cls.get_cols(new_grid)]
 
     @classmethod
-    def get_forward_diagonals(cls, grid: GridLike):
+    def get_forward_diagonals(cls, grid: Sequence[Sequence[T]]) -> List[List[T]]:
         b = [None] * (len(grid) - 1)
-        grid = [b[:i] + r + b[i:] for i, r in enumerate(cls.get_rows(grid))]
-        return [[c for c in r if c is not None] for r in cls.get_cols(grid)]
+        rows = cls.get_rows(grid)
+        new_grid = [[*b[:i], *r, *b[i:]] for i, r in enumerate(rows)]
+        return [[c for c in r if c is not None] for r in cls.get_cols(new_grid)]
     
     @classmethod
-    def get_rows(cls, grid: GridLike):
+    def get_rows(cls, grid: Sequence[Sequence[T]]) -> List[List[T]]:
         return [[c for c in r] for r in grid]
 
     @classmethod
-    def get_cols(cls, grid: GridLike):
-        return zip(*grid)
+    def get_cols(cls, grid: Sequence[Sequence[T]]) -> List[Tuple[T]]:
+        return [*zip(*grid)]  #type: ignore
