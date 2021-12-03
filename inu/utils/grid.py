@@ -2,7 +2,6 @@ import typing
 from typing import Sequence, List, Tuple, Iterable, TypeVar, Union
 
 T = TypeVar("T")
-GridLike = Sequence[Sequence[T]]
 
 class Grid:
     """
