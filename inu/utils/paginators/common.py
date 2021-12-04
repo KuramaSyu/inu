@@ -14,6 +14,7 @@ from typing import (
 import traceback
 import logging
 from abc import abstractmethod, ABCMeta
+from copy import deepcopy
 
 import hikari
 from hikari.embeds import Embed
@@ -31,6 +32,8 @@ log.setLevel(logging.DEBUG)
 __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
 _Sendable = Union[Embed, str]
 T = TypeVar("T")
+
+count = 0
 
 # I know this is kinda to much just for a paginator - but I want to learn design patterns, so I do it
 class PaginatorReadyEvent(hikari.Event):
@@ -93,7 +96,8 @@ class EventObserver(BaseObserver):
 
 class EventListener(BaseListener):
     """A Listener which receives events from a Paginator and notifies its observers about it"""
-    def __init__(self):
+    def __init__(self, pag):
+        self._pag = pag
         self._observers: Dict[str, List[EventObserver]] = {}
     @property
     def observers(self):
@@ -113,11 +117,13 @@ class EventListener(BaseListener):
         if str(type(event)) not in self._observers.keys():
             return
         for observer in self._observers[str(type(event))]:
+            log.debug(f"listener pag: {self._pag.count} | notify observer with id {observer.paginator.count} | {observer.paginator._message.id} | {observer.paginator}")
             await observer.on_event(event)
 
 def listener(event: Any):
     """A decorator to add listeners to a paginator"""
     def decorator(func: Callable):
+        log.debug("listener registered")
         return EventObserver(callback=func, event=str(event))
     return decorator
 
@@ -162,6 +168,10 @@ class Paginator():
                 or
                 - overriding `build_default_component(s)`; args: self, position (int)
         """
+        global count
+        count  += 1
+        self.count = count
+        
         self._pages: Union[List[Embed], List[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
         self._components: Optional[List[ActionRowBuilder]] = None
@@ -176,7 +186,7 @@ class Paginator():
         self.ctx: Context
 
         
-        self.listener = EventListener()
+        self.listener = EventListener(self)
         self.log = log
         self.timeout = timeout
         self.listen_to_events = listen_to_events
@@ -194,9 +204,12 @@ class Paginator():
         for name, obj in type(self).__dict__.items():
             if isinstance(obj, EventObserver):
                 obj = getattr(self, name)
-                obj.name = name
-                obj.paginator = self
-                self.listener.subscribe(obj, obj.event)
+                copy_obj = deepcopy(obj)  
+                # why deepcopy?: the `obj` seems to be, no matter if pag is a new instance, always the same obj.
+                # so it would add without deepcopy always the same obj with was configured in the first instance of `self.__cls__`
+                copy_obj.name = name
+                copy_obj.paginator = self
+                self.listener.subscribe(copy_obj, copy_obj.event)
 
     @property
     def pages(self):
@@ -398,7 +411,6 @@ class Paginator():
 
     async def pagination_loop(self):
         try:
-            self.log.debug(f"start of def {self._stop}")
             # if self.timeout > int(60*15):
             #     raise RuntimeError("<timeout> has a max time of 15 min")
             def create_event(event, predicate: Callable = None):
@@ -435,7 +447,6 @@ class Paginator():
                     return
                 # maybe called from outside
                 for e in pending:
-                    self.log.debug(f"cancel: {e}")
                     e.cancel()
                 if self._stop:
                     return
@@ -443,7 +454,7 @@ class Paginator():
                     event = done.pop().result()
                 except Exception:
                     self._stop = True
-                self.log.debug(f"dispatch event: {event}")
+                self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
         except Exception:
             self.log.error(traceback.format_exc())
