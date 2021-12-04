@@ -26,7 +26,7 @@ from lightbulb.context import Context
 
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.ERROR)
+log.setLevel(logging.DEBUG)
 
 __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
 _Sendable = Union[Embed, str]
@@ -183,8 +183,8 @@ class Paginator():
 
         # paginator configuration
         self.pagination = not disable_pagination
+        self._stop = False
         if self.pagination:
-            self._stop = False
             self._position: int = 0
             self.compact = len(page_s) <= 2
         
@@ -388,52 +388,65 @@ class Paginator():
             return
         self.log.debug("enter loop")
         self._position = 0
-        await self.dispatch_event(PaginatorReadyEvent(self.bot))
-        self._task = asyncio.create_task(self.pagination_loop())
+        try:
+            await self.dispatch_event(PaginatorReadyEvent(self.bot))
+            self._task = asyncio.create_task(self.pagination_loop())
+        except Exception:
+            self.log.error(traceback.format_exc())
         
 
 
     async def pagination_loop(self):
-        if self.timeout > int(60*15):
-            raise RuntimeError("<timeout> has a max time of 15 min")
-        def create_event(event, predicate: Callable):
-            return self.bot.wait_for(
-                event,
-                timeout=self.timeout,
-                predicate=predicate
-            )
+        try:
+            self.log.debug(f"start of def {self._stop}")
+            # if self.timeout > int(60*15):
+            #     raise RuntimeError("<timeout> has a max time of 15 min")
+            def create_event(event, predicate: Callable = None):
+                if predicate:
+                    return self.bot.wait_for(
+                        event,
+                        timeout=self.timeout,
+                        predicate=predicate
+                    )
+                else:
+                    return self.bot.wait_for(
+                        event,
+                        timeout=self.timeout,
+                    )
 
-        while not self._stop:
-            self.log.debug("loop")
-            try:
-                events = [
-                    create_event(InteractionCreateEvent, self.interaction_pred),
-                    create_event(GuildMessageCreateEvent, self.message_pred),
-                ]
-                # adding user specific events
-                always_true = lambda _ : True
-                for event in self.listen_to_events:
-                    events.append(create_event(event, always_true))
-                done, pending = await asyncio.wait(
-                    [asyncio.create_task(task) for task in events],
-                    return_when=asyncio.FIRST_COMPLETED,
-                    timeout=self.timeout
-                )
-            except asyncio.TimeoutError:
-                self._stop = True
-                return
-            # maybe called from outside
-            for e in pending:
-                self.log.debug(f"cancel: {e}")
-                e.cancel()
-            if self._stop:
-                return
-            try:
-                event = done.pop().result()
-            except Exception:
-                self._stop = True
-            self.log.debug(f"dispatch event: {event}")
-            await self.dispatch_event(event)
+            while not self._stop:
+                self.log.debug("loop")
+                try:
+                    events = [
+                        create_event(InteractionCreateEvent, self.interaction_pred),
+                        create_event(GuildMessageCreateEvent, self.message_pred),
+                    ]
+                    # adding user specific events
+                    always_true = lambda _ : True
+                    for event in self.listen_to_events:
+                        events.append(create_event(event))
+                    done, pending = await asyncio.wait(
+                        [asyncio.create_task(task) for task in events],
+                        return_when=asyncio.FIRST_COMPLETED,
+                        timeout=self.timeout
+                    )
+                except asyncio.TimeoutError:
+                    self._stop = True
+                    return
+                # maybe called from outside
+                for e in pending:
+                    self.log.debug(f"cancel: {e}")
+                    e.cancel()
+                if self._stop:
+                    return
+                try:
+                    event = done.pop().result()
+                except Exception:
+                    self._stop = True
+                self.log.debug(f"dispatch event: {event}")
+                await self.dispatch_event(event)
+        except Exception:
+            self.log.error(traceback.format_exc())
             
     async def dispatch_event(self, event: Event):
         if isinstance(event, InteractionCreateEvent) and self.interaction_pred(event):
