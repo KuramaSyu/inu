@@ -533,11 +533,7 @@ async def start_lavalink() -> None:
             else:
                 await asyncio.sleep(3)
                 
-@music.command
-@lightbulb.command("restart", "reconnects to lavalink")
-@lightbulb.implements(commands.PrefixCommand)
-async def restart(ctx: context.Context):
-    await start_lavalink(None)
+
         
 
 
@@ -932,7 +928,11 @@ async def history(ctx: Context):
     )
     await pag.start(ctx)
     
-        
+@m.child
+@lightbulb.command("restart", "reconnects to lavalink")
+@lightbulb.implements(commands.PrefixSubCommand)
+async def restart(ctx: context.Context):
+    await start_lavalink()
 
 
 async def queue(ctx: Context = None, guild_id: int = None):
