@@ -5,6 +5,7 @@ import traceback
 import typing
 from typing import Union
 import logging
+from async_timeout import asyncio
 
 import hikari
 import lightbulb
@@ -22,13 +23,29 @@ log.setLevel(logging.DEBUG)
 plugin = lightbulb.Plugin("Game Commands", "Extends the commands with commands all about games")
 
 @plugin.command
-@lightbulb.option("player2", "The second player", type=hikari.Member, default=None)
-@lightbulb.option("player1", "The first player. Default: you\nNOTE: ping the player like @user", type=hikari.Member, default=None)
+@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
+@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("connect4", "starts a Connect 4 game", aliases=["con4", "connect-4"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def connect4(ctx: Context):
-    h = Connect4Handler(ctx.options.player1 or ctx.member, ctx.options.player2)
-    await h.start(ctx)
+    h = Connect4Handler(ctx.options.player1, ctx.options.player2 or ctx.member)
+    msg = await h.start(ctx)
+    log.debug(msg)
+    await msg.add_reaction("🔁")
+    try:
+        await plugin.bot.wait_for(
+            hikari.ReactionAddEvent,
+            timeout=15*60,
+            predicate=lambda e: (
+                    e.message_id == msg.id
+                    and e.user_id in [ctx.options.player1.id, ctx.options.player2.id]
+                    and e.emoji_name == "🔁"
+            )
+        )
+        await connect4.callback(ctx)
+    except asyncio.TimeoutError:
+        pass
+    await msg.remove_all_reactions()
     
     
 def load(bot: lightbulb.BotApp):
