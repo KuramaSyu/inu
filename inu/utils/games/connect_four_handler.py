@@ -383,7 +383,6 @@ class Connect4Handler(Paginator):
             pass
         elif emoji == "🔁":
             if self.game.game_over:
-                await self._message.remove_all_reactions()
                 await self.stop()
                 handler = Connect4Handler(self.player1, self.player2)
                 return await handler.start(self.ctx)
