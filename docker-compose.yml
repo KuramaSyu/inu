@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - $HOME/PSQL:/psql
+      - $HOME/psql
       - /var/lib/postgresql/data/
 
   app:
