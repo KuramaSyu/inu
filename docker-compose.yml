@@ -9,7 +9,7 @@ services:
       POSTGRES_PASSWORD: secr33t
       POSTGRES_DB: inu_db
     volumes:
-      - ./postgres-data:/var/lib/postgresql/data
+      - ./../postgres-data:/var/lib/postgresql/data
   app:
     depends_on:
       - lava
