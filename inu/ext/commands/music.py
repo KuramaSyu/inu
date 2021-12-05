@@ -1012,7 +1012,7 @@ async def queue(ctx: Context = None, guild_id: int = None):
 
     #edit existing message
     resume = True
-    if music.d.music_message[ctx.guild_id] != None:
+    if not music.d.music_message[ctx.guild_id] is None:
         try:
             timeout = 4
             async for m in music.bot.rest.fetch_messages(ctx.channel_id):
@@ -1027,7 +1027,7 @@ async def queue(ctx: Context = None, guild_id: int = None):
     try:
         if resume:
             #last message not among the last 3. Del and re send
-            if music.d.music_message[ctx.guild_id] != None:
+            if not music.d.music_message[ctx.guild_id] is None:
                 await music.d.music_message[ctx.guild_id].delete()
                 music.d.music_message[ctx.guild_id] = None#edit(embed=music_embed)
                 msg_proxy = await ctx.respond(embed=music_embed)
