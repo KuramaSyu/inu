@@ -11,4 +11,3 @@ cachetools==4.2.2
 APScheduler==3.8.1
 asyncpraw==7.5.0
 colorama==0.4.4
-lavasnek_rs @ git+https://github.com/vicky5124/lavasnek_rs.git
