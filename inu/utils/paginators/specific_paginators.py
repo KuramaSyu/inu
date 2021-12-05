@@ -12,7 +12,7 @@ from .common import Paginator
 from .common import listener
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.WARNING)
 
 class MusicHistoryPaginator(Paginator):
     def __init__(
