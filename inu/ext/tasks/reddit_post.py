@@ -65,10 +65,10 @@ plugin.d.daily_content = {
 async def load_tasks(event: ShardReadyEvent):
     DailyContentChannels.set_db(plugin.bot.db)
     await Reddit.init_reddit_credentials(plugin.bot)
-    trigger = IntervalTrigger(seconds=10)
+    trigger = IntervalTrigger(minutes=1)
     plugin.bot.scheduler.add_job(pics_of_hour, trigger)
     log.debug(plugin.bot.scheduler.running)
-    plugin.bot.scheduler.print_jobs()
+    logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
 
 async def pics_of_hour():
