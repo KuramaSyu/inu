@@ -28,7 +28,7 @@ from utils.r_channel_manager import Columns as Col
 
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.WARNING)
 
 
 plugin = lightbulb.Plugin("Daily Reddit", "Sends daily automated Reddit pictures", include_datastore=True)
@@ -56,7 +56,7 @@ plugin.d.daily_content = {
         '20':['comics', 3],
         '21':['MostBeautiful', 4],
         '22':['softwaregore', 3],
-        '23':['bonehurtingjuice', 3],
+        '23':['me_irl', 3],
         '0':['DesignPorn', 3],
     }}
 
