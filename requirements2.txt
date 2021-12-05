@@ -1,1 +1,1 @@
-lavasnek-rs==0.1.0_alpha.1
+lavasnek_rs @ git+https://github.com/vicky5124/lavasnek_rs.git
