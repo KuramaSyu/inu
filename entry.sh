@@ -1,4 +1,4 @@
 #!/bin/bash
-pip3 install lavasnek-rs
+pip install lavasnek_rs --pre -U --user
 # python3 prepare.py
 python inu/main.py
