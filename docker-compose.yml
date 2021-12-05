@@ -8,10 +8,11 @@ services:
       - db
     build: .
   lava:
-    image: fredboat/lavalink:master
-    configs:
-    - source: my_config
-      target: /opt/Lavalink/application.yml
+    build: ./dependencies/fredboat/
+    # image: fredboat/lavalink:master
+    # configs:
+    # - source: my_config
+    #   target: /opt/Lavalink/application.yml
   # lava:
   #   build: dependencies/music/
 configs:
