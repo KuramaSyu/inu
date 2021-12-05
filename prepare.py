@@ -17,7 +17,7 @@ def update_package(package: str) -> None:
     print(display_name, path_name)
     try:
         subprocess.check_call(
-            [sys.executable, '-m', 'pip3', 'install', '--upgrade', path_name]
+            [sys.executable, '-m', 'pip', 'install', '--upgrade', path_name]
         )
     except Exception as e:
         print("Error while installing dependencies")
