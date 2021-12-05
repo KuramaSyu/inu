@@ -9,6 +9,6 @@ matplotlib==3.4.3
 asyncache==0.1.1
 cachetools==4.2.2
 APScheduler==3.8.1
-lavasnek_rs==0.1
+lavasnek-rs==0.1.0_alpha.1
 asyncpraw==7.5.0
 colorama==0.4.4

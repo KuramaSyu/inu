@@ -1,5 +1,5 @@
 FROM ubuntu:20.04
-FROM python:3.9
+FROM python:3.8
 RUN apt update
 RUN apt-get install -y net-tools
 RUN apt-get install -y openjdk-11-jdk
