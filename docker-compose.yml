@@ -9,8 +9,7 @@ services:
       POSTGRES_PASSWORD: secr33t
       POSTGRES_DB: inu_db
     volumes:
-      - pgdata:/var/lib/postgresql/data/
-
+      - ./postgres-data:/var/lib/postgresql/data
   app:
     depends_on:
       - lava
@@ -27,5 +26,3 @@ services:
 configs:
   my_config:
     file: dependencies/fredboat/application.yml
-volumes:
-  pg_data:
