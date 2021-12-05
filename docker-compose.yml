@@ -11,7 +11,7 @@ services:
     ports:
       - "5432:5432"
     volumes:
-      - $HOME/Desktop/PostgreSql-Snippets/infile:/infile
+      - $HOME/PSQL:/psql
       - /var/lib/postgresql/data/
 
   app:
