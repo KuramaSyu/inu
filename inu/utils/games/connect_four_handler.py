@@ -1,8 +1,11 @@
+from asyncio import create_subprocess_shell
+from turtle import Turtle
 from typing import Union, Optional, List, Dict, Union, Tuple
 import traceback
 import logging
 import random
 import numpy as np
+from copy import deepcopy
 
 import hikari
 from hikari import Member
@@ -62,26 +65,25 @@ class HikariPlayer(Player):
         self.token = token
         self.user = user
 
+class Slot:
+    """Represents one solt of the board"""
+    def __init__(self, row: int, column: int, marker: Optional[str] = None):
+        self.row = row
+        self.column = column
+        self.marker = marker        
+
 class Board:
     """A class which represents a connect 4 board"""
-    def __init__(self, marker: str):
+    def __init__(self, marker: str, rows: int = 8, columns: int = 8):
         """
         Args:
         -----
             - marker: (str) the emoji which should be used in __str__ to highlight the game over coordinates
         """
-        self.board: List[List[Union[None, Player]]] = [ [None, None, None, None, None, None, None, None],  ##⬛
-                                                        [None, None, None, None, None, None, None, None],
-                                                        [None, None, None, None, None, None, None, None],
-                                                        [None, None, None, None, None, None, None, None],
-                                                        [None, None, None, None, None, None, None, None],
-                                                        [None, None, None, None, None, None, None, None],
-                                                        [None, None, None, None, None, None, None, None],
-                                                        [None, None, None, None, None, None, None, None]
-                                                      ]
+        self.board: List[List[Slot]] = [[Slot(r, c) for c in range(columns)] for r in range(rows)]
         # game is over when these are set
         # int, int = row, column
-        self.game_over_coordinates: List[Tuple[int, int]] | None = None
+        self.game_over_slots: List[Slot] | None = None
         self.marker = marker
         self.bg_color = "⬛"
         
@@ -97,13 +99,13 @@ class Board:
         col = Grid.get_cols(self.board)[column]
         first_free_slot = 0
         for i, cell in enumerate(col):
-            if i == 0 and not cell is None:
+            if i == 0 and not cell.marker is None:
                 raise ColumnError(f"Column: {column} has no free slots anymore")
-            if cell is None:
+            if cell.marker is None:
                 first_free_slot = i
             else:
                 break
-        self.board[first_free_slot][column] = player
+        self.board[first_free_slot][column].marker = player.token
     class GameOverCoordinate:
         def __init__(self, row: int, column: int):
             self.row = row
@@ -112,56 +114,81 @@ class Board:
     def check_for_game_over(self):
         """
         Checks if the game is over.
-        If the game is over, `self.game_over_coordinates` will be changed to the coordinates and wont be `None` anymore
+        If the game is over, `self.game_over_slots` will be changed to the coordinates and wont be `None` anymore
         """
-        lines = [*self.board, *Grid.get_cols(self.board), *Grid.get_forward_diagonals(self.board)]
-        def check(lines: List) -> Tuple[int, int]:
-            for i_l, line in enumerate(lines):
-                count = 0
-                id = 0
-                for i_s, slot in enumerate(line):
-                    if count >= 4:
-                        return i_l, i_s-1  #(in the last iteration it got 4, hence -1)
-                    if slot is None:
-                        count = 0
-                        continue
-                    if id != slot.id:
-                        count = 0
-                        id = slot.id
-                    count += 1
-                            
-                    
-            return -1, -1
-        line, slot = check([*self.board])
-        if not -1 in [line, slot]:
-            self.game_over_coordinates = [(line, slot), (line, slot-1), (line, slot-2), (line, slot-3)]
-            return
-        slot, line = check([*Grid.get_cols(self.board)])
-        if not -1 in [line, slot]:
-            self.game_over_coordinates = [(line, slot), (line-1, slot), (line-2, slot), (line-3, slot)]
-            return
-        line, slot = check([*Grid.get_forward_diagonals(self.board)])
-        if not -1 in [line, slot]:
-            self.game_over_coordinates = [(line, slot), (line-1, slot-1), (line-2, slot-2), (line-3, slot-3)]
+        def check(lines: List[List[Slot]]) -> List[Slot]:
+            # I know that this could be shorter
+            # but I also want, that when a game is won with more than 4 slots,
+            # the system will also display more the 4 slots
+            for line in lines:
+                slots = []
+                marker = None
+                for slot in line:
+                    clear = False
+                    add = False
+                    if slot.marker is None:
+                        clear = True
+                    elif marker != slot.marker:
+                        clear = True
+                        add = True
+                        marker = slot.marker
+                    else:
+                        slots.append(slot)
+                    if clear:    
+                        if len(slots) >= 4:
+                            return slots
+                        slots.clear()
+                        if add:
+                            slots.append(slot)
+                if len(slots) >= 4:
+                    return slots
+            return []
+
+        for slots in [
+            self.board, 
+            Grid.get_cols(self.board), 
+            Grid.get_backward_diagonals(self.board), 
+            Grid.get_forward_diagonals(self.board)
+        ]:
+            row_of_4 = check(slots)
+            if row_of_4:
+                self.game_over_slots = row_of_4
+                break
             
     def __str__(self) -> str:
         lines = []
         part = ""
-        string = ""
-        for line in self.board:
+        board = deepcopy(self.board)
+        if self.game_over_slots:
+            for slot in self.game_over_slots:
+                board[slot.row][slot.column].marker = self.marker
+            
+        for line in board:
             for slot in line:
-                if slot:
-                    part += slot.token
+                if slot.marker:
+                    part += slot.marker
                 else:
                     part += self.bg_color
             lines.append(part)
-            part = ""
+            part = ""       
+        return "\n".join(lines)
 
-        if not self.game_over_coordinates:        
-            return "\n".join(lines)
-
-        for c in self.game_over_coordinates:
-            lines[c[0]] = f"{lines[c[0]][:c[1]]}{self.marker}{lines[c[0]][c[1]+1:]}"
+    def marked_slots_board(self) -> str:
+        lines = []
+        part = ""
+        board = deepcopy(self.board)
+        if self.game_over_slots:
+            for slot in self.game_over_slots:
+                board[slot.row][slot.column].marker = self.marker
+            
+        for line in board:
+            for slot in line:
+                if slot.marker:
+                    part += slot.marker
+                else:
+                    part += self.bg_color
+            lines.append(part)
+            part = ""       
         return "\n".join(lines)
                     
                 
@@ -180,9 +207,12 @@ class BaseConnect4:
         self.player2: Player = player2
         self.player_turn: Player
         self.game_winner: Optional[Player] = None
+        self.game_winner: Optional[Player] = None
         self.game_over = True
+        self.surrendered: bool = False
         self.board = Board(extra_marker)
         self.start()
+        self.turn: int = 1
         
     def start(self):
         self.game_over = False
@@ -197,7 +227,7 @@ class BaseConnect4:
             - self.game_over: wehter or not the game is over
             - self.game_winner: the winner of the game, if the game is over
             - self.player_turn: players will be twisted
-            - self.board.game_over_coordinates: the coordinates of the tokes, when the game is over. Otherwise `None`
+            - self.board.game_over_slots: the coordinates of the tokes, when the game is over. Otherwise `None`
         
         Args:
         -----
@@ -212,17 +242,32 @@ class BaseConnect4:
             - ~.IndexError: th board contains no <column>th column
             - ~.GameOverError: game is already over. No further moves accepted
         """
+        # checks
         if not player is None and player != self.player_turn:
             raise WrongPlayerError(f"Not {player.name}'s turn")
         if self.game_over:
             raise GameOverError("Game is already over!")
         if not player:
             player = self.player_turn
+
+        # executing game
         self.board.drop_token(column, player)
         self.board.check_for_game_over()
-        if self.board.game_over_coordinates:
+        if self.board.game_over_slots:
             self.game_over = True
-        self.game_winner = self.player_turn
+            self.game_winner = self.player_turn
+        self.cycle_players()
+        self.turn += 1        
+    def cycle_players(self):
+        if self.player_turn == self.player1:
+            self.player_turn = self.player2
+        else:
+            self.player_turn = self.player1
+            
+    def surrender(self, player: Player):
+        self.game_over = True
+        self.surrendered = True
+        self.game_winner = self.player1 if player == self.player2 else self.player2
         
         
 
@@ -237,7 +282,6 @@ class Connect4Handler(Paginator):
         self.player1 = player1
         self.player2 = player2
         super().__init__(
-            self=self,
             page_s=["starting up..."],
             timeout=10*60,
             disable_pagination=True,
@@ -253,11 +297,11 @@ class Connect4Handler(Paginator):
         self.mark2 = random.choice(marks)
         marks.remove(self.mark2)
         if self.mark1 in '🟢🟡' and self.mark2 in '🟢🟡':
-            marks.remove(self.mark2)
             self.mark2 = random.choice(marks)
+            marks.remove(self.mark2)
         extra_marker = random.choice(marks)
 
-        self.orienation_letter = [f':regional_indicator_{l}:' for l in 'abcdefgh']
+        self.orienation_letter = [f':regional_indicator_{l}:' for l in 'hgfedcba']
         self.orientation_number = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]  #*️⃣ #*️⃣
 
         # generate game
@@ -266,16 +310,22 @@ class Connect4Handler(Paginator):
         self.game = BaseConnect4(g_player1, g_player2, extra_marker)
         
         self.game_infos = []
-
+        
+        self.game_explanation = (
+            f"{self.game.player1.token} {self.game.player1.name}\n\n"
+            f"{self.game.player2.token} {self.game.player2.name}\n\n"
+            f"{self.game.board.marker} System"
+        )
     def out_put(self):
         pass
     
     @listener(PaginatorReadyEvent)
     async def build_up_game(self, _: PaginatorReadyEvent):
-        await self.update_embed()
-        for emoji in self.orientation_number:
+        await self._message.edit(content=None, embed=self.build_embed())
+        for emoji in [*self.orientation_number, "🔁", "🏳"]:
             await self._message.add_reaction(emoji)
         log.debug("return from ready")
+        
     async def update_embed(self):
         log.debug("update message")
         await self._message.edit(embed=self.build_embed())
@@ -283,21 +333,26 @@ class Connect4Handler(Paginator):
     def build_embed(self):
         embed = hikari.Embed()
         embed.title = f"{'- '*4} Connect 4 {'- '*4}"
-        embed.description = self.board_to_str()
+        embed.add_field(f"turn {self.game.turn}", self.board_to_str(), inline=True)
+        embed.add_field("explanation", f"\n\n{self.game_explanation}", inline=True)
+        if self.game.surrendered:
+            p = self.game.player2 if self.game.game_winner == self.game.player1 else self.game.player1
+            embed.set_footer(f"{p.name} has surrendered the game", icon=p.user.avatar_url)  # type: ignore
+        elif self.game.game_over:
+            embed.set_footer(f"{self.game.game_winner.name} has won the game", icon=self.game.game_winner.user.avatar_url)  # type: ignore
+        else:
+            embed.set_footer(f"{self.game.player_turn.name}'s turn", icon=self.game.player_turn.user.avatar_url)
         if self.game_infos:
             embed.add_field('Be aware:', "\n\n".join(str(info) for info in self.game_infos))
-        embed.set_footer(f"{self.game.player_turn.name}'s turn", icon=self.game.player_turn.user.avatar_url)
         return embed
     
     def board_to_str(self) -> str:
         string = ""
         b = str(self.game.board)
-        log.debug(b)
         lines = b.split("\n")
         for i, line in enumerate(lines):
-            string += f"{self.orientation_number[i]}{line}\n"
-        string += f"*️⃣{''.join}"
-        log.debug(string)
+            string += f"{self.orienation_letter[i]}{line}\n"
+        string += f"*️⃣{''.join(self.orientation_number)}"
         return string
     
     @listener(hikari.GuildReactionAddEvent)
@@ -309,16 +364,33 @@ class Connect4Handler(Paginator):
             or event.user_id == self.bot.get_me().id
         ):
             return
-        message = self._message
-        await message.remove_reaction(emoji, user=event.user_id)
 
+        message = self._message
+        log.debug(f"executing on reaction with pag id: {self.count} | msg id: {message.id}")
+        await message.remove_reaction(emoji, user=event.user_id)
+        player = self.game.player1 if self.game.player1.user.id == event.user_id else self.game.player2
+        
         if emoji in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣']:
-            player = self.game.player1 if self.game.player1.user.id == event.user_id else self.game.player2
             num = 0
             for i, n in enumerate(self.orientation_number):
                 if n == emoji:
                     num = i
             await self.do_turn(num, player) #type: ignore
+        elif emoji == "🏳":
+            self.game.surrender(player)
+            await self.stop()
+        elif emoji == "⏹":
+            pass
+        elif emoji == "🔁":
+            if self.game.game_over:
+                await self._message.remove_all_reactions()
+                await self.stop()
+                handler = Connect4Handler(self.player1, self.player2)
+                return await handler.start(self.ctx)
+            else:
+                self.game_infos.append("Game isn't over yet!\nFinish it to restart")
+        await self.update_embed()
+                
             
             #         elif str(reaction.emoji) == '🏳':
             #             self.board_description = 'Spiel beendet'
@@ -342,6 +414,7 @@ class Connect4Handler(Paginator):
             #         await self.reset_variables()
             
     async def do_turn(self, column: int, user: HikariPlayer):
+        self.game_infos.clear()
         try:
             self.game.do_turn(column, user)
         except WrongPlayerError as e:
@@ -355,6 +428,10 @@ class Connect4Handler(Paginator):
         except GameOverError as e:
             self.game_infos.append(e)
         await self.update_embed()
+        if self.game.game_over:
+            await self.update_embed()
+            await self._message.remove_all_reactions()
+            await self.stop()
         
             
         
