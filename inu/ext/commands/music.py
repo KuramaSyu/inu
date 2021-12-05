@@ -1005,50 +1005,29 @@ async def queue(ctx: Context = None, guild_id: int = None):
     music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
     music_embed.set_footer(text = f'{queue or "/"}')
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
-    try:
-        music.d.music_message[ctx.guild_id]
-    except:
-        music.d.music_message[ctx.guild_id] = None
+    
+    music_msg = music.d.music_message.get(ctx.guild_id, None)
+    if music_msg is None:
+        msg_proxy = await ctx.respond(embed=music_embed)
+        music.d.music_message[ctx.guild_id] = await msg_proxy.message()
+        await add_music_reactions(music.d.music_message[ctx.guild_id])
+        return
 
     #edit existing message
-    resume = True
-    if not music.d.music_message[ctx.guild_id] is None:
-        try:
-            timeout = 4
-            async for m in music.bot.rest.fetch_messages(ctx.channel_id):
-                if m.id == music.d.music_message[ctx.guild_id].id:
-                    await music.d.music_message[ctx.guild_id].edit(embed=music_embed)
-                    resume = False
-                timeout -= 1
-                if timeout == 0:
-                    break
-        except Exception as e:
-            traceback.print_exc()
     try:
-        if resume:
-            #last message not among the last 3. Del and re send
-            if not music.d.music_message[ctx.guild_id] is None:
-                await music.d.music_message[ctx.guild_id].delete()
-                music.d.music_message[ctx.guild_id] = None#edit(embed=music_embed)
+        timeout = 4
+        async for m in music.bot.rest.fetch_messages(ctx.channel_id):
+            if m.id == music.d.music_message[ctx.guild_id].id:
+                await music.d.music_message[ctx.guild_id].edit(embed=music_embed)
+                return
+            timeout -= 1
+            if timeout == 0:
                 msg_proxy = await ctx.respond(embed=music_embed)
                 music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-                message = music.d.music_message[ctx.guild_id]
-                await add_music_reactions(message)
-            else: #music.d.music_message[str(ctx.guild)] == None:
-                msg_proxy = await ctx.respond(embed=music_embed)
-                music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-                message = music.d.music_message[ctx.guild_id]
-                await add_music_reactions(message)
+                await add_music_reactions(music.d.music_message[ctx.guild_id])
     except Exception as e:
-        traceback.print_exc()
-        try:
-            msg_proxy = await ctx.respond(embed=music_embed)
-            music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-            message = music.d.music_message[ctx.guild_id]
-            await add_music_reactions(message)
-        except Exception as e:
-            traceback.print_exc()
-    return
+        log.error(traceback.format_exc())
+
 
 async def add_music_reactions(message: hikari.Message):
     await message.add_reaction(str('1️⃣'))
