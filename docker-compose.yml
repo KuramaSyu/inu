@@ -1,7 +1,19 @@
 version: "3.8"
 services:
   db:
-    build: ./dependencies/postgres/
+    container_name: pg_container
+    image: postgres
+    restart: always
+    environment:
+      POSTGRES_USER: inu
+      POSTGRES_PASSWORD: secr33t
+      POSTGRES_DB: inu_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - $HOME/Desktop/PostgreSql-Snippets/infile:/infile
+      - /var/lib/postgresql/data/
+
   app:
     depends_on:
       - lava
@@ -18,3 +30,5 @@ services:
 configs:
   my_config:
     file: dependencies/fredboat/application.yml
+volumes:
+  pg_data:
