@@ -363,8 +363,16 @@ class Paginator():
                 await self._message.edit(component=None)
             elif not self._disable_components:
                 await self._message.edit(components=[])
+            await self._message.remove_all_reactions()
 
-    async def start(self, ctx: Context) -> None:
+    async def start(self, ctx: Context) -> hikari.Message:
+        """
+        starts the pagination
+        
+        Returns:
+        -------
+            - (hikari.Message) the message, which was used by the paginator
+        """
         self.ctx = ctx
         self.bot = ctx.bot
         if len(self.pages) < 1:
@@ -378,7 +386,7 @@ class Paginator():
                 msg_proxy = await ctx.respond(
                     content=self.pages[0],
                 )
-            return
+            return await msg_proxy.message()
 
         self._position = 0
         kwargs = {}
@@ -398,15 +406,16 @@ class Paginator():
             )
         self._message = await msg_proxy.message()
         if len(self.pages) == 1 and self._exit_when_one_site:
-            return
+            return self._message
         self.log.debug("enter loop")
         self._position = 0
         try:
             await self.dispatch_event(PaginatorReadyEvent(self.bot))
-            self._task = asyncio.create_task(self.pagination_loop())
+            await self.pagination_loop()
         except Exception:
             self.log.error(traceback.format_exc())
-        
+        self.log.debug("end of pagination")
+        return self._message
 
 
     async def pagination_loop(self):
