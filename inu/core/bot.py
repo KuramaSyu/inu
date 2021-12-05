@@ -35,7 +35,7 @@ class Inu(lightbulb.BotApp):
 
         super().__init__(
             *args, 
-            prefix="inu-", 
+            prefix=self.conf.DEFAULT_PREFIX, 
             token=self.conf.DISCORD_TOKEN, 
             **kwargs,
             case_insensitive_prefix_commands=True,
