@@ -8,11 +8,8 @@ services:
       POSTGRES_USER: inu
       POSTGRES_PASSWORD: secr33t
       POSTGRES_DB: inu_db
-    ports:
-      - "5432:5432"
     volumes:
-      - $HOME/psql
-      - /var/lib/postgresql/data/
+      - pgdata:/var/lib/postgresql/data/
 
   app:
     depends_on:
