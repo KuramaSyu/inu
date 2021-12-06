@@ -947,9 +947,9 @@ async def queue(ctx: Context = None, guild_id: int = None):
     if not ctx.guild_id:
         return
     channel = ctx.get_channel()
-    node = await music.bot.data.lavalink.get_guild_node(ctx.guild_id)
+    node = await music.bot.data.lavalink.get_guild_node(ctx.guild_id or guild_id)
     if not node:
-        music.d.log.warning("node is None, in queue command")
+        music.d.log.warning(f"node is None, in queue command; {ctx.guild_id=},{guild_id=} ")
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
