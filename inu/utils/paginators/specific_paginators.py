@@ -6,6 +6,7 @@ import logging
 import hikari
 from hikari.impl import ActionRowBuilder
 import lightbulb
+from lightbulb import context
 
 from .common import PaginatorReadyEvent
 from .common import Paginator
@@ -78,6 +79,8 @@ class MusicHistoryPaginator(Paginator):
         await event.interaction.create_initial_response(
             hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
         )
+        if isinstance(self.ctx, (context.PrefixContext, context.SlashContext)):
+            self.ctx._options["query"] = uri
         await self.play(self.ctx, uri)
 
     
