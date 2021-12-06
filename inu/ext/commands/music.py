@@ -56,6 +56,7 @@ class EventHandler:
         if node is None:
             return
         track = node.queue[0].track
+        log.debug("call queue")
         await queue(guild_id=event.guild_id)
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
