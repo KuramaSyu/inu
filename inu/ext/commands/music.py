@@ -43,7 +43,7 @@ log.setLevel(logging.DEBUG)
 
 
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
-HIKARI_VOICE = True
+HIKARI_VOICE = False
 
 
 class EventHandler:
@@ -52,11 +52,11 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
-        await queue(guild_id=event.guild_id)
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
         track = node.queue[0].track
+        await queue(guild_id=event.guild_id)
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
     async def track_finish(self, _: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
@@ -605,7 +605,6 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
         if track is None:
             return
         await load_track(ctx, track, be_quiet)
-    await queue(ctx)
 
 @play.child
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -645,7 +644,6 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
     queue.insert(pos, track)
     node.queue = queue
     await music.d.lavalink.set_guild_node(ctx.guild_id, node)
-    await queue(ctx)
 
 async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
     guild_id = ctx.guild_id
@@ -759,7 +757,6 @@ async def skip(ctx: Context) -> None:
     """
 
     await _skip(ctx.guild_id, ctx.options.amount)
-    await queue(ctx)
 
 
 async def _skip(guild_id: int, amount: int) -> bool:
