@@ -52,12 +52,12 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
+        log.debug("call queue")
+        await queue(guild_id=event.guild_id)
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
         track = node.queue[0].track
-        log.debug("call queue")
-        await queue(guild_id=event.guild_id)
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
     async def track_finish(self, _: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
