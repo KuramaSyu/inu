@@ -81,7 +81,7 @@ class MusicHistoryPaginator(Paginator):
         )
         if isinstance(self.ctx, (context.PrefixContext, context.SlashContext)):
             self.ctx._options["query"] = uri
-        await self.play(self.ctx, uri)
+        await self.play(self.ctx)
 
     
     @listener(hikari.GuildMessageCreateEvent)
