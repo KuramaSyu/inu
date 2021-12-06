@@ -58,7 +58,9 @@ class MusicHistoryPaginator(Paginator):
     async def on_start(self, event: PaginatorReadyEvent):
         try:
             ext = self.bot.get_plugin("Music")
-            self.play = ext.play.callback
+            for cmd in ext.all_commands:
+                if cmd.name == "play":
+                    self.play = cmd.callback
             self.not_valid = 0
         except:
             traceback.print_exc()
