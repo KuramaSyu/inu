@@ -59,6 +59,7 @@ class MusicHistoryPaginator(Paginator):
     async def on_start(self, event: PaginatorReadyEvent):
         try:
             ext = self.bot.get_plugin("Music")
+            ext.d.last_context[self.ctx.guild_id] = self.ctx 
             for cmd in ext.all_commands:
                 if cmd.name == "play":
                     self.play = cmd.callback
