@@ -52,7 +52,7 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
-        log.debug("call queue")
+        log.debug(f"call queue, {event.guild_id}")
         await queue(guild_id=event.guild_id)
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
@@ -582,6 +582,7 @@ async def _leave(guild_id: int):
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def play(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
+    music.d.last_context[ctx.guild_id] = ctx
     await _play(ctx, ctx.options.query)
 
 async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
@@ -938,19 +939,18 @@ async def queue(ctx: Context = None, guild_id: int = None):
     refreshes the queue of the player
     uses ctx if not None, otherwise it will fetch the last context with the guild_id
     '''
-    if ctx is None and isinstance(guild_id, int):
-        ctx = music.d.last_context.get(guild_id) #  type: ignore
-    if not ctx:
-        return
-    if not ctx.guild_id:
-        return
-    music.d.last_context[ctx.guild_id] = ctx
+    if guild_id is None:
+        guild_id = ctx.guild_id
+    if ctx:
+        music.d.last_context[guild_id] = ctx
+    else:
+        ctx = music.d.last_context[guild_id]
     if not ctx.guild_id:
         return
     channel = ctx.get_channel()
-    node = await music.bot.data.lavalink.get_guild_node(ctx.guild_id or guild_id)
+    node = await music.bot.data.lavalink.get_guild_node(guild_id)
     if not node:
-        music.d.log.warning(f"node is None, in queue command; {ctx.guild_id=},{guild_id=} ")
+        music.d.log.warning(f"node is None, in queue command; {guild_id=},{guild_id=} ")
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
@@ -987,7 +987,8 @@ async def queue(ctx: Context = None, guild_id: int = None):
         music.d.log.warning("no requester of current track - returning")
     #get thumbnail of the video
 
-    requester = ctx.get_guild().get_member(int(node.queue[0].requester))
+    # requester = ctx.get_guild().get_member(int(node.queue[0].requester))
+    requester = music.bot.cache.get_member(guild_id, node.queue[0].requester)
     current_duration = str(datetime.timedelta(milliseconds=int(int(track.info.length))))
     music_embed = hikari.Embed(
         colour=hikari.Color.from_rgb(71, 89, 211)
@@ -1004,17 +1005,17 @@ async def queue(ctx: Context = None, guild_id: int = None):
     music_embed.set_footer(text = f'{queue or "/"}')
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
-    music_msg = music.d.music_message.get(ctx.guild_id, None)
+    music_msg = music.d.music_message.get(guild_id, None)
     if music_msg is None:
         msg_proxy = await ctx.respond(embed=music_embed)
         music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-        await add_music_reactions(music.d.music_message[ctx.guild_id])
+        await add_music_reactions(music.d.music_message[guild_id])
         return
 
     #edit existing message
     try:
         timeout = 4
-        async for m in music.bot.rest.fetch_messages(ctx.channel_id):
+        async for m in music.bot.rest.fetch_messages(music.d.music_message[guild_id].channel_id):
             if m.id == music.d.music_message[ctx.guild_id].id:
                 await music.d.music_message[ctx.guild_id].edit(embed=music_embed)
                 return
