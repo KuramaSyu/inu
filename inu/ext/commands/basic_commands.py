@@ -60,6 +60,37 @@ async def test(ctx):
     embed.title = "test"
     embed.add_field("```test```", "test")
     await ctx.respond(embed=embed)
+    
+@basics.command
+@lightbulb.add_cooldown(60*60, 4, lightbulb.UserBucket)
+@lightbulb.add_checks(
+    lightbulb.guild_only, 
+    #lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
+)
+@lightbulb.option(
+    "ammount", 
+    "The ammount of messages you want to delete, Default: 5", 
+    default=5, 
+    type=int,
+)
+@lightbulb.command("purge", "Delete the last messages from a channel", aliases=["clean"])
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def purge(ctx: context.Context):
+    if not (channel := ctx.get_channel()):
+        return
+    if not isinstance(channel, hikari.TextableGuildChannel):
+        return
+    if (ammount := ctx.options.ammount) > 50:
+        await ctx.respond("I can't delete that much messages!")
+    messages = []
+    ammount += 2
+    await ctx.respond("I'll do it. Let me some time. I'll include your message and this message")
+    async for m in channel.fetch_history():
+        messages.append(m)
+        ammount -= 1
+        if ammount <= 0:
+            break
+    await channel.delete_messages(messages)
 
 
 def load(bot: lightbulb.BotApp):
