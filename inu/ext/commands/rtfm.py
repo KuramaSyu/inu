@@ -152,7 +152,6 @@ plugin = lightbulb.Plugin("Read the FUCKING manual", "Extends the commands with 
 plugin.d.rtfm_cache = {}
 plugin.d.docs = {
             'hikari-lightbulb': 'https://hikari-lightbulb.readthedocs.io/en/latest',
-
             'dpy-latest': 'https://discordpy.readthedocs.io/en/latest',
             'python': 'https://docs.python.org/3',
             'dpy-master': 'https://discordpy.readthedocs.io/en/master',
@@ -282,13 +281,13 @@ async def _hikari(ctx: context.Context):
 @lightbulb.option("obj", "the thing you want to search")
 @lightbulb.command("python", "search Python manual", aliases=["py"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def python(ctx, *, obj=None):
+async def python(ctx: context.Context):
     """
     Searches the Python docs
     [optional]obj: the thing you want to search; Default: all
     """
     url = get_docs_url_from('python')
-    await send_manual(ctx, url, obj)
+    await send_manual(ctx, url, ctx.options.obj)
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
