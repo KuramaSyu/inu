@@ -463,7 +463,7 @@ class Paginator():
                     event = done.pop().result()
                 except Exception:
                     self._stop = True
-                    continue
+                    break
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
         except Exception:
