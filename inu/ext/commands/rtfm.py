@@ -195,7 +195,6 @@ async def send_manual(ctx, key: Union[str, list], obj):
     for index, result in enumerate(results):
         if result == []:
             continue
-        print(result)
         rtfm_embed = hikari.Embed()
         rtfm_embed.description = ""
         rtfm_embed.color = Colors.from_name("darkslateblue")
@@ -219,7 +218,6 @@ async def send_manual(ctx, key: Union[str, list], obj):
 async def _update_rtfm_chache() -> None:
     session = aiohttp.ClientSession(loop=asyncio.get_running_loop())
     for name, url in plugin.d.docs.items():
-        print(url)
         try:
             async with session.get(url + "/objects.inv") as resp:
                 if resp.status != 200:
