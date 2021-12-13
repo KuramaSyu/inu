@@ -5,7 +5,8 @@ import re
 from typing import (
     Dict,
     List,
-    Optional
+    Optional,
+    Union
     
 )
 import enum
@@ -39,8 +40,7 @@ class CardColors(enum.Enum):
 
 
 class CardFunctions(enum.Enum):
-    DRAW_CARDS_2 = 2
-    DRAW_CARDS_4 = 4
+    DRAW_CARDS = 1
     NORMAL = 11
     STOP = 12
     REVERSE = 13
@@ -67,18 +67,22 @@ class CardDesign(enum.Enum):
 class Card:
     def __init__(
         self, 
-        function: CardFunctions,
+        function: Union[CardFunctions, List[CardFunctions]],
         color: CardColors,
         card_design: CardDesign = None,
         value: int = None,
         is_active: bool = False,
+        draw_value: int = 0,
     ):
         if card_design is None and value is None:
             raise RuntimeError(
                 "Can't build a card without value or card_design. Minimun one of them has to be given"
                 )
         self.design = card_design
-        self.function = function
+        if isinstance(function, List):
+            self.functions = function
+        else:
+            self.functions = [function]
         self.color = color
         if card_design is None:
             self.design = self.get_design_from_value(value)
@@ -93,12 +97,12 @@ class Card:
         
     
     @staticmethod
-    def get_value_from_design(design: CardDesign) -> Optional[int]:
+    def get_value_from_design(design: CardDesign) -> int:
         regex = "CARD_[0-9]"
         if re.match(regex, design.name):
             return int(design.name[-1])
         else:
-            return None
+            return 0
         
     @staticmethod
     def get_design_from_value(value) -> CardDesign:
@@ -111,17 +115,76 @@ class Card:
         raise RuntimeError(f"Card design with matches to value {value} not found")
        
     @staticmethod 
-    def get_draw_value(design: CardDesign) -> Optional[int]:
+    def get_draw_value(design: CardDesign) -> int:
         regex = "DRAW_CARDS_[0-9]"
         if re.match(regex, design.name):
             return int(design.name[-1])
         else:
-            return None
+            return 0
+
+    def disable(self):
+        """disables the is_active attr, which represents, wether or not the draw_value has been drawen"""
+        self.is_active = False
+
+    def can_cast_onto(self, other: "Card") -> bool:
+        """
+        Checks if <other> can be casted onto this card
+
+        Returns:
+        --------
+            - (bool) wether or not <other> can be casted onto this card
+        
+        """
+        if other.color == CardColors.COLORFULL:
+            return False
+        if self.is_active:
+            if not other.is_active:
+                return False
+        if not self.functions == other.functions or not self.color == other.color:
+            return False
+        return True
+
+    def __str__(self):
+        prefix = []
+        for f in self.functions:
+            prefix.append(
+                {
+                    CardFunctions.CHANGE_COLOR: "color chagner",
+                    CardFunctions.REVERSE: "reverse",
+                    CardFunctions.STOP: "stop"
+                }.get(f)
+            )
+        prefix = " ".join(prefix)
+        number = ""
+        if self.value:
+            if self.draw_value > 0:
+                number += "+"
+            number += str(self.value)
+        color = self.color.value.lower()
+        l = []
+        for x in (prefix, number, color):
+            if x:
+                l.append(x)
+        return " | ".join(l)
+        
+
+
 
         
 
 class Hand:
-    pass
+    def __init__(
+        self,
+        name: str,
+        id: str,
+    ):
+        self.name = name
+        self.id = id
+        self.cards: List[Card] = []
+
+    def __len__(self):
+        return len(self.cards)
+
 
 class NewCardStack:
     def __init__(self):
@@ -144,8 +207,9 @@ class NewCardStack:
                     [
                         Card(
                             card_design=CardDesign.DRAW_CARDS_2,
-                            function=CardFunctions.DRAW_CARDS_2,
+                            function=CardFunctions.DRAW_CARDS,
                             color=color,
+                            draw_value=2,
                             is_active=True,
                         ),
 
@@ -183,8 +247,10 @@ class NewCardStack:
             self.stack.extend(
                 [
                     Card(
-                        function=CardFunctions.DRAW_CARDS_4,
+                        function=CardFunctions.DRAW_CARDS,
                         color=CardColors.COLORFULL,
+                        draw_value=4,
+                        is_active=True,
                     ),
                     Card(
                         function=CardFunctions.CHANGE_COLOR,
@@ -209,15 +275,24 @@ class CastOffStack:
 class Onu:
     def __init__(
         self,
-        player_names: List[str],
+        players: Dict[int, str],
         cards_per_hand: int,
     ):
-        self.hands: List[Hand] = []
+        """
+        Constructor of Onu
+
+        Args:
+        -----
+            - player_names (Dict[int, str]) A mapping from int (id of player) to str (name of player)
+            - cards_per_hand (int) how many cards should one hand have
+        """
+        self.hands: List[Hand] = [Hand(name, str(id)) for id, name in players.items()]
+        random.shuffle(self.hands)
         self.stack: NewCardStack = NewCardStack()
         self.cast_off: CastOffStack = CastOffStack()
         self.cast_off.append(self.stack.pop())
+        for id, name in players.items():
+            self.hands.append(Hand(name, str(id)))
         
-    
-    def build_hands(self):
-        pass
+
     
