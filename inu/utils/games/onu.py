@@ -31,6 +31,8 @@ from .onu_cards import (
     card_stop
 )
 
+
+
 class CardColors(enum.Enum):
     RED = "red"
     GREEN = "green"
@@ -272,6 +274,15 @@ class CastOffStack:
     def append(self, item: Card):
         self.stack.append(item)
 
+class Event:
+    def __init__(
+        self,
+        hand: Hand,
+        info: str,
+    ):
+        self.hand = hand
+        self.info = info
+
 class Onu:
     def __init__(
         self,
@@ -286,13 +297,16 @@ class Onu:
             - player_names (Dict[int, str]) A mapping from int (id of player) to str (name of player)
             - cards_per_hand (int) how many cards should one hand have
         """
-        self.hands: List[Hand] = [Hand(name, str(id)) for id, name in players.items()]
-        random.shuffle(self.hands)
         self.stack: NewCardStack = NewCardStack()
+
         self.cast_off: CastOffStack = CastOffStack()
         self.cast_off.append(self.stack.pop())
-        for id, name in players.items():
-            self.hands.append(Hand(name, str(id)))
+
+        self.hands: List[Hand] = [Hand(name, str(id)) for id, name in players.items()]
+        random.shuffle(self.hands)
+        for hand in self.hands:
+            for _ in range(0, cards_per_hand):
+                hand.cards.append(self.stack.pop())
         
 
     
