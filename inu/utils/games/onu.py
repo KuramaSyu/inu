@@ -6,7 +6,8 @@ from typing import (
     Dict,
     List,
     Optional,
-    Union
+    Union,
+    Final
     
 )
 import enum
@@ -31,7 +32,20 @@ from .onu_cards import (
     card_stop
 )
 
-
+__all__: Final[List[str]] = [
+    "CardColors", 
+    "CardFunctions", 
+    "CardDesigns", 
+    "Card",
+    "Hand",
+    "CastOffStack",
+    "NewCardStack",
+    "Onu",
+    "Event",
+    "TurnErrorEvent",
+    "TurnSuccessEvent",
+    "CardsReceivedEvent"
+]
 
 class CardColors(enum.Enum):
     RED = "red"
@@ -48,7 +62,7 @@ class CardFunctions(enum.Enum):
     REVERSE = 13
     CHANGE_COLOR = 14
     
-class CardDesign(enum.Enum):
+class CardDesigns(enum.Enum):
     CARD_0 = card_0
     CARD_1 = card_1
     CARD_2 = card_2
@@ -71,7 +85,7 @@ class Card:
         self, 
         function: Union[CardFunctions, List[CardFunctions]],
         color: CardColors,
-        card_design: CardDesign = None,
+        card_design: CardDesigns = None,
         value: int = None,
         is_active: bool = False,
         draw_value: int = 0,
@@ -99,7 +113,7 @@ class Card:
         
     
     @staticmethod
-    def get_value_from_design(design: CardDesign) -> int:
+    def get_value_from_design(design: CardDesigns) -> int:
         regex = "CARD_[0-9]"
         if re.match(regex, design.name):
             return int(design.name[-1])
@@ -107,17 +121,17 @@ class Card:
             return 0
         
     @staticmethod
-    def get_design_from_value(value) -> CardDesign:
+    def get_design_from_value(value) -> CardDesigns:
         regex = "CARD_[0-9]"
         if not 0 <= value <= 9:
             raise RuntimeError(f"Can't build card with value: {value}")
-        for design in CardDesign:
+        for design in CardDesigns:
             if re.match(regex, design.name):
                 return design
         raise RuntimeError(f"Card design with matches to value {value} not found")
        
     @staticmethod 
-    def get_draw_value(design: CardDesign) -> int:
+    def get_draw_value(design: CardDesigns) -> int:
         regex = "DRAW_CARDS_[0-9]"
         if re.match(regex, design.name):
             return int(design.name[-1])
@@ -208,7 +222,7 @@ class NewCardStack:
                 self.stack.extend(
                     [
                         Card(
-                            card_design=CardDesign.DRAW_CARDS_2,
+                            card_design=CardDesigns.DRAW_CARDS_2,
                             function=CardFunctions.DRAW_CARDS,
                             color=color,
                             draw_value=2,
@@ -216,13 +230,13 @@ class NewCardStack:
                         ),
 
                         Card(
-                            card_design=CardDesign.REVERSE,
+                            card_design=CardDesigns.REVERSE,
                             function=CardFunctions.REVERSE,
                             color=color,
                             is_active=True,
                         ),
                         Card(
-                            card_design=CardDesign.STOP,
+                            card_design=CardDesigns.STOP,
                             function=CardFunctions.STOP,
                             color=color,
                             is_active=True,
@@ -274,6 +288,7 @@ class CastOffStack:
     def append(self, item: Card):
         self.stack.append(item)
 
+
 class Event:
     def __init__(
         self,
@@ -282,6 +297,44 @@ class Event:
     ):
         self.hand = hand
         self.info = info
+
+
+class CardsReceivedEvent(Event):
+    def __init__(
+        self,
+        hand: Hand,
+        info: str,
+        cards: List[Card],
+    ):
+        super().__init__(hand, info)
+        self.cards = cards
+
+
+class TurnErrorEvent(Event):
+    def __init__(
+        self,
+        hand: Hand,
+        info: str,
+        top_card: Card,
+        given_card: Card,
+
+    ):
+        super().__init__(hand, info)
+        self.top_card = top_card
+        self.given_card = given_card
+
+
+class TurnSuccessEvent(Event):
+    def __init__(
+        self,
+        hand: Hand,
+        info: str,
+        top_card: Card,
+
+    ):
+        super().__init__(hand, info)
+        self.top_card = top_card
+
 
 class Onu:
     def __init__(
