@@ -355,6 +355,15 @@ class Onu:
         for hand in self.hands:
             for _ in range(0, cards_per_hand):
                 hand.cards.append(self.stack.pop())
+
+    def turn(
+        self,
+        hand: Union[Hand, int],
+        card: Card,
+        draw: bool = False,
+    ) -> Event:
+        if draw is False and not card is None:
+            raise RuntimeError(f"Can't make a turn, where a card is played AND the player draw cards")
         
 
     
