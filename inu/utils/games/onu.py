@@ -49,6 +49,26 @@ class CardColors(enum.Enum):
     YELLOW = "yellow"
     COLORFULL = "colorfull"
 
+class CardAlgorithms:
+    @staticmethod
+    def draw_cards(onu: "Onu", hand: "Hand", card: Optional["Card"]):
+        pass
+    
+    @staticmethod
+    def normal(onu: "Onu", hand: "Hand", card: Optional["Card"]):
+        pass
+
+    @staticmethod
+    def stop(onu: "Onu", hand: "Hand", card: Optional["Card"]):
+        pass
+
+    @staticmethod
+    def reverse(onu: "Onu", hand: "Hand", card: Optional["Card"]):
+        pass
+    
+    @staticmethod
+    def change_color(onu: "Onu", hand: "Hand", card: Optional["Card"]):
+        pass
 
 class CardFunctions(enum.Enum):
     DRAW_CARDS = 1
@@ -364,6 +384,15 @@ class Onu:
     ) -> Event:
         if draw is False and not card is None:
             raise RuntimeError(f"Can't make a turn, where a card is played AND the player draw cards")
+        
+    @property
+    def current_hand(self):
+        return self.hands[0]
+    
+    def cycle_hands(self):
+        """cycles hands in direction left"""
+        self.hands.append(self.hands.pop(0))
+
         
 
     
