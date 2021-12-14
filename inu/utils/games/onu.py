@@ -52,7 +52,8 @@ class CardColors(enum.Enum):
 class CardAlgorithms:
     @staticmethod
     def draw_cards(onu: "Onu", hand: "Hand", card: Optional["Card"]):
-        pass
+        if card is None:
+            raise RuntimeError("Can't draw cards when card (for draw_value) is not given")
     
     @staticmethod
     def normal(onu: "Onu", hand: "Hand", card: Optional["Card"]):
@@ -295,10 +296,18 @@ class NewCardStack:
 class CastOffStack:
     def __init__(self):
         self.stack: deque[Card] = deque()
+        self._draw_value = 0
 
     @property
-    def top(self):
-        self.stack[-1]
+    def draw_calue(self) -> int:
+        if self._draw_value == 0:
+            return 1
+        else:
+            return self._draw_value
+
+    @property
+    def top(self) -> Card:
+        return self.stack[-1]
         
     def append(self, item: Card):
         self.stack.append(item)
@@ -378,12 +387,41 @@ class Onu:
 
     def turn(
         self,
-        hand: Union[Hand, int],
+        hand: Union[Hand, str],
         card: Card,
         draw: bool = False,
     ) -> Event:
+        """
+        Main function to control the game
+        
+        Args:
+        ----
+            - hand: (`~.Hand`) The player who made an aktion
+            - card: (`~.Card`) The card the player has casted
+            - draw: (bool) wether or not the player wants to draw cards
+        """
         if draw is False and not card is None:
             raise RuntimeError(f"Can't make a turn, where a card is played AND the player draw cards")
+        if isinstance(hand, str):
+            hand = [h for h in self.hands if h.id == hand][0]
+        args = {
+                "hand": hand,
+                "info": f"You can't cast a {str(card)} onto a {str(self.cast_off.top)}",
+                "top_card": self.cast_off.top,   
+        }
+        if draw:
+            for _ in range(0, self.cast_off.draw_calue):
+                hand.cards.append(self.stack.pop())
+            args["info"] = f"Successfully drawn {self.cast_off.draw_calue} cards"
+            return TurnSuccessEvent(**args)
+
+        if not self.cast_off.top.can_cast_onto(card):
+            if card.color == CardColors.COLORFULL:
+                args["info"] = "given <card> color is `~.CardColors.COLORFULL` but this color is not castable"
+                return TurnErrorEvent(**args)
+            else:
+                return TurnErrorEvent(**args)
+        
         
     @property
     def current_hand(self):
