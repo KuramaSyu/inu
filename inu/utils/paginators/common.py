@@ -1,5 +1,7 @@
+from argparse import Action
 import asyncio
 from contextlib import suppress
+from pprint import pformat
 from typing import (
     Any,
     Callable,
@@ -137,10 +139,11 @@ class Paginator():
         component_factory: Callable[[int], ActionRowBuilder] = None,
         components_factory: Callable[[int], List[ActionRowBuilder]] = None,
         disable_pagination: bool = False,
-        disable_component: bool = False,
+        disable_component: bool = True,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
         listen_to_events: List[Any] = [],
+        compact: Optional[bool] = None
     ):
         """
         A Paginator with many options
@@ -155,6 +158,7 @@ class Paginator():
             - disable_components: (bool, default=False) wether or not the components of the paginator should be disabled
             - disable_paginator_when_one_site: (bool, default=True) wether or not the pagination should be disabled when the length of the pages is 1
             - listen_to_events: (List[hikari.Event]) events the bot should listen to. These are needed to use them later with the `listener` decorator
+            - compact: (bool) display only necessary components
 
         Note:
         -----
@@ -196,7 +200,10 @@ class Paginator():
         self._stop = False
         if self.pagination:
             self._position: int = 0
-            self.compact = len(page_s) <= 2
+        if compact is None:
+            self.compact = len(page_s) <= 1
+        else:
+            self.compact = compact
         
 
         # register all listeners
@@ -265,66 +272,71 @@ class Paginator():
             and self.ctx.author.id == msg.author.id
         )
 
-    def build_default_component(self, position = None) -> Optional[ActionRowBuilder]:
+    def button_factory(
+        self,
+        disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
+        label: str = "",
+        style = ButtonStyle.SECONDARY,
+        custom_id: Optional[str] = None,
+        emoji: Optional[str] = None,
+        action_row_builder: Optional[ActionRowBuilder] = None,
+        
+    ) -> ActionRowBuilder:
+        if action_row_builder is None:
+            action_row_builder = ActionRowBuilder()
+        state: bool = disable_when_index_is(self._position)
+        if not custom_id:
+            custom_id = label
+        if not emoji:
+            btn = (
+                action_row_builder
+                .add_button(style, custom_id)
+                .set_is_disabled(state)
+                .set_label(label)
+                .add_to_container()
+            )
+        else:
+            btn = (
+                action_row_builder
+                .add_button(style, custom_id)
+                .set_is_disabled(state)
+                .set_emoji(emoji)
+                .add_to_container()
+            )
+        return btn
+
+    def build_basic_components(self, position = None) -> Optional[ActionRowBuilder]:
         if not self.pagination:
             return None
-        def button_factory( 
-            disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
-            label: str = "",
-            style = ButtonStyle.SECONDARY,
-            custom_id: Optional[str] = None,
-            emoji: Optional[str] = None,
-            action_row_builder: ActionRowBuilder = ActionRowBuilder(),
-            
-        ) -> ActionRowBuilder:
-            state: bool = disable_when_index_is(self._position)
-            if not custom_id:
-                custom_id = label
-            if not emoji:
-                btn = (
-                    action_row_builder
-                    .add_button(style, custom_id)
-                    .set_is_disabled(state)
-                    .set_label(label)
-                    .add_to_container()
-                )
-            else:
-                btn = (
-                    action_row_builder
-                    .add_button(style, custom_id)
-                    .set_is_disabled(state)
-                    .set_emoji(emoji)
-                    .add_to_container()
-                )
-            return btn
+
 
         action_row = None
         if not self.compact:
-            action_row = button_factory(
+            action_row = self.button_factory(
                 custom_id="first", 
                 emoji="⏮", 
                 disable_when_index_is=lambda p: p == 0
             )
-        action_row = button_factory(
+        action_row = self.button_factory(
             custom_id="previous",
             emoji="◀",
             action_row_builder=action_row or ActionRowBuilder(),
             disable_when_index_is=lambda p: p == 0,
         )
-        button_factory(
+        self.button_factory(
             custom_id="stop",
             emoji="✖",
             action_row_builder=action_row,
             style=ButtonStyle.DANGER,
         )
-        button_factory(
+        self.button_factory(
             custom_id="next",
             emoji="▶",
             action_row_builder=action_row,
             disable_when_index_is=lambda p: p == len(self.pages)-1,
         )
         if not self.compact:
-            button_factory(
+            self.button_factory(
                 custom_id="last",
                 emoji="⏭",
                 action_row_builder=action_row,
@@ -332,6 +344,22 @@ class Paginator():
             )
 
         return action_row
+    
+    def build_default_component(self, position=None) -> Optional[ActionRowBuilder]:
+        return self.build_basic_components(position)
+    
+    def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
+        action_rows = [self.build_default_component(position)]
+        action_row = None
+        if not self.compact:
+            action_row = self.button_factory(
+            custom_id="search",
+            emoji="🔍"
+            )
+            action_rows.append(action_row)
+        return action_rows
+    
+    
 
 
 
@@ -498,6 +526,12 @@ class Paginator():
             self._position += 1
         elif id == "last":
             self._position = len(self.pages)-1
+        elif id == "search":
+            await event.interaction.create_initial_response(
+                ResponseType.DEFERRED_MESSAGE_UPDATE
+            )
+            await self.search()
+            return
 
         if last_position != self._position:
             await self._update_position(interaction=event.interaction)
@@ -513,6 +547,45 @@ class Paginator():
 
     async def _update_position(self, interaction: ComponentInteraction):
         await self.send(content=self.pages[self._position], interaction=interaction)
+        
+    async def search(self):
+        bot_message = await self.ctx.respond("What do you want to search ?")
+        try:
+            message = await self.bot.wait_for(
+                MessageCreateEvent,
+                90,
+                lambda e: e.author_id == self.ctx.author.id and e.channel_id == self.ctx.channel_id
+            )
+            query = str(message.content)
+        except:
+            return
+        if isinstance(self.pages[0], hikari.Embed):
+            site = self._search_embed(query)
+        else:
+            site = self._search_str(query)
+        if site == -1:
+            await self._message.respond(f"Nothing with `{query}` found")
+            return
+        await self.bot.rest.delete_messages(self.ctx.channel_id, [message.message_id, (await bot_message.message()).id])
+        self._position = site
+        await self.send(content=self.pages[self._position])
+            
+    def _search_embed(self, query: str) -> int:
+        for i, e in enumerate(self.pages):
+            if query in str(e.title) or query in str(e.description):
+                return i
+            for field in e.fields:
+                if query in str(field.name) or query in str(field.value):
+                    return i
+        return -1
+    
+    def _search_str(self, query: str) -> int:
+        for i, s in enumerate(self.pages):
+            if query in str(s):
+                return i
+        return -1
+            
+            
 
     # usage
     # @listener(InteractionCreateEvent)
@@ -594,3 +667,5 @@ def navigation_row(
         )
 
     return action_row
+
+
