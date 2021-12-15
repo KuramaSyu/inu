@@ -309,8 +309,13 @@ class CastOffStack:
     def top(self) -> Card:
         return self.stack[-1]
         
-    def append(self, item: Card):
-        self.stack.append(item)
+    def append(self, card: Card):
+        self.stack.append(card)
+        self._draw_value += card.draw_value
+        
+    def reset_draw_value(self):
+        self._draw_value = 0
+        self.top.disable()
 
 
 class Event:
@@ -359,6 +364,16 @@ class TurnSuccessEvent(Event):
         super().__init__(hand, info)
         self.top_card = top_card
 
+class GameEndEvent(Event):
+    def __init__(
+        self,
+        hand: Hand,
+        info: str,
+        winner: Hand,
+    ):
+        super().__init__(hand, info)
+        self.winner = winner
+
 
 class Onu:
     def __init__(
@@ -405,22 +420,45 @@ class Onu:
         if isinstance(hand, str):
             hand = [h for h in self.hands if h.id == hand][0]
         args = {
-                "hand": hand,
-                "info": f"You can't cast a {str(card)} onto a {str(self.cast_off.top)}",
-                "top_card": self.cast_off.top,   
+            "hand": hand,
+            "info": f"You can't cast a {str(card)} onto a {str(self.cast_off.top)}",
+            "top_card": self.cast_off.top,   
         }
         if draw:
             for _ in range(0, self.cast_off.draw_calue):
                 hand.cards.append(self.stack.pop())
+            self.cast_off.reset_draw_value()
             args["info"] = f"Successfully drawn {self.cast_off.draw_calue} cards"
             return TurnSuccessEvent(**args)
 
         if not self.cast_off.top.can_cast_onto(card):
             if card.color == CardColors.COLORFULL:
-                args["info"] = "given <card> color is `~.CardColors.COLORFULL` but this color is not castable"
-                return TurnErrorEvent(**args)
+                args["info"] = "given <card> color is `~.CardColors.COLORFULL` which is not castable"
+                return TurnErrorEvent(**args, given_card=card)
             else:
                 return TurnErrorEvent(**args)
+        hand.cards.remove(card)
+        self.cast_off.append(card)
+        args["info"] = "Successfully casted card"
+        if self.winner:
+            return GameEndEvent(**args, winner=self.winner)
+        else:
+            return TurnSuccessEvent(**args)
+    
+    @property
+    def game_over(self) -> bool:
+        for hand in self.hands:
+            if len(hand.cards) == 0:
+                return True
+        return False
+    
+    @property
+    def winner(self) -> Optional[Hand]:
+        for hand in self.hands:
+            if len(hand.cards) == 0:
+                return hand
+        return None
+
         
         
     @property
