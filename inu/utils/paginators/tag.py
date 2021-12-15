@@ -31,6 +31,9 @@ from utils import crumble
 from utils.tag_mamager import TagManager
 from utils.language import Human
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
 class Tag():
     def __init__(self, owner: hikari.User):
         """
@@ -48,13 +51,24 @@ class Tag():
             otherwise the tag have to be stored globally
         """
         self.owner: Union[hikari.User, hikari.Member] = owner
-        self.name: Optional[str] = None
+        self._name: Optional[str] = None
         self.value: Optional[str] = None
         self.is_local_available: bool
         self.is_global_available: bool
         self._is_local: bool = True
         self.is_stored: bool
         self._id: Optional[int] = None
+
+    @property
+    def name(self):
+        return self._name
+    
+    @name.setter
+    def name(self, value):
+        
+        if len(str(value)) > 256:
+            raise RuntimeError("Can't store a tag with a name bigger than 256 chars")
+        self._name = value
 
     @property
     def is_local(self) -> bool:
