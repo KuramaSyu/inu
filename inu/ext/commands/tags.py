@@ -25,7 +25,7 @@ import asyncpg
 from matplotlib.style import context
 
 from core import Inu
-from utils.tag_mamager import TagIsTakenError, TagManager
+from utils.tag_mamager import TagIsTakenError, TagManager, TagType
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator
@@ -251,6 +251,65 @@ async def get(ctx: Context):
         - key: the name the tag should have
     """
     await get_tag(ctx, ctx.options.key)
+    
+@tag.child
+@lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def overview(ctx: Context):
+    """get an overview of all tags
+
+    """
+    menu = (
+        ActionRowBuilder()
+        .add_select_menu("overview_menu")
+        .add_option("guild tags", "guild")
+        .add_to_menu()
+        .add_option("all tags", "global")
+        .add_to_menu()
+        .add_option("your tags", "your")
+        .add_to_menu()
+        .add_to_container()
+    )
+    msg = await ctx.respond("Which overview do you want?", component=menu)
+    msg = await msg.message()
+    log.debug(msg.id)
+    try:
+        event = await ctx.bot.wait_for(
+            hikari.InteractionCreateEvent,
+            60,
+            lambda e: isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.message.id == msg.id
+            
+        )
+    except:
+        return
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        log.debug("0")
+        return
+    log.debug("1")
+    result = event.interaction.values[0]
+    type_ = {
+        "guild": TagType.GUILD,
+        "global": TagType.GLOBAL,
+        "your": TagType.YOUR,
+    }.get(result)
+    if type_ is None:
+        raise RuntimeError("Can't get Tags, when TagType is None")
+    records = await TagManager.get_tags(type_, guild_id=ctx.guild_id, author_id=ctx.author.id)
+    if records is None:
+        log.debug("2")
+        return
+    embeds = records_to_embed(records)
+    pag = Paginator(page_s=embeds, timeout=10*60)
+    await pag.start(ctx)
+    
+def records_to_embed(records: List[asyncpg.Record]) -> List[hikari.Embed]:
+    desc = ""
+    embeds = [hikari.Embed(title="tag_overview")]
+    for i, record in enumerate(records):
+        embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][:1000]} {"..." if len(record["tag_value"]) > 999 else ""}', inline=False)
+        if i % 10 == 0 and len(records) > i+1 and i != 0:
+            embeds.append(hikari.Embed(title="tag_overview"))
+    return embeds
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(tags)
