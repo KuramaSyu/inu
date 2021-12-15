@@ -283,9 +283,8 @@ async def overview(ctx: Context):
     except:
         return
     if not isinstance(event.interaction, hikari.ComponentInteraction):
-        log.debug("0")
         return
-    log.debug("1")
+
     result = event.interaction.values[0]
     type_ = {
         "guild": TagType.GUILD,
@@ -296,9 +295,9 @@ async def overview(ctx: Context):
         raise RuntimeError("Can't get Tags, when TagType is None")
     records = await TagManager.get_tags(type_, guild_id=ctx.guild_id, author_id=ctx.author.id)
     if records is None:
-        log.debug("2")
         return
     embeds = records_to_embed(records)
+    await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
     pag = Paginator(page_s=embeds, timeout=10*60)
     await pag.start(ctx)
     
