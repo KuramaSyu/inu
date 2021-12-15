@@ -262,7 +262,7 @@ class TagHandler(Paginator):
             disable_pagination=disable_pagination,
             disable_component=disable_component,
             disable_components=disable_components,
-            disable_paginator_when_one_site=disable_paginator_when_one_site,  
+            disable_paginator_when_one_site=disable_paginator_when_one_site,
         )
 
     async def start(self, ctx: Context, tag: Mapping = None):
