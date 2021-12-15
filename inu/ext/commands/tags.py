@@ -305,7 +305,7 @@ def records_to_embed(records: List[asyncpg.Record]) -> List[hikari.Embed]:
     desc = ""
     embeds = [hikari.Embed(title="tag_overview")]
     for i, record in enumerate(records):
-        embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][:1000]} {"..." if len(record["tag_value"]) > 999 else ""}', inline=False)
+        embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][:1000]} {"..." if len(record["tag_value"][0]) > 999 else ""}', inline=False)
         if i % 10 == 0 and len(records) > i+1 and i != 0:
             embeds.append(hikari.Embed(title="tag_overview"))
     return embeds
