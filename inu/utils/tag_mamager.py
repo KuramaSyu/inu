@@ -9,6 +9,7 @@ from typing import (
 )
 import typing
 from copy import deepcopy
+from enum import Enum
 
 import asyncpg
 from asyncache import cached
@@ -19,6 +20,12 @@ from numpy import column_stack
 
 
 from .db import Database
+
+
+class TagType(Enum):
+    YOUR = 1
+    GUILD = 2
+    GLOBAL = 3
 
 class TagManager():
     db: Database
@@ -279,6 +286,26 @@ class TagManager():
             raise TagIsTakenError(f"Tag `{key}` is global taken")
         if local_taken and guild_id is not None:
             raise TagIsTakenError(f"Tag `{key}` is local taken")
+    
+    @classmethod
+    async def get_tags(cls, type: TagType, guild_id: Optional[int], author_id: Optional[int]) -> Optional[asyncpg.Record]:
+        sql = """
+            SELECT * FROM tags
+            """
+        if type == TagType.GLOBAL:
+            sql = f"{sql} WHERE guild_id IS NULL"
+            return await cls.db.fetch(sql)
+        elif type == TagType.GUILD:
+            if guild_id is None:
+                raise RuntimeError("Can't fetch tags of a guild without an id (id is None)")
+            sql = f"{sql} WHERE guild_id = $1"
+            return await cls.db.fetch(sql, guild_id)
+        elif type == TagType.YOUR:
+            if author_id is None:
+                raise RuntimeError("Can't fetch tags of a creator without an id (id is None)")
+            sql = f"{sql} WHERE creator_id = $1"
+            return await cls.db.fetch(sql, author_id)
+        
 
 class Tag():
     def __init__(self, key: Optional[str] = None):
