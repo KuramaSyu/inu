@@ -47,7 +47,6 @@ class CustomHelp(help_command.BaseHelpCommand):
     async def send_command_help(self, context: Context, command: Command):
         # Override this method to change the message sent when the help command
         # argument is the name or alias of a command.
-        log.debug("command help started")
         dicts = [[self.command_to_dict(command, context)]]
         await self.dicts_to_pagination(dicts, context)
 
@@ -61,9 +60,7 @@ class CustomHelp(help_command.BaseHelpCommand):
         # Override this method to change the message sent when help is
         # requested for an object that does not exist
         commands = self.search(obj)
-        log.debug(pformat(commands))
         dicts_prebuild = self.arbitrary_commands_to_dicts(commands, context, resolve_subcommands=True)
-        log.debug(pformat(dicts_prebuild))
         await self.dicts_to_pagination(dicts_prebuild, context)
 
 
@@ -92,27 +89,21 @@ class CustomHelp(help_command.BaseHelpCommand):
         groups = []
         commands = []
         for command in arb_commands:
-            log.debug(type(command))
             if isinstance(command, PrefixCommandGroup):
-                log.debug('1')
                 groups.append(command)
             elif isinstance(command, PrefixCommand):
-                log.debug('2')
                 commands.append(command)
             elif command.is_subcommand:
                 if command.parent not in groups and resolve_subcommands:
                     groups.append(command)
                 else:
                     commands.append(command)
-        log.debug(f"{groups=}, {commands=}")
         for group in groups:
             # get ALL subcommands of a group and add it to resolved_commands
             # for the first, I ll try to put all commands from a group on one site
             resolved = self.commands_to_dicts(self.group_to_commands(group, ctx), ctx)
-            log.debug(f"resolved before append: {resolved}")
             resolved_commands.append(resolved)
         parted_commands = self.part_up_dicts(self.commands_to_dicts(commands, ctx))
-        log.debug(f"parted commands before extend: {parted_commands}")
         resolved_commands.extend(parted_commands)
         return resolved_commands
 
