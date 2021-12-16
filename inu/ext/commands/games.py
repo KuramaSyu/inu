@@ -9,6 +9,7 @@ import logging
 import hikari
 import lightbulb
 import lightbulb.context as context
+from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 
 from utils.games.connect_four_handler import Connect4Handler
