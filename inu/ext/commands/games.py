@@ -5,14 +5,10 @@ import traceback
 import typing
 from typing import Union
 import logging
-from async_timeout import asyncio
 
 import hikari
 import lightbulb
-from lightbulb.context import Context
-from lightbulb import Bucket, commands
-from lightbulb import errors
-from lightbulb import events
+import lightbulb.context as context
 from lightbulb.commands import OptionModifier as OM
 
 from utils.games.connect_four_handler import Connect4Handler
@@ -20,6 +16,7 @@ from utils.games.connect_four_handler import Connect4Handler
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
+Context = Union[context.SlashContext, context.PrefixContext]
 plugin = lightbulb.Plugin("Game Commands", "Extends the commands with commands all about games")
 
 @plugin.command
@@ -28,7 +25,9 @@ plugin = lightbulb.Plugin("Game Commands", "Extends the commands with commands a
 @lightbulb.command("connect4", "starts a Connect 4 game", aliases=["con4", "connect-4"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def connect4(ctx: Context):
-    h = Connect4Handler(ctx.options.player1, ctx.options.player2 or ctx.member)
+    if not ctx._options.get("player2"):
+        ctx._options["player2"] = ctx.member
+    h = Connect4Handler(ctx.options.player1, ctx.options.player2)
     msg = await h.start(ctx)
     log.debug(msg)
     await msg.add_reaction("🔁")
