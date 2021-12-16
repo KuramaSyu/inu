@@ -5,6 +5,7 @@ import traceback
 import typing
 from typing import Union
 import logging
+import asyncio
 
 import hikari
 import lightbulb
