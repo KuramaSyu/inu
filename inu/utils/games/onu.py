@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import math
 from pydoc import describe
 import random
@@ -378,7 +379,7 @@ class GameEndEvent(Event):
 class Onu:
     def __init__(
         self,
-        players: Dict[int, str],
+        players: Dict[str, str],
         cards_per_hand: int,
     ):
         """
@@ -386,7 +387,7 @@ class Onu:
 
         Args:
         -----
-            - player_names (Dict[int, str]) A mapping from int (id of player) to str (name of player)
+            - player_names (Dict[int, str]) A mapping from str (id of player) to str (name of player)
             - cards_per_hand (int) how many cards should one hand have
         """
         self.stack: NewCardStack = NewCardStack()
@@ -468,7 +469,33 @@ class Onu:
     def cycle_hands(self):
         """cycles hands in direction left"""
         self.hands.append(self.hands.pop(0))
-
         
+
+class OnuHandler:
+    def __init__(
+        self,
+        players: Dict[str, str],
+        cards_per_hand: int = 10,
+    ):
+        self.onu = Onu(players, cards_per_hand=cards_per_hand)
+
+    def on_event(self, event: Event):
+        pass
+
+    def on_turn_success(self, event: TurnSuccessEvent):
+        pass
+
+    def on_game_end(self, event: GameEndEvent):
+        pass
+
+    def on_turn_error(self, event: TurnErrorEvent):
+        pass
+    
+    def on_cards_received(self, event: CardsReceivedEvent):
+        pass
+    
+    @abstractmethod
+    def do_turn(self):
+        ...
 
     
