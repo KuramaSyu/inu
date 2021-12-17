@@ -35,7 +35,7 @@ def remove_sha(path_name):
 
 def main():
     # install latest
-    with open("requirements2.txt", "r") as reqs:
+    with open("requirements.txt", "r") as reqs:
         for line in reqs.readlines():
             line.strip()
             update_package(line)
