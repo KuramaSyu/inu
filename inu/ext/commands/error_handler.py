@@ -24,7 +24,6 @@ pl = lightbulb.Plugin("Error Handler")
 
 @pl.listener(events.CommandErrorEvent)
 async def on_error(event: events.CommandErrorEvent):
-    log.warning("error")
     """
     The event triggered when an error is raised while invoking a command.
     Parameters
@@ -37,6 +36,9 @@ async def on_error(event: events.CommandErrorEvent):
 
     if ctx is None:
         log.debug("Exception uncaught: {event}")
+        return
+
+    if ctx.prefix == "":
         return
 
     error = event.exception
