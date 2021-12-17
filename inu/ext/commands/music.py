@@ -29,7 +29,7 @@ from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, V
 from hikari.impl import ActionRowBuilder
 import lightbulb
 from lightbulb import commands, context
-from lightbulb import OptionModifier as OM
+from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
 from matplotlib.pyplot import hist
