@@ -109,6 +109,26 @@ async def remove_top_channel(ctx: Context):
     await DailyContentChannels.remove_channel(Col.TOP_CHANNEL_IDS, channel_id, ctx.guild_id)
     await ctx.respond(f"removed channel: `{channel.name}` with id `{channel.id}`")
 
+@settings.child
+@lightbulb.command("prefix", "add/remove custom prefixes", aliases=["p"])
+@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+async def preifx(ctx: Context):
+    pass
+
+@prefix.child
+@lightbulb.option()
+@lightbulb.command("add", "Add a prefix")
+@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+async def add(ctx: Context):
+    pass
+
+@prefix.child
+@lightbulb.option()
+@lightbulb.command("remove", "Remove a prefix")
+@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+async def remove(ctx: Context):
+    pass
+
 def load(bot: Inu):
     bot.add_plugin(plugin)
         
