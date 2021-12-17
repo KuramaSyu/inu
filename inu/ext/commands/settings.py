@@ -112,18 +112,16 @@ async def remove_top_channel(ctx: Context):
 @settings.child
 @lightbulb.command("prefix", "add/remove custom prefixes", aliases=["p"])
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
-async def preifx(ctx: Context):
+async def prefix(ctx: Context):
     pass
 
 @prefix.child
-@lightbulb.option()
 @lightbulb.command("add", "Add a prefix")
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def add(ctx: Context):
     pass
 
 @prefix.child
-@lightbulb.option()
 @lightbulb.command("remove", "Remove a prefix")
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def remove(ctx: Context):
