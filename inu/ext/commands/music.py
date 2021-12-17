@@ -29,6 +29,7 @@ from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, V
 from hikari.impl import ActionRowBuilder
 import lightbulb
 from lightbulb import commands, context
+from lightbulb import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
 from matplotlib.pyplot import hist
@@ -577,7 +578,7 @@ async def _leave(guild_id: int):
 # @lightbulb.check(lightbulb.guild_only)
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the title of the track etc.")
+@lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.command("play", "play a matching song to your query")
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def play(ctx: context.Context) -> None:
