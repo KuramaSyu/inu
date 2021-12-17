@@ -611,7 +611,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
 
 @play.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the name of the track etc.")
+@lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.command("now", "enqueue a title at the beginning of the queue", aliases=["1st"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def now(ctx: Context) -> None:
@@ -620,7 +620,7 @@ async def now(ctx: Context) -> None:
 
 @play.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the name of the track etc.", type=str)
+@lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.command("second", "enqueue a title at the beginning of the queue", aliases=["2nd"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def second(ctx: Context) -> None:
@@ -629,7 +629,7 @@ async def second(ctx: Context) -> None:
 
 @play.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("position", "the position in the queue", type=int)
+@lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
 @lightbulb.command("pos", "enqueue a title at the beginning of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
