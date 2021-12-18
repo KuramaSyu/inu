@@ -836,6 +836,13 @@ if HIKARI_VOICE:
             event.guild_id, event.endpoint, event.token
         )
 
+@music.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("queue", "Resend the music message")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def _queue(ctx: Context) -> None:
+    await queue(ctx)
+
 #  @lightbulb.check(lightbulb.guild_only)
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
