@@ -1,4 +1,4 @@
-from abc import abstractmethod
+from abc import abstractmethod, ABC
 import math
 from pydoc import describe
 import random
@@ -15,7 +15,7 @@ import enum
 from collections import deque
 
 
-from .onu_cards import (
+from onu_cards import (
     card_0,
     card_1,
     card_2,
@@ -185,15 +185,16 @@ class Card:
                     CardFunctions.CHANGE_COLOR: "color chagner",
                     CardFunctions.REVERSE: "reverse",
                     CardFunctions.STOP: "stop"
-                }.get(f)
+                }.get(f, "")
             )
-        prefix = " ".join(prefix)
+        if prefix:
+            prefix = " ".join(prefix)
         number = ""
         if self.value:
             if self.draw_value > 0:
                 number += "+"
             number += str(self.value)
-        color = self.color.value.lower()
+        color = self.color.name.lower()
         l = []
         for x in (prefix, number, color):
             if x:
@@ -284,10 +285,12 @@ class NewCardStack:
                         color=CardColors.COLORFULL,
                         draw_value=4,
                         is_active=True,
+                        card_design=CardDesigns.DRAW_CARDS_4
                     ),
                     Card(
                         function=CardFunctions.CHANGE_COLOR,
                         color=CardColors.COLORFULL,
+                        card_design=CardDesigns.COLOR_CHANGER,
                     )
                 ]
             ) 
@@ -416,7 +419,7 @@ class Onu:
             - card: (`~.Card`) The card the player has casted
             - draw: (bool) wether or not the player wants to draw cards
         """
-        if draw is False and not card is None:
+        if draw is True and not card is None:
             raise RuntimeError(f"Can't make a turn, where a card is played AND the player draw cards")
         if isinstance(hand, str):
             hand = [h for h in self.hands if h.id == hand][0]
@@ -430,6 +433,7 @@ class Onu:
                 hand.cards.append(self.stack.pop())
             self.cast_off.reset_draw_value()
             args["info"] = f"Successfully drawn {self.cast_off.draw_calue} cards"
+            self.cycle_hands()
             return TurnSuccessEvent(**args)
 
         if not self.cast_off.top.can_cast_onto(card):
@@ -437,13 +441,14 @@ class Onu:
                 args["info"] = "given <card> color is `~.CardColors.COLORFULL` which is not castable"
                 return TurnErrorEvent(**args, given_card=card)
             else:
-                return TurnErrorEvent(**args)
+                return TurnErrorEvent(**args, given_card=card)
         hand.cards.remove(card)
         self.cast_off.append(card)
         args["info"] = "Successfully casted card"
         if self.winner:
             return GameEndEvent(**args, winner=self.winner)
         else:
+            self.cycle_hands()
             return TurnSuccessEvent(**args)
     
     @property
@@ -479,6 +484,10 @@ class OnuHandler:
     ):
         self.onu = Onu(players, cards_per_hand=cards_per_hand)
 
+    @property
+    def current_hand(self) -> Hand:
+        return self.onu.current_hand
+
     def on_event(self, event: Event):
         pass
 
@@ -494,8 +503,55 @@ class OnuHandler:
     def on_cards_received(self, event: CardsReceivedEvent):
         pass
     
-    @abstractmethod
-    def do_turn(self):
-        ...
+    def do_turn(
+        self,
+        hand: Optional[Hand] = None,
+        card: Optional[Card] = None,
+        draw_cards: bool = False,
+    ):
+        event = self.onu.turn(hand, card, draw_cards)
+        self.on_event(event)
+        if isinstance(event, TurnSuccessEvent):
+            self.on_turn_success(event)
+        elif isinstance(event, GameEndEvent):
+            self.on_game_end(event)
+        elif isinstance(event, TurnErrorEvent):
+            self.on_turn_error(event)
+        elif isinstance(event, CardsReceivedEvent):
+            self.on_cards_received(event)
 
-    
+# bare example
+if __name__ == "__main__":
+    class test(OnuHandler):
+        def on_event(self, event: Event):
+            print(event)
+            print(event.hand)
+
+        def on_turn_success(self, event: TurnSuccessEvent):
+            pass
+
+        def on_game_end(self, event: GameEndEvent):
+            pass
+
+        def on_turn_error(self, event: TurnErrorEvent):
+            print(event.info)
+        
+        def on_cards_received(self, event: CardsReceivedEvent):
+            pass
+
+        def loop(self):
+            hand = self.current_hand
+            while not self.onu.game_over:
+                for i, card in enumerate(self.current_hand.cards):
+                    print(i, "---", card)
+                print(f"top card: {self.onu.cast_off.top}")
+                card_index = input(f"Which card do you wanna play @{self.current_hand.name}:\n")
+                self.do_turn(hand, hand.cards[int(card_index)])
+    players = {
+        "1": "Olaf",
+        "2": "Annie"
+    }
+    onu = test(players)
+    onu.loop()
+
+
