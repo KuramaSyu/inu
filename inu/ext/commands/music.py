@@ -617,6 +617,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
     await play_at_pos(ctx, 1, ctx.options.query)
+    await queue(ctx)
 
 @play.child
 @lightbulb.add_checks(lightbulb.guild_only)
