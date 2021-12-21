@@ -531,7 +531,8 @@ async def start_lavalink() -> None:
             break
         except Exception:
             if x == 2:
-                return music.d.log.error(traceback.format_exc())
+                music.d.log.error(traceback.format_exc())
+                break
             else:
                 await asyncio.sleep(10)
                 
