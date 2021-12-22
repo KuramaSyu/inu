@@ -19,6 +19,11 @@ CREATE TABLE IF NOT EXISTS reddit_channels (
     top_channel_ids BIGINT []
 );
 CREATE TABLE IF NOT EXISTS stats (
-    guild_id BIGINT,
+    guild_id BIGINT NOT NULL PRIMARY KEY,
     cmd_json JSONB
+);
+CREATE TABLE IF NOT EXISTS reminders (
+    reminder_id TEXT NOT NULL PRIMARY KEY,
+    remind_time DATETIME,
+    remind_text TEXT
 );
