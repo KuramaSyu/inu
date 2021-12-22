@@ -127,6 +127,8 @@ class InvokationStats:
         -----
             - guild_id: (int | None) the id of the guild, where you want command infos from
         """
+        if guild_id is None:
+            guild_id = "NULL"
         sql = """
         SELECT * FROM stats
         WHERE guild_id = $1
