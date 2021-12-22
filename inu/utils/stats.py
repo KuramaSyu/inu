@@ -66,12 +66,14 @@ class InvokationStats:
     async def update_json(cls, json_: str, guild_id: Optional[int]) -> None:
         json_ = json.loads(json_)
         is_new = json_.get("new", False)
+        args = [json_]
         if is_new:
             del json_["new"]
             sql = """
             INSERT INTO stats (guild_id, cmd_json)
             VALUES ($1, $2)
-            """  
+            """
+            args.append(guild_id)
         else:
             if guild_id:
                 sql = """
@@ -85,7 +87,7 @@ class InvokationStats:
                 SET cmd_json = $1
                 WHERE guild_id IS NULL
                 """
-        args = [json_]
+
         if guild_id:
             args.append(guild_id)
         await cls.db.execute(sql, *args)
