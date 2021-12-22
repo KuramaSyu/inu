@@ -70,7 +70,7 @@ class InvokationStats:
         if is_new:
             del json_["new"]
             sql = """
-            INSERT INTO stats (guild_id, cmd_json)
+            INSERT INTO stats (cmd_json, guild_id)
             VALUES ($1, $2)
             """
             args.append(guild_id)
