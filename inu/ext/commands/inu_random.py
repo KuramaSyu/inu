@@ -243,9 +243,11 @@ async def dice(ctx: Context) -> None:
     [Optional] eyes: how many eyes the cube should have (1-9)
     '''
     eyes = ctx.options.eyes
-    if 1 > eyes > 6:
+    log.debug(type(eyes))
+    log.debug(eyes)
+    if eyes < 1 or eyes > 6:
         await ctx.respond('I have dices with 1 to 6 sites. \
-            I don\'t know, what kind of magic dices you have')
+            \nI don\'t know, what kind of magic dices you have')
         return
 
     # creates discord formated dices 1 - eyes
@@ -254,6 +256,7 @@ async def dice(ctx: Context) -> None:
     ]
     all_eyes = [eye_ids[eye_num-1] for eye_num in range(1, eyes+1)]
     await ctx.respond(
+        ".",
         attachment=hikari.File(random.choice(all_eyes))
         )
     return
