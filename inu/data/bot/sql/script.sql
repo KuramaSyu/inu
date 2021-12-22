@@ -18,3 +18,7 @@ CREATE TABLE IF NOT EXISTS reddit_channels (
     channel_ids BIGINT [],
     top_channel_ids BIGINT []
 );
+CREATE TABLE IF NOT EXISTS stats (
+    guild_id BIGINT,
+    cmd_json JSONB
+);
