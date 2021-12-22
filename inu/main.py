@@ -13,6 +13,7 @@ import lightbulb
 from lightbulb import events
 
 from core import Inu
+from utils import InvokationStats
 
 def main():
 
@@ -36,10 +37,8 @@ def main():
     @inu.listen(hikari.ShardReadyEvent)
     async def on_ready(_: hikari.ShardReadyEvent):
         await inu.init_db()
+        InvokationStats.set_db(inu.db)
 
-    @inu.listen(events.CommandInvocationEvent)
-    async def on_cmd_invoce(event: events.CommandInvocationEvent):
-        log.debug(f"{event.command.name}")
     inu.run()
 
 if __name__ == "__main__":
