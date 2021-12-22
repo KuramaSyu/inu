@@ -24,6 +24,6 @@ CREATE TABLE IF NOT EXISTS stats (
 );
 CREATE TABLE IF NOT EXISTS reminders (
     reminder_id TEXT NOT NULL PRIMARY KEY,
-    remind_time DATETIME,
+    remind_time TIMESTAMP,
     remind_text TEXT
 );
