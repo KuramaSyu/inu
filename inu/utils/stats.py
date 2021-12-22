@@ -73,12 +73,22 @@ class InvokationStats:
             VALUES ($1, $2)
             """  
         else:
-            sql = """
-            UPDATE stats
-            SET cmd_json = $2
-            WHERE guild_id = $1
-            """
-        await cls.db.execute(sql, guild_id, json.dumps(json_))
+            if guild_id:
+                sql = """
+                UPDATE stats
+                SET cmd_json = $1
+                WHERE guild_id = $2
+                """
+            else:
+                sql = """
+                UPDATE stats
+                SET cmd_json = $1
+                WHERE guild_id IS NULL
+                """
+        args = [json_]
+        if guild_id:
+            args.append(guild_id)
+        await cls.db.execute(sql, *args)
 
     @classmethod
     async def add_or_sub(
