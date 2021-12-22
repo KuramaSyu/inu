@@ -1,11 +1,6 @@
 import asyncio
 import typing
-from typing import (
-    Dict,
-    Union,
-    Optional,
-    List,
-)
+from typing import *
 import random
 import datetime
 import time as tm
@@ -60,7 +55,27 @@ plugin.d.daily_content = {
         '0':['DesignPorn', 3],
     }}
 
-        
+def subreddit_generator() -> Generator[None, str, None]:
+    picture_subs = ["MostBeautiful", "itookapicture", "EarthPorn", "CityPorn", "Art", "Pictures", "DesignPorn"]
+    meme_subs = ["comics", "me_irl", "funny", "wholesomememes", "ComedyCemetery", "ComedyCemetery", "softwaregore", "memes"]
+    while True:
+        send_order = []
+        random.shuffle(picture_subs)
+        random.shuffle(meme_subs)
+        for i in range(max(len(picture_subs), len(meme_subs))-1):
+            try:
+                send_order.append(picture_subs[i])
+            except:
+                pass
+            try:
+                send_order.append(meme_subs[i])
+            except:
+                pass
+        for subreddit in send_order:
+            yield subreddit
+
+plugin.d.subreddits = subreddit_generator()
+
 @plugin.listener(ShardReadyEvent)
 async def load_tasks(event: ShardReadyEvent):
     DailyContentChannels.set_db(plugin.bot.db)
@@ -77,13 +92,13 @@ async def pics_of_hour():
     registered in the database
     """
     try:
-        now = datetime.datetime.now()
-        if now.minute != 0:
-            return
+        # now = datetime.datetime.now()
+        # if now.minute != 0:
+        #     return
         now = datetime.datetime.now()
         log.debug(now)
-        subreddit = None
-        subreddit = plugin.d.daily_content["time"][str(now.hour)][0]
+        # subreddit = plugin.d.daily_content["time"][str(now.hour)][0]
+        subreddit = next(plugin.d.subreddits)
         if not subreddit:
             return
         tasks = []
@@ -103,7 +118,7 @@ async def pics_of_hour():
     except Exception:
         log.critical(traceback.format_exc())
 
-async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 5):
+async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 3):
     hours = int(tm.strftime("%H", tm.localtime()))
     try:
         posts = await Reddit.get_posts(
@@ -120,8 +135,7 @@ async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 5):
             embed = hikari.Embed()
             embed.title = f'{posts[x].title}'
             embed.set_image(posts[x].url)
-            if x == int(count - 1):
-                embed.set_footer(text=f'r/{subreddit}  |  {hours}:00')
+            embed.description = f'[{posts[x].subreddit_name_prefixed}](https://www.reddit.com/{posts[x].subreddit._path})'
             log.debug(channel_id)
             await plugin.bot.rest.create_message(channel_id, embed=embed)
     except Exception as e:
