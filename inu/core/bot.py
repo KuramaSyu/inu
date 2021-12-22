@@ -13,6 +13,7 @@ import logging
 
 
 import lightbulb
+from lightbulb import context, commands
 import hikari
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -101,7 +102,6 @@ class Inu(lightbulb.BotApp):
 
     async def init_db(self):
         await self.db.connect()
-
 
     #override
     def run(self):
