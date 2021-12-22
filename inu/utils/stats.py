@@ -1,11 +1,14 @@
 from typing import *
 import json
 import typing as t
-
-
+import logging
 
 from .db import Database
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+
+T = t.TypeVar("T")
 
 class InvokationStats:
     db: Database
@@ -26,7 +29,7 @@ class InvokationStats:
         if isinstance(command_names, str):
             command_names = [command_names]
         bare_bone = {
-                "guild_id": guild_id,
+                "new": True,
         }
         for command_name in command_names:
             bare_bone[command_name] = 0
@@ -35,32 +38,47 @@ class InvokationStats:
     @classmethod
     def manipulate_json_value(
         cls,
-        json_: str,
+        json_: T,
         command_name: str,
         value: int,
+        is_json_str: bool = True,
 
-    ) -> str:
-        json_ = json.loads(json_)
+    ) -> T:
+        """
+        adds <value> to <command_name> in <json_>
+        
+        NOTE:
+        - <json_> can be str and dict
+        - return type will be same like type of <json_>
+        """
+        if is_json_str:
+            json_ = json.loads(json_)
         try:
             json_[command_name] += value
         except:
             json_[command_name] = value
-        return json.dumps(json_)
+        if is_json_str:
+            return json.dumps(json_)
+        else:
+            return json_
 
     @classmethod
-    async def update_json(cls, json_: str) -> None:
+    async def update_json(cls, json_: str, guild_id: Optional[int]) -> None:
         json_ = json.loads(json_)
-        guild_id = json_["guild_id"]
-        try:
-            guild_id = int(guild_id)
-        except:
-            pass
-        sql = """
-        UPDATE stats
-        SET invokations = $1
-        WHERE guild_id = $2
-        """
-        await cls.db.execute(sql, int(json_["invokations"]), guild_id)
+        is_new = json_.get("new", False)
+        if is_new:
+            del json_["new"]
+            sql = """
+            INSERT INTO stats (guild_id, cmd_json)
+            VALUES ($1, $2)
+            """  
+        else:
+            sql = """
+            UPDATE stats
+            SET cmd_json = $2
+            WHERE guild_id = $1
+            """
+        await cls.db.execute(sql, guild_id, json.dumps(json_))
 
     @classmethod
     async def add_or_sub(
@@ -82,13 +100,13 @@ class InvokationStats:
         SELECT * FROM stats
         WHERE guild_id = $1
         """
-        record = await cls.db.fetch(sql, guild_id)
+        record = await cls.db.row(sql, guild_id)
         if record:
-            json_ = json.loads(record["json"])
+            json_ = record["cmd_json"]
         else:
             json_ = cls.bare_bone_json(command_name, guild_id)
         json_ = cls.manipulate_json_value(json_, command_name, value)
-        cls.update_json(json_)
+        await cls.update_json(json_, guild_id)
 
     @classmethod
     async def fetch_json(cls, guild_id: Optional[int]) -> Optional[Dict]:
@@ -103,8 +121,24 @@ class InvokationStats:
         SELECT * FROM stats
         WHERE guild_id = $1
         """
-        record = await cls.db.fetch(sql, guild_id)
+        record = await cls.db.row(sql, guild_id)
         if record:
-            return json.loads(record["json"])
+            return json.loads(record["cmd_json"])
         else:
-            return cls.bare_bone_json(guild_id)
+            return json.loads(cls.bare_bone_json(guild_id))
+
+    @classmethod
+    async def fetch_global_json(cls) -> Optional[Dict]:
+        """
+        Get a json in form of a dict, with all the command infos
+        """
+        records = await cls.db.fetch("SELECT * FROM stats")
+        json_ = {}
+        for rec in records:
+            for entry, value in rec.items():
+                if entry == "guild_id":
+                    continue
+                to_add_json = json.loads(value)
+                for command, ammount in to_add_json.items():
+                    json_ = cls.manipulate_json_value(json_, command, ammount, is_json_str=False)
+        return json_
