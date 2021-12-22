@@ -81,4 +81,7 @@ to start the bot and the Lavalink server
 
 End it with `ctrl + c` to interupt it
 
+### NOTE:
+The Database will be stored in the toplevel directory of this project (inside the folder where this project will be in)
+
 
