@@ -23,8 +23,8 @@ class InvokationStats:
     @classmethod
     def bare_bone_json(
         cls,
-        command_names: Union[List[str], str],
-        guild_id: t.Optional[str],
+        command_names: Union[List[str], str] = [],
+        guild_id: t.Optional[str] = None,
     ) -> str:
         if isinstance(command_names, str):
             command_names = [command_names]
@@ -135,7 +135,7 @@ class InvokationStats:
         if record:
             return json.loads(record["cmd_json"])
         else:
-            return json.loads(cls.bare_bone_json(guild_id))
+            return json.loads(cls.bare_bone_json(guild_id=guild_id))
 
     @classmethod
     async def fetch_global_json(cls) -> Optional[Dict]:
