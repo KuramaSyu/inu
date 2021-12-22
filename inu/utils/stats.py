@@ -64,16 +64,20 @@ class InvokationStats:
 
     @classmethod
     async def update_json(cls, json_: str, guild_id: Optional[int]) -> None:
+        """
+        NOTE:
+            - if guild_id = None: guild_id will be -1 interal which represents all private chats
+        """
         json_ = json.loads(json_)
         is_new = json_.get("new", False)
-        args = [json_]
+        if guild_id is None:
+            guild_id = -1
         if is_new:
             del json_["new"]
             sql = """
             INSERT INTO stats (cmd_json, guild_id)
             VALUES ($1, $2)
             """
-            args.append(guild_id)
         else:
             if guild_id:
                 sql = """
@@ -81,16 +85,7 @@ class InvokationStats:
                 SET cmd_json = $1
                 WHERE guild_id = $2
                 """
-            else:
-                sql = """
-                UPDATE stats
-                SET cmd_json = $1
-                WHERE guild_id IS NULL
-                """
-
-        if guild_id:
-            args.append(guild_id)
-        await cls.db.execute(sql, *args)
+        await cls.db.execute(sql, json_, guild_id)
 
     @classmethod
     async def add_or_sub(
@@ -112,6 +107,8 @@ class InvokationStats:
         SELECT * FROM stats
         WHERE guild_id = $1
         """
+        if guild_id is None:
+            guild_id = -1
         record = await cls.db.row(sql, guild_id)
         if record:
             json_ = record["cmd_json"]
@@ -130,7 +127,7 @@ class InvokationStats:
             - guild_id: (int | None) the id of the guild, where you want command infos from
         """
         if guild_id is None:
-            guild_id = "NULL"
+            guild_id = -1
         sql = """
         SELECT * FROM stats
         WHERE guild_id = $1
