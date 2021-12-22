@@ -85,7 +85,7 @@ class InvokationStats:
                 SET cmd_json = $1
                 WHERE guild_id = $2
                 """
-        await cls.db.execute(sql, json_, guild_id)
+        await cls.db.execute(sql, json.dumps(json_), guild_id)
 
     @classmethod
     async def add_or_sub(
