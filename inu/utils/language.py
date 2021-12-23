@@ -155,5 +155,7 @@ class Human():
                     break
             except Exception:
                 break
+        if result_number[-1] == ",":
+            result_number = result_number[:-1]
         return result_number[::-1]
 
