@@ -129,3 +129,31 @@ class Human():
             return mk_plural(word_s)
         else:
             return mk_plural([word_s])
+
+    @staticmethod
+    def number(number: Union[int, str, float]) -> str:
+        """
+        Adds commas to <number> every 3 places starting at point or on right side of number
+        """
+        number = str(number)
+        result_number = ""
+        index = str.find(number, ".")
+        if index != -1:
+            result_number += number[index : ][::-1]
+            index -= 1
+        count = 0
+
+        while True:
+            try:
+                result_number += number[index]
+                count += 1
+                index -= 1
+                if count % 3 == 0:
+                    result_number += ","
+                    count = 0
+                if index == -1:
+                    break
+            except Exception:
+                break
+        return result_number[::-1]
+
