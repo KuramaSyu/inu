@@ -9,8 +9,9 @@ from lightbulb.context import Context
 from lightbulb import commands
 
 from core import Inu
-from utils import Colors
+from utils import Colors, Human
 from utils.language import Multiple
+num = Human.number
 
 log = logging.getLogger(__name__)
 
@@ -60,12 +61,12 @@ async def code(ctx: Context):
     '''
     size_in_bytes, lines = get_directory_size(f'{os.getcwd()}/inu')
     text = (
-        f"I am written out of\n**{int(size_in_bytes)*8} bits**"
-        f" (**{round(float(size_in_bytes / 1000))}Kb | "
-        f"{round(float(size_in_bytes / 1000 / 1000),1)}mb**)\n"
+        f"I am written out of\n**{num(int(size_in_bytes)*8)} bits**"
+        f" (**{num(round(float(size_in_bytes / 1000)))}Kb | "
+        f"{num(round(float(size_in_bytes / 1000 / 1000),1))}mb**)\n"
         f"1 typical letter is 1 byte/ 8 bit big\nMeans that'"
-        f"I am written out of\n**{size_in_bytes} letters**\n"
-        f"or\n**{lines} lines**\nof code"
+        f"I am written out of\n**{num(size_in_bytes)} letters**\n"
+        f"or\n**{num(lines)} lines**\nof code"
     )
     embed = hikari.Embed(
         title="Code",
