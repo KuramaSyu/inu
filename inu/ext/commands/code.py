@@ -58,7 +58,7 @@ async def code(ctx: Context):
     '''
     How many bytes/code lines am I?
     '''
-    size_in_bytes, lines = get_directory_size(f'{os.getcwd()}')
+    size_in_bytes, lines = get_directory_size(f'{os.getcwd()}/inu')
     text = (
         f"I am written out of\n**{int(size_in_bytes)*8} bits**"
         f" (**{round(float(size_in_bytes / 1000))}Kb | "
