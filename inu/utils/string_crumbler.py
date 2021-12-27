@@ -85,7 +85,7 @@ class PeekIterator():
         to_iter: Union[str, List[str]], 
         seperator: str = ' '
         ) -> None:
-        if isinstance(to_iter, str):
+        if isinstance(to_iter, list):
             self._gen = (item if item else '' for item in to_iter)
         elif isinstance(to_iter, str):
             def generator(to_iter: str = to_iter, seperator: str = seperator) -> Generator[str, None, None]:
@@ -101,13 +101,15 @@ class PeekIterator():
         
         self.peek = ''
         self.eof = False
-        self._step
+        self._step()
 
     def __iter__(self):
         return self
 
     def __next__(self):
         peek = self.peek
+        if self.eof:
+            raise StopIteration()
         self._step()
         return peek
 
