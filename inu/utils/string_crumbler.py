@@ -192,6 +192,125 @@ class SentenceInterator():
         except StopIteration:
             self.eof: bool = True
 
+class NumberWordIterator:
+    """
+    Iterator with 1 peak look ahead with peek atribute
+
+    Example:
+    -------
+    "12.34House123 21bac12.12.12.12"
+    >>> 12.34
+    >>> House
+    >>> 123
+    >>> 21
+    >>> bac
+    >>> 12.12
+    >>> 0.12
+    >>> 0.12
+    """
+
+    def __init__(self, 
+        to_iter: str, 
+        ) -> None:
+            self.to_iter = to_iter.lower()
+            self._gen = (c for c in to_iter)
+            
+            self.peek_char = self._gen.__next__()
+            self.peek_index = 1
+            self.index = 0
+            self.last_word_index = 0
+            self.peek: str = ''
+            self.eof = False
+            self._step()
+            
+
+    def __next_incr(self) -> str:
+        self.peek_char = self._gen.__next__()
+        self.peek_index += 1
+        return self.peek_char
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        peek = self.peek
+        self.last_word_index = self.index
+        self.index = self.peek_index
+        self._step()
+        if peek is None:
+            raise StopIteration
+        return peek
+
+    def _next_number(self, prefix: str = "") -> float:
+        number_chars = "1234567890-.,"
+        number = prefix
+        number = number.replace(",", ".")
+        if "." in number:
+            has_point = True
+        else:
+            has_point = False
+        while self.peek_char in number_chars:
+            if self.peek_char == " ":
+                self.peek_char: str = self.__next_incr()
+                break
+            if self.peek_char in ".,":
+                if has_point:
+                    break
+                else:
+                    number += self.peek_char
+                    has_point = True
+            else:
+                number += self.peek_char
+            try:
+                self.peek_char: str = self.__next_incr()
+            except StopIteration:
+                self.eof = True
+                break
+        number = number.replace(",", ".")
+        if number.startswith("."):
+            number = f"0{number}"
+        try:
+            number = float(number)
+        except Exception:
+            raise RuntimeError(f"Can't parse `{number}` to float")
+        return number
+
+    def _next_word(self, prefix: str = "") -> str:
+        number_chars = "1234567890"
+        word = prefix
+        while not self.peek_char in number_chars:
+            if self.peek_char == " ":
+                self.peek_char: str = self.__next_incr()
+                break
+            word += self.peek_char
+            try:
+                self.peek_char: str = self.__next_incr()
+            except StopIteration:
+                self.eof = True
+                break
+        return word
+
+    def _step(self):
+        number_chars = "1234567890"
+        number_prefix = ".,-"
+        if self.eof:
+            self.peek = None
+            return
+        if self.peek_char in number_chars:
+            self.peek = self._next_number()
+        elif self.peek_char in number_prefix:
+            peek = self.peek_char
+            peek_peek = self.peek_char = self._gen.__next__()
+            self.index += 1
+            if peek_peek in number_chars:
+                self.peek = self._next_number(prefix=peek)
+            else:
+                self.peek = self._next_word(prefix=peek)
+        else:
+            self.peek = self._next_word()
+
+    
+
 
 class WordToBig(Exception):
     """
