@@ -19,6 +19,8 @@ from utils import crumble
 from utils import Paginator
 from utils.tree import tree as tree_
 from core import Inu
+from utils.reminders import Reminder
+from utils.string_crumbler import NumberWordIterator as NWI
 
 log = logging.getLogger(__name__)
 
