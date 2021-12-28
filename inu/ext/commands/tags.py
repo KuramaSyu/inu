@@ -63,11 +63,16 @@ async def tag(ctx: Context):
     if key is None:
         taghandler = TagHandler()
         return await taghandler.start(ctx)
-    await get_tag(ctx, key)
+    record = await get_tag(ctx, key)
+    await show_record(record, ctx, key)
 
-async def get_tag(ctx: Context, key: str):
+
+async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
     """
     Searches the <key> and sends the result into the channel of <ctx>
+    NOTE:
+    -----
+        - tags created in your guild will be prefered sent, in case there is a global tag too
     """
     records = await TagManager.get(key, ctx.guild_id or 0)
     record: Optional[Mapping[str, Any]] = None
@@ -80,6 +85,10 @@ async def get_tag(ctx: Context, key: str):
                 break
             elif r["guild_id"] is None:
                 record = r
+    return record
+
+async def show_record(record: asyncpg.Record, ctx: Context, key: str) -> None:
+    """Sends the given tag(record) into the channel of <ctx>"""
     if record is None:
         return await ctx.respond(f"I can't found a tag named `{key}` in my storage")
     messages = []
@@ -250,7 +259,8 @@ async def get(ctx: Context):
     -----
         - key: the name the tag should have
     """
-    await get_tag(ctx, ctx.options.key)
+    record = await get_tag(ctx, ctx.options.key)
+    await show_record(record, ctx, ctx.options.key)
     
 @tag.child
 @lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
@@ -300,7 +310,20 @@ async def overview(ctx: Context):
     await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
     pag = Paginator(page_s=embeds, timeout=10*60)
     await pag.start(ctx)
-    
+
+@tag.child
+@lightbulb.add_checks(lightbulb.owner_only)
+@lightbulb.option("key", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True) 
+@lightbulb.command("execute", "executes a tag with Python\nNOTE: owner only", aliases=["run", "exec"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_execute(ctx: Context):
+    record = await get_tag(ctx, ctx.options.key)
+    ctx._options["code"] = record["tag_value"][0]  # tag value is a list
+    ext = tags.bot.get_plugin("Owner")
+    for cmd in ext.all_commands:
+        if cmd.name == "run":
+            return await cmd.callback(ctx)
+
 def records_to_embed(records: List[asyncpg.Record]) -> List[hikari.Embed]:
     desc = ""
     embeds = [hikari.Embed(title="tag_overview")]
