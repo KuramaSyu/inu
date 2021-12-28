@@ -24,7 +24,7 @@ from utils.string_crumbler import NumberWordIterator as NWI
 
 log = logging.getLogger(__name__)
 
-plugin = lightbulb.Plugin("Owner Only", "Commands, which are only accessable to the owner of the bot")
+plugin = lightbulb.Plugin("Owner", "Commands, which are only accessable to the owner of the bot")
 
 
 @plugin.command
@@ -114,7 +114,7 @@ async def log_(ctx: Context):
 @plugin.command
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("code", "The code I should execute", modifier=OM.CONSUME_REST)
-@lightbulb.command("run", "Executes given Python code", aliases=['py', 'exec'])
+@lightbulb.command("run", "Executes given Python code", aliases=['py', 'exec', 'execute'])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def execute(ctx: Context):
     '''
