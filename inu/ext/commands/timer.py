@@ -17,6 +17,7 @@ from lightbulb import commands, context
 import hikari
 from numpy import isin
 
+plugin = lightbulb.Plugin("Reminders", "Extends commands with reminder/alarm commands")
 
 # from utils.logging import LoggingHandler
 # logging.setLoggerClass(LoggingHandler)
