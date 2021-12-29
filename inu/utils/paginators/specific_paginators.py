@@ -37,7 +37,9 @@ class MusicHistoryPaginator(Paginator):
         self.items_per_site = items_per_site
     
     def build_default_components(self, position: int):
-        components = [self.build_default_component(position)]
+        # components = [self.build_default_component(position)]
+        components = super().build_default_components(position)
+        # add selection menu
         start = self._position * self.items_per_site
         menu = (
             ActionRowBuilder()
