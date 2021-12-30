@@ -28,6 +28,9 @@ __all__: Final[Sequence[str]] = ["Database"]
 def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
     async def wrapper(self: "Database", *args: Any, **kwargs: Any) -> Any:
+        if isinstance(self, str):
+            args = (self, *args)
+            self = Database()
         assert self.is_connected, "Not connected."
         self.calls += 1
         cxn: asyncpg.Connection
@@ -127,6 +130,8 @@ class Database(metaclass=Singleton):
     @acquire
     async def row(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> Optional[List[Any]]:
         """Returns first row of query"""
+        self.log.debug(self)
+        self.log.debug(query)
         return await _cxn.fetchrow(query, *values)
 
     @acquire
