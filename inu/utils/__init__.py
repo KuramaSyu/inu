@@ -9,6 +9,7 @@ from .r_channel_manager import DailyContentChannels
 from .grid import Grid
 from .stats import InvokationStats
 from .language import Human
+from .reminders import HikariReminder, Reminders
 
 import logging
 
