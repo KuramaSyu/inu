@@ -876,7 +876,7 @@ async def events(ctx: Context):
             Embed(
                 title=f"log {i+1}/{len(log_sites)}", 
                 description=log_site, 
-                color=Color.from_name("maroon")
+                color=Colors.from_name("maroon")
             )
         )
     pag = Paginator(embeds)
@@ -1001,7 +1001,7 @@ async def queue(ctx: Context = None, guild_id: int = None):
     requester = music.bot.cache.get_member(guild_id, node.queue[0].requester)
     current_duration = str(datetime.timedelta(milliseconds=int(int(track.info.length))))
     music_embed = hikari.Embed(
-        colour=hikari.Color.from_rgb(71, 89, 211)
+        colour=hikari.Colors.from_rgb(71, 89, 211)
     )
     music_embed.add_field(name = "Playing Song:", value=f'[{track.info.title}]({track.info.uri})', inline=True)#{"🔂 " if player.repeat else ""}
     music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
