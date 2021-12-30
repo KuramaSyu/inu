@@ -208,7 +208,7 @@ async def send_manual(ctx, key: Union[str, list], obj):
             rtfm_embed.title = get_docs_name_form(urls[index])
             embeds.append(rtfm_embed)
     if nothing:
-        return await ctx.send("Nothing Found :/")
+        return await ctx.respond("Nothing Found :/")
     paginator = Paginator(
         page_s=embeds,
         timeout=5*60,
