@@ -8,6 +8,7 @@ import asyncio
 import logging
 import datetime
 import time
+import traceback
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
 from hikari.messages import ButtonStyle
@@ -42,10 +43,13 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     plugin.bot.scheduler.add_job(clean_up_reminder_set, trigger)
 
 def clean_up_reminder_set():
-    datetime_ = datetime.datetime.now()
-    for r in reminders.copy():
-        if r["remind_time"] < datetime_:
-            reminders.remove(r)
+    try:
+        datetime_ = datetime.datetime.now()
+        for r in reminders.copy():
+            if r["remind_time"] < datetime_:
+                reminders.remove(r)
+    except Exception:
+        log.debug(traceback.format_exc())
 
 async def load_upcoming_reminders():
     sql = """
