@@ -13,6 +13,7 @@ from typing import (
 )
 import enum
 from collections import deque
+import logging
 
 
 from onu_cards import (
@@ -42,6 +43,12 @@ __all__: Final[List[str]] = [
     "TurnSuccessEvent",
     "CardsReceivedEvent"
 ]
+
+
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
+log.debug("TEST")
+logging.debug("TEST2")
 
 class CardColors(enum.Enum):
     RED = "red"
@@ -169,31 +176,32 @@ class Card:
         
         """
         if other.color == CardColors.COLORFULL:
+            log.debug("other card is colorfull")
             return False
         if self.is_active:
             if not other.is_active:
+                log.debug("other card is not active")
                 return False
         if not self.functions == other.functions or not self.color == other.color:
+            log.debug("function or color is not same")
             return False
         return True
 
     def __str__(self):
-        prefix = []
+        prefix = ""
         for f in self.functions:
-            prefix.append(
+            prefix += (
                 {
                     CardFunctions.CHANGE_COLOR: "color chagner",
                     CardFunctions.REVERSE: "reverse",
-                    CardFunctions.STOP: "stop"
+                    CardFunctions.STOP: "stop",
                 }.get(f, "")
             )
-        if prefix:
-            prefix = " ".join(prefix)
         number = ""
         if self.value:
-            if self.draw_value > 0:
-                number += "+"
             number += str(self.value)
+        if self.draw_value > 0:
+            number += f"+{self.draw_value}"
         color = self.color.name.lower()
         l = []
         for x in (prefix, number, color):
@@ -281,7 +289,7 @@ class NewCardStack:
             self.stack.extend(
                 [
                     Card(
-                        function=CardFunctions.DRAW_CARDS,
+                        function=[CardFunctions.DRAW_CARDS, CardFunctions.CHANGE_COLOR],
                         color=CardColors.COLORFULL,
                         draw_value=4,
                         is_active=True,
@@ -522,6 +530,7 @@ class OnuHandler:
 
 # bare example
 if __name__ == "__main__":
+    log.debug("TEST")
     class test(OnuHandler):
         def on_event(self, event: Event):
             print(event)
