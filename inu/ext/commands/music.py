@@ -580,7 +580,7 @@ async def _leave(guild_id: int):
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("play", "play a matching song to your query")
+@lightbulb.command("play", "play a matching song to your query", aliases=["pl"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def play(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
