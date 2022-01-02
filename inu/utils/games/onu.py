@@ -47,8 +47,6 @@ __all__: Final[List[str]] = [
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
-log.debug("TEST")
-logging.debug("TEST2")
 
 class CardColors(enum.Enum):
     RED = "red"
@@ -132,7 +130,7 @@ class Card:
             self.value = self.get_value_from_design(self.design)
         else:
             self.value = value
-        self.is_active = is_active
+        self.is_active = is_active or bool(draw_value)
         self.draw_value = self.get_draw_value(self.design)
         
     
@@ -176,14 +174,14 @@ class Card:
         
         """
         if other.color == CardColors.COLORFULL:
-            log.debug("other card is colorfull")
+            print("other card is colorfull")
             return False
         if self.is_active:
             if not other.is_active:
-                log.debug("other card is not active")
+                print("other card is not active")
                 return False
-        if not self.functions == other.functions or not self.color == other.color:
-            log.debug("function or color is not same")
+        if not (self.functions == other.functions or self.color == other.color):
+            print("function or color is not same")
             return False
         return True
 
@@ -259,13 +257,11 @@ class NewCardStack:
                             card_design=CardDesigns.REVERSE,
                             function=CardFunctions.REVERSE,
                             color=color,
-                            is_active=True,
                         ),
                         Card(
                             card_design=CardDesigns.STOP,
                             function=CardFunctions.STOP,
                             color=color,
-                            is_active=True,
                         ),
                     ]
                 )
@@ -322,6 +318,8 @@ class CastOffStack:
         return self.stack[-1]
         
     def append(self, card: Card):
+        if self.draw_calue and CardFunctions.REVERSE in card.functions:
+            card.is_active = True
         self.stack.append(card)
         self._draw_value += card.draw_value
         
