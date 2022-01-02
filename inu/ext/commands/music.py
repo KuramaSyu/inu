@@ -53,7 +53,6 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
-        log.debug(f"call queue, {event.guild_id}")
         await queue(guild_id=event.guild_id)
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
@@ -61,8 +60,10 @@ class EventHandler:
         track = node.queue[0].track
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
-    async def track_finish(self, _: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
-        log.info("Track finished on guild: %s", event.guild_id)
+    async def track_finish(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
+        node = await lavalink.get_guild_node(event.guild_id)
+        if len(node) == 0:
+            await _leave(event.guild_id)
 
     async def track_exception(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackException) -> None:
         log.warning("Track exception event happened on guild: %d", event.guild_id)
@@ -560,8 +561,7 @@ async def leave(ctx: context.Context) -> None:
     """Leaves the voice channel the bot is in, clearing the queue."""
     if not ctx.guild_id:
         return  # just for pylance
-    await music._leave(ctx.guild_id)
-    await ctx.respond("Left voice channel")
+    await _leave(ctx.guild_id)
 
 async def _leave(guild_id: int):
     await music.bot.data.lavalink.destroy(guild_id)
