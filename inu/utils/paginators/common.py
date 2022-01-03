@@ -143,7 +143,8 @@ class Paginator():
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
         listen_to_events: List[Any] = [],
-        compact: Optional[bool] = None
+        compact: Optional[bool] = None,
+        default_site: Optional[int] = 0,
     ):
         """
         A Paginator with many options
@@ -186,6 +187,7 @@ class Paginator():
         self._message: Message
         self._component_factory = component_factory
         self._components_factory = components_factory
+        self._default_site = default_site
         self.bot: lightbulb.BotApp
         self.ctx: Context
 
@@ -422,14 +424,14 @@ class Paginator():
             kwargs["component"] = self.component
         elif not self._disable_components:
             kwargs["components"] = self.components
-        if isinstance(self.pages[0], Embed):
+        if isinstance(self.pages[self._default_site], Embed):
             msg_proxy = await ctx.respond(
                 embed=self.pages[0],
                 **kwargs
             )
         else:
             msg_proxy = await ctx.respond(
-                content=self.pages[0],
+                content=self.pages[self._default_site],
                 **kwargs
             )
         self._message = await msg_proxy.message()
