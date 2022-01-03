@@ -247,6 +247,7 @@ class TagHandler(Paginator):
         disable_component: bool = True,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = False,
+
     ):
 
         self.tag: Tag
@@ -563,6 +564,7 @@ class TagHandler(Paginator):
         self.embed.description = self.tag.value
         self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
+        self._default_site = len(self._pages) - 1
 
     async def prepare_new_tag(self, author):
         """
