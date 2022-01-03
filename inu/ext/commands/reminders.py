@@ -28,7 +28,7 @@ from utils import HikariReminder
 
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 plugin = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
 
