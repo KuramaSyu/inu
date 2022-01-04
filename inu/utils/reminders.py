@@ -93,10 +93,18 @@ class TimeParser:
 
 
     def parse(self):
+        """
+        parses the query to wait time in seconds and unused query (the remind text).
+        """
         gen = NumberWordIterator(self.query)
         str_unit = ""
         amount: float = None
         matches = {}
+        # iterate through query. each iteration is a float or a str.
+        # if its a float, it will be stored as amount
+        # if its a str, its will be stored as the unit
+        # -> converting str to a unit
+        # actual add (unit to seconds) * amount (by default 1) to total waiting seconds 
         for item in gen:
             if isinstance(item, float):
                 amount = item
@@ -124,7 +132,7 @@ class TimeParser:
                 else:
                     self.matches[unit.name] = amount
 
-                unit = ""
+                str_unit = ""
                 amount = None
         #for str_unit, amount in matches.items():
 
@@ -215,7 +223,7 @@ class HikariReminder(BaseReminder):
         """
         if not self.id:
             return  # reminder was to short to being stored
-        Reminders.delete_reminder_by_id(self.id)
+        await Reminders.delete_reminder_by_id(self.id)
 
     def from_database(
         self,
@@ -373,7 +381,7 @@ class Reminders:
         record = await cls.db.row(sql, id)
         if not record:
             return None
-        return record["id"]
+        return record["reminder_id"]
 
     @classmethod
     def set_db(cls, db: Database):
