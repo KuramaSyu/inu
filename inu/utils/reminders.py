@@ -213,10 +213,14 @@ class HikariReminder(BaseReminder):
         if self.remind_text:
             embed.description += self.remind_text
         if self.ctx:
-            await self.ctx.author.send(embed=embed)
+            asyncio.Task(self.ctx.author.send(embed=embed))
         else:
-            await (await Reminders.bot.rest.fetch_user(self.creator_id)).send(embed=embed)
-
+            async def send(self):
+                await (await Reminders.bot.rest.fetch_user(self.creator_id)).send(embed=embed)
+            asyncio.Task(send(self))
+        if self.guild_id:
+            asyncio.Task(self.ctx.bot.rest.create_message(self.channel_id, embed=embed))
+        
     async def destroy_reminder(self):
         """
         Deleting the DB entry
