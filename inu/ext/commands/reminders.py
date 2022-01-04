@@ -24,7 +24,7 @@ from numpy import isin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from utils import HikariReminder
+from utils import HikariReminder, Human
 
 
 log = logging.getLogger(__name__)
@@ -98,7 +98,7 @@ async def create_reminder(ctx: context.Context):
         ctx.options.info,
         ctx,
     )
-    await ctx.respond(f"reminding you to: {str(reminder.datetime)}\nSeconds: {reminder.in_seconds}")
+    await ctx.respond(f"reminding you to: {str(reminder.datetime)}\nSeconds: {Human.number(reminder.in_seconds)}")
 
 
 def load(bot: lightbulb.BotApp):
