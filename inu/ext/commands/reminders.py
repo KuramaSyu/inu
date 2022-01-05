@@ -23,6 +23,7 @@ import hikari
 from numpy import isin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from utils.reminders import Reminders
 
 from utils import HikariReminder, Human
 
@@ -30,52 +31,32 @@ from utils import HikariReminder, Human
 log = logging.getLogger(__name__)
 log.setLevel(logging.INFO)
 
-plugin = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
+# the time in seconds, after the next sql statement, to get further reminders, will be executed
+REMINDER_UPDATE = 5*60
 
-reminders = set()
+plugin = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
 
 @plugin.listener(hikari.ShardReadyEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
-    trigger = IntervalTrigger(seconds=10)
+    await asyncio.sleep(3)
+    await load_upcoming_reminders()
+
+    trigger = IntervalTrigger(seconds=REMINDER_UPDATE)
     plugin.bot.scheduler.add_job(load_upcoming_reminders, trigger)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
-    trigger = IntervalTrigger(minutes=5)
-    plugin.bot.scheduler.add_job(clean_up_reminder_set, trigger)
-
-def clean_up_reminder_set():
-    try:
-        datetime_ = datetime.datetime.now()
-        for r in reminders.copy():
-            if r["remind_time"] < datetime_:
-                reminders.remove(r)
-    except Exception:
-        log.debug(traceback.format_exc())
 
 async def load_upcoming_reminders():
     sql = """
     SELECT * FROM reminders
     WHERE remind_time < $1
     """
-    timestamp = datetime.datetime.fromtimestamp((time.time() + (4.25 * 60)))
+    timestamp = datetime.datetime.fromtimestamp((time.time() + (REMINDER_UPDATE+10)))
     records = await plugin.bot.db.fetch(
         sql,
         timestamp,
     )
-    for r in records:
-        if r in reminders:
-            continue
-        reminders.add(r)
-        reminder = HikariReminder(
-            channel_id=r["channel_id"],
-            creator_id=r["creator_id"],
-            message_id=r["message_id"],
-        )
-        reminder.from_database(
-            r["reminder_id"],
-            r["remind_time"],
-            r["remind_text"],
-        )
-    log.debug(reminders)
+    Reminders.add_reminders_to_set(records)
+
         
 
 @plugin.command
