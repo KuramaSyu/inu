@@ -1,10 +1,13 @@
 import asyncio
+import builtins
 from distutils.debug import DEBUG
 import datetime
 import os
 import traceback
 import typing
 from typing import (
+    Any,
+    List,
     Mapping,
     Union,
     Optional
@@ -15,6 +18,7 @@ import logging
 import lightbulb
 from lightbulb import context, commands
 import hikari
+from hikari.snowflakes import Snowflakeish
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
@@ -40,8 +44,9 @@ class Inu(lightbulb.BotApp):
             token=self.conf.DISCORD_TOKEN, 
             **kwargs,
             case_insensitive_prefix_commands=True,
-        )
 
+        )
+        self.mrest: MaybeRest = MaybeRest(self)
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
 
@@ -123,3 +128,28 @@ class Configuration():
         if result == None:
             raise AttributeError(f"`Configuration` (.env in root dir) has no attribute `{name}`")
         return result
+
+
+class MaybeRest:
+    def __init__(self, bot: lightbulb.BotApp):
+        self.bot = bot
+
+    async def fetch_T(self, cache_method: "function", rest_coro: Any , t_ids: List[Snowflakeish]):
+        t = cache_method(*t_ids)
+        if t:
+            return t
+        return await rest_coro(*t_ids)
+
+    async def fetch_user(self, user_id) -> Optional[hikari.User]:
+        return await self.fetch_T(
+            cache_method=self.bot.cache.get_user,
+            rest_coro= self.bot.rest.fetch_user,
+            t_ids=[user_id],
+        )
+
+    async def fetch_member(self, member_id) -> Optional[hikari.Member]:
+        return await self.fetch_T(
+            cache_method=self.bot.cache.get_member,
+            rest_coro= self.bot.rest.fetch_member,
+            t_ids=[member_id],
+        )
