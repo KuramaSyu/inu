@@ -1,3 +1,4 @@
+import traceback
 from typing import *
 import json
 import logging
@@ -10,12 +11,19 @@ import hikari
 from hikari.embeds import Embed
 import lightbulb
 from lightbulb.context import Context
+import asyncpg
+
+from core.bot import Inu
 
 from .db import Database
 from .string_crumbler import PeekIterator, NumberWordIterator
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+
+# the time in seconds, after the next sql statement, to get further reminders, will be executed
+REMINDER_UPDATE = 5*60
+
 
 class TimeUnits(Enum):
     second = {
@@ -179,9 +187,10 @@ class HikariReminder(BaseReminder):
         self.channel_id = channel_id
         self.creator_id = creator_id
         self.ctx = ctx
+        self.bot: Inu = Reminders.bot
 
         if self._query:
-            if self.in_seconds > 4*60:
+            if self.in_seconds >= Reminders.REMINDER_UPDATE:
                 loop = asyncio.get_event_loop()
                 asyncio.Task(self.store_reminder(), loop=loop)
             else:
@@ -194,7 +203,6 @@ class HikariReminder(BaseReminder):
         return ch.guild_id
 
     async def store_reminder(self):
-        log.debug(Reminders.db)
         self.id = await Reminders.add_reminder(self)
 
     async def schedule(self):
@@ -203,31 +211,35 @@ class HikariReminder(BaseReminder):
         await self.send_message()
 
     async def send_message(self):
-        embed = Embed(title="Reminder", description='')
+        embed = Embed(description='')
+        if self.remind_text:
+            embed.description += f"{self.remind_text} \n"
         if self.message_id != 0:
             if self.ctx:
                 d = f"[jump to your message]({self.ctx.event.message.make_link(self.ctx.guild_id)}) \n"
             else:
                 d = f"[jump to your message]({(await Reminders.bot.rest.fetch_message(self.channel_id, self.message_id)).make_link(self.guild_id)}) \n"
             embed.description += d
-        if self.remind_text:
-            embed.description += self.remind_text
-        if self.ctx:
-            asyncio.Task(self.ctx.author.send(embed=embed))
-        else:
-            async def send(self):
-                await (await Reminders.bot.rest.fetch_user(self.creator_id)).send(embed=embed)
-            asyncio.Task(send(self))
+        user = await self.bot.mrest.fetch_user(self.creator_id)
+        embed.title = f"Reminder"
+        embed.description += user.mention
+        embed.set_thumbnail(user.avatar_url)
+        asyncio.Task(user.send(embed=embed))
+        # else:
+        #     async def send(self):
+        #         await (await Reminders.bot.rest.fetch_user(self.creator_id)).send(embed=embed)
+        #    asyncio.Task(send(self))
         if self.guild_id:
-            asyncio.Task(self.ctx.bot.rest.create_message(self.channel_id, embed=embed))
+            asyncio.Task(self.bot.rest.create_message(self.channel_id, embed=embed))
         
     async def destroy_reminder(self):
         """
-        Deleting the DB entry
+        Deleting the DB entry, and the element in the set
         """
         if not self.id:
             return  # reminder was to short to being stored
-        await Reminders.delete_reminder_by_id(self.id)
+        record = await Reminders.delete_reminder_by_id(self.id)
+        Reminders.delete_from_set(record)
 
     def from_database(
         self,
@@ -285,6 +297,8 @@ class HikariReminder(BaseReminder):
 class Reminders:
     db: Database
     bot: lightbulb.BotApp
+    running_reminders = set()
+    REMINDER_UPDATE = REMINDER_UPDATE
     
     def __init__(self, key: Optional[str] = None):
         self.key = key
@@ -293,8 +307,6 @@ class Reminders:
     async def init_bot(cls, bot: lightbulb.BotApp):
         cls.bot = bot
         cls.db = bot.db
-        log.info("start cleaning task")
-        print("aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa")
         await cls.clean_up_reminders()
 
     @classmethod
@@ -306,6 +318,32 @@ class Reminders:
         """
         records = await cls.db.fetch(sql, datetime.datetime.now())
         log.info(f"Ceaned up reminders; {len(records)} reminders where removed")
+
+    @classmethod
+    def add_reminders_to_set(cls, records: List[asyncpg.Record]):
+        for r in records:
+            if r in cls.running_reminders:
+                continue
+            cls.running_reminders.add(r)
+            log.debug(f"add: {r}")
+            reminder = HikariReminder(
+                channel_id=r["channel_id"],
+                creator_id=r["creator_id"],
+                message_id=r["message_id"],
+            )
+            reminder.from_database(
+                r["reminder_id"],
+                r["remind_time"],
+                r["remind_text"],
+            )
+
+    @classmethod
+    def delete_from_set(cls, reminder: asyncpg.Record):
+        log.debug("del: {reminder}")
+        try:
+            cls.running_reminders.remove(reminder)
+        except Exception:
+            log.warning(f"utils.Reminders - delte_from_set \n {traceback.format_exc()}")
 
     @classmethod
     async def add_reminder(cls, reminder: HikariReminder) -> int:
@@ -338,7 +376,7 @@ class Reminders:
         return id
 
     @classmethod
-    async def fetch_reminder_by_id(cls, id: int) -> Optional[HikariReminder]:
+    async def fetch_reminder_by_id(cls, id: int) -> Optional[asyncpg.Record]:
         """
         Fetches the reminder by id from the DB
 
@@ -357,12 +395,7 @@ class Reminders:
         record = await cls.db.row(sql, id)
         if not record:
             return None
-        reminder = HikariReminder(
-            message_id=record["message_id"],
-            channel_id=record["channel_id"],
-            creator_id=record["creator_id"],
-        )
-        reminder.from_database(record["id"], record["remind_time"], record["remind_text"])
+        return record
 
     @classmethod
     async def delete_reminder_by_id(cls, id: int) -> Optional[int]:
