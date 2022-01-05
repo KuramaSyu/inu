@@ -3,7 +3,6 @@
 import os
 import asyncio
 import logging
-from asyncpg.exceptions import InsufficientPrivilegeError
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
