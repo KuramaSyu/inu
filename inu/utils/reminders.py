@@ -322,9 +322,9 @@ class Reminders:
     @classmethod
     def add_reminders_to_set(cls, records: List[asyncpg.Record]):
         for r in records:
-            if r in cls.running_reminders:
+            if r["creator_id"] in cls.running_reminders:
                 continue
-            cls.running_reminders.add(r)
+            cls.running_reminders.add(r["reminder_id"])
             log.debug(f"add: {r}")
             reminder = HikariReminder(
                 channel_id=r["channel_id"],
@@ -339,9 +339,9 @@ class Reminders:
 
     @classmethod
     def delete_from_set(cls, reminder: asyncpg.Record):
-        log.debug("del: {reminder}")
+        log.debug(f"del: {reminder}")
         try:
-            cls.running_reminders.remove(reminder)
+            cls.running_reminders.remove(reminder["reminder_id"])
         except Exception:
             log.warning(f"utils.Reminders - delte_from_set \n {traceback.format_exc()}")
 
@@ -398,7 +398,7 @@ class Reminders:
         return record
 
     @classmethod
-    async def delete_reminder_by_id(cls, id: int) -> Optional[int]:
+    async def delete_reminder_by_id(cls, id: int) -> asyncpg.Record:
         """
         Fetches the reminder by id from the DB
 
@@ -418,7 +418,7 @@ class Reminders:
         record = await cls.db.row(sql, id)
         if not record:
             return None
-        return record["reminder_id"]
+        return record
 
     @classmethod
     def set_db(cls, db: Database):
