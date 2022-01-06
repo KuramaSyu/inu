@@ -114,14 +114,29 @@ class TimeParser:
         Tries to pare relative time, and after that (if there was no relative time)
         it tries to pare datetime
         """
-        secs = self.in_seconds
-        mut_query = self.parse_relative_time(self.query)
-        print(1, mut_query)
-        parse_end_index = self.parse_time(self.query)
-        print(2, self.query[parse_end_index:])
-        mut_query = self.parse_relative_time(self.query[parse_end_index:])
-        print(3, mut_query)
-        self.parse_date()
+        print(0, self.query)
+        parse_end_indexes = []
+        i1 = self.parse_relative_time(self.query)
+        parse_end_indexes.append(i1)
+        print(1, i1, self.query[i1:])
+
+        i2 = self.parse_time(self.query)
+        if i2 != -1:
+            print(2, i2, self.query[i2:])
+            parse_end_indexes.append(i2)
+            i3 = self.parse_relative_time(self.query[i2:])
+            i3 += i2
+            parse_end_indexes.append(i3)
+            print(3, i3, self.query[i3:])
+        i4 = self.parse_date(self.query)
+        if i4 != -1:
+            print(4, i4, self.query[i4:])
+            parse_end_indexes.append(i4)
+            i5 = self.parse_relative_time(self.query[i4:])
+            i5 += i4
+            parse_end_indexes.append(i5)
+            print(5, i5, self.query[i5:])
+        self.unused_query = self.query[max(parse_end_indexes):]
     
     def parse_time(self, mut_query: str):
         """
@@ -153,28 +168,22 @@ class TimeParser:
             if time[0] == 24:
                 time[0] = 0
         else:
-            return
+            return -1
 
         now = datetime.datetime.now()
         alert = datetime.datetime(
             year=now.year,
             month=now.month,
             day=now.day,
-            hour=time[0],
-            minute=time[1],
+            hour=int(time[0]),
+            minute=int(time[1]),
         )
         while alert < now:
-            add = 12
+            t = datetime.timedelta(hours=12)
             if time[2] in ["AM", "PM"]:
                 self.is_interpreted = True
-                add = 24
-            alert = datetime.datetime(
-                year=alert.year,
-                month=alert.month,
-                day=alert.day,
-                hour=alert.hour + add,
-                minute=alert.minute,
-            )
+                t = datetime.timedelta(hours=24)
+            alert += t
         self.in_seconds += float(alert.timestamp() - now.timestamp())
         self.unused_query = self.unused_query.replace(str(raw_str), "")
         # for mut_query
@@ -182,21 +191,37 @@ class TimeParser:
         if i != -1:
             i += len(time_[0])
         return i
-    def parse_date(self):
-        pass
 
-    def parse_relative_time(self, query: str) -> str:
+    def parse_date(self, query: str):
+        indexes = []
+        regex = r"(([12]\d{3})[/.-](0[1-9]|1[0-2])[/.-](0[1-9]|[12]\d|3[01]))"
+        dates = re.findall(regex, query)
+        if not dates:
+            return -1
+        now = datetime.datetime.now()
+        for date in dates:
+            alert = datetime.datetime(
+                year=int(date[1]),
+                month=int(date[2]),
+                day=int(date[3]),
+            )
+            self.in_seconds += alert.timestamp() - now.timestamp()
+            indexes.append(self.query.find(date[0])+len(date[0]))
+        return max(indexes)
+        
+
+    def parse_relative_time(self, query: str) -> int:
         """
         Returns
         -------
-            - (str) rest query
+            - (int) the index, where the parser has stopped to parse
         """
         gen = NumberWordIterator(query)
         str_unit = ""
         amount: float = None
         matches = {}
         is_changed = False
-        mut_query = query
+        parse_end_index = -1
         # iterate through query. each iteration is a float or a str.
         # if its a float, it will be stored as amount
         # if its a str, its will be stored as the unit
@@ -221,8 +246,7 @@ class TimeParser:
                 if not unit:
                     self.unresolved.append([str_unit, amount])
                     if is_changed:
-                        self.unused_query = query[gen.last_word_index-1:]
-                        mut_query = query[:gen.last_word_index-1]
+                        parse_end_index = gen.last_word_index-1
                     break
                 is_changed = True
                 self.in_seconds += TimeConverter.to_seconds(unit, amount)
@@ -233,7 +257,7 @@ class TimeParser:
 
                 str_unit = ""
                 amount = None
-        return mut_query if is_changed else query
+        return parse_end_index
         #for str_unit, amount in matches.items():
 
 
