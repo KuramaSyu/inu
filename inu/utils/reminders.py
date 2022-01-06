@@ -6,12 +6,14 @@ import datetime
 import asyncio
 from enum import Enum
 import time
+import re
 
 import hikari
 from hikari.embeds import Embed
 import lightbulb
 from lightbulb.context import Context
 import asyncpg
+
 
 from core.bot import Inu
 
@@ -103,7 +105,51 @@ class TimeParser:
     def parse(self):
         """
         parses the query to wait time in seconds and unused query (the remind text).
+        Tries to pare relative time, and after that (if there was no relative time)
+        it tries to pare datetime
         """
+        secs = self.in_seconds
+        self.parse_relative_time()
+        if secs != self.in_seconds:
+            return
+        self.parse_time()
+        self.parse_date()
+    
+    def parse_time(self):
+        # endtime HH:MM 24h
+        # (HH, MM)
+        time = []
+
+
+        if not time:
+            # HH:MM 12-hour format, optional leading 0, mandatory meridiems (AM/PM)
+            regex_hh_mm_12 = r"(([0-9]|0[0-9]|1[0-2]):([0-5][0-9])[ ]?([AaPp][Mm]){1,1})"
+            time_list = re.findall(regex_hh_mm_12, self.query)
+            if time_list:
+                time_ = time_list[0]
+                mul = 2 if time_[3] == "pm" else 1  #am, pm ""
+                time = [int(time_[1])*mul, int(time_[2])]
+
+        if not time:
+            #HH:MM 24-hour with leading 0
+            regex_hh_mm_24 = r"(([0-9]|0[0-9]|1[0-9]|2[0-4]):([0-5][0-9]))"
+            time_list = re.findall(regex_hh_mm_24, self.query)
+            if time_list:
+                time_ = time_list[0]
+                time = [int(time_[1]), int(time_[2])] #HH, MM
+
+
+        if time:
+            if time[0] == 24:
+                time[0] = 0
+        return time          
+        
+
+    
+    def parse_date(self):
+        pass
+
+    def parse_relative_time(self):
         gen = NumberWordIterator(self.query)
         str_unit = ""
         amount: float = None
