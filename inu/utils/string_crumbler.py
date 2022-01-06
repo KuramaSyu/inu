@@ -214,13 +214,16 @@ class NumberWordIterator:
         ) -> None:
             self.to_iter = to_iter.lower()
             self._gen = (c for c in to_iter)
-            
-            self.peek_char = self._gen.__next__()
+            self.eof = False
+            try:
+                self.peek_char = self._gen.__next__()
+            except:
+                self.eof = True
             self.peek_index = 1
             self.index = 0
             self.last_word_index = 0
             self.peek: str = ''
-            self.eof = False
+
             self._step()
             
 
@@ -252,6 +255,8 @@ class NumberWordIterator:
         while self.peek_char in number_chars:
             if self.peek_char == " ":
                 self.peek_char: str = self.__next_incr()
+                break
+            if self.peek_char == "-" and number != "":
                 break
             if self.peek_char in ".,":
                 if has_point:
