@@ -1,0 +1,14 @@
+I accept stuff like:
+ 
+ **Fist some examples:**
+- `1min 3s 40y 4h`
+- `4:00pm 32s 1 day`
+- `16:00`
+- `2022-12-31`
+
+**Now in detail:**
+- relative time stuff like 3min
+-> I know nearly every unit and it's short form e.g. (second, sec, s; minute, min, m)..
+- time in form of `HH:MM`
+-> You can use 24h format or 12 format am/pm
+- dates in form of `yyyy-mm-dd or yyyy/mm/dd`
