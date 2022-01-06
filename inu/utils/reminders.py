@@ -85,11 +85,16 @@ class TimeConverter:
     def all_aliases(cls) -> List[str]:
         return [alias for unit in [unit.value for unit in TimeUnits] for alias in unit["aliases"]]
 
-    @staticmethod
-    def get_unit(str_unit: str) -> Optional[TimeUnits]:
+    @classmethod
+    def get_unit(cls, str_unit: str) -> Optional[TimeUnits]:
         for unit in TimeUnits.__members__.values():
             if str_unit in unit.value["aliases"]:
                 return unit
+
+    @classmethod
+    def time_to_seconds(cls, time: List) -> int:
+        return int(cls.hour.value["in_seconds"]*time[0], cls.minute.value["in_seconds"]*time[1])
+
 
 class TimeParser:
     def __init__(self, query: str):
@@ -100,6 +105,7 @@ class TimeParser:
         self.unresolved = []
         self.unused_query = ""
         self.parse()
+        self.is_interpreted = False
 
 
     def parse(self):
@@ -109,18 +115,23 @@ class TimeParser:
         it tries to pare datetime
         """
         secs = self.in_seconds
-        self.parse_relative_time()
-        if secs != self.in_seconds:
-            return
-        self.parse_time()
+        mut_query = self.parse_relative_time(self.query)
+        print(1, mut_query)
+        parse_end_index = self.parse_time(self.query)
+        print(2, self.query[parse_end_index:])
+        mut_query = self.parse_relative_time(self.query[parse_end_index:])
+        print(3, mut_query)
         self.parse_date()
     
-    def parse_time(self):
+    def parse_time(self, mut_query: str):
+        """
+        - Adds the timediff (seconds) as timestamp to `self.in_seconds`
+        - Changes `self.unused_query`
+        """
         # endtime HH:MM 24h
-        # (HH, MM)
+        # (HH, MM, "AM"|"PM"|"")
+        raw_str = ""
         time = []
-
-
         if not time:
             # HH:MM 12-hour format, optional leading 0, mandatory meridiems (AM/PM)
             regex_hh_mm_12 = r"(([0-9]|0[0-9]|1[0-2]):([0-5][0-9])[ ]?([AaPp][Mm]){1,1})"
@@ -128,32 +139,64 @@ class TimeParser:
             if time_list:
                 time_ = time_list[0]
                 mul = 2 if time_[3] == "pm" else 1  #am, pm ""
-                time = [int(time_[1])*mul, int(time_[2])]
-
+                time = [int(time_[1])*mul, int(time_[2]), time_[3].upper()]
+                raw_str = time_[0]
         if not time:
             #HH:MM 24-hour with leading 0
             regex_hh_mm_24 = r"(([0-9]|0[0-9]|1[0-9]|2[0-4]):([0-5][0-9]))"
             time_list = re.findall(regex_hh_mm_24, self.query)
             if time_list:
                 time_ = time_list[0]
-                time = [int(time_[1]), int(time_[2])] #HH, MM
-
-
+                time = [int(time_[1]), int(time_[2]), ""] #HH, MM
+                raw_str = time_[0]
         if time:
             if time[0] == 24:
                 time[0] = 0
-        return time          
-        
+        else:
+            return
 
-    
+        now = datetime.datetime.now()
+        alert = datetime.datetime(
+            year=now.year,
+            month=now.month,
+            day=now.day,
+            hour=time[0],
+            minute=time[1],
+        )
+        while alert < now:
+            add = 12
+            if time[2] in ["AM", "PM"]:
+                self.is_interpreted = True
+                add = 24
+            alert = datetime.datetime(
+                year=alert.year,
+                month=alert.month,
+                day=alert.day,
+                hour=alert.hour + add,
+                minute=alert.minute,
+            )
+        self.in_seconds += float(alert.timestamp() - now.timestamp())
+        self.unused_query = self.unused_query.replace(str(raw_str), "")
+        # for mut_query
+        i = mut_query.find(time_[0])
+        if i != -1:
+            i += len(time_[0])
+        return i
     def parse_date(self):
         pass
 
-    def parse_relative_time(self):
-        gen = NumberWordIterator(self.query)
+    def parse_relative_time(self, query: str) -> str:
+        """
+        Returns
+        -------
+            - (str) rest query
+        """
+        gen = NumberWordIterator(query)
         str_unit = ""
         amount: float = None
         matches = {}
+        is_changed = False
+        mut_query = query
         # iterate through query. each iteration is a float or a str.
         # if its a float, it will be stored as amount
         # if its a str, its will be stored as the unit
@@ -177,9 +220,11 @@ class TimeParser:
                 unit = TimeConverter.get_unit(str_unit)
                 if not unit:
                     self.unresolved.append([str_unit, amount])
-                    if self.unused_query == "":
-                        self.unused_query = self.query[gen.last_word_index-1:]
+                    if is_changed:
+                        self.unused_query = query[gen.last_word_index-1:]
+                        mut_query = query[:gen.last_word_index-1]
                     break
+                is_changed = True
                 self.in_seconds += TimeConverter.to_seconds(unit, amount)
                 if self.matches.get(unit.name):
                     self.matches[unit.name] += amount
@@ -188,6 +233,7 @@ class TimeParser:
 
                 str_unit = ""
                 amount = None
+        return mut_query if is_changed else query
         #for str_unit, amount in matches.items():
 
 
