@@ -7,11 +7,16 @@ from typing import (
     Optional
 )
 import logging
+import datetime
+from datetime import datetime, timedelta, timezone
 
 import hikari
+from hikari.impl import ActionRowBuilder
+from hikari.interactions.component_interactions import ComponentInteraction
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
+
 from utils import DailyContentChannels
 from core import Inu
 from utils.r_channel_manager import Columns as Col
@@ -126,6 +131,47 @@ async def add(ctx: Context):
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def remove(ctx: Context):
     pass
+
+@settings.child
+@lightbulb.command("timezone", "Timezone related commands")
+@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+async def timez(ctx: Context):
+    pass
+
+@timez.child
+@lightbulb.command("set", "Set the timezone of your guild - interactive")
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
+async def timez_set(ctx: Context):
+    menu = (
+        ActionRowBuilder()
+        .add_select_menu("timezone_menu")
+    )
+    for x in range(-5,2,1):
+        t = timezone(offset=timedelta(hours=x))
+        now = datetime.now(tz=t)
+        menu.add_option(
+            f"{now.hour}:{now.minute} | {t}",
+            str(x)
+        ).add_to_menu()
+    menu = menu.add_to_container()
+    await ctx.respond("How late is it in your region?", component=menu)
+    try:
+        event = await plugin.bot.wait_for(
+            hikari.InteractionCreateEvent,
+            timeout=10*60,
+            predicate=lambda e: (
+                isinstance(e.interaction, ComponentInteraction)
+                and e.interaction.user.id == ctx.author.id
+                and e.interaction.custom_id == "timezone_menu"
+                and e.interaction.channel_id == ctx.channel_id
+            )
+        )
+        if not isinstance(event.interaction, ComponentInteraction):
+            return
+        print(event.interaction.values[0])
+    except asyncio.TimeoutError:
+        pass
+
 
 def load(bot: Inu):
     bot.add_plugin(plugin)
