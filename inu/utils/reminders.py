@@ -100,7 +100,7 @@ class TimeParser:
     def __init__(self, query: str, offset_hours: int):
 
         self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self.log.setLevel(logging.INFO)
+        self.log.setLevel(logging.DEBUG)
 
         self.query = query
         self.in_seconds: float = 0
@@ -128,24 +128,24 @@ class TimeParser:
         parse_end_indexes = []
         i1 = self.parse_relative_time(self.query)
         parse_end_indexes.append(i1)
-        self.log.debug(1, i1, self.query[i1:])
+        self.log.debug(f"1, {i1}, {self.query[i1:]}")
 
         i2 = self.parse_time(self.query)
         if i2 != -1:
-            self.log.debug(2, i2, self.query[i2:])
+            self.log.debug(f"2, {i2}, {self.query[i2:]}")
             parse_end_indexes.append(i2)
             i3 = self.parse_relative_time(self.query[i2:])
             i3 += i2
             parse_end_indexes.append(i3)
-            self.log.debug(3, i3, self.query[i3:])
+            self.log.debug(f"3, {i3}, {self.query[i3:]}")
         i4 = self.parse_date(self.query)
         if i4 != -1:
-            self.log.debug(4, i4, self.query[i4:])
+            self.log.debug(f"4, {i4}, {self.query[i4:]}")
             parse_end_indexes.append(i4)
             i5 = self.parse_relative_time(self.query[i4:])
             i5 += i4
             parse_end_indexes.append(i5)
-            self.log.debug(5, i5, self.query[i5:])
+            self.log.debug(f"5, {i5}, {self.query[i5:]}")
 
         unesed_query_start = max(parse_end_indexes)
         if unesed_query_start != -1:
@@ -272,7 +272,7 @@ class TimeParser:
 
                 str_unit = ""
                 amount = None
-        if parse_end_index == -1:
+        if parse_end_index == -1 and is_changed:
             parse_end_index = gen.index
         return parse_end_index
 
