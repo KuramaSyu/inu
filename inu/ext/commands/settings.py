@@ -12,6 +12,7 @@ from datetime import datetime, timedelta, timezone
 
 import hikari
 from hikari.impl import ActionRowBuilder
+from hikari.interactions.base_interactions import ResponseType
 from hikari.interactions.component_interactions import ComponentInteraction
 import lightbulb
 from lightbulb.context import Context
@@ -20,6 +21,7 @@ from lightbulb import commands
 from utils import DailyContentChannels
 from core import Inu
 from utils.r_channel_manager import Columns as Col
+from utils import Table
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -168,7 +170,13 @@ async def timez_set(ctx: Context):
         )
         if not isinstance(event.interaction, ComponentInteraction):
             return
-        print(event.interaction.values[0])
+        table = Table("guild_timezones")
+        entry = await table.upsert(["guild_id", "offset_hours"], [ctx.guild_id, int(event.interaction.values[0])])
+        log.debug(entry)
+        await event.interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"_successfully stored in my mind_")
+        r = await table.select(["guild_id", "offset_hours"], [ctx.guild_id, int(event.interaction.values[0])])
+        log.debug(r)
+
     except asyncio.TimeoutError:
         pass
 
