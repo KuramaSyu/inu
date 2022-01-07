@@ -1,6 +1,4 @@
 import asyncio
-import builtins
-from distutils.debug import DEBUG
 import datetime
 import os
 import traceback
@@ -22,11 +20,13 @@ from hikari.snowflakes import Snowflakeish
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 
+from .logging import LoggingHandler
 import lavasnek_rs
 
 
 class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
+        logging.setLoggerClass(LoggingHandler)
         self.conf: Configuration = Configuration(dotenv_values())
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
@@ -46,6 +46,7 @@ class Inu(lightbulb.BotApp):
             case_insensitive_prefix_commands=True,
 
         )
+        logging.setLoggerClass(LoggingHandler)
         self.mrest: MaybeRest = MaybeRest(self)
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
