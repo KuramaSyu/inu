@@ -98,6 +98,10 @@ class TimeConverter:
 
 class TimeParser:
     def __init__(self, query: str, offset_hours: int):
+
+        self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
+        self.log.setLevel(logging.INFO)
+
         self.query = query
         self.in_seconds: float = 0
         self.matches: Dict[TimeUnits, float] = {}
@@ -113,35 +117,39 @@ class TimeParser:
 
 
 
+
     def parse(self):
         """
         parses the query to wait time in seconds and unused query (the remind text).
         Tries to pare relative time, and after that (if there was no relative time)
         it tries to pare datetime
         """
-        print(0, self.query)
+        self.log.debug(0, self.query)
         parse_end_indexes = []
         i1 = self.parse_relative_time(self.query)
         parse_end_indexes.append(i1)
-        print(1, i1, self.query[i1:])
+        self.log.debug(1, i1, self.query[i1:])
 
         i2 = self.parse_time(self.query)
         if i2 != -1:
-            print(2, i2, self.query[i2:])
+            self.log.debug(2, i2, self.query[i2:])
             parse_end_indexes.append(i2)
             i3 = self.parse_relative_time(self.query[i2:])
             i3 += i2
             parse_end_indexes.append(i3)
-            print(3, i3, self.query[i3:])
+            self.log.debug(3, i3, self.query[i3:])
         i4 = self.parse_date(self.query)
         if i4 != -1:
-            print(4, i4, self.query[i4:])
+            self.log.debug(4, i4, self.query[i4:])
             parse_end_indexes.append(i4)
             i5 = self.parse_relative_time(self.query[i4:])
             i5 += i4
             parse_end_indexes.append(i5)
-            print(5, i5, self.query[i5:])
-        self.unused_query = self.query[max(parse_end_indexes):]
+            self.log.debug(5, i5, self.query[i5:])
+
+        unesed_query_start = max(parse_end_indexes)
+        if unesed_query_start != -1:
+            self.unused_query = self.query[unesed_query_start:]
     
     def parse_time(self, mut_query: str):
         """
@@ -264,10 +272,9 @@ class TimeParser:
 
                 str_unit = ""
                 amount = None
+        if parse_end_index == -1:
+            parse_end_index = gen.index
         return parse_end_index
-        #for str_unit, amount in matches.items():
-
-
 
 class BaseReminder:
     def __init__(self, query: str, hour_offset: int = 0):
@@ -491,7 +498,6 @@ class Reminders:
         VALUES($1, $2, $3, $4, $5)
         RETURNING reminder_id
         """
-        log.debug(cls.db)
         id = await cls.db.row(
             sql,
             reminder.remind_text, 
@@ -500,7 +506,6 @@ class Reminders:
             reminder.message_id,
             reminder.datetime
         )
-        log.debug(id)
         return id
 
     @classmethod
