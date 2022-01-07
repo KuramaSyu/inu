@@ -4,14 +4,16 @@ import os
 import asyncio
 import logging
 
+from core.logging import LoggingHandler
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
+logging.setLoggerClass(LoggingHandler)
 
 from dotenv import dotenv_values
 import hikari
 import lightbulb
 from lightbulb import events
-
+logging.setLoggerClass(LoggingHandler)
 from core import Inu
 from utils import InvokationStats, Reminders
 
