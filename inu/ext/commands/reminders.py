@@ -72,7 +72,10 @@ async def fetch_hour_offset(guild_id: int):
     table = Table("guild_timezones")
     r = await table.select(["guild_id"], [guild_id])
     log.debug(r)
-    return r[0]["offset_hours"]
+    try:
+        return r[0]["offset_hours"]
+    except IndexError:
+        return 0
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
