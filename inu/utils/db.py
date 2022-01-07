@@ -13,6 +13,7 @@ from typing import (
     Sequence
 )
 from functools import wraps
+import traceback
 
 import aiofiles
 import asyncpg
@@ -24,6 +25,8 @@ if TYPE_CHECKING:
 
 __all__: Final[Sequence[str]] = ["Database"]
 
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
@@ -147,3 +150,101 @@ class Database(metaclass=Singleton):
 ## guilds: guildid
 ####
 ## tags: id INT, tag_key - TEXT; tag_value - List[TEXT]; creator_id - INT; guild_id - INT
+
+class KeyValueDB:
+    db: Database
+
+
+class Table():
+    def __init__(self, table_name: str, do_log: bool = True):
+        self.name = table_name
+        self.db = Database()
+        self.do_log = do_log
+        self._executed_sql = ""
+
+
+    def logging(func: "function"):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            self = args[0]
+            prefix = f"{self.name}.{func.__name__}"
+            try:
+                return_value = await func(*args, **kwargs)
+                if self.do_log:
+                    log.debug(f"{prefix}: {return_value}")
+                return return_value
+            except Exception:
+                log.debug(f"{prefix}: {self._executed_sql}")
+                log.exception(f"{prefix}: {traceback.format_exc()}")
+                return None
+        return wrapper
+
+    @logging
+    async def insert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
+        values_chain = [f'${num}' for num in range(1, len(values)+1)]
+        sql = (
+            f"INSERT INTO {self.name} ({', '.join(which_columns)})"
+            f"VALUES ({', '.join(values_chain)})"
+            f"RETURNING {returning}"
+        )
+        log.debug(sql)
+        return_values = await self.db.execute(sql, *values)
+        return return_values
+
+    @logging
+    async def upsert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
+        """
+        NOTE
+        ----
+            - the first value of `which_columns` and `values` should be the id!
+        """
+        values_chain = [f'${num}' for num in range(1, len(values)+1)]
+        update_set_query = ""
+        for i, item in enumerate(zip(which_columns, values_chain)):
+            if i == 0:
+                continue
+            update_set_query += f"{item[0]}={item[1]}, "
+        update_set_query = update_set_query[:-2]  # remove last ","
+        sql = (
+            f"INSERT INTO {self.name} ({', '.join(which_columns)}) \n"
+            f"VALUES ({', '.join(values_chain)}) \n"
+            #f"RETURNING {returning} "
+            f"ON CONFLICT ({which_columns[0]}) DO UPDATE \n"
+            f"SET {update_set_query}"
+        )
+        self._create_sql_log_message(sql, values)
+        return_values = await self.db.execute(sql, *values)
+        return return_values   
+
+    @logging
+    async def delete(self, where: str, returning: bool):
+        pass
+
+    @logging
+    async def alter(self):
+        pass
+
+    @logging
+    async def select(self, columns: List[str], matching_values: List, select: str = "*") -> Optional[List[asyncpg.Record]]:
+        where = ""
+        for i, item in enumerate(columns):
+            where += f"{'and ' if i > 0 else ''}{item}=${i+1} "
+
+        sql = (
+            f"SELECT {select} FROM {self.name}\n"
+            f"WHERE {where}"
+        )
+        self._create_sql_log_message(sql, matching_values)
+        records = await self.db.fetch(sql, *matching_values)
+        return records
+
+    @logging
+    async def update(self):
+        pass
+
+    def _create_sql_log_message(self, sql:str, values: List):
+        self._executed_sql = (
+            f"SQL:\n"
+            f"{sql}\n"
+            f"WITH VALUES: {values}"
+        )
