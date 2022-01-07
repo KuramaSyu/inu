@@ -3,6 +3,7 @@ from typing import *
 import json
 import logging
 import datetime
+from datetime import timedelta, timezone
 import asyncio
 from enum import Enum
 import time
@@ -16,8 +17,7 @@ import asyncpg
 
 
 from core.bot import Inu
-
-from .db import Database
+from . import Database, Table
 from .string_crumbler import PeekIterator, NumberWordIterator
 
 log = logging.getLogger(__name__)
@@ -97,15 +97,20 @@ class TimeConverter:
 
 
 class TimeParser:
-    def __init__(self, query: str):
+    def __init__(self, query: str, offset_hours: int):
         self.query = query
         self.in_seconds: float = 0
         self.matches: Dict[TimeUnits, float] = {}
-        self.now: datetime.datetime = datetime.datetime.now()
+
+        self.tz = timezone(offset=timedelta(hours=offset_hours))
+        self.now: datetime.datetime = datetime.datetime.now(tz=self.tz)
+
         self.unresolved = []
         self.unused_query = ""
         self.parse()
         self.is_interpreted = False
+
+
 
 
     def parse(self):
@@ -153,8 +158,8 @@ class TimeParser:
             time_list = re.findall(regex_hh_mm_12, self.query)
             if time_list:
                 time_ = time_list[0]
-                mul = 2 if time_[3] == "pm" else 1  #am, pm ""
-                time = [int(time_[1])*mul, int(time_[2]), time_[3].upper()]
+                add = 12 if time_[3] == "pm" else 0  #am, pm ""
+                time = [int(time_[1])+add, int(time_[2]), time_[3].upper()]
                 raw_str = time_[0]
         if not time:
             #HH:MM 24-hour with leading 0
@@ -170,13 +175,14 @@ class TimeParser:
         else:
             return -1
 
-        now = datetime.datetime.now()
+        now = self.now
         alert = datetime.datetime(
             year=now.year,
             month=now.month,
             day=now.day,
             hour=int(time[0]),
             minute=int(time[1]),
+            tzinfo=self.tz,
         )
         while alert < now:
             t = datetime.timedelta(hours=12)
@@ -198,12 +204,13 @@ class TimeParser:
         dates = re.findall(regex, query)
         if not dates:
             return -1
-        now = datetime.datetime.now()
+        now = self.now
         for date in dates:
             alert = datetime.datetime(
                 year=int(date[1]),
                 month=int(date[2]),
                 day=int(date[3]),
+                tzinfo=self.tz,
             )
             self.in_seconds += alert.timestamp() - now.timestamp()
             indexes.append(self.query.find(date[0])+len(date[0]))
@@ -263,10 +270,10 @@ class TimeParser:
 
 
 class BaseReminder:
-    def __init__(self, query: str):
+    def __init__(self, query: str, hour_offset: int = 0):
         self._query = query
         if self._query:
-            self.time_parser = TimeParser(self._query)
+            self.time_parser = TimeParser(self._query, hour_offset)
             self.remind_text = self.time_parser.unused_query
             self.in_seconds = self.time_parser.in_seconds
             self.wait_until: float = time.time() + self.in_seconds
@@ -297,12 +304,14 @@ class HikariReminder(BaseReminder):
         message_id: int = 0,
         query: Optional[str] = None,
         ctx: Context = None,
+        offset_hours: int = 0,
     ):
-        super().__init__(query=query)
+        self.ctx = ctx
+        super().__init__(query=query, hour_offset=offset_hours)
         self.message_id = message_id
         self.channel_id = channel_id
         self.creator_id = creator_id
-        self.ctx = ctx
+        
         self.bot: Inu = Reminders.bot
 
         if self._query:
@@ -311,6 +320,9 @@ class HikariReminder(BaseReminder):
                 asyncio.Task(self.store_reminder(), loop=loop)
             else:
                 asyncio.Task(self.schedule())
+    
+
+
     @property
     def guild_id(self) -> Optional[int]:
         ch = Reminders.bot.cache.get_guild_channel(self.channel_id)
@@ -438,10 +450,10 @@ class Reminders:
     @classmethod
     def add_reminders_to_set(cls, records: List[asyncpg.Record]):
         for r in records:
-            if r["creator_id"] in cls.running_reminders:
+            if r["reminder_id"] in cls.running_reminders:
                 continue
             cls.running_reminders.add(r["reminder_id"])
-            log.debug(f"add: {r}")
+            log.debug(f"add reminder | id: {r['reminder_id']}; text: {'remind_text'}")
             reminder = HikariReminder(
                 channel_id=r["channel_id"],
                 creator_id=r["creator_id"],
