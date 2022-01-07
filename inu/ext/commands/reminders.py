@@ -58,7 +58,10 @@ async def create_reminder(ctx: context.Context):
         ctx,
         offset_hours=offset_hours,
     )
-    await ctx.respond(f"reminding you to: <t:{str(int(reminder.datetime.timestamp()))}>\nor in seconds: `{Human.number(reminder.in_seconds)}`")
+    await ctx.respond(
+        f"reminding you to: <t:{str(int(reminder.datetime.timestamp()))}>\n"\
+        f"or in seconds: `{Human.number(round(reminder.in_seconds, 2))}`"
+    )
 
 @create_reminder.set_error_handler
 async def on_reminder_error(event: CommandErrorEvent):
