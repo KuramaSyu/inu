@@ -38,8 +38,8 @@ def main():
 
     @inu.listen(hikari.ShardReadyEvent)
     async def on_ready(_: hikari.ShardReadyEvent):
+        logging.setLoggerClass(LoggingHandler)
         await inu.init_db()
-        log.debug(inu.db.is_connected)
         InvokationStats.set_db(inu.db)
         await Reminders.init_bot(inu)
         
