@@ -6,4 +6,7 @@ class KeyValueDB:
 
 class Table():
     def __init__(self, table_name: str):
-        self.name = name
+        self.name = table_name
+
+    async def insert(self, *values):
+        pass
