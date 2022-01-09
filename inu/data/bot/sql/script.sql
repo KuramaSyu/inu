@@ -34,3 +34,7 @@ CREATE TABLE IF NOT EXISTS guild_timezones (
     guild_id BIGINT NOT NULL PRIMARY KEY,
     offset_hours INT
 );
+CREATE TABLE IF NOT EXISTS bot (
+    "key" TEXT NOT NULL PRIMARY KEY,
+    "value" TEXT NOT NULL
+);
