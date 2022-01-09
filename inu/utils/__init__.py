@@ -10,6 +10,7 @@ from .grid import Grid
 from .stats import InvokationStats
 from .language import Human
 from .reminders import HikariReminder, Reminders
+from .logger import *
 
 
 import logging
