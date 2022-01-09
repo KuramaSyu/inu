@@ -4,6 +4,7 @@ from typing import (
     Mapping,
     Union,
 )
+from functools import wraps
 
 LOG_LEVEL: Union[int, None] = logging.DEBUG
 LOGFORMAT: str = "%(log_color)s%(levelname)-8s%(reset)s[%(name)-20s] %(log_color)s%(message)s%(reset)s"
@@ -16,6 +17,7 @@ LOG_COLORS: Mapping[str, str] = {
 	}
 
 from colorlog import ColoredFormatter
+import traceback
 
 
 def build_logger(
@@ -55,3 +57,23 @@ def build_logger(
     logger.addHandler(file_handler)
     return logger
 
+def method_logger(reraise_exc: bool = True, only_log_on_error: bool = False):
+    def decorator(func: "function"):
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            log = logging.getLogger(f"{__name__}.{func.__qualname__}")
+            if not only_log_on_error:
+                log.debug(f"{args =}; {kwargs =}")
+            try:
+                return_value = await func(*args, **kwargs)
+                log.debug(f"returns: {return_value}")
+                return return_value
+            except Exception as e:
+                if only_log_on_error:
+                    log.debug(f"{args =}; {kwargs =}")
+                log.exception(f"{traceback.format_exc()}")
+                if reraise_exc:
+                    raise e
+                return None
+        return wrapper
+    return decorator
