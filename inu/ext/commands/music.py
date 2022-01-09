@@ -24,6 +24,7 @@ import random
 from collections import deque
 import json
 from unittest.util import _MAX_LENGTH
+from copy import deepcopy
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
@@ -57,7 +58,8 @@ class NodeBackups:
     @classmethod
     @logger()
     def set(cls, guild_id: int, value):
-        cls.backups[guild_id] = value
+        """stores a deepcopy of given object"""
+        cls.backups[guild_id] = deepcopy(value)
 
 
     @classmethod
@@ -988,7 +990,10 @@ async def queue(ctx: Context = None, guild_id: int = None):
     node = await music.bot.data.lavalink.get_guild_node(guild_id)
     if not node:
         music.d.log.warning(f"node is None, in queue command; {guild_id=};")
-        log.info(f"New node for {guild_id} will be created")
+        node = NodeBackups.get(guild_id)
+        log.info(f"Backup Node {guild_id} will be loaded; Node: {node}")
+        await music.d.lavalink.set_guild_node(guild_id, node)
+
         
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
