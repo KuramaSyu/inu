@@ -21,7 +21,7 @@ from . import Database, Table
 from .string_crumbler import PeekIterator, NumberWordIterator
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.INFO)
 
 # the time in seconds, after the next sql statement, to get further reminders, will be executed
 REMINDER_UPDATE = 5*60
@@ -176,6 +176,16 @@ class TimeParser:
             if time_list:
                 time_ = time_list[0]
                 time = [int(time_[1]), int(time_[2]), ""] #HH, MM
+                raw_str = time_[0]
+        if not time:
+            # HH am/pm 12-hour format, optional leading 0
+            regex_hh_mm_12 = r"(([0-9]|0[0-9]|1[0-2])[ ]?([AaPp][Mm]){1,1})"
+            time_list = re.findall(regex_hh_mm_12, self.query)
+            if time_list:
+                time_ = time_list[0]
+                log.debug(time_)
+                add = 12 if time_[2] == "pm" else 0
+                time = [int(time_[1])+add, 0, time_[2].upper()]
                 raw_str = time_[0]
         if time:
             if time[0] == 24:
