@@ -18,6 +18,7 @@ LOG_COLORS: Mapping[str, str] = {
 
 from colorlog import ColoredFormatter
 import traceback
+import inspect
 
 
 def build_logger(
@@ -58,7 +59,14 @@ def build_logger(
     return logger
 
 def method_logger(reraise_exc: bool = True, only_log_on_error: bool = False):
-    def decorator(func: "function"):
+    def decorator(*args):
+        func = None
+        for arg in args:
+            if inspect.isfunction(arg):
+                func = arg
+                args.remove(func)
+        if func is None:
+            raise RuntimeError(f"logging decorator didn't found a function in args")
         @wraps(func)
         async def wrapper(*args, **kwargs):
             log = logging.getLogger(f"{__name__}.{func.__qualname__}")
