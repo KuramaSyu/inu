@@ -163,21 +163,25 @@ class Table():
         self._executed_sql = ""
 
 
-    def logging(func: "function"):
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            self = args[0]
-            prefix = f"{self.name}.{func.__name__}"
-            try:
-                return_value = await func(*args, **kwargs)
-                if self.do_log:
-                    log.debug(f"{prefix}: {return_value}")
-                return return_value
-            except Exception:
-                log.debug(f"{prefix}: {self._executed_sql}")
-                log.exception(f"{prefix}: {traceback.format_exc()}")
-                return None
-        return wrapper
+    def logging(reraise_exc: bool = True):
+        def decorator(func: "function"):
+            @wraps(func)
+            async def wrapper(*args, **kwargs):
+                self = args[0]
+                prefix = f"{self.name}.{func.__name__}"
+                try:
+                    return_value = await func(*args, **kwargs)
+                    if self.do_log:
+                        log.debug(f"{prefix}: {return_value}")
+                    return return_value
+                except Exception as e:
+                    log.debug(f"{prefix}: {self._executed_sql}")
+                    log.exception(f"{prefix}: {traceback.format_exc()}")
+                    if reraise_exc:
+                        raise e
+                    return None
+            return wrapper
+        return decorator
 
     @logging
     async def insert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
