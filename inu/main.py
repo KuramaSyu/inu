@@ -5,8 +5,6 @@ import asyncio
 import logging
 
 from core.logging import LoggingHandler
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
 logging.setLoggerClass(LoggingHandler)
 
 from dotenv import dotenv_values
@@ -15,7 +13,9 @@ import lightbulb
 from lightbulb import events
 logging.setLoggerClass(LoggingHandler)
 from core import Inu
-from utils import InvokationStats, Reminders
+from utils import InvokationStats, Reminders, Table
+log = logging.getLogger(__name__)
+log.setLevel(logging.DEBUG)
 
 def main():
 
@@ -38,10 +38,24 @@ def main():
 
     @inu.listen(hikari.ShardReadyEvent)
     async def on_ready(_: hikari.ShardReadyEvent):
+        # init all db classes
         logging.setLoggerClass(LoggingHandler)
         await inu.init_db()
         InvokationStats.set_db(inu.db)
         await Reminders.init_bot(inu)
+
+        # update bot start value
+        table = Table("bot", do_log=False)
+        record = await table.select_row(["key"], ["restart_count"])
+        if not record:
+            count = 1
+        else:
+            count = int(record["value"])
+            count += 1
+        await table.upsert(["key", "value"], ["restart_count", str(count)])
+        log.info(f'RESTART NUMBER: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
+        
+
         
 
     inu.run()
