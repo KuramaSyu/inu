@@ -80,7 +80,8 @@ def method_logger(reraise_exc: bool = True, only_log_on_error: bool = True):
                 log.debug(f"{args =}; {kwargs =}")
             try:
                 return_value = func(*args, **kwargs)
-                log.debug(f"returns: {return_value}")
+                if not only_log_on_error:
+                    log.debug(f"returns: {return_value}")
                 return return_value
             except Exception as e:
                 if only_log_on_error:
