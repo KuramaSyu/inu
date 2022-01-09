@@ -10,9 +10,11 @@ from typing import (
     Any,
     Tuple
 )
-from xml.etree.ElementInclude import include
+from functools import wraps
 
 from lightbulb.commands.slash import SlashCommand
+
+from inu.utils.logger import method_logger
 typing.TYPE_CHECKING
 import asyncio
 import logging
@@ -35,9 +37,10 @@ import lavasnek_rs
 from matplotlib.pyplot import hist
 
 from core import Inu
-from utils import Paginator, Colors
+from utils import Paginator, Colors, method_logger as logger
 from utils.db import Database
 from utils.paginators.specific_paginators import MusicHistoryPaginator
+
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -45,6 +48,20 @@ log.setLevel(logging.DEBUG)
 
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
 HIKARI_VOICE = False
+
+class NodeBackups:
+    """
+    Class which tries to fix/minimize failures of lavalink
+    """
+    @classmethod
+    @logger()
+    def set(cls, guild_id: int, value):
+        cls.backups[guild_id] = value
+
+    @classmethod
+    @logger()
+    def get(cls, guild_id: int):
+        return cls.backups.get(guild_id, None)
 
 
 class EventHandler:
@@ -57,12 +74,14 @@ class EventHandler:
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
+        NodeBackups.set(event.guild_id, node)
         track = node.queue[0].track
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
     async def track_finish(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
         node = await lavalink.get_guild_node(event.guild_id)
-        if len(node) == 0:
+        if len(node.queue) == 0:
+            NodeBackups.set(event.guild_id, None)
             await _leave(event.guild_id)
 
     async def track_exception(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackException) -> None:
@@ -352,6 +371,11 @@ class MusicLog:
         return str_list
 
 
+
+
+        
+
+
 music = lightbulb.Plugin(name="Music", include_datastore=True)
 
 
@@ -481,7 +505,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
         )
         music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
         await _leave(guild_id)
-    if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
+    if emoji in ['🔀', '🗑'] and ctx:
         await queue(ctx)
 
 async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
@@ -575,7 +599,8 @@ async def _leave(guild_id: int):
     # Destroy nor leave remove the node nor the queue loop, you should do this manually.
     await music.bot.data.lavalink.remove_guild_node(guild_id)
     await music.bot.data.lavalink.remove_guild_from_loops(guild_id)
-    
+    NodeBackups.set(guild_id, None)
+
 # @lightbulb.check(lightbulb.guild_only)
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -618,7 +643,6 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
     await play_at_pos(ctx, 1, ctx.options.query)
-    await queue(ctx)
 
 @play.child
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -644,8 +668,8 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
-    track = node.queue.pop()
-    queue = node.queue
+    queue = node.queue.copy()
+    track = queue.pop()
     queue.insert(pos, track)
     node.queue = queue
     await music.d.lavalink.set_guild_node(ctx.guild_id, node)
@@ -943,7 +967,7 @@ async def history(ctx: Context):
 async def restart(ctx: context.Context):
     await start_lavalink()
 
-
+@logger(only_log_on_error=True)
 async def queue(ctx: Context = None, guild_id: int = None):
     '''
     refreshes the queue of the player
@@ -960,7 +984,9 @@ async def queue(ctx: Context = None, guild_id: int = None):
     channel = ctx.get_channel()
     node = await music.bot.data.lavalink.get_guild_node(guild_id)
     if not node:
-        music.d.log.warning(f"node is None, in queue command; {guild_id=},{guild_id=} ")
+        music.d.log.warning(f"node is None, in queue command; {guild_id=};")
+        log.info(f"New node for {guild_id} will be created")
+        
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
