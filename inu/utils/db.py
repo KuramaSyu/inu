@@ -183,7 +183,7 @@ class Table():
             return wrapper
         return decorator
 
-    @logging
+    @logging()
     async def insert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
@@ -195,7 +195,7 @@ class Table():
         return_values = await self.db.execute(sql, *values)
         return return_values
 
-    @logging
+    @logging()
     async def upsert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
         """
         NOTE
@@ -220,15 +220,15 @@ class Table():
         return_values = await self.db.execute(sql, *values)
         return return_values   
 
-    @logging
+    @logging()
     async def delete(self, where: str, returning: bool):
         pass
 
-    @logging
+    @logging()
     async def alter(self):
         pass
 
-    @logging
+    @logging()
     async def select(self, columns: List[str], matching_values: List, select: str = "*") -> Optional[List[asyncpg.Record]]:
         where = ""
         for i, item in enumerate(columns):
@@ -242,7 +242,7 @@ class Table():
         records = await self.db.fetch(sql, *matching_values)
         return records
 
-    @logging
+    @logging()
     async def update(self):
         pass
 
