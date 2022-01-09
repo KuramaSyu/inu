@@ -54,18 +54,18 @@ class NodeBackups:
     """
     backups = {}
 
-   
     @classmethod
-    @logger
+    @logger()
     def set(cls, guild_id: int, value):
         cls.backups[guild_id] = value
 
+
     @classmethod
-    @logger
+    @logger()
     def get(cls, guild_id: int):
         return cls.backups.get(guild_id, None)
 
-
+print(NodeBackups.backups)
 class EventHandler:
     """Events from the Lavalink server"""
     def __init__(self):
