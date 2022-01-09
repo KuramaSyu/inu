@@ -43,7 +43,7 @@ plugin = lightbulb.Plugin("Basics", "Extends the commands with basic commands", 
     type=str, 
     modifier=OM.CONSUME_REST,
 )
-@lightbulb.command("remind", "set a reminder")
+@lightbulb.command("remind", "set a reminder", aliases=["timer", "reminder"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def create_reminder(ctx: context.Context):
     message_id = 0
