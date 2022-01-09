@@ -14,7 +14,6 @@ from functools import wraps
 
 from lightbulb.commands.slash import SlashCommand
 
-from inu.utils.logger import method_logger
 typing.TYPE_CHECKING
 import asyncio
 import logging
@@ -53,13 +52,15 @@ class NodeBackups:
     """
     Class which tries to fix/minimize failures of lavalink
     """
+    backups = {}
+
     @classmethod
-    @logger()
+    @logger
     def set(cls, guild_id: int, value):
         cls.backups[guild_id] = value
 
     @classmethod
-    @logger()
+    @logger
     def get(cls, guild_id: int):
         return cls.backups.get(guild_id, None)
 
