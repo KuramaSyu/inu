@@ -54,13 +54,14 @@ class NodeBackups:
     """
     backups = {}
 
-    @logger
+   
     @classmethod
+    @logger
     def set(cls, guild_id: int, value):
         cls.backups[guild_id] = value
 
-    @logger
     @classmethod
+    @logger
     def get(cls, guild_id: int):
         return cls.backups.get(guild_id, None)
 

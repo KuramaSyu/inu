@@ -63,7 +63,7 @@ def method_logger(reraise_exc: bool = True, only_log_on_error: bool = False):
         args = [*args]
         func = None
         for arg in args:
-            if inspect.isfunction(arg):
+            if inspect.isfunction(arg) or inspect.ismethod(arg):
                 func = arg
                 args.remove(func)
         if func is None:
