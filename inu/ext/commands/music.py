@@ -81,7 +81,7 @@ class EventHandler:
 
     async def track_finish(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
         node = await lavalink.get_guild_node(event.guild_id)
-        if len(node.queue) == 0:
+        if node is None or len(node.queue) == 0:
             NodeBackups.set(event.guild_id, None)
             await _leave(event.guild_id)
 
