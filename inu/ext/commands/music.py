@@ -665,6 +665,7 @@ async def position(ctx: Context) -> None:
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
+    music.d.last_context[ctx.guild_id] = ctx
     await _play(ctx, query)
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
