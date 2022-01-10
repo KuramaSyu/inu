@@ -557,7 +557,6 @@ async def start_lavalink() -> None:
         else:
             log.info(f"{music.bot.conf.lavalink.IP}:2333 is UP") 
     for x in range(3):
-        print(f"x{x}")
         try:
             builder = (
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
@@ -565,20 +564,13 @@ async def start_lavalink() -> None:
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
                 .set_host(music.bot.conf.lavalink.IP).set_password(music.bot.conf.lavalink.PASSWORD)
             )
-            print("a")
 
             if HIKARI_VOICE:
                 builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
-            print("b")
-            music.bot.data.lavalink = lava_client
-            print(lava_client)
-            print(dir(lava_client))
-            print("c")
+            music.bot.data.lavalink = music.bot.lavalink = lava_client
             music.d.lavalink = music.d.interactive.lavalink = music.bot.data.lavalink
-            logging.info("lavalink is connected")
-            
-            print("d")
+            log.info("lavalink is connected")
             break
         except Exception:
             print(f"{x} x")
@@ -588,7 +580,6 @@ async def start_lavalink() -> None:
             else:
                 await asyncio.sleep(10)
     await lava_client.start_discord_gateway()
-    print("f")
                 
 
         
