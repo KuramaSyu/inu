@@ -19,17 +19,19 @@ import hikari
 from hikari.snowflakes import Snowflakeish
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from colorama import Fore, Style
 
-from .logging import LoggingHandler
+from ._logging import LoggingHandler, getLogger
 import lavasnek_rs
 
 
 class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
+        self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
         self.conf: Configuration = Configuration(dotenv_values())
-        self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.DEBUG)
+        self.log = getLogger(__name__, self.__class__.__name__)
+        (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
         self.startup = datetime.datetime.now()
         from utils.db import Database
@@ -37,13 +39,13 @@ class Inu(lightbulb.BotApp):
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
-
         super().__init__(
             *args, 
             prefix=[self.conf.DEFAULT_PREFIX, ""], 
             token=self.conf.DISCORD_TOKEN, 
             **kwargs,
             case_insensitive_prefix_commands=True,
+            banner=None,
 
         )
         logging.setLoggerClass(LoggingHandler)
@@ -108,6 +110,11 @@ class Inu(lightbulb.BotApp):
 
     async def init_db(self):
         await self.db.connect()
+
+    def print_banner_(self):
+        path = f"{os.getcwd()}/inu/data/text/banner.txt"
+        with open(path, "r", encoding="utf-8") as f:
+            print(f"{Fore.BLUE}{Style.BRIGHT}{f.read()}")
 
     #override
     def run(self):
