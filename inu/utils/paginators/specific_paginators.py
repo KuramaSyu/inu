@@ -12,6 +12,8 @@ from .common import PaginatorReadyEvent
 from .common import Paginator
 from .common import listener
 
+from utils import Colors
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
 
@@ -120,7 +122,7 @@ class MusicHistoryPaginator(Paginator):
         embed = hikari.Embed()
         embed.title = "Add Songs:"
         embed.description = ""
-        embed.color = Color.from_name('royalblue')
+        embed.color = Colors.from_name('royalblue')
         embed.set_thumbnail(self.ctx.author.avatar_url)
         embed.set_footer(
             text=f"{len(numbers)} {'track is' if len(numbers) <= 1 else 'tracks are'} "\
