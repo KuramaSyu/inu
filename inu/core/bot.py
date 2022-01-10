@@ -11,6 +11,7 @@ from typing import (
     Optional
 )
 import logging
+from asyncpraw.config import Config
 
 
 import lightbulb
@@ -22,6 +23,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from colorama import Fore, Style
 
 from ._logging import LoggingHandler, getLogger
+from . import ConfigProxy
 import lavasnek_rs
 
 
@@ -29,7 +31,7 @@ class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
         self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
-        self.conf: Configuration = Configuration(dotenv_values())
+        self.conf: ConfigProxy = ConfigProxy.create()  #Configuration(dotenv_values())
         self.log = getLogger(__name__, self.__class__.__name__)
         (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
@@ -41,8 +43,8 @@ class Inu(lightbulb.BotApp):
         self.scheduler.start()
         super().__init__(
             *args, 
-            prefix=[self.conf.DEFAULT_PREFIX, ""], 
-            token=self.conf.DISCORD_TOKEN, 
+            prefix=[self.conf.bot.DEFAULT_PREFIX, ""], 
+            token=self.conf.bot.DISCORD_TOKEN, 
             **kwargs,
             case_insensitive_prefix_commands=True,
             banner=None,
