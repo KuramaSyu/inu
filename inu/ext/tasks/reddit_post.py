@@ -24,6 +24,7 @@ from utils.r_channel_manager import Columns as Col
 
 from core import getLogger
 
+log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Daily Reddit", "Sends daily automated Reddit pictures", include_datastore=True)
 plugin.d.daily_content = {
