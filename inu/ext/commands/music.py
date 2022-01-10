@@ -34,9 +34,8 @@ from lightbulb import commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
-from matplotlib.pyplot import hist
 
-from core import Inu
+from core import Inu, ping
 from utils import Paginator, Colors, method_logger as logger
 from utils.db import Database
 from utils.paginators.specific_paginators import MusicHistoryPaginator
@@ -67,7 +66,7 @@ class NodeBackups:
     def get(cls, guild_id: int):
         return cls.backups.get(guild_id, None)
 
-print(NodeBackups.backups)
+
 class EventHandler:
     """Events from the Lavalink server"""
     def __init__(self):
@@ -542,7 +541,22 @@ async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
 
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
+    is_up = False
+    retry = 5
+    delay = 5
+    for _ in range(retry):
+        is_up = ping(music.bot.conf.LAVALINK_IP, 2333, do_log=False)
+        if is_up:
+            break
+        await asyncio.sleep(delay)
+    if not is_up:
+        log.error(f"{music.bot.conf.LAVALINK_IP}:2333 is DOWN after 5 retries within {retry*delay}s")
+        log.error(f"won't try to connect to Lavalink")
+        return
+    else:
+        log.info(f"{music.bot.conf.LAVALINK_IP}:2333 is UP") 
     for x in range(3):
+        print(f"x{x}")
         try:
             builder = (
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
@@ -550,20 +564,30 @@ async def start_lavalink() -> None:
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
                 .set_host(music.bot.conf.LAVALINK_IP).set_password(music.bot.conf.LAVALINK_PASSWORD)
             )
+            print("a")
 
             if HIKARI_VOICE:
                 builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
+            print("b")
             music.bot.data.lavalink = lava_client
+            print(lava_client)
+            print(dir(lava_client))
+            print("c")
             music.d.lavalink = music.d.interactive.lavalink = music.bot.data.lavalink
             logging.info("lavalink is connected")
+            
+            print("d")
             break
         except Exception:
+            print(f"{x} x")
             if x == 2:
                 music.d.log.error(traceback.format_exc())
                 break
             else:
                 await asyncio.sleep(10)
+    await lava_client.start_discord_gateway()
+    print("f")
                 
 
         
