@@ -18,8 +18,9 @@ from lightbulb.context import Context
 from lightbulb import commands
 from utils.reddit import Reddit
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 
 plugin = lightbulb.Plugin("Reddit things", include_datastore=True)

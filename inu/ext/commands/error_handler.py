@@ -16,7 +16,9 @@ from lightbulb.context import Context
 from core import Inu
 from .inu_help import OutsideHelp
 
-log = logging.getLogger(__name__)
+from core import getLogger
+
+log = getLogger(__name__)
 
 
 pl = lightbulb.Plugin("Error Handler")

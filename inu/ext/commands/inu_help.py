@@ -26,8 +26,9 @@ from matplotlib.colors import cnames
 from core import Inu
 from utils import Paginator, Colors
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 
 bot_app: Optional[lightbulb.BotApp] = None

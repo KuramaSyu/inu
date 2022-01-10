@@ -23,8 +23,9 @@ from core import Inu
 from utils.r_channel_manager import Columns as Col
 from utils import Table
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 
 plugin = lightbulb.Plugin("Settings", "Commands, to change Inu's behavior to certain things")

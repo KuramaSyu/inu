@@ -14,8 +14,9 @@ from lightbulb import events
 logging.setLoggerClass(LoggingHandler)
 from core import Inu
 from utils import InvokationStats, Reminders, Table
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 def main():
 

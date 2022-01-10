@@ -25,8 +25,9 @@ if TYPE_CHECKING:
 
 __all__: Final[Sequence[str]] = ["Database"]
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
@@ -56,8 +57,7 @@ class Database(metaclass=Singleton):
         self.bot: Inu = bot #type: ignore
         self._connected = asyncio.Event()
         self.calls = 0
-        self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.DEBUG)
+        self.log = getLogger(__name__, self.__class__.__name__)
 
     async def wait_until_connected(self) -> None:
         await self._connected.wait()
@@ -165,18 +165,19 @@ class Table():
 
     def logging(reraise_exc: bool = True):
         def decorator(func: "function"):
+            
             @wraps(func)
             async def wrapper(*args, **kwargs):
                 self = args[0]
-                prefix = f"{self.name}.{func.__name__}"
+                log = logging.getLogger(__name__, self.name, func.__name__)
                 try:
                     return_value = await func(*args, **kwargs)
                     if self.do_log:
-                        log.debug(f"{prefix}: {return_value}")
+                        log.debug(f"{return_value}")
                     return return_value
                 except Exception as e:
-                    log.debug(f"{prefix}: {self._executed_sql}")
-                    log.exception(f"{prefix}: {traceback.format_exc()}")
+                    log.debug(f"{self._executed_sql}")
+                    log.exception(f"{traceback.format_exc()}")
                     if reraise_exc:
                         raise e
                     return None

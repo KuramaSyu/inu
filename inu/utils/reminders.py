@@ -20,8 +20,10 @@ from core.bot import Inu
 from . import Database, Table
 from .string_crumbler import PeekIterator, NumberWordIterator
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.INFO)
+from core import getLogger
+
+log = getLogger(__name__)
+
 
 # the time in seconds, after the next sql statement, to get further reminders, will be executed
 REMINDER_UPDATE = 5*60
@@ -99,8 +101,7 @@ class TimeConverter:
 class TimeParser:
     def __init__(self, query: str, offset_hours: int):
 
-        self.log = logging.getLogger(f"{__name__}.{self.__class__.__name__}")
-        self.log.setLevel(logging.DEBUG)
+        self.log = getLogger(__name__, self.__class__.__name__)
 
         self.query = query
         self.in_seconds: float = 0

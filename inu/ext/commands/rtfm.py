@@ -28,7 +28,9 @@ import hikari
 from utils import Colors
 from utils import Paginator
 
-log = logging.getLogger(__name__)
+from core import getLogger
+
+log = getLogger(__name__)
 
 class SphinxObjectFileReader:
     """Reads Sphinx files (.inv)"""

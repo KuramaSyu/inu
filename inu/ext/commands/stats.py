@@ -23,8 +23,9 @@ from utils import Colors
 # from utils.logging import LoggingHandler
 # logging.setLoggerClass(LoggingHandler)
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Stats", "Extends the commands with statistic commands", include_datastore=True)
 

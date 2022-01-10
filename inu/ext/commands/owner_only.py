@@ -22,7 +22,9 @@ from core import Inu
 from utils.reminders import BaseReminder, HikariReminder, Reminders
 from utils.string_crumbler import NumberWordIterator as NWI
 
-log = logging.getLogger(__name__)
+from core import getLogger
+
+log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Owner", "Commands, which are only accessable to the owner of the bot")
 

@@ -32,8 +32,9 @@ from utils import Paginator
 from utils.paginators.common import navigation_row
 from utils.paginators import TagHandler
 
-log = logging.getLogger(__name__)
-log.setLevel(DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 
 tags = lightbulb.Plugin("Tags", "Commands all arround tags")

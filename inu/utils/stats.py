@@ -5,8 +5,9 @@ import logging
 
 from .db import Database
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 T = t.TypeVar("T")
 

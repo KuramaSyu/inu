@@ -29,8 +29,9 @@ from utils.reminders import REMINDER_UPDATE, Reminders
 from utils import HikariReminder, Human, Table
 
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
 

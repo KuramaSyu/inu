@@ -17,12 +17,16 @@ from lightbulb import commands, context
 import hikari
 from numpy import isin
 
+from core import getLogger
+
 plugin = lightbulb.Plugin("Reminders", "Extends commands with reminder/alarm commands")
 
 # from utils.logging import LoggingHandler
 # logging.setLoggerClass(LoggingHandler)
 
-log = logging.getLogger(__name__)
+
+
+log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Timer", "Extends the commands with timing commands", include_datastore=True)
 

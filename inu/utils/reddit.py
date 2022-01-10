@@ -11,11 +11,14 @@ from asyncache import cached
 from cachetools import TTLCache
 from dotenv import load_dotenv
 from core import Inu
+from core import getLogger
 
 # from .settings import REDDIT_APP_ID, REDDIT_APP_SECRET
 REDDIT_APP_ID = None
 REDDIT_APP_SECRET = None
-log = logging.getLogger(__name__)
+
+
+log = getLogger(__name__)
 
 
 if REDDIT_APP_ID and REDDIT_APP_SECRET:

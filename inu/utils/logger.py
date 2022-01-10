@@ -21,8 +21,9 @@ import traceback
 import inspect
 import logging
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 
 def build_logger(

@@ -13,7 +13,9 @@ from utils import Colors, Human
 from utils.language import Multiple
 num = Human.number
 
-log = logging.getLogger(__name__)
+from core import getLogger
+
+log = getLogger(__name__)
 
 
 

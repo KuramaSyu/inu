@@ -18,10 +18,9 @@ import hikari
 from numpy import isin
 
 
-# from utils.logging import LoggingHandler
-# logging.setLoggerClass(LoggingHandler)
+from core import getLogger
 
-log = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 basics = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
 if not isinstance(basics.d, lightbulb_utils.DataStore):

@@ -22,8 +22,9 @@ from numpy import column_stack
 
 from .db import Database
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 class Columns(enum.Enum):
     CHANNEL_IDS = "channel_ids"

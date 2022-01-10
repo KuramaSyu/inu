@@ -15,8 +15,9 @@ from lightbulb import errors
 from lightbulb import events
 from lightbulb.commands import OptionModifier as OM
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Random Commands", "Extends the commands with commands all about randomness")
 

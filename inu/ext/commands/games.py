@@ -15,8 +15,9 @@ from lightbulb.commands import OptionModifier as OM
 
 from utils.games.connect_four_handler import Connect4Handler
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+from core import getLogger
+
+log = getLogger(__name__)
 
 Context = Union[context.SlashContext, context.PrefixContext]
 plugin = lightbulb.Plugin("Game Commands", "Extends the commands with commands all about games")
