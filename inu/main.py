@@ -4,7 +4,7 @@ import os
 import asyncio
 import logging
 
-from core.logging import LoggingHandler
+from core._logging import LoggingHandler
 logging.setLoggerClass(LoggingHandler)
 
 from dotenv import dotenv_values
