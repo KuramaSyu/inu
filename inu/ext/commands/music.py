@@ -23,6 +23,7 @@ import random
 from collections import deque
 import json
 from unittest.util import _MAX_LENGTH
+from copy import deepcopy
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
@@ -35,7 +36,7 @@ import lavasnek_rs
 from matplotlib.pyplot import hist
 
 from core import Inu
-from utils import Paginator, Colors
+from utils import Paginator, Colors, logger
 from utils.db import Database
 from utils.paginators.specific_paginators import MusicHistoryPaginator
 
@@ -46,6 +47,24 @@ log = getLogger(__name__)
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
 HIKARI_VOICE = False
 
+class NodeBackups:
+    """
+    Class which tries to fix/minimize failures of lavalink
+    """
+    backups = {}
+
+    @classmethod
+    @logger()
+    def set(cls, guild_id: int, value: lavasnek_rs.Node):
+        """stores a deepcopy of given object"""
+        queue = [*value.queue]
+        cls.backups[guild_id] = queue
+
+
+    @classmethod
+    @logger()
+    def get(cls, guild_id: int):
+        return cls.backups.get(guild_id, None)
 
 class EventHandler:
     """Events from the Lavalink server"""
@@ -57,6 +76,7 @@ class EventHandler:
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
+        NodeBackups.set(event.guild_id, node)
         track = node.queue[0].track
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
@@ -954,7 +974,17 @@ async def queue(ctx: Context = None, guild_id: int = None):
     channel = ctx.get_channel()
     node = await music.bot.data.lavalink.get_guild_node(guild_id)
     if not node:
-        music.d.log.warning(f"node is None, in queue command; {guild_id=},{guild_id=} ")
+        music.d.log.warning(f"node is None, in queue command; {guild_id=};")
+        queue = NodeBackups.get(guild_id)
+        if node is None:
+            log.info(f"No backup for queue of node found - returning")
+            return
+        await _join(ctx)
+        node = await music.bot.data.lavalink.get_guild_node(guild_id)
+        node.queue = queue
+        log.info(f"Backup Node queue {guild_id} will be loaded; Node: {node}")
+        await music.d.lavalink.set_guild_node(guild_id, node)
+        log.info(f"backuped")
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
