@@ -541,7 +541,7 @@ async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
 
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
-    if int(music.bot.lavalink.do_ping):
+    if int(music.bot.data.lavalink.do_ping):
         is_up = False
         retry = 5
         delay = 5
