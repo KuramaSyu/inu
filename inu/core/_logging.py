@@ -23,12 +23,10 @@ import datetime
 from colorama import init, Fore, Style
 from . import ConfigProxy
 
-log_ = logging.getLogger(f"{__name__}")
-log_.setLevel("DEBUG")
-
 init()
 
 config = ConfigProxy.create()
+#print(config.sections)
 
 msg_colors = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
@@ -124,21 +122,23 @@ def getLogger(*names):
         - class over file
         - file over global
     """
-    print(config.sections)
     name = f"{'.'.join(names)}"
     logging.setLoggerClass(LoggingHandler)
     log = logging.getLogger(name)
     level = getLevel(list(name.split(".")))
     log.setLevel(level)
+    #print(log.name, log.level)
     return log
 
 def getLevel(names: list):
     count = len(names)
     name = f"{'.'.join(names)}"
-    level = config.logging.get(name, None)
-    while level is None and count >= 1:
+    level = config.logging.get(name.lower(), None)
+    #print(name, level)
+    while level is None and count > 1:
         level = config.logging.get(f"{'.'.join(names[:count])}", None)
-        print(f"{'.'.join(names[:count])} --- {level}")
         count -= 1
-    level = config.logging.GLOBAL
+        #print(f"{'.'.join(names[:count])}", level)
+    if level is None:
+        level = config.logging.GLOBAL
     return level
