@@ -56,9 +56,9 @@ class NodeBackups:
 
     @classmethod
     @logger()
-    def set(cls, guild_id: int, value):
+    def set(cls, guild_id: int, value: lavasnek_rs.Node):
         """stores a deepcopy of given object"""
-        cls.backups[guild_id] = deepcopy(value)
+        cls.backups[guild_id] = deepcopy(value.queue)
 
 
     @classmethod
