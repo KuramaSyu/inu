@@ -568,7 +568,7 @@ async def start_lavalink() -> None:
             if HIKARI_VOICE:
                 builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
-            music.bot.data.lavalink = music.bot.lavalink = lava_client
+            music.bot.data.lavalink = lava_client
             music.d.lavalink = music.d.interactive.lavalink = music.bot.data.lavalink
             log.info("lavalink is connected")
             break
