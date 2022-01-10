@@ -711,7 +711,7 @@ async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = Fa
         #     track.info.uri
         # )
     except lavasnek_rs.NoSessionPresent:
-        await ctx.respond(f"Use `{music.bot.conf.DEFAULT_PREFIX}join` first")
+        await ctx.respond(f"Use `{music.bot.conf.bot.DEFAULT_PREFIX}join` first")
         return
     
     if not be_quiet:
