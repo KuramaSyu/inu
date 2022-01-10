@@ -67,8 +67,8 @@ class Reddit():
     @classmethod
     async def init_reddit_credentials(cls, bot: Inu):
         cls.bot = bot
-        REDDIT_APP_ID = cls.bot.conf.REDDIT_APP_ID
-        REDDIT_APP_SECRET = cls.bot.conf.REDDIT_APP_SECRET
+        REDDIT_APP_ID = cls.bot.conf.reddit.ID
+        REDDIT_APP_SECRET = cls.bot.conf.reddit.SECRET
 
         cls.reddit_client = asyncpraw.Reddit(
             client_id=REDDIT_APP_ID,
