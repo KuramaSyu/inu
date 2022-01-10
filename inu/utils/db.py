@@ -73,7 +73,7 @@ class Database(metaclass=Singleton):
 
     async def connect(self) -> None:
         assert not self.is_connected, "Already connected."
-        pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.DSN)
+        pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.db.DSN)
         if not isinstance(pool, asyncpg.Pool):
             typing.cast(Inu, self.bot)
             msg = (
@@ -97,7 +97,7 @@ class Database(metaclass=Singleton):
         self.log.info("Closed database connection.")
 
     async def sync(self) -> None:
-        await self.execute_script(os.path.join(os.getcwd(), "inu/data/bot/sql/script.sql"), self.bot.conf.DEFAULT_PREFIX)
+        await self.execute_script(os.path.join(os.getcwd(), "inu/data/bot/sql/script.sql"), self.bot.conf.bot.DEFAULT_PREFIX)
         await self.execute_many(
             "INSERT INTO guilds (guild_id) VALUES ($1) ON CONFLICT DO NOTHING",
             [(guild,) for guild in self.bot.cache.get_available_guilds_view()],
@@ -169,7 +169,7 @@ class Table():
             @wraps(func)
             async def wrapper(*args, **kwargs):
                 self = args[0]
-                log = logging.getLogger(__name__, self.name, func.__name__)
+                log = getLogger(__name__, self.name, func.__name__)
                 try:
                     return_value = await func(*args, **kwargs)
                     if self.do_log:
