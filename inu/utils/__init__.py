@@ -14,5 +14,5 @@ from .logger import *
 
 
 import logging
-from core.logging import LoggingHandler
+from core._logging import LoggingHandler
 logging.setLoggerClass(LoggingHandler)
