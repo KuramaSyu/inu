@@ -564,12 +564,15 @@ async def start_lavalink() -> None:
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
                 .set_host(music.bot.conf.lavalink.IP).set_password(music.bot.conf.lavalink.PASSWORD)
             )
-
+            log.info(music.bot.conf.lavalink.IP)
+            log.info(music.bot.conf.lavalink.PASSWORD)
             if HIKARI_VOICE:
                 builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
+            await lava_client.start_discord_gateway()
             music.bot.data.lavalink = lava_client
             music.d.lavalink = music.d.interactive.lavalink = music.bot.data.lavalink
+            
             log.info("lavalink is connected")
             break
         except Exception:
@@ -579,7 +582,7 @@ async def start_lavalink() -> None:
                 break
             else:
                 await asyncio.sleep(10)
-    await lava_client.start_discord_gateway()
+    
                 
 
         
