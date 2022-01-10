@@ -77,7 +77,7 @@ class EventHandler:
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
-        NodeBackups.set(event.guild_id, node)
+        #NodeBackups.set(event.guild_id, node)
         track = node.queue[0].track
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
