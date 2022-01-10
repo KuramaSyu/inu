@@ -65,7 +65,6 @@ def build_logger(
 def method_logger(reraise_exc: bool = True, only_log_on_error: bool = True):
     def decorator(*args):
         args = [*args]
-        log.debug(args)
         func = None
         for arg in args:
             if inspect.isfunction(arg) or inspect.ismethod(arg):
