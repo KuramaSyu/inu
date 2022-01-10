@@ -545,24 +545,24 @@ async def start_lavalink() -> None:
     retry = 5
     delay = 5
     for _ in range(retry):
-        is_up = ping(music.bot.conf.LAVALINK_IP, 2333, do_log=False)
+        is_up = ping(music.bot.conf.lavalink.IP, 2333, do_log=False)
         if is_up:
             break
         await asyncio.sleep(delay)
     if not is_up:
-        log.error(f"{music.bot.conf.LAVALINK_IP}:2333 is DOWN after 5 retries within {retry*delay}s")
+        log.error(f"{music.bot.conf.lavalink.IP}:2333 is DOWN after 5 retries within {retry*delay}s")
         log.error(f"won't try to connect to Lavalink")
         return
     else:
-        log.info(f"{music.bot.conf.LAVALINK_IP}:2333 is UP") 
+        log.info(f"{music.bot.conf.lavalink.IP}:2333 is UP") 
     for x in range(3):
         print(f"x{x}")
         try:
             builder = (
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
-                lavasnek_rs.LavalinkBuilder(music.bot.me.id, music.bot.conf.DISCORD_TOKEN) #, 
+                lavasnek_rs.LavalinkBuilder(music.bot.me.id, music.bot.conf.bot.DISCORD_TOKEN) #, 
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
-                .set_host(music.bot.conf.LAVALINK_IP).set_password(music.bot.conf.LAVALINK_PASSWORD)
+                .set_host(music.bot.conf.lavalink.IP).set_password(music.bot.conf.lavalink.PASSWORD)
             )
             print("a")
 
