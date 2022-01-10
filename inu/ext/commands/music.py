@@ -541,20 +541,21 @@ async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
 
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
-    is_up = False
-    retry = 5
-    delay = 5
-    for _ in range(retry):
-        is_up = ping(music.bot.conf.lavalink.IP, 2333, do_log=False)
-        if is_up:
-            break
-        await asyncio.sleep(delay)
-    if not is_up:
-        log.error(f"{music.bot.conf.lavalink.IP}:2333 is DOWN after 5 retries within {retry*delay}s")
-        log.error(f"won't try to connect to Lavalink")
-        return
-    else:
-        log.info(f"{music.bot.conf.lavalink.IP}:2333 is UP") 
+    if int(music.bot.lavalink.do_ping):
+        is_up = False
+        retry = 5
+        delay = 5
+        for _ in range(retry):
+            is_up = ping(music.bot.conf.lavalink.IP, 2333, do_log=False)
+            if is_up:
+                break
+            await asyncio.sleep(delay)
+        if not is_up:
+            log.error(f"{music.bot.conf.lavalink.IP}:2333 is DOWN after 5 retries within {retry*delay}s")
+            log.error(f"won't try to connect to Lavalink")
+            return
+        else:
+            log.info(f"{music.bot.conf.lavalink.IP}:2333 is UP") 
     for x in range(3):
         print(f"x{x}")
         try:
