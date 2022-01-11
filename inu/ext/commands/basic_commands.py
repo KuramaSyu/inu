@@ -33,7 +33,7 @@ if basics.d is None:
 @lightbulb.command("ping", "is the bot alive?")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
-    await ctx.respond("Bot is alive")
+    await ctx.respond(f"Bot is alive with a delay of {ctx.bot.heartbeat_latency*1000:.2f}ms")
 
 
 @basics.command
