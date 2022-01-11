@@ -31,7 +31,7 @@ CREATE TABLE IF NOT EXISTS reminders (
     message_id BIGINT
 );
 CREATE TABLE IF NOT EXISTS guild_timezones (
-    guild_id BIGINT NOT NULL PRIMARY KEY,
+    guild_or_author_id BIGINT NOT NULL PRIMARY KEY,
     offset_hours INT
 );
 CREATE TABLE IF NOT EXISTS bot (
