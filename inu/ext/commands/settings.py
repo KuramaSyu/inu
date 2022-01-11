@@ -1,4 +1,5 @@
 import asyncio
+import traceback
 import typing
 from typing import (
     List,
@@ -14,6 +15,7 @@ import hikari
 from hikari.impl import ActionRowBuilder
 from hikari.interactions.base_interactions import ResponseType
 from hikari.interactions.component_interactions import ComponentInteraction
+from hikari.messages import ButtonStyle, ComponentType
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
@@ -149,7 +151,7 @@ async def timez_set(ctx: Context):
         ActionRowBuilder()
         .add_select_menu("timezone_menu")
     )
-    for x in range(-5,2,1):
+    for x in range(-5,6,1):
         t = timezone(offset=timedelta(hours=x))
         now = datetime.now(tz=t)
         menu.add_option(
@@ -171,13 +173,42 @@ async def timez_set(ctx: Context):
         )
         if not isinstance(event.interaction, ComponentInteraction):
             return
-        table = Table("guild_timezones")
-        entry = await table.upsert(["guild_id", "offset_hours"], [ctx.guild_id, int(event.interaction.values[0])])
-        log.debug(entry)
         await event.interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"_successfully stored in my mind_")
-        r = await table.select(["guild_id", "offset_hours"], [ctx.guild_id, int(event.interaction.values[0])])
-        log.debug(r)
-
+        update_author = True
+        table = Table("guild_timezones")
+        if ctx.guild_id:
+            await table.upsert(["guild_or_author_id", "offset_hours"], [ctx.guild_id, int(event.interaction.values[0])])
+            try:
+                btns = (
+                    ActionRowBuilder()
+                    .add_button(ButtonStyle.PRIMARY, "1").set_emoji("✔️").add_to_container()
+                    .add_button(ButtonStyle.DANGER, "0").set_emoji("❌").add_to_container()
+                )
+                await ctx.bot.rest.create_message(
+                    ctx.channel_id, 
+                    "Should I also use it as your private time?",
+                    component=btns
+                )
+                event2 = await ctx.bot.wait_for(
+                    hikari.InteractionCreateEvent,
+                    timeout=10*60,
+                    predicate=lambda e: (
+                        isinstance(e.interaction, ComponentInteraction)
+                        and e.interaction.user.id == ctx.author.id
+                        and e.interaction.channel_id == ctx.channel_id
+                    )
+                )
+                if not isinstance(event2.interaction, ComponentInteraction):
+                    pass
+                values = event.interaction.values
+                update_author = bool(int(event2.interaction.custom_id))
+                await event2.interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"_also successfully stored in my mind_")
+                # await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
+            except Exception:
+                log.error(f"settings timezone set: {traceback.format_exc()}")
+        if update_author:
+            await table.upsert(["guild_or_author_id", "offset_hours"], [ctx.author.id, int(event.interaction.values[0])])
+        
     except asyncio.TimeoutError:
         pass
 
