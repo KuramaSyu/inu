@@ -373,7 +373,6 @@ music = lightbulb.Plugin(name="Music", include_datastore=True)
 
 @music.listener(hikari.ShardReadyEvent)
 async def on_ready(event: hikari.ShardReadyEvent):
-    log.info("in onready 1")
     if music.d is None:
         raise RuntimeError("Plugin has no datastore")
     music.d.log = logging.getLogger(__name__)
@@ -530,6 +529,9 @@ async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
 
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
+    if not bool(int(music.bot.conf.lavalink.connect)):
+        log.info(f"Lavalink connection won't be established")
+        return
     for x in range(3):
         try:
             builder = (
