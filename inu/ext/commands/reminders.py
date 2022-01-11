@@ -50,7 +50,7 @@ async def create_reminder(ctx: context.Context):
     message_id = 0
     if hasattr(ctx.event, "message_id"):
         message_id = ctx.event.message_id
-    offset_hours = await fetch_hour_offset(ctx.guild_id)
+    offset_hours = await fetch_hour_offset(ctx.guild_id or ctx.author.id)
     reminder = HikariReminder(
         ctx.channel_id,
         ctx.author.id,
@@ -75,9 +75,9 @@ async def on_reminder_error(event: CommandErrorEvent):
         await event.context.respond(f"I am not a fucking trash converter 🖕\n\n{txt}")
     return True
 
-async def fetch_hour_offset(guild_id: int):
+async def fetch_hour_offset(id: int):
     table = Table("guild_timezones")
-    r = await table.select(["guild_id"], [guild_id])
+    r = await table.select(["guild_or_author_id"], [id])
     try:
         return r[0]["offset_hours"]
     except IndexError:
