@@ -19,9 +19,12 @@ import logging
 import os
 from pathlib import Path
 import datetime
+from typing import *
 
 from colorama import init, Fore, Style
 from . import ConfigProxy
+import colorlog
+
 
 init()
 
@@ -30,7 +33,7 @@ config = ConfigProxy.create()
 
 msg_colors = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
-    "TRACE_HIKARI": f"{Fore.WHITE}{Style.DIM}",
+    "TRACE_HIKARI": f"{Fore.LIGHTCYAN_EX}{Style.DIM}",
     "DEBUG": f"{Fore.LIGHTBLUE_EX}{Style.NORMAL}",
     "INFO": f"{Fore.LIGHTMAGENTA_EX}{Style.NORMAL}",
     "WARNING": f"{Fore.YELLOW}{Style.BRIGHT}",
@@ -39,7 +42,7 @@ msg_colors = {
 }
 level_color = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
-    "TRACE_HIKARI": f"{Fore.WHITE}{Style.DIM}",
+    "TRACE_HIKARI": f"{Fore.LIGHTCYAN_EX}{Style.DIM}",
     "DEBUG": f"{Fore.LIGHTMAGENTA_EX}{Style.NORMAL}",
     "INFO": Fore.BLUE,
     "WARNING": Fore.YELLOW,
@@ -48,7 +51,7 @@ level_color = {
 }
 level_style = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
-    "TRACE_HIKARI": f"{Fore.WHITE}{Style.DIM}",
+    "TRACE_HIKARI": f"{Fore.LIGHTCYAN_EX}{Style.DIM}",
     "DEBUG": f"{Fore.LIGHTGREEN_EX}{Style.DIM}",
     "INFO": f"{Style.BRIGHT}",
     "WARNING": f"{Style.BRIGHT}",
@@ -92,7 +95,7 @@ class LoggingHandler(logging.Logger):
         now = datetime.datetime.now()
         print(f"{level_color[level_name]}{level_style[level_name]}{level_name:<8}{Style.RESET_ALL}"
               f" "
-              f"{self._get_color('datetime')}[{time_stemp:<8}] "
+              f"{self._get_color('datetime')}[{time_stemp:<8}]{Style.RESET_ALL} "
               f"{Style.BRIGHT}{self._get_color(module)}{module:<20}{Style.RESET_ALL} " +
               f"» "
               f"{msg_colors[level_name]}{message}{Style.RESET_ALL}")
@@ -130,15 +133,24 @@ def getLogger(*names):
     #print(log.name, log.level)
     return log
 
-def getLevel(names: list):
-    count = len(names)
-    name = f"{'.'.join(names)}"
+def getLevel(name_s: Union[List, str]):
+    if isinstance(name_s, list):
+        count = len(name_s)
+        name = f"{'.'.join(name_s)}"
+    else:
+        name = name_s
+        count = 1
     level = config.logging.get(name.lower(), None)
     #print(name, level)
     while level is None and count > 1:
-        level = config.logging.get(f"{'.'.join(names[:count])}", None)
+        level = config.logging.get(f"{'.'.join(name_s[:count])}", None)
         count -= 1
         #print(f"{'.'.join(names[:count])}", level)
     if level is None:
         level = config.logging.GLOBAL
     return level
+
+colorlog.getLogger = getLogger
+log = colorlog.getLogger("colorlog")
+log.setLevel("INFO")
+log.info("changed colorlog getLogger method")
