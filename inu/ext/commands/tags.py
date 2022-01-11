@@ -43,7 +43,7 @@ tags = lightbulb.Plugin("Tags", "Commands all arround tags")
 async def on_ready(_):
     try:
         TagManager.set_db(tags.bot.db)
-        log.info("added database to TagManager")
+        log.info("initialized TagManager")
     except Exception:
         log.critical(f"CAN'T ADD DATABASE TO TAGMANAGER: {traceback.format_exc()}")
 
