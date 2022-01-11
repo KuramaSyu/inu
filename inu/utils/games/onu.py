@@ -41,7 +41,9 @@ __all__: Final[List[str]] = [
     "Event",
     "TurnErrorEvent",
     "TurnSuccessEvent",
-    "CardsReceivedEvent"
+    "CardsReceivedEvent",
+    "GameEndEvent",
+    "OnuHandler",
 ]
 
 
@@ -224,6 +226,30 @@ class Hand:
 
     def __len__(self):
         return len(self.cards)
+
+    def build_card_row(self, cards_per_row: int = 5) -> List[str]:
+        """
+        Returns:
+        --------
+            - List[str] A list with strings which represent one row of cards respectively
+        """
+        rows = []
+        row_str = ""
+        to_process = []
+        for card_i, card in enumerate(self.cards):
+            row_str = ""
+            to_process.append(card)
+            if len(to_process) == cards_per_row or card_i+1 == len(self.cards):
+                # draw fist row of <cards_per_row> cards to hand_str
+                for i in range(len(card.design.value)):
+                    # draw line for line until row is complete
+                    row_str += f'{"||".join([card.design.value[i] for card in to_process])}\n'
+                rows.append(row_str)
+                to_process = []
+        return rows
+
+    def __str__(self) -> str:
+        return "\n--------------\n".join(self.build_card_row())
 
 
 class NewCardStack:
@@ -525,11 +551,12 @@ class OnuHandler:
             self.on_turn_error(event)
         elif isinstance(event, CardsReceivedEvent):
             self.on_cards_received(event)
+        return event
 
 # bare example
 if __name__ == "__main__":
     log.debug("TEST")
-    class test(OnuHandler):
+    class TerminalOnu(OnuHandler):
         def on_event(self, event: Event):
             print(event)
             print(event.hand)
@@ -548,17 +575,27 @@ if __name__ == "__main__":
 
         def loop(self):
             hand = self.current_hand
+            print(self.create_player_hand_embed(hand))
             while not self.onu.game_over:
                 for i, card in enumerate(self.current_hand.cards):
                     print(i, "---", card)
                 print(f"top card: {self.onu.cast_off.top}")
                 card_index = input(f"Which card do you wanna play @{self.current_hand.name}:\n")
                 self.do_turn(hand, hand.cards[int(card_index)])
+
+        def create_player_hand_embed(self, hand: Hand):
+            display = "Your hand:\n"
+            display += str(hand)
+            display += f"top card: {str(self.onu.cast_off.top)}"
+            display += "\n".join(self.onu.cast_off.top.design.value)
+            display += "upcoming players"
+            display += "--> ".join(hand.name for hand in self.onu.hands)
+            return display
     players = {
         "1": "Olaf",
         "2": "Annie"
     }
-    onu = test(players)
+    onu = TerminalOnu(players)
     onu.loop()
 
 
