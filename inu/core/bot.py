@@ -22,7 +22,7 @@ from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from colorama import Fore, Style
 
-from ._logging import LoggingHandler, getLogger
+from ._logging import LoggingHandler, getLogger, getLevel
 from . import ConfigProxy
 import lavasnek_rs
 
@@ -41,6 +41,25 @@ class Inu(lightbulb.BotApp):
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
+        
+        logger_names = [
+            "hikari", "hikari.event_manager", "ligthbulb.app", "lightbulb",
+            "hikari.gateway", "hikari.ratelimits", "hikari.rest", "lightbulb.internal"
+        ]
+        loggers = {name: {"level": getLevel(name)} for name in logger_names}
+        logs = {
+            "version": 1,
+            "incremental": True,
+            # "loggers": {
+            #     "hikari": {"level": getLevel("hikari")},
+            #     "hikari.gateway": {"level":  getLevel("hikari.gateway")},
+            #     "hikari.ratelimits": {"level":  getLevel("hikari.ratelimits")},
+            #     "lightbulb": {"level":  getLevel("lightbulb")},
+            # },
+            "loggers": loggers 
+        }
+        for log_name in ["hikari.rest", "hikari.ratelimits", "hikari.models"]:
+            pass
         super().__init__(
             *args, 
             prefix=[self.conf.bot.DEFAULT_PREFIX, ""], 
@@ -48,10 +67,10 @@ class Inu(lightbulb.BotApp):
             **kwargs,
             case_insensitive_prefix_commands=True,
             banner=None,
+            logs=logs,
 
         )
-        logging.setLoggerClass(LoggingHandler)
-        self.mrest: MaybeRest = MaybeRest(self)
+        
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
 
@@ -92,7 +111,7 @@ class Inu(lightbulb.BotApp):
                 continue
             try:
                 self.load_extensions(f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}")
-                self.log.debug(f"loaded plugin: {extension}")
+                # self.log.debug(f"loaded plugin: {extension}")
             except Exception:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
 
