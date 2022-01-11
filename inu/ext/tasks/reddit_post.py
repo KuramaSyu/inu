@@ -95,9 +95,6 @@ async def pics_of_hour():
         now = datetime.datetime.now()
         if now.minute != 0:
             return
-        now = datetime.datetime.now()
-        log.debug(now)
-        # subreddit = plugin.d.daily_content["time"][str(now.hour)][0]
         subreddit = next(plugin.d.subreddits)
         if not subreddit:
             return
