@@ -3,43 +3,35 @@
 import os
 import asyncio
 import logging
+import traceback
 
-from core._logging import LoggingHandler
+from core import LoggingHandler
 logging.setLoggerClass(LoggingHandler)
 
 from dotenv import dotenv_values
 import hikari
 import lightbulb
 from lightbulb import events
-logging.setLoggerClass(LoggingHandler)
 from core import Inu
-from utils import InvokationStats, Reminders, Table
+from utils import InvokationStats, Reminders, Table, TagManager
 from core import getLogger
 
 log = getLogger(__name__)
 
 def main():
-
-    logs = {
-        "version": 1,
-        "incremental": True,
-        "loggers": {
-            "hikari": {"level": "DEBUG"},
-            "hikari.gateway": {"level": "DEBUG"},
-            "hikari.ratelimits": {"level": "INFO"}, #TRACE_HIKARI
-            "lightbulb": {"level": "DEBUG"},
-        },
-    }
-
+    log.info("Create Inu")
     inu = Inu()
 
-    @inu.listen(hikari.ShardReadyEvent)
-    async def on_ready(_: hikari.ShardReadyEvent):
-        # init all db classes
-        logging.setLoggerClass(LoggingHandler)
-        await inu.init_db()
-        InvokationStats.set_db(inu.db)
-        await Reminders.init_bot(inu)
+    @inu.listen(hikari.StartingEvent)
+    async def on_ready(_: hikari.StartingEvent):
+        try:
+            await inu.init_db()
+            InvokationStats.set_db(inu.db)
+            await Reminders.init_bot(inu)
+            TagManager.set_db(inu.db)
+            log.info("initialized Invokationstats, Reminders and TagManager")
+        except Exception:
+            log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
 
         # update bot start value
         table = Table("bot", do_log=False)
