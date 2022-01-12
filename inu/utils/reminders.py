@@ -366,7 +366,7 @@ class HikariReminder(BaseReminder):
             else:
                 d = f"[jump to your message]({(await Reminders.bot.rest.fetch_message(self.channel_id, self.message_id)).make_link(self.guild_id)}) \n"
             embed.description += d
-        user = await self.bot.mrest.fetch_user(self.creator_id)
+        user = await self.bot.rest.fetch_user(self.creator_id)
         embed.title = f"Reminder"
         embed.description += user.mention
         embed.set_thumbnail(user.avatar_url)
