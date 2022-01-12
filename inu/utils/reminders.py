@@ -371,10 +371,6 @@ class HikariReminder(BaseReminder):
         embed.description += user.mention
         embed.set_thumbnail(user.avatar_url)
         asyncio.Task(user.send(embed=embed))
-        # else:
-        #     async def send(self):
-        #         await (await Reminders.bot.rest.fetch_user(self.creator_id)).send(embed=embed)
-        #    asyncio.Task(send(self))
         if self.guild_id:
             asyncio.Task(self.bot.rest.create_message(self.channel_id, embed=embed))
         
