@@ -41,11 +41,7 @@ tags = lightbulb.Plugin("Tags", "Commands all arround tags")
 
 @tags.listener(hikari.ShardReadyEvent)
 async def on_ready(_):
-    try:
-        TagManager.set_db(tags.bot.db)
-        log.info("initialized TagManager")
-    except Exception:
-        log.critical(f"CAN'T ADD DATABASE TO TAGMANAGER: {traceback.format_exc()}")
+    pass
 
 @tags.command
 @lightbulb.option("key", "the name of the tag you want to get", modifier=commands.OptionModifier.CONSUME_REST, default=None) 
