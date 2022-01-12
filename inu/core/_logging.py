@@ -139,13 +139,14 @@ def getLevel(name_s: Union[List, str]):
         name = f"{'.'.join(name_s)}"
     else:
         name = name_s
+        name_s = name.split(".")
         count = 1
     level = config.logging.get(name.lower(), None)
     #print(name, level)
-    while level is None and count > 1:
+    while level is None and count >= 1:
         level = config.logging.get(f"{'.'.join(name_s[:count])}", None)
         count -= 1
-        #print(f"{'.'.join(names[:count])}", level)
+        # print(f"{'.'.join(name_s[:count])}", level)
     if level is None:
         level = config.logging.GLOBAL
     return level
@@ -154,3 +155,5 @@ colorlog.getLogger = getLogger
 log = colorlog.getLogger("colorlog")
 log.setLevel("INFO")
 log.info("changed colorlog getLogger method")
+# logging.getLogger = getLogger
+# log.info("changed logging.getLogger method")
