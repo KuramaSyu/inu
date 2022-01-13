@@ -13,10 +13,11 @@ from typing import (
 )
 import enum
 from collections import deque
-import logging
+
+from core import getLogger
 
 
-from onu_cards import (
+from .onu_cards import (
     card_0,
     card_1,
     card_2,
@@ -47,14 +48,13 @@ __all__: Final[List[str]] = [
 ]
 
 
-log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log = getLogger(__name__)
 
 class CardColors(enum.Enum):
-    RED = "red"
-    GREEN = "green"
-    BLUE = "blue"
-    YELLOW = "yellow"
+    RED = "🟥"
+    GREEN = "🟩"
+    BLUE = "🟦"
+    YELLOW = "🟨"
     COLORFULL = "colorfull"
 
 class CardAlgorithms:
@@ -117,23 +117,28 @@ class Card:
         if card_design is None and value is None:
             raise RuntimeError(
                 "Can't build a card without value or card_design. Minimun one of them has to be given"
-                )
+            )
         self.design = card_design
+        
         if isinstance(function, List):
             self.functions = function
         else:
             self.functions = [function]
         self.color = color
+        self.possible_color = color  # color attr will be changed to selected one
         if card_design is None:
             self.design = self.get_design_from_value(value)
         else:
             self.design = card_design
+        self._design = self._chage_card_color()
         if value is None:
             self.value = self.get_value_from_design(self.design)
         else:
             self.value = value
         self.is_active = is_active or bool(draw_value)
         self.draw_value = self.get_draw_value(self.design)
+        self.log = getLogger(__name__, self.__class__.__name__)
+        
         
     
     @staticmethod
@@ -142,15 +147,15 @@ class Card:
         if re.match(regex, design.name):
             return int(design.name[-1])
         else:
-            return 0
+            return None
         
     @staticmethod
     def get_design_from_value(value) -> CardDesigns:
-        regex = "CARD_[0-9]"
+        card_name = f"CARD_{value}"
         if not 0 <= value <= 9:
             raise RuntimeError(f"Can't build card with value: {value}")
         for design in CardDesigns:
-            if re.match(regex, design.name):
+            if re.match(card_name, design.name):
                 return design
         raise RuntimeError(f"Card design with matches to value {value} not found")
        
@@ -165,6 +170,7 @@ class Card:
     def disable(self):
         """disables the is_active attr, which represents, wether or not the draw_value has been drawen"""
         self.is_active = False
+        self.draw_value = 0
 
     def can_cast_onto(self, other: "Card") -> bool:
         """
@@ -175,16 +181,30 @@ class Card:
             - (bool) wether or not <other> can be casted onto this card
         
         """
+        log = self.log
+        # log.debug(f"{str(self)} ..... {str(other)}")
         if other.color == CardColors.COLORFULL:
-            print("other card is colorfull")
+            # log.debug("other color is colorfull")
             return False
+        # if (not other.possible_color == CardColors.COLORFULL) and (self.possible_color == CardColors.COLORFULL):
+        #     # log.debug("this card is colorfull")
+        #     return False
         if self.is_active:
             if not other.is_active:
-                print("other card is not active")
+                # log.debug("other card is not active")
                 return False
-        if not (self.functions == other.functions or self.color == other.color):
-            print("function or color is not same")
-            return False
+        if CardFunctions.NORMAL in self.functions and CardFunctions.NORMAL in other.functions:
+            if not (self.color == other.color or self.value == other.value):
+                # log.debug("normal color and value not matching")
+                return False
+        else:
+            if not (
+                self.functions == other.functions 
+                or 
+                (self.color == other.color or other.possible_color == CardColors.COLORFULL)
+            ):
+                # log.debug("function or color is not same")
+                return False
         return True
 
     def __str__(self):
@@ -198,7 +218,7 @@ class Card:
                 }.get(f, "")
             )
         number = ""
-        if self.value:
+        if not self.value is None:
             number += str(self.value)
         if self.draw_value > 0:
             number += f"+{self.draw_value}"
@@ -208,6 +228,16 @@ class Card:
             if x:
                 l.append(x)
         return " | ".join(l)
+
+    def _chage_card_color(self):
+        if CardFunctions.CHANGE_COLOR in self.functions:
+            return self.design.value
+        return [row.replace("🟦", self.color.value) for row in self.design.value]
+
+    def set_color(self, color: CardColors):
+        self.color = color
+
+
         
 
 
@@ -223,6 +253,7 @@ class Hand:
         self.name = name
         self.id = id
         self.cards: List[Card] = []
+        self.color = CardColors.COLORFULL
 
     def __len__(self):
         return len(self.cards)
@@ -243,7 +274,7 @@ class Hand:
                 # draw fist row of <cards_per_row> cards to hand_str
                 for i in range(len(card.design.value)):
                     # draw line for line until row is complete
-                    row_str += f'{"||".join([card.design.value[i] for card in to_process])}\n'
+                    row_str += f'{"⬛⬛".join([card._design[i] for card in to_process])}\n'
                 rows.append(row_str)
                 to_process = []
         return rows
@@ -251,6 +282,16 @@ class Hand:
     def __str__(self) -> str:
         return "\n--------------\n".join(self.build_card_row())
 
+    def set_color(self, color: CardColors):
+        self.color = color
+
+    def __eq__(self, other):
+        if not isinstance(other, self.__class__):
+            raise TypeError(f"type `{type(other)}` isn't comparable with `{self.__class__}`")
+        return self.id == other.id
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
 
 class NewCardStack:
     def __init__(self):
@@ -326,6 +367,7 @@ class NewCardStack:
             ) 
         for _ in range(0,3):
             random.shuffle(self.stack)
+    
 
 class CastOffStack:
     def __init__(self):
@@ -344,7 +386,7 @@ class CastOffStack:
         return self.stack[-1]
         
     def append(self, card: Card):
-        if self.draw_calue and CardFunctions.REVERSE in card.functions:
+        if CardFunctions.REVERSE in card.functions and self.top.is_active:
             card.is_active = True
         self.stack.append(card)
         self._draw_value += card.draw_value
@@ -362,6 +404,15 @@ class Event:
     ):
         self.hand = hand
         self.info = info
+
+
+class SideEvent(Event):
+    def __init__(
+        self,
+        hand: Hand,
+        info: str,
+    ):
+        super().__init__(hand, info)
 
 
 class CardsReceivedEvent(Event):
@@ -400,6 +451,7 @@ class TurnSuccessEvent(Event):
         super().__init__(hand, info)
         self.top_card = top_card
 
+
 class GameEndEvent(Event):
     def __init__(
         self,
@@ -409,6 +461,15 @@ class GameEndEvent(Event):
     ):
         super().__init__(hand, info)
         self.winner = winner
+
+
+class WrongTurnEvent(Event):
+    def __init__(
+        self,
+        hand: Hand,
+        info: str,
+    ):
+        super().__init__(hand, info)
 
 
 class Onu:
@@ -441,6 +502,7 @@ class Onu:
         hand: Union[Hand, str],
         card: Card,
         draw: bool = False,
+        select_color: CardColors = None
     ) -> Event:
         """
         Main function to control the game
@@ -451,16 +513,26 @@ class Onu:
             - card: (`~.Card`) The card the player has casted
             - draw: (bool) wether or not the player wants to draw cards
         """
-        if draw is True and not card is None:
-            raise RuntimeError(f"Can't make a turn, where a card is played AND the player draw cards")
         if isinstance(hand, str):
+            # convert id to hand
             hand = [h for h in self.hands if h.id == hand][0]
+        if select_color:
+            # change selected hand color
+            hand.set_color(select_color)
+            return SideEvent(hand, f"Changed selected color to `{hand.color}`")
+        if hand != self.current_hand:
+            # wrong player
+            return WrongTurnEvent(hand, "It's not your turn!")
+        if draw is True and not card is None:
+            # wether playing a card nor casting one
+            raise RuntimeError(f"Can't make a turn, where a card is played AND the player draw cards")
         args = {
             "hand": hand,
             "info": f"You can't cast a {str(card)} onto a {str(self.cast_off.top)}",
             "top_card": self.cast_off.top,   
         }
         if draw:
+            # draw card
             for _ in range(0, self.cast_off.draw_calue):
                 hand.cards.append(self.stack.pop())
             self.cast_off.reset_draw_value()
@@ -469,15 +541,25 @@ class Onu:
             return TurnSuccessEvent(**args)
 
         if not self.cast_off.top.can_cast_onto(card):
+            # can't cast onto top card
             if card.color == CardColors.COLORFULL:
-                args["info"] = "given <card> color is `~.CardColors.COLORFULL` which is not castable"
-                return TurnErrorEvent(**args, given_card=card)
+                if hand.color != CardColors.COLORFULL:
+                    # change card color to selected color
+                    card.color = hand.color
+                    # log.debug(f"changed card color to {hand.color}")
+                    return self.turn(hand, card, draw)
+                else:
+                    # card and hand are colorfull
+                    args["info"] = "given <card> color is `~.CardColors.COLORFULL` which is not castable"
+                    return TurnErrorEvent(**args, given_card=card)
             else:
+                # typical onu error (cards don't match)
                 return TurnErrorEvent(**args, given_card=card)
         hand.cards.remove(card)
         self.cast_off.append(card)
         args["info"] = "Successfully casted card"
-        if self.winner:
+        if self.game_over:
+            del args["top_card"]
             return GameEndEvent(**args, winner=self.winner)
         else:
             self.cycle_hands()
@@ -494,6 +576,7 @@ class Onu:
     def winner(self) -> Optional[Hand]:
         for hand in self.hands:
             if len(hand.cards) == 0:
+                # log.debug(f"winner is {hand.name}")
                 return hand
         return None
 
@@ -534,14 +617,18 @@ class OnuHandler:
     
     def on_cards_received(self, event: CardsReceivedEvent):
         pass
+
+    def on_side_event(self, event: SideEvent):
+        pass
     
     def do_turn(
         self,
         hand: Optional[Hand] = None,
         card: Optional[Card] = None,
         draw_cards: bool = False,
+        select_color: CardColors = None,
     ):
-        event = self.onu.turn(hand, card, draw_cards)
+        event = self.onu.turn(hand, card, draw_cards, select_color)
         self.on_event(event)
         if isinstance(event, TurnSuccessEvent):
             self.on_turn_success(event)
@@ -551,15 +638,18 @@ class OnuHandler:
             self.on_turn_error(event)
         elif isinstance(event, CardsReceivedEvent):
             self.on_cards_received(event)
+        elif isinstance(event, SideEvent):
+            self.on_side_event(event)
+        elif isinstance(event, WrongTurnEvent):
+            self.on_wrong_turn(event)
         return event
 
 # bare example
 if __name__ == "__main__":
-    log.debug("TEST")
+    # log.debug("TEST")
     class TerminalOnu(OnuHandler):
         def on_event(self, event: Event):
             print(event)
-            print(event.hand)
 
         def on_turn_success(self, event: TurnSuccessEvent):
             pass
@@ -573,23 +663,31 @@ if __name__ == "__main__":
         def on_cards_received(self, event: CardsReceivedEvent):
             pass
 
+        def on_side_event(self, event: SideEvent):
+            pass
+
         def loop(self):
-            hand = self.current_hand
-            print(self.create_player_hand_embed(hand))
             while not self.onu.game_over:
+                hand = self.current_hand
+                print(self.create_player_hand_embed(hand))
+                print(f"0 --- draw cards ({self.onu.cast_off.draw_calue})")
                 for i, card in enumerate(self.current_hand.cards):
-                    print(i, "---", card)
+                    print(i+1, "---", card)
                 print(f"top card: {self.onu.cast_off.top}")
                 card_index = input(f"Which card do you wanna play @{self.current_hand.name}:\n")
-                self.do_turn(hand, hand.cards[int(card_index)])
+                if card_index == "0":
+                    self.do_turn(hand, draw_cards=True)
+                else:
+                    self.do_turn(hand, hand.cards[int(card_index)-1])
 
         def create_player_hand_embed(self, hand: Hand):
-            display = "Your hand:\n"
+            print(hand.name)
+            display = f"\n\n{hand.name}'s hand:\n"
             display += str(hand)
-            display += f"top card: {str(self.onu.cast_off.top)}"
-            display += "\n".join(self.onu.cast_off.top.design.value)
-            display += "upcoming players"
-            display += "--> ".join(hand.name for hand in self.onu.hands)
+            display += f"top card: {str(self.onu.cast_off.top)} --- {self.onu.cast_off.top.is_active}\n"
+            display += "\n".join(self.onu.cast_off.top._design)
+            display += "\nupcoming players\n"
+            display += "\n--> ".join(hand.name for hand in self.onu.hands)
             return display
     players = {
         "1": "Olaf",
