@@ -31,7 +31,7 @@ class HikariOnu(OnuHandler):
         self.log = getLogger(__name__, self.__class__.__name__)
         self.players = players
         legacy_players = {str(snowfl): user.username for snowfl, user in players.items()}
-        super().__init__(legacy_players, cards_per_hand=1)
+        super().__init__(legacy_players, cards_per_hand=10)
         self.timeout = 14.5*60
         self.messages: Dict[Snowflakeish, Snowflakeish] = {}
         self.channels: Dict[Snowflakeish, Snowflakeish] = {}
@@ -270,12 +270,13 @@ class HikariOnu(OnuHandler):
             .add_option(f"Draw cards ({self.onu.cast_off.draw_calue})", "0").add_to_menu()
         )
         for i, card in enumerate(hand.cards):
+            if i >= 24:
+                # limit of menu len reached
+                break  
             menu.add_option(f"{i+1}: {str(card)}", str(int(i+1))).add_to_menu()
         menu = menu.add_to_container()
         for i, card in enumerate(hand.cards):
-            if i == 24:
-                # limit of menu len reached
-                break  
+
             if CardFunctions.CHANGE_COLOR in card.functions:
                 btns = (
                     ActionRowBuilder()
