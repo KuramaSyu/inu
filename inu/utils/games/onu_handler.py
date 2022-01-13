@@ -223,14 +223,12 @@ class HikariOnu(OnuHandler):
             )
         )
         asyncio.create_task(
-            self.send(
-                self.ctx.respond(
-                    embed=Embed(
-                        title="{event.winner} has won the game!", 
-                        color=Colors.from_name("royalblue"),
-                        description=f"start another game with `/onu @player1 ...` or `inu.onu @player1 ...`"
-                    ), 
-                )
+            self.ctx.respond(
+                embed=Embed(
+                    title="{event.winner} has won the game!", 
+                    color=Colors.from_name("royalblue"),
+                    description=f"start another game with `/onu @player1 ...` or `inu.onu @player1 ...`"
+                ), 
             )
         )
     async def a_on_turn_error(self, event: TurnErrorEvent):
