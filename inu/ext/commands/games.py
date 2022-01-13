@@ -14,6 +14,7 @@ from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 
 from utils.games.connect_four_handler import Connect4Handler
+from utils.games import HikariOnu
 
 from core import getLogger
 
@@ -49,6 +50,25 @@ async def connect4(ctx: Context):
         pass
     await msg.remove_all_reactions()
     
-    
+@plugin.command
+@lightbulb.option("player8", "The 8th @player", type=hikari.Member, default=None)
+@lightbulb.option("player7", "The 7th @player", type=hikari.Member, default=None)
+@lightbulb.option("player6", "The 6th @player", type=hikari.Member, default=None)
+@lightbulb.option("player5", "The 5th @player", type=hikari.Member, default=None)
+@lightbulb.option("player4", "The 4th @player", type=hikari.Member, default=None)
+@lightbulb.option("player3", "The third @player", type=hikari.Member, default=None)
+@lightbulb.option("player2", "The second @player", type=hikari.Member)
+@lightbulb.option("player1", "The first @player", type=hikari.Member)
+@lightbulb.command("onu", "starts a onu game")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def onu(ctx: Context):
+    onu = HikariOnu(
+        {p.id: p for p in ctx._options.values() if not p is None}
+    )
+    try:
+        await onu.start(ctx.bot, ctx)
+    except Exception:
+        log.error(traceback.format_exc())
+
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
