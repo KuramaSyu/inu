@@ -90,7 +90,7 @@ async def show_record(record: asyncpg.Record, ctx: Context, key: str) -> None:
         return await ctx.respond(f"I can't found a tag named `{key}` in my storage")
     messages = []
     for value in crumble("\n".join(v for v in record["tag_value"]), 1900):
-        message = f"**{key}**\n\n{value}\n\n`created by {tags.bot.cache.get_user(record['creator_id']).username}`"
+        message = f"**{key}**\n\n{value}\n\ncreated by <@{(record['creator_id'])}>"
         messages.append(message)
     pag = Paginator(messages)
     await pag.start(ctx)
