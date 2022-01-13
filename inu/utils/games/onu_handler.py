@@ -41,6 +41,8 @@ class HikariOnu(OnuHandler):
             "green": CardColors.GREEN, 
             "blue": CardColors.BLUE
         }
+        self.bot = None
+        self.ctx = None
 
     def get_user(self, hand: Hand) -> Union[hikari.User, hikari.Member]:
         return self.players[int(hand.id)]
@@ -220,7 +222,17 @@ class HikariOnu(OnuHandler):
                 add_hand_components=False
             )
         )
-
+        asyncio.create_task(
+            self.send(
+                self.ctx.respond(
+                    embed=Embed(
+                        title="{event.winner} has won the game!", 
+                        color=Colors.from_name("royalblue"),
+                        description=f"start another game with `/onu @player1 ...` or `inu.onu @player1 ...`"
+                    ), 
+                )
+            )
+        )
     async def a_on_turn_error(self, event: TurnErrorEvent):
         asyncio.create_task(
             self.send(
