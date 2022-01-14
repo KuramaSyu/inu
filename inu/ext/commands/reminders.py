@@ -115,5 +115,19 @@ async def reminder_list(ctx: context.Context):
         msg += "\n\n"
     pag = Paginator(page_s=crumble(msg))
     await pag.start(ctx)
+
+@reminder.child
+@lightbulb.option("id", "The id (get it with reminder list) of the reminder", type=int)
+@lightbulb.command("cancel", "cancel a reminder", aliases=["delete"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def reminder_cancle(ctx: context.Context):
+    record = await Reminders.delete_reminder_by_id(int(ctx.options.id))
+    if not record:
+        await ctx.respond(f"I would do it, but there is no reminder with id {ctx.options.id}")
+    elif record["creator_id"] != ctx.author.id:
+        await ctx.respond(f"_YOU_ haven't a reminder with that id. So I won't cancel it!")
+    else:
+        await ctx.respond(f"Reminder is canceled :)")
+
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
