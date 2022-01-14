@@ -15,7 +15,7 @@ from hikari.embeds import Embed
 import lightbulb
 from lightbulb.context import Context
 import asyncpg
-
+import mock
 
 from core.bot import Inu
 from . import Database, Table
@@ -297,6 +297,7 @@ class TimeParser:
 class BaseReminder:
     def __init__(self, query: str, hour_offset: int = 0):
         self._query = query
+        self.hour_offset = hour_offset
         if self._query:
             self.time_parser = TimeParser(self._query, hour_offset)
             self.remind_text = self.time_parser.unused_query
@@ -365,29 +366,55 @@ class HikariReminder(BaseReminder):
 
     async def send_message(self):
         snooze_times = {
-            "5 min": 5*60, "10 min": 10*60, "15 min": 15*60, "30 min": 30*60,
-            "1 hour": 60*60, "3 hours": 3*60*60, "6 hours": 6*60*60,
-            "12 hours": 12*60*60, "1 day": 24*60*60 
+            "5 min": 5*60, "10 min": 10*60, "15 min": 15*60, "20 min": 20*60, 
+            "30 min": 30*60, "1 hour": 60*60, "3 hours": 3*60*60, "6 hours": 6*60*60,
+            "12 hours": 12*60*60, "1 day": 24*60*60, "2 days": 2*24*60*60,
+            "3 days": 3*24*60*60, "5 days": 5*24*60*60, "1 week": 7*24*60*60,
+            "2 weeks": 2*7*24*60*60, "1 month": 4*7*24*60*60,
         }
         menu = ActionRowBuilder().add_select_menu("snooze_menu")
-        for i in snooze_times.items():
-            pass
+        for name, value in snooze_times.items():
+            menu.add_option(f"snooze for {name}", str(value)).add_to_menu()
+        menu = menu.add_to_container()
+
         embed = Embed(description='')
         if self.remind_text:
             embed.description += f"{self.remind_text} \n"
+        dummy_message = mock.Mock(id=self.message_id, channel_id=self.channel_id)
+        link = hikari.Message.make_link(dummy_message, self.guild_id)
         if self.message_id != 0:
-            if self.ctx:
-                d = f"[jump to your message]({self.ctx.event.message.make_link(self.ctx.guild_id)}) \n"
-            else:
-                d = f"[jump to your message]({(await Reminders.bot.rest.fetch_message(self.channel_id, self.message_id)).make_link(self.guild_id)}) \n"
+            d = f"[jump to your message]({link}) \n"
             embed.description += d
         user = await self.bot.rest.fetch_user(self.creator_id)
         embed.title = f"Reminder"
         embed.description += user.mention
         embed.set_thumbnail(user.avatar_url)
-        asyncio.Task(user.send(embed=embed))
-        if self.guild_id:
-            asyncio.Task(self.bot.rest.create_message(self.channel_id, embed=embed))
+        msg = await user.send(embed=embed, user_mentions=True, components=[menu])
+        value, event = await self.bot.wait_for_interaction(
+            custom_id="snooze_menu",
+            user_id=self.creator_id,
+            message_id=msg.id,
+        )
+        if (
+            not isinstance(event, hikari.InteractionCreateEvent) 
+            or not isinstance(event.interaction, hikari.ComponentInteraction)
+        ):
+            return
+        # inform user
+        embed.description += f"\nremind you in: <t:{int(time.time())+int(value)}:R> again"
+        event.interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_UPDATE)
+        await msg.edit(embed=embed, components=[])
+        # prepare and start new reminder
+        reminder = HikariReminder(self.channel_id, self.creator_id, self.message_id, offset_hours=self.hour_offset)
+        reminder.wait_until = int(time.time() + int(value))
+        reminder.datetime = datetime.datetime.fromtimestamp(reminder.wait_until)
+        reminder.remind_text = self.remind_text
+        reminder.in_seconds = int(value)
+        if reminder.in_seconds >= Reminders.REMINDER_UPDATE:
+            loop = asyncio.get_event_loop()
+            asyncio.Task(reminder.store_reminder(), loop=loop)
+        else:
+            asyncio.Task(reminder.schedule())
         
         
     async def destroy_reminder(self):
@@ -413,8 +440,6 @@ class HikariReminder(BaseReminder):
             self.schedule(),
             loop=asyncio.get_running_loop(),
         )
-        
-        
         
 
     @staticmethod
