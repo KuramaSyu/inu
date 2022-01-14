@@ -292,6 +292,7 @@ class HikariOnu(OnuHandler):
         t = {
             "COLORFULL": "darkslateblue",
             "BLUE": "cornflowerblue",
+            "GREEN": "limegreen",
         }
         c = t.get(color.name)
         if c is None:
