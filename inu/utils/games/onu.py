@@ -199,7 +199,7 @@ class Card:
                 return False
         else:
             if not (
-                self.functions == other.functions 
+                (self.functions == other.functions or self.draw_value and other.draw_value) 
                 or 
                 (self.color == other.color or other.possible_color == CardColors.COLORFULL)
             ):
@@ -258,7 +258,7 @@ class Hand:
     def __len__(self):
         return len(self.cards)
 
-    def build_card_row(self, cards_per_row: int = 5) -> List[str]:
+    def build_card_row(self, cards_per_row: int = 5, numbering: bool = True) -> List[str]:
         """
         Returns:
         --------
@@ -274,6 +274,9 @@ class Hand:
                 # draw fist row of <cards_per_row> cards to hand_str
                 for i in range(len(card.design.value)):
                     # draw line for line until row is complete
+                    if numbering and i == 0:
+                        numbs = [f"-{n:02d}-" for n in range(card_i-cards_per_row, card_i)]
+                        row_str += f"{' '.join(num for num in numbs)}"
                     row_str += f'{"⬛⬛".join([card._design[i] for card in to_process])}\n'
                 rows.append(row_str)
                 to_process = []
