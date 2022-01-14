@@ -15,6 +15,7 @@ import enum
 from collections import deque
 
 from core import getLogger
+from utils import Emoji
 
 
 from .onu_cards import (
@@ -135,8 +136,8 @@ class Card:
             self.value = self.get_value_from_design(self.design)
         else:
             self.value = value
-        self.is_active = is_active or bool(draw_value)
         self.draw_value = self.get_draw_value(self.design)
+        self.is_active = is_active or bool(self.draw_value)
         self.log = getLogger(__name__, self.__class__.__name__)
         
         
@@ -189,10 +190,9 @@ class Card:
         # if (not other.possible_color == CardColors.COLORFULL) and (self.possible_color == CardColors.COLORFULL):
         #     # log.debug("this card is colorfull")
         #     return False
-        if self.is_active:
-            if not other.is_active:
-                # log.debug("other card is not active")
-                return False
+        if self.is_active and not other.is_active:
+            # log.debug("other card is not active")
+            return False
         if CardFunctions.NORMAL in self.functions and CardFunctions.NORMAL in other.functions:
             if not (self.color == other.color or self.value == other.value):
                 # log.debug("normal color and value not matching")
@@ -237,6 +237,18 @@ class Card:
     def set_color(self, color: CardColors):
         self.color = color
 
+    def do_action(self, onu: "Onu", self_hand: "Hand") -> None:
+        """
+        If the card has impact on players, then it will be done here
+        """
+        if CardFunctions.REVERSE in self.functions:
+            [*onu.hands] = reversed(onu.hands)
+        if CardFunctions.STOP in self.functions:
+            onu.cycle_hands()
+        if CardColors.COLORFULL == self.color:
+            self.color = self_hand.color
+
+
 
         
 
@@ -275,8 +287,17 @@ class Hand:
                 for i in range(len(card.design.value)):
                     # draw line for line until row is complete
                     if numbering and i == 0:
-                        numbs = [f"-{n:02d}-" for n in range(card_i-cards_per_row, card_i)]
-                        row_str += f"{' '.join(num for num in numbs)}"
+                        numbs = [Emoji.as_number(f"{n+2:02d}") for n in range(card_i-len(to_process), card_i)]
+                        for j, item in enumerate(numbs):
+                            if j % 5 == 0 or j == 0:
+                                row_str += f"{item}"
+                            elif j % 2 == 0:
+                                row_str += f"⬛⬛{item}"
+                            else:
+                                row_str += f"⬛⬛⬛{item}"
+                        row_str += "\n"
+                        # disable for and enable this below if it's not for discord
+                        #row_str += f" {'⬛⬛⬛'.join(numbs)}\n"
                     row_str += f'{"⬛⬛".join([card._design[i] for card in to_process])}\n'
                 rows.append(row_str)
                 to_process = []
@@ -389,8 +410,11 @@ class CastOffStack:
         return self.stack[-1]
         
     def append(self, card: Card):
-        if CardFunctions.REVERSE in card.functions and self.top.is_active:
-            card.is_active = True
+        try:
+            if CardFunctions.REVERSE in card.functions and self.top.is_active:
+                card.is_active = True
+        except:
+            card.is_active = False
         self.stack.append(card)
         self._draw_value += card.draw_value
         
@@ -492,7 +516,12 @@ class Onu:
         self.stack: NewCardStack = NewCardStack()
 
         self.cast_off: CastOffStack = CastOffStack()
-        self.cast_off.append(self.stack.pop())
+        first_card = self.stack.pop()
+        if CardFunctions.CHANGE_COLOR in first_card.functions:
+            first_card.set_color(
+                random.choice([CardColors.BLUE, CardColors.GREEN, CardColors.YELLOW, CardColors.RED])
+            )
+        self.cast_off.append(first_card)
 
         self.hands: List[Hand] = [Hand(name, str(id)) for id, name in players.items()]
         random.shuffle(self.hands)
@@ -558,6 +587,7 @@ class Onu:
             else:
                 # typical onu error (cards don't match)
                 return TurnErrorEvent(**args, given_card=card)
+        card.do_action(self, hand)
         hand.cards.remove(card)
         self.cast_off.append(card)
         args["info"] = "Successfully casted card"
