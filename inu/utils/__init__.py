@@ -13,6 +13,7 @@ from .reminders import HikariReminder, Reminders
 from .logger import *
 from .tag_mamager import TagManager
 from .string_crumbler import crumble, StringCutter
+from .emojis import Emoji
 
 
 import logging
