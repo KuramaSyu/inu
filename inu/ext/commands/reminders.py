@@ -6,12 +6,13 @@ from typing import (
 )
 import asyncio
 import logging
-import datetime
+import datetime as d
+from datetime import datetime
 import time
 import traceback
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
-from hikari.messages import ButtonStyle
+from hikari.messages import ButtonStyle, PartialMessage
 from hikari.impl.special_endpoints import ActionRowBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
@@ -26,10 +27,11 @@ import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from utils.reminders import REMINDER_UPDATE, Reminders
-from utils import HikariReminder, Human, Table
+from utils import HikariReminder, Human, Table, Paginator, crumble
 
 
 from core import getLogger
+
 
 log = getLogger(__name__)
 
@@ -44,7 +46,7 @@ plugin = lightbulb.Plugin("Basics", "Extends the commands with basic commands", 
     type=str, 
     modifier=OM.CONSUME_REST,
 )
-@lightbulb.command("remind", "set a reminder", aliases=["timer", "reminder"])
+@lightbulb.command("remind", "set a reminder", aliases=["timer"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def create_reminder(ctx: context.Context):
     message_id = 0
@@ -83,5 +85,35 @@ async def fetch_hour_offset(id: int):
     except IndexError:
         return 0
 
+@plugin.command
+@lightbulb.command("reminder", "Group with options for reminders")
+@lightbulb.implements(commands.SlashCommandGroup, commands.PrefixCommandGroup)
+async def reminder(ctx: context.Context):
+    pass
+
+@reminder.child
+@lightbulb.command("list", "Get a list with all your reminders")
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
+async def reminder_list(ctx: context.Context):
+    table = Table("reminders")
+    records = await table.select(
+        columns=["creator_id"],
+        matching_values=[ctx.author.id],
+        order_by="remind_time ASC"
+    )
+    if records is None:
+        await ctx.respond("There are no upcoming reminders")
+        return
+    msg = f"**{ctx.author.username}'s reminders**\n\n"
+    for r in records:
+        msg += (
+            f"> ID: {r['reminder_id']:07d} "
+            f"<t:{int(r['remind_time'].timestamp())}:R> <t:{int(r['remind_time'].timestamp())}>\n"
+        )
+        if r["remind_text"]:
+            msg += f"> ```{Human.short_text(r['remind_text'], 25)}```"
+        msg += "\n\n"
+    pag = Paginator(page_s=crumble(msg))
+    await pag.start(ctx)
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
