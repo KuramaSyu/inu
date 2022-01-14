@@ -225,7 +225,7 @@ class HikariOnu(OnuHandler):
         asyncio.create_task(
             self.ctx.respond(
                 embed=Embed(
-                    title="{event.winner} has won the game!", 
+                    title=f"{event.winner} has won the game!", 
                     color=Colors.from_name("royalblue"),
                     description=f"start another game with `/onu @player1 ...` or `inu.onu @player1 ...`"
                 ), 
@@ -252,9 +252,9 @@ class HikariOnu(OnuHandler):
             )
         )
         for i, row in enumerate(hand.build_card_row()):
-            embed.add_field(name=f"{i}. row", value=f"{row}\n\n")
+            embed.add_field(name=f"`", value=f"{row}\n\n")
         embed.add_field(f"top card: {str(self.onu.cast_off.top)}", "\n".join(self.onu.cast_off.top._design), inline=True)
-        embed.add_field("upcoming players", "\n--> ".join(hand.name for hand in self.onu.hands), inline=True)
+        embed.add_field("upcoming players", "```py\n" + '\n--> '.join(f'{hand.name} ({len(hand.cards)})' for hand in self.onu.hands) + "```", inline=True)
         embed.add_field("selected color for colorchanger", value=hand.color.name if hand.color else "/")
         if info:
             embed.add_field("Info", info)
@@ -271,7 +271,7 @@ class HikariOnu(OnuHandler):
             if i >= 24:
                 # limit of menu len reached
                 break  
-            menu.add_option(f"{i+1}: {str(card)}", str(int(i+1))).add_to_menu()
+            menu.add_option(f"{i+1:02d}", str(int(i+1))).add_to_menu()
         menu = menu.add_to_container()
         for i, card in enumerate(hand.cards):
 
@@ -292,7 +292,7 @@ class HikariOnu(OnuHandler):
         t = {
             "COLORFULL": "darkslateblue",
             "BLUE": "cornflowerblue",
-            "GREEN": "limegreen",
+            "GREEN": "forestgreen",
         }
         c = t.get(color.name)
         if c is None:
