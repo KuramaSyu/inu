@@ -2,16 +2,7 @@ import asyncio
 import logging
 import os
 import typing
-from typing import (
-    Final,
-    Optional,
-    Union,
-    List,
-    Any,
-    TYPE_CHECKING,
-    Callable,
-    Sequence
-)
+from typing import *
 from functools import wraps
 import traceback
 
@@ -156,10 +147,10 @@ class KeyValueDB:
 
 
 class Table():
-    def __init__(self, table_name: str, do_log: bool = True):
+    def __init__(self, table_name: str, debug_log: bool = False):
         self.name = table_name
         self.db = Database()
-        self.do_log = do_log
+        self.do_log = debug_log
         self._executed_sql = ""
 
 
@@ -176,7 +167,7 @@ class Table():
                         log.debug(f"{return_value}")
                     return return_value
                 except Exception as e:
-                    log.debug(f"{self._executed_sql}")
+                    log.warning(f"{self._executed_sql}")
                     log.exception(f"{traceback.format_exc()}")
                     if reraise_exc:
                         raise e
@@ -213,7 +204,6 @@ class Table():
         sql = (
             f"INSERT INTO {self.name} ({', '.join(which_columns)}) \n"
             f"VALUES ({', '.join(values_chain)}) \n"
-            #f"RETURNING {returning} "
             f"ON CONFLICT ({which_columns[0]}) DO UPDATE \n"
             f"SET {update_set_query}"
         )
@@ -230,7 +220,18 @@ class Table():
         pass
 
     @logging()
-    async def select(self, columns: List[str], matching_values: List, select: str = "*") -> Optional[List[asyncpg.Record]]:
+    async def select(
+        self, 
+        columns: List[str], 
+        matching_values: List, 
+        order_by: Optional[str] = None, 
+        select: str = "*"
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        SELECT <select> FROM `this`
+        WHERE <columns>=<matching_values>
+        ORDER BY <order_by> (column ASC|DESC)
+        """
         where = ""
         for i, item in enumerate(columns):
             where += f"{'and ' if i > 0 else ''}{item}=${i+1} "
@@ -239,12 +240,14 @@ class Table():
             f"SELECT {select} FROM {self.name}\n"
             f"WHERE {where}"
         )
+        if order_by:
+            sql += f"\nORDER BY {order_by}"
         self._create_sql_log_message(sql, matching_values)
         records = await self.db.fetch(sql, *matching_values)
         return records
     
     async def select_row(self, columns: List[str], matching_values: List, select: str = "*") -> Optional[asyncpg.Record]:
-        records = await self.select(columns, matching_values, select)
+        records = await self.select(columns, matching_values, select=select)
         if not records:
             return None
         return records[0]
