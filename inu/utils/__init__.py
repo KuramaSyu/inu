@@ -12,6 +12,7 @@ from .language import Human
 from .reminders import HikariReminder, Reminders
 from .logger import *
 from .tag_mamager import TagManager
+from .string_crumbler import crumble, StringCutter
 
 
 import logging
