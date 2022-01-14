@@ -10,6 +10,7 @@ import time
 import re
 
 import hikari
+from hikari.impl import ActionRowBuilder
 from hikari.embeds import Embed
 import lightbulb
 from lightbulb.context import Context
@@ -248,12 +249,16 @@ class TimeParser:
         matches = {}
         is_changed = False
         parse_end_index = -1
+        type_ = None
         # iterate through query. each iteration is a float or a str.
         # if its a float, it will be stored as amount
         # if its a str, its will be stored as the unit
         # -> converting str to a unit
         # actual add (unit to seconds) * amount (by default 1) to total waiting seconds 
         for item in gen:
+            if type(item) == type_:
+                break
+            type_ = type(item)
             if isinstance(item, float):
                 amount = item
             else:
@@ -283,6 +288,8 @@ class TimeParser:
 
                 str_unit = ""
                 amount = None
+                type_ = None
+
         if parse_end_index == -1 and is_changed:
             parse_end_index = gen.index
         return parse_end_index
@@ -357,6 +364,14 @@ class HikariReminder(BaseReminder):
         await self.send_message()
 
     async def send_message(self):
+        snooze_times = {
+            "5 min": 5*60, "10 min": 10*60, "15 min": 15*60, "30 min": 30*60,
+            "1 hour": 60*60, "3 hours": 3*60*60, "6 hours": 6*60*60,
+            "12 hours": 12*60*60, "1 day": 24*60*60 
+        }
+        menu = ActionRowBuilder().add_select_menu("snooze_menu")
+        for i in snooze_times.items():
+            pass
         embed = Embed(description='')
         if self.remind_text:
             embed.description += f"{self.remind_text} \n"
@@ -373,6 +388,7 @@ class HikariReminder(BaseReminder):
         asyncio.Task(user.send(embed=embed))
         if self.guild_id:
             asyncio.Task(self.bot.rest.create_message(self.channel_id, embed=embed))
+        
         
     async def destroy_reminder(self):
         """
