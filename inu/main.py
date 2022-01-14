@@ -1,5 +1,6 @@
 """The entrance point of the bot"""
 
+from inspect import trace
 import os
 import asyncio
 import logging
@@ -34,16 +35,18 @@ def main():
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
 
         # update bot start value
-        table = Table("bot", do_log=False)
-        record = await table.select_row(["key"], ["restart_count"])
-        if not record:
-            count = 1
-        else:
-            count = int(record["value"])
-            count += 1
-        await table.upsert(["key", "value"], ["restart_count", str(count)])
-        log.info(f'RESTART NUMBER: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
-        
+        try:
+            table = Table("bot")
+            record = await table.select_row(["key"], ["restart_count"])
+            if not record:
+                count = 1
+            else:
+                count = int(record["value"])
+                count += 1
+            await table.upsert(["key", "value"], ["restart_count", str(count)])
+            log.info(f'RESTART NUMBER: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
+        except Exception:
+            log.error(traceback.format_exc())
 
         
 
