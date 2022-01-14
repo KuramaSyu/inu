@@ -3,15 +3,11 @@ import datetime
 import os
 import traceback
 import typing
-from typing import (
-    Any,
-    List,
-    Mapping,
-    Union,
-    Optional
-)
+from typing import *
 import logging
 from asyncpraw.config import Config
+from hikari.events.interaction_events import InteractionCreateEvent
+from hikari.interactions.component_interactions import ComponentInteraction
 
 
 import lightbulb
@@ -21,6 +17,7 @@ from hikari.snowflakes import Snowflakeish
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from colorama import Fore, Style
+from lightbulb.context.base import Context
 
 from ._logging import LoggingHandler, getLogger, getLevel
 from . import ConfigProxy
@@ -136,6 +133,32 @@ class Inu(lightbulb.BotApp):
         path = f"{os.getcwd()}/inu/data/text/banner.txt"
         with open(path, "r", encoding="utf-8") as f:
             print(f"{Fore.BLUE}{Style.BRIGHT}{f.read()}")
+
+    async def wait_for_interaction(
+        self, 
+        custom_id: str, 
+        user_id: Optional[int] = None, 
+        channel_id: Optional[int] = None
+    ) -> Tuple[str, InteractionCreateEvent]:
+        try:
+            event = await self.wait_for(
+                InteractionCreateEvent,
+                timeout=10*60,
+                predicate=lambda e:(
+                    isinstance(e.interaction, ComponentInteraction)
+                    and custom_id == e.interaction.custom_id
+                    and (True if not user_id else e.interaction.user.id == user_id)
+                    and (True if not channel_id else e.interaction.channel_id == channel_id)
+                )
+            )
+            if not isinstance(event.interaction, ComponentInteraction):
+                return None, None
+            if len(event.interaction.values) > 0:
+                return event.interaction.values[0], event
+            else:
+                return event.interaction.custom_id, event
+        except asyncio.TimeoutError:
+            return None, None
 
     #override
     def run(self):
