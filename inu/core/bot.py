@@ -138,7 +138,8 @@ class Inu(lightbulb.BotApp):
         self, 
         custom_id: str, 
         user_id: Optional[int] = None, 
-        channel_id: Optional[int] = None
+        channel_id: Optional[int] = None,
+        message_id: Optional[int] = None,
     ) -> Tuple[str, InteractionCreateEvent]:
         try:
             event = await self.wait_for(
@@ -149,6 +150,7 @@ class Inu(lightbulb.BotApp):
                     and custom_id == e.interaction.custom_id
                     and (True if not user_id else e.interaction.user.id == user_id)
                     and (True if not channel_id else e.interaction.channel_id == channel_id)
+                    and (True if not message_id else e.interaction.message.id == message_id)
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
