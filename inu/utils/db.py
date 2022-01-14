@@ -212,8 +212,27 @@ class Table():
         return return_values   
 
     @logging()
-    async def delete(self, where: str, returning: bool):
-        pass
+    async def delete(
+        self, 
+        columns: List[str], 
+        matching_values: List, 
+    ) -> Optional[List[Dict[str, Any]]]:
+        """
+        DELETE FROM table_name
+        WHERE <columns>=<matching_values>
+        RETURNING *
+        """
+        where = self.__class__.create_where_statement(columns)
+
+        sql = (
+            f"DELETE FROM {self.name}\n"
+            f"WHERE {where}\n"
+            f"RETURNING *"
+        )
+        self._create_sql_log_message(sql, matching_values)
+
+        records = await self.db.execute(sql, *matching_values)
+        return records
 
     @logging()
     async def alter(self):
@@ -232,9 +251,7 @@ class Table():
         WHERE <columns>=<matching_values>
         ORDER BY <order_by> (column ASC|DESC)
         """
-        where = ""
-        for i, item in enumerate(columns):
-            where += f"{'and ' if i > 0 else ''}{item}=${i+1} "
+        where = self.__class__.create_where_statement(columns)
 
         sql = (
             f"SELECT {select} FROM {self.name}\n"
@@ -243,6 +260,7 @@ class Table():
         if order_by:
             sql += f"\nORDER BY {order_by}"
         self._create_sql_log_message(sql, matching_values)
+
         records = await self.db.fetch(sql, *matching_values)
         return records
     
@@ -256,6 +274,22 @@ class Table():
     async def update(self):
         pass
 
+    async def delete_by_id(self, column: str, value: Any) -> Optional[Dict]:
+        """
+        Delete a record by it's id
+        """
+        return await self.delete(
+            columns=[column],
+            matching_values=[value],
+        )
+
+    @staticmethod
+    def create_where_statement(columns: List[str]) -> str:
+        where = ""
+        for i, item in enumerate(columns):
+            where += f"{'and ' if i > 0 else ''}{item}=${i+1} "
+        return where
+    
     def _create_sql_log_message(self, sql:str, values: List):
         self._executed_sql = (
             f"SQL:\n"
