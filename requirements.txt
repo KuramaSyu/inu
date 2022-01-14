@@ -13,3 +13,4 @@ asyncpraw==7.5.0
 colorama==0.4.4
 lavasnek-rs
 pyparsing
+mock
