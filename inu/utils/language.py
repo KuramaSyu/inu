@@ -159,3 +159,15 @@ class Human():
             result_number = result_number[:-1]
         return result_number[::-1]
 
+    @staticmethod
+    def short_text(text: str, max_lengh: int) -> str:
+        """
+        Returns:
+        --------
+            - (str) the text until max_lengh with ... or complete text
+        """
+        if len(text) > max_lengh+3:
+            return f"{text[:max_lengh+1]}..."
+        else:
+            return text
+
