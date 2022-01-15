@@ -35,7 +35,7 @@ from lightbulb.context import Context
 import lavasnek_rs
 from matplotlib.pyplot import hist
 
-from core import Inu
+from core import Inu, getLevel
 from utils import Paginator, Colors
 from utils import method_logger as logger
 from utils.db import Database
@@ -551,10 +551,11 @@ async def start_lavalink() -> None:
         except Exception:
             if x == 2:
                 music.d.log.error(traceback.format_exc())
-                break
+                return
             else:
                 await asyncio.sleep(10)
-                
+    log = getLogger("lavasnek_rs")
+    logging.info("lavalink is connected")
 
         
 
