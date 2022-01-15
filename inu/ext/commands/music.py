@@ -555,6 +555,7 @@ async def start_lavalink() -> None:
             else:
                 await asyncio.sleep(10)
     log = getLogger("lavasnek_rs")
+    getLogger("lavalink_rs.event_loops")
     logging.info("lavalink is connected")
 
         
