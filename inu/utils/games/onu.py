@@ -138,6 +138,7 @@ class Card:
             self.value = value
         self.draw_value = self.get_draw_value(self.design)
         self.is_active = is_active or bool(self.draw_value)
+        self._original_is_active = self.is_active
         self.log = getLogger(__name__, self.__class__.__name__)
         
         
@@ -247,6 +248,16 @@ class Card:
             onu.cycle_hands()
         if CardColors.COLORFULL == self.color:
             self.color = self_hand.color
+
+    def _toggle_temp_active(self, cast_off: "CastOffStack"):
+        if self._original_is_active != self.is_active:
+            self.is_active = self._original_is_active
+            return
+        try:
+            if CardFunctions.REVERSE in self.functions and cast_off.top.is_active:
+                self.is_active = True
+        except:
+            pass
 
 
 
@@ -571,9 +582,16 @@ class Onu:
             args["info"] = f"Successfully drawn {self.cast_off.draw_calue} cards"
             self.cycle_hands()
             return TurnSuccessEvent(**args)
+        
+        # set active matching to cast_off top card
+        card._toggle_temp_active(self.cast_off)
 
         if not self.cast_off.top.can_cast_onto(card):
             # can't cast onto top card
+
+            #reset active to original
+            card._toggle_temp_active(self.cast_off)
+            
             if card.color == CardColors.COLORFULL:
                 if hand.color != CardColors.COLORFULL:
                     # change card color to selected color
