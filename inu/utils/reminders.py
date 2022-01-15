@@ -256,6 +256,8 @@ class TimeParser:
         # -> converting str to a unit
         # actual add (unit to seconds) * amount (by default 1) to total waiting seconds 
         for item in gen:
+            if item == "":
+                continue
             if type(item) == type_:
                 break
             type_ = type(item)
