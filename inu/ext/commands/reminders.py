@@ -104,14 +104,14 @@ async def reminder_list(ctx: context.Context):
     if records is None:
         await ctx.respond("There are no upcoming reminders")
         return
-    msg = f"**{ctx.author.username}'s reminders**\n\n"
+    msg = f"**{ctx.author.username}'s reminders**\n\n>>> "
     for r in records:
         msg += (
-            f"> ID: {r['reminder_id']:07d} "
+            f"ID: {r['reminder_id']} "
             f"<t:{int(r['remind_time'].timestamp())}:R> <t:{int(r['remind_time'].timestamp())}>\n"
         )
         if r["remind_text"]:
-            msg += f"> ```{Human.short_text(r['remind_text'], 25)}```"
+            msg += f"``` {Human.short_text(r['remind_text'], 70)} ```"
         msg += "\n\n"
     pag = Paginator(page_s=crumble(msg))
     await pag.start(ctx)
@@ -120,7 +120,7 @@ async def reminder_list(ctx: context.Context):
 @lightbulb.option("id", "The id (get it with reminder list) of the reminder", type=int)
 @lightbulb.command("cancel", "cancel a reminder", aliases=["delete"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def reminder_cancle(ctx: context.Context):
+async def reminder_cancel(ctx: context.Context):
     record = await Reminders.delete_reminder_by_id(int(ctx.options.id))
     if not record:
         await ctx.respond(f"I would do it, but there is no reminder with id {ctx.options.id}")
