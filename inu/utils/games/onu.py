@@ -184,6 +184,7 @@ class Card:
         
         """
         log = self.log
+        other.maybe_make_active(self)
         # log.debug(f"{str(self)} ..... {str(other)}")
         if other.color == CardColors.COLORFULL:
             # log.debug("other color is colorfull")
@@ -249,15 +250,16 @@ class Card:
         if CardColors.COLORFULL == self.color:
             self.color = self_hand.color
 
-    def _toggle_temp_active(self, cast_off: "CastOffStack"):
-        if self._original_is_active != self.is_active:
-            self.is_active = self._original_is_active
+    def maybe_make_active(self, other: "Card"):
+        """edits `self.is_active` depending on the top card of cast_off stack"""
+        self.is_active = self._original_is_active
+        if self.is_active:
             return
-        try:
-            if CardFunctions.REVERSE in self.functions and cast_off.top.is_active:
-                self.is_active = True
-        except:
-            pass
+        if CardFunctions.REVERSE in self.functions and other.is_active:
+            self.is_active = True
+    
+    def set_default_active(self):
+        self.is_active = self._original_is_active
 
 
 
@@ -582,15 +584,9 @@ class Onu:
             args["info"] = f"Successfully drawn {self.cast_off.draw_calue} cards"
             self.cycle_hands()
             return TurnSuccessEvent(**args)
-        
-        # set active matching to cast_off top card
-        card._toggle_temp_active(self.cast_off)
 
         if not self.cast_off.top.can_cast_onto(card):
             # can't cast onto top card
-
-            #reset active to original
-            card._toggle_temp_active(self.cast_off)
             
             if card.color == CardColors.COLORFULL:
                 if hand.color != CardColors.COLORFULL:
