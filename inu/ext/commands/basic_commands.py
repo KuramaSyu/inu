@@ -91,6 +91,12 @@ async def purge(ctx: context.Context):
             break
     await channel.delete_messages(messages)
 
+@basics.command
+@lightbulb.command("invite", "Invite this bot to your server")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def invite(ctx: context.Context):
+    await ctx.respond(ctx.bot.conf.bot.DISCORD_INVITE_LINK)
+
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(basics)
