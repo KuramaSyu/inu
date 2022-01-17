@@ -391,7 +391,7 @@ class HikariReminder(BaseReminder):
         embed.title = f"Reminder"
         embed.description += user.mention
         embed.set_thumbnail(user.avatar_url)
-        msg = await user.send(embed=embed, user_mentions=True, components=[menu])
+        msg = await self.bot.rest.create_message(chennel=self.channel_id, embed=embed, user_mentions=True, components=[menu])
         value, event = await self.bot.wait_for_interaction(
             custom_id="snooze_menu",
             user_id=self.creator_id,
@@ -401,6 +401,7 @@ class HikariReminder(BaseReminder):
             not isinstance(event, hikari.InteractionCreateEvent) 
             or not isinstance(event.interaction, hikari.ComponentInteraction)
         ):
+            await msg.edit(embed=embed, components=[])
             return
         # inform user
         embed.description += f"\nremind you in: <t:{int(time.time())+int(value)}:R> again"
