@@ -17,7 +17,7 @@ from lightbulb import commands, context
 import hikari
 from numpy import isin
 
-
+from utils import Colors
 from core import getLogger
 
 log = getLogger(__name__)
@@ -95,7 +95,14 @@ async def purge(ctx: context.Context):
 @lightbulb.command("invite", "Invite this bot to your server")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def invite(ctx: context.Context):
-    await ctx.respond(ctx.bot.conf.bot.DISCORD_INVITE_LINK)
+    await ctx.respond(
+        embed=Embed(
+            title="Invite me",
+            description=f"[{ctx.bot.conf.bot.DISCORD_INVITE_LINK}](Click here) or click the button",
+            clolor=Colors.from_name("mediumslateblue"),
+            component=ActionRowBuilder().add_button(ButtonStyle.LINK, "invite_link").add_to_container(),
+        )
+    )
 
 
 def load(bot: lightbulb.BotApp):
