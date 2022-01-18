@@ -9,7 +9,7 @@ import logging
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
 from hikari.messages import ButtonStyle
-from hikari.impl.special_endpoints import ActionRowBuilder
+from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
 import lightbulb.utils as lightbulb_utils
@@ -98,10 +98,16 @@ async def invite(ctx: context.Context):
     await ctx.respond(
         embed=Embed(
             title="Invite me",
-            description=f"[{ctx.bot.conf.bot.DISCORD_INVITE_LINK}](Click here) or click the button",
-            clolor=Colors.from_name("mediumslateblue"),
+            description=f"[Click here]({ctx.bot.conf.bot.DISCORD_INVITE_LINK}) _or click the button_",
+            color=Colors.from_name("mediumslateblue"),
         ).set_thumbnail(ctx.bot.get_me().avatar_url),
-        component=ActionRowBuilder().add_button(ButtonStyle.LINK, "invite_link").add_to_container(),
+        component=(
+            ActionRowBuilder()
+            .add_button(
+                ButtonStyle.LINK, 
+                ctx.bot.conf.bot.DISCORD_INVITE_LINK
+            ).set_label("my invite link").add_to_container()
+        )
     )
 
 
