@@ -100,8 +100,8 @@ async def invite(ctx: context.Context):
             title="Invite me",
             description=f"[{ctx.bot.conf.bot.DISCORD_INVITE_LINK}](Click here) or click the button",
             clolor=Colors.from_name("mediumslateblue"),
-            component=ActionRowBuilder().add_button(ButtonStyle.LINK, "invite_link").add_to_container(),
-        )
+        ).set_thumbnail(ctx.bot.get_me().avatar_url),
+        component=ActionRowBuilder().add_button(ButtonStyle.LINK, "invite_link").add_to_container(),
     )
 
 
