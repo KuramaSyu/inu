@@ -496,6 +496,7 @@ class Paginator():
                     break
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
+            await self.stop()
         except Exception:
             self.log.error(traceback.format_exc())
             
