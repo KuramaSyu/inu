@@ -40,7 +40,7 @@ async def search_anime(search: str) -> List[hikari.Embed]:
                     .add_field(
                         "Other",
                         (
-                            f"finished: {Human.bool_('airing', twisted=True)}\n"
+                            f"finished: {Human.bool_('airing')}\n"
                             f"Members: {anime['members']}\n"
                             f"MyAnimeList ID: {anime['mal_id']}\n"
                             f"rated: {anime['rated']}\n"
