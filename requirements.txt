@@ -14,3 +14,4 @@ colorama==0.4.4
 lavasnek-rs
 pyparsing
 mock
+jikanpy
