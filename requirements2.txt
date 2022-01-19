@@ -1,1 +1,0 @@
-lavasnek_rs @ git+https://github.com/vicky5124/lavasnek_rs.git
