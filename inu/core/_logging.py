@@ -133,7 +133,11 @@ def getLogger(*names):
     #print(log.name, log.level)
     return log
 
-def getLevel(name_s: Union[List, str]):
+def getLevel(name_s: Union[List, str], log4file: bool = False):
+    # to implement:
+    # level will be min(logging, file_logging)
+    # recheck logging level in Logger.handle()
+    logging_section = config.file_logging if log4file else config.logging
     if isinstance(name_s, list):
         count = len(name_s)
         name = f"{'.'.join(name_s)}"
@@ -141,14 +145,14 @@ def getLevel(name_s: Union[List, str]):
         name = name_s
         name_s = name.split(".")
         count = 1
-    level = config.logging.get(name.lower(), None)
+    level = logging_section.get(name.lower(), None)
     #print(name, level)
     while level is None and count >= 1:
-        level = config.logging.get(f"{'.'.join(name_s[:count])}", None)
+        level = logging_section.get(f"{'.'.join(name_s[:count])}", None)
         count -= 1
         # print(f"{'.'.join(name_s[:count])}", level)
     if level is None:
-        level = config.logging.GLOBAL
+        level = logging_section.GLOBAL
     return level
 
 colorlog.getLogger = getLogger
