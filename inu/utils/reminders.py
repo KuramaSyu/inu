@@ -31,6 +31,9 @@ REMINDER_UPDATE = 5*60
 
 
 class TimeUnits(Enum):
+    """
+    Enum, which represents time units
+    """
     second = {
         "aliases": ["second", "s", "sec", "seconds"],
         "in_seconds": 1,
@@ -82,20 +85,43 @@ class TimeConverter:
 
     @classmethod
     def to_seconds(cls, unit: dict, amount: Union[int, float]) -> float:
+        """
+        Returns:
+        --------
+            - (float) the given time unit and it's ammount in seconds
+        """
         return float(unit.value["in_seconds"] * amount)
 
     @classmethod
     def all_aliases(cls) -> List[str]:
+        """
+        Returns:
+        --------
+            - (list) all names and aliases of all time units of class `TimeUnits`
+        """
         return [alias for unit in [unit.value for unit in TimeUnits] for alias in unit["aliases"]]
 
     @classmethod
     def get_unit(cls, str_unit: str) -> Optional[TimeUnits]:
+        """
+        Returns:
+        --------
+            - (str | None) the given str as unit, if there is a unit with this name/alias, otherwise `None`
+        """
         for unit in TimeUnits.__members__.values():
             if str_unit in unit.value["aliases"]:
                 return unit
 
     @classmethod
     def time_to_seconds(cls, time: List) -> int:
+        """
+        Args:
+        -----
+            - time: (List) a list with minutes (index 0) and seconds (index 1)
+        Returns:
+        --------
+            - (int) the given time in seconds 
+        """
         return int(cls.hour.value["in_seconds"]*time[0], cls.minute.value["in_seconds"]*time[1])
 
 
