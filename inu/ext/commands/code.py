@@ -68,7 +68,8 @@ async def code(ctx: Context):
         f"{num(round(float(size_in_bytes / 1000 / 1000),1))}mb**)\n"
         f"1 typical letter is 1 byte/ 8 bit big\nMeans that'"
         f"I am written out of\n**{num(size_in_bytes)} letters**\n"
-        f"or\n**{num(lines)} lines**\nof code"
+        f"or **{num(lines)} lines** of code\n"
+        f"or **{round(float(size_in_bytes/237500), 2)} {Human.plural_('book', float(size_in_bytes/237500))}**"
     )
     embed = hikari.Embed(
         title="Code",
