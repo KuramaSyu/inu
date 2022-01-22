@@ -1,5 +1,9 @@
 import datetime
-from typing import Union, List
+from typing import TypeVar, Union, List
+
+from numpy import real
+
+T_str_list = TypeVar("T_str_list", str, List[str])
 
 def human_bool(bool_, twisted=False):
     if not twisted:
@@ -78,14 +82,16 @@ class Human():
 
     @staticmethod
     def plural_(
-        word_s: Union[str, list],
-        relation: Union[int, bool],
-    ) -> List[str]:
+        word_s: T_str_list,
+        relation: Union[int, bool, float],
+    ) -> T_str_list:
         """ 
         returns a words plural.
         word_s: the word or words with will be converted relating to <relation>
         relation: bool or int -> bool=True == plural; int > 1 = plural
         """
+        if isinstance(relation, float):
+            relation = True if relation >= 1 else False
         plural = False
         if isinstance(relation, int) and relation > 1:
             plural = True
@@ -128,7 +134,7 @@ class Human():
         if isinstance(word_s, list):
             return mk_plural(word_s)
         else:
-            return mk_plural([word_s])
+            return mk_plural([word_s])[0]
 
     @staticmethod
     def number(number: Union[int, str, float]) -> str:
