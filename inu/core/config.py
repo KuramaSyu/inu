@@ -1,4 +1,4 @@
-from configparser import ConfigParser
+from configparser import RawConfigParser as ConfigParser
 import logging
 import io
 import os
