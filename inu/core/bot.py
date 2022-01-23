@@ -47,12 +47,6 @@ class Inu(lightbulb.BotApp):
         logs = {
             "version": 1,
             "incremental": True,
-            # "loggers": {
-            #     "hikari": {"level": getLevel("hikari")},
-            #     "hikari.gateway": {"level":  getLevel("hikari.gateway")},
-            #     "hikari.ratelimits": {"level":  getLevel("hikari.ratelimits")},
-            #     "lightbulb": {"level":  getLevel("lightbulb")},
-            # },
             "loggers": loggers 
         }
         for log_name in ["hikari.rest", "hikari.ratelimits", "hikari.models"]:
