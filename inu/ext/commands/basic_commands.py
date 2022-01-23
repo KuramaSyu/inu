@@ -6,6 +6,7 @@ from typing import (
 )
 import asyncio
 import logging
+from datetime import datetime
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
 from hikari.messages import ButtonStyle
@@ -33,13 +34,33 @@ if basics.d is None:
 @lightbulb.command("ping", "is the bot alive?")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
-    await ctx.respond(
-        embed=Embed(
-            title="Pong"
-            f"Bot is alive with a delay of {ctx.bot.heartbeat_latency*1000:.2f}ms"
-        )
-    )
+    def ping_to_color(ping: float) -> str:
+        if ping >= 500:
+            return "🔴"
+        elif ping >= 340:
+            return "🟠"
+        elif ping >= 150:
+            return "🟡"
+        else:
+            return "🟢"
 
+    request_start = datetime.now()
+    embed = Embed(
+            title="Pong",
+            description=(
+                f"Bot is alive\n\n"
+                f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+                f"⚫ REST: .... ms"
+            ),
+    )
+    msg = await ctx.respond(embed=embed)
+    rest_delay = datetime.now() - request_start
+    embed.description = (
+        f"Bot is alive\n\n"
+        f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+        f"{ping_to_color(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms"
+    )
+    await msg.edit(embed=embed)
 
 @basics.command
 @lightbulb.option("to_echo", "the text I should echo", modifier=commands.OptionModifier.CONSUME_REST)
