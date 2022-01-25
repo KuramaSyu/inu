@@ -161,17 +161,11 @@ async def fetch_anime(ctx: context.Context):
     msg = None
     if not embeds:
         with_refresh = True
-        msg = await ctx.respond((
-            f"There is no anime with the exact name: `{ctx.options.name}`.\n"
-            f"You will get the old view. This will find more results, but with less information\n"
-            f"To get all information, re-search with the exact name"
-        ))
         embeds = await search_anime(ctx.options.name)
     try:
         pag = AnimePaginator(
             page_s=embeds,
             with_refresh_btn=with_refresh,
-            old_message=msg,
         )
     except Exception:
         log = getLogger(__name__, "fetch_anime")
