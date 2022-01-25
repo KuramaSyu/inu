@@ -48,7 +48,7 @@ class AnimePaginator(Paginator):
         self,
         page_s: Union[List[str], List[Embed]],
         with_refresh_btn: bool = False,
-        old_message: Optional[lightbulb.ResponseProxy] = None,
+        old_message = None,
     ):
         self._old_message = old_message
         self._with_refresh_btn = with_refresh_btn
