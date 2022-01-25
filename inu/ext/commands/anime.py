@@ -7,9 +7,10 @@ import hikari
 import lightbulb
 from lightbulb import commands, context
 from lightbulb.commands import OptionModifier as OM
+from matplotlib.pyplot import title
 
 
-from utils import Human, Paginator, AioJikanv4
+from utils import Human, Paginator, AioJikanv4, AnimePaginator
 from core import getLogger
 
 log = getLogger(__name__)
@@ -65,7 +66,7 @@ async def search_anime(search: str) -> List[hikari.Embed]:
         return [hikari.Embed(title="Nothing found")]
     return embeds
 
-async def resp_to_embed(resp: dict) -> List[hikari.Embed]:
+def resp_to_embed(resp: dict) -> List[hikari.Embed]:
     data = resp["data"]
     embeds = []
     total = len(data)
@@ -113,7 +114,7 @@ async def resp_to_embed(resp: dict) -> List[hikari.Embed]:
                     # f"date: {anime['start_date'][:5] if anime['start_date'] else '?'} - "
                     # f"{anime['end_date'][:5] if anime['end_date'] else '?'}\n"
                     f"MyAnimeList ID: {anime['mal_id']}\n"
-                    f"""{", ".join(anime["synonyms"])}\n"""
+                    f"""{", ".join(anime["title_synonyms"])}\n"""
                 )
             )
             .set_image(anime["images"]["jpg"]["large_image_url"])
@@ -123,17 +124,24 @@ async def resp_to_embed(resp: dict) -> List[hikari.Embed]:
         embed.title = ""
         if anime["title"] == anime["title_english"]:
             embed.title = anime["title"]
-        else:
+        elif anime["title_english"]:
             embed.title = anime["title_english"]
+        else:
+            embed.title = anime["title"]
+
             embed.description += f"original name: {anime['title']}"
         embed.description += f"\nmore information on [MyAnimeList]({anime['url']})"
         embed.description += f"\n\n{Human.short_text(anime['synopsis'], 1980)}"
 
         if anime["background"]:
-            embed.add_field("Background", anime["background"])
-        if anime["tailer"]["url"]:
-            embed.add_filed("Trailer", f"[click here]({anime['trailer']['url']})")
+            embed.add_field("Background", Human.short_text(anime["background"], 1020))
+
+        if anime["trailer"]["url"]:
+            embed.add_field("Trailer", f"[click here]({anime['trailer']['url']})")
         embeds.append(embed)
+        for i, field in enumerate(embed.fields):
+            if not field.value:
+                embed.remove_field(i)
     return embeds
         
 
@@ -148,10 +156,21 @@ async def fetch_anime(ctx: context.Context):
     async with AioJikanv4() as aio_jikan:
         resp = await aio_jikan.getAnimeSearch(ctx.options.name)
     embeds = resp_to_embed(resp)
+    with_refresh = False
+    msg: Optional[lightbulb.ResponseProxy] = None
+    if not embeds:
+        with_refresh = True
+        msg = await ctx.respond((
+            f"There is no anime with the exact name: `{ctx.options.name}`.\n"
+            f"You will get the old view. This will find more results, but with less information\n"
+            f"To get all information, re-search with the exact name"
+        ))
+        embeds = await search_anime(ctx.options.name)
     try:
-        pag = Paginator(
+        pag = AnimePaginator(
             page_s=embeds,
-            timeout=8*10,
+            with_refresh_btn=with_refresh,
+            old_message=msg,
         )
     except Exception:
         log = getLogger(__name__, "fetch_anime")
