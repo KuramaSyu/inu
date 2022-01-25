@@ -153,6 +153,8 @@ plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 @lightbulb.command("anime", "get information of an Anime by name")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fetch_anime(ctx: context.Context):
+    log = getLogger(__name__)
+    log.debug(f"call with {ctx.options.name}")
     resp = ""
     async with AioJikanv4() as aio_jikan:
         resp = await aio_jikan.getAnimeSearch(ctx.options.name)
