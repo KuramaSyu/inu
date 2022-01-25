@@ -2,10 +2,15 @@ import json
 from typing import Optional, Dict, Mapping, Union, Any, TypeVar
 from urllib.parse import urlencode
 import requests
+from pprint import pformat
 
 import aiohttp
 from jikanpy.exceptions import APIException, DeprecatedEndpoint
 import simplejson
+
+from core import getLogger
+log = getLogger(__name__)
+
 
 BASE_URL = "https://api.jikan.moe/v4"
 
@@ -45,10 +50,15 @@ class AioJikanv4:
     async def getAnimeSearch(self, query: str) -> Dict:
         url = self._build_search_url(
             endpoint="/anime",
-            query=query,
+            query=query.lower(),
+            sort="desc",
+            order_by="score",
         )
         # kwargs = {"search type": search_type, "query": query}
-        return await self._request(url)
+        resp = await self._request(url)
+        log.debug(pformat(resp))
+        log.info(f"{url=}")
+        return resp
 
     async def __aenter__(self):
         return self
@@ -95,8 +105,9 @@ class AioJikanv4:
         response = await session.get(url)
         return await self._wrap_response(response, url, **kwargs)
 
-    def _build_search_url(self, endpoint: str, query: str) -> str:
-        query = urlencode(dict(
-            q=query
-        ))
-        return f"{self.base}{endpoint}?{query}"
+    def _build_search_url(self, endpoint: str, query: str, **additional) -> str:
+        #query = query.replace(" ", "%20").lower()
+        partial_url = dict(q=query)
+        #partial_url.update(additional)
+        #query = urlencode(partial_url)
+        return f"{self.base}{endpoint}?q={query}"
