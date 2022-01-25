@@ -14,6 +14,7 @@ from .logger import *
 from .tag_mamager import TagManager
 from .string_crumbler import crumble, StringCutter
 from .emojis import Emoji
+from .jikanv4 import AioJikanv4
 
 
 import logging
