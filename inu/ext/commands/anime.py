@@ -82,9 +82,10 @@ def resp_to_embed(resp: dict) -> List[hikari.Embed]:
             .add_field("Duration", f"{anime['duration']}", inline=True)
             .add_field(
                 "Genres",
-                ", ".join(
-                    f"[{genre['name']}]({genre['url']})" for genre in anime["genres"]
-                ),
+                f""" {', '.join(f"[{genre['name']}]({genre['url']})" 
+                for genre in anime["genres"])}, {', '.join(f"[{genre['name']}]({genre['url']})" 
+                for genre in anime["explicit_genres"])}
+                """,
                 inline=True,
             )
             .add_field(
