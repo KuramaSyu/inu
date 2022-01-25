@@ -37,7 +37,7 @@ async def search_anime(search: str) -> List[hikari.Embed]:
                     .add_field("Type", anime["type"], inline=True)
                     .add_field("Score", f"{anime['score']}/10", inline=True)
                     .add_field("Episodes", f"{anime['episodes']} {Human.plural_('episode', anime['episodes'])[0]}", inline=True)
-                    .add_field("Description", anime['synopsis'], inline=False)
+                    .add_field("Description", anime['synopsis'] or "No description", inline=False)
                     .add_field(
                         "Other",
                         (
