@@ -158,7 +158,7 @@ async def fetch_anime(ctx: context.Context):
         resp = await aio_jikan.getAnimeSearch(ctx.options.name)
     embeds = resp_to_embed(resp)
     with_refresh = False
-    msg: Optional[lightbulb.ResponseProxy] = None
+    msg = None
     if not embeds:
         with_refresh = True
         msg = await ctx.respond((
