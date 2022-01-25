@@ -1,5 +1,5 @@
 import datetime
-from typing import TypeVar, Union, List
+from typing import TypeVar, Union, List, Optional
 
 from numpy import real
 
@@ -166,12 +166,14 @@ class Human():
         return result_number[::-1]
 
     @staticmethod
-    def short_text(text: str, max_lengh: int) -> str:
+    def short_text(text: Optional[str], max_lengh: int) -> str:
         """
         Returns:
         --------
             - (str) the text until max_lengh with ... or complete text
         """
+        if text is None:
+            return ""
         if len(text) > max_lengh+3:
             return f"{text[:max_lengh+1]}..."
         else:
