@@ -106,7 +106,7 @@ class AioJikanv4:
         return await self._wrap_response(response, url, **kwargs)
 
     def _build_search_url(self, endpoint: str, query: str, **additional) -> str:
-        query = query.replace(" ", "%20").lower()
+        query = query.lower()
         partial_url = dict(q=query)
         partial_url.update(additional)
         query = urlencode(partial_url)
