@@ -21,8 +21,6 @@ from lightbulb.context.base import Context
 
 from ._logging import LoggingHandler, getLogger, getLevel
 from . import ConfigProxy
-import lavasnek_rs
-
 
 class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
