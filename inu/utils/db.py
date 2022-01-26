@@ -242,7 +242,8 @@ class Table():
     async def select(
         self, 
         columns: List[str], 
-        matching_values: List, 
+        matching_values: List,
+        additional_values: Optional[List] = None,
         order_by: Optional[str] = None, 
         select: str = "*"
     ) -> Optional[List[Dict[str, Any]]]:
@@ -259,6 +260,8 @@ class Table():
         )
         if order_by:
             sql += f"\nORDER BY {order_by}"
+        if additional_values:
+            matching_values.extend(additional_values)
         self._create_sql_log_message(sql, matching_values)
 
         records = await self.db.fetch(sql, *matching_values)
