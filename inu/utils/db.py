@@ -266,7 +266,7 @@ class Table():
 
         records = await self.db.fetch(sql, *matching_values)
         return records
-    
+
     async def select_row(self, columns: List[str], matching_values: List, select: str = "*") -> Optional[asyncpg.Record]:
         records = await self.select(columns, matching_values, select=select)
         if not records:
