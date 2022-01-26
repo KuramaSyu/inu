@@ -23,8 +23,10 @@ from lightbulb import commands
 from lightbulb.context import Context
 import asyncpg
 from matplotlib.style import context
+from numpy import where
 
 from core import Inu
+from utils import Table
 from utils.tag_mamager import TagIsTakenError, TagManager, TagType
 from utils import crumble
 from utils.colors import Colors
@@ -87,7 +89,9 @@ async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
 async def show_record(record: asyncpg.Record, ctx: Context, key: str) -> None:
     """Sends the given tag(record) into the channel of <ctx>"""
     if record is None:
-        return await ctx.respond(f"I can't found a tag named `{key}` in my storage")
+        await no_tag_found_msg(ctx, key, ctx.guild_id)
+        # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
+        return
     messages = []
     for value in crumble("\n".join(v for v in record["tag_value"]), 1900):
         message = f"**{key}**\n\n{value}\n\ncreated by <@{(record['creator_id'])}>"
@@ -329,6 +333,59 @@ def records_to_embed(records: List[asyncpg.Record]) -> List[hikari.Embed]:
         if i % 10 == 0 and len(records) > i+1 and i != 0:
             embeds.append(hikari.Embed(title="tag_overview"))
     return embeds
+
+async def no_tag_found_msg(
+    ctx: Context,
+    tag_name: str, 
+    guild_id: Optional[int], 
+    creator_id: Optional[int] = None
+):
+    """Sends similar tags, if there are some, otherwise a inform message, that there is no tag like that"""
+    similar_records = await find_similar(tag_name, guild_id, creator_id)
+    if not similar_records:
+        await ctx.respond(f"I can't find a tag or similar ones with the name `{tag_name}`")
+    else:
+        answer = (
+            f"can't find a tag with name `{tag_name}`\n"
+            f"Maybe it's one of these?\n"
+        )
+        answer += "\n".join(f"`{sim['tag_key']}`" for sim in similar_records)
+        await ctx.respond(answer)
+
+async def find_similar(
+    tag_name: str, 
+    guild_id: Optional[int], 
+    creator_id: Optional[int] = None
+) -> List:
+    """
+    ### searches similar tags to <`tag_name`>
+
+    Args:
+    -----
+        - tag_name (`str`) the name of the tag, to search
+        - guild_id (`int`) the guild_id, which the returning tags should have
+        - creator_id (`int`) the creator_id, which the returning tags should have
+
+    Note:
+    -----
+        - global tags will shown always (guild_id is None)
+    """
+    cols = ["guild_id"]
+    vals = [guild_id]
+    if creator_id:
+        cols.append("creator_id")
+        vals.append(creator_id)
+    table = Table("tags")
+    records = await table.select(
+        cols, 
+        vals,
+        additional_values=[tag_name],
+        order_by=f"""
+SIMILARITY(tag_key, {'$3' if creator_id else '$2'}) DESC
+LIMIT 5
+""",
+    )
+    return records
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(tags)
