@@ -376,14 +376,17 @@ async def find_similar(
         cols.append("creator_id")
         vals.append(creator_id)
     table = Table("tags")
-    records = await table.select(
-        cols, 
-        vals,
-        additional_values=[tag_name],
-        order_by=f"""
-SIMILARITY(tag_key, {'$3' if creator_id else '$2'}) > 0.7 DESC
-LIMIT 5
-""",
+    records = await tags.bot.db.fetch(
+        """
+        SELECT *
+        FROM tags
+        WHERE guild_id=$1 AND tag_key % $2
+        ORDER BY similarity(tag_key, $2) > 0.8 DESC
+        LIMIT 100;
+        """,
+        guild_id, 
+        tag_name
+
     )
     return records
 
