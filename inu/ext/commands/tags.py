@@ -381,7 +381,7 @@ async def find_similar(
         vals,
         additional_values=[tag_name],
         order_by=f"""
-SIMILARITY(tag_key, {'$3' if creator_id else '$2'}) DESC
+SIMILARITY(tag_key, {'$3' if creator_id else '$2'}) > 0.7 DESC
 LIMIT 5
 """,
     )
