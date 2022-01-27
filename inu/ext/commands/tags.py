@@ -377,12 +377,12 @@ async def find_similar(
         vals.append(creator_id)
     table = Table("tags")
     records = await tags.bot.db.fetch(
-        """
+        f"""
         SELECT *
         FROM tags
         WHERE guild_id=$1 AND tag_key % $2
-        ORDER BY similarity(tag_key, $2) > 0.8 DESC
-        LIMIT 100;
+        ORDER BY similarity(tag_key, $2) > {tags.bot.conf.tags.prediction_accuracy} DESC
+        LIMIT 10;
         """,
         guild_id, 
         tag_name
