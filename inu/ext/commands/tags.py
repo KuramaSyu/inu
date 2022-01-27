@@ -380,7 +380,7 @@ async def find_similar(
         f"""
         SELECT *
         FROM tags
-        WHERE guild_id=$1 AND tag_key % $2
+        WHERE (guild_id=$1 OR guild_id IS NULL) AND tag_key % $2
         ORDER BY similarity(tag_key, $2) > {tags.bot.conf.tags.prediction_accuracy} DESC
         LIMIT 10;
         """,
