@@ -18,7 +18,7 @@ import asyncpg
 import mock
 
 from core.bot import Inu
-from . import Database, Table
+from core import Database, Table
 from .string_crumbler import PeekIterator, NumberWordIterator
 
 from core import getLogger

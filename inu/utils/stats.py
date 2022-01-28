@@ -3,7 +3,7 @@ import json
 import typing as t
 import logging
 
-from .db import Database
+from core.db import Database
 
 from core import getLogger
 

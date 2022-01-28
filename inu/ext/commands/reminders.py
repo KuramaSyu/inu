@@ -27,7 +27,8 @@ import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from utils.reminders import REMINDER_UPDATE, Reminders
-from utils import HikariReminder, Human, Table, Paginator, crumble
+from utils import HikariReminder, Human, Paginator, crumble
+from core import Table
 
 
 from core import getLogger

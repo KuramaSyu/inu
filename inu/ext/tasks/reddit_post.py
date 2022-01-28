@@ -16,7 +16,7 @@ import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from utils import Reddit
-from utils.db import Database
+from core.db import Database
 from core import Inu
 from utils import DailyContentChannels
 from utils.r_channel_manager import Columns as Col

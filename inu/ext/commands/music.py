@@ -38,7 +38,7 @@ from matplotlib.pyplot import hist
 from core import Inu, getLevel
 from utils import Paginator, Colors
 from utils import method_logger as logger
-from utils.db import Database
+from core.db import Database
 from utils.paginators.specific_paginators import MusicHistoryPaginator
 
 from core import getLogger

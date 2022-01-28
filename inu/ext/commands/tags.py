@@ -25,8 +25,7 @@ import asyncpg
 from matplotlib.style import context
 from numpy import where
 
-from core import Inu
-from utils import Table
+from core import Inu, Table
 from utils.tag_mamager import TagIsTakenError, TagManager, TagType
 from utils import crumble
 from utils.colors import Colors

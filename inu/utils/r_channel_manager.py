@@ -20,7 +20,7 @@ from hikari import User, Member
 from numpy import column_stack
 
 
-from .db import Database
+from core.db import Database
 
 from core import getLogger
 

@@ -13,8 +13,8 @@ from dotenv import dotenv_values
 import hikari
 import lightbulb
 from lightbulb import events
-from core import Inu
-from utils import InvokationStats, Reminders, Table, TagManager
+from core import Inu, Table
+from utils import InvokationStats, Reminders, TagManager
 from core import getLogger
 
 log = getLogger(__name__)
