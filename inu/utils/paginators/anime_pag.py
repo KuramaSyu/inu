@@ -17,7 +17,7 @@ from jikanpy import AioJikan
 from lightbulb.context import Context
 
 from core import getLogger
-from utils import Human
+from utils import Human, Colors
 
 log = getLogger(__name__)
 
@@ -98,6 +98,7 @@ class AnimePaginator(Paginator):
         self._pages = sort_by(self._pages)
 
     async def start(self, ctx: Context, anime_name: str) -> hikari.Message:
+        self.ctx = ctx
         self._pages = await self._search_anime(anime_name)
         self._position = 0
         await self._load_details()
@@ -247,6 +248,7 @@ class AnimePaginator(Paginator):
         # add openings if not too much
         # TODO: remove redundant code in this function
         # TODO: add mal database table to don't spam requests
+        # TODO: if no anime was found (404), send message and stop paginating
         if anime["trailer_url"]:
             embed.add_field("Trailer", f"[click here]({anime['trailer_url']})")
 
