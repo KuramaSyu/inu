@@ -135,3 +135,6 @@ dmypy.json
 .vscode/settings.json
 config.ini
 inu/ext/commands/_music.py
+models/detailed_resp
+models/test_data.py
+models/test_data.py
