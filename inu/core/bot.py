@@ -18,9 +18,11 @@ from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from colorama import Fore, Style
 from lightbulb.context.base import Context
+from matplotlib.colors import cnames
 
 from ._logging import LoggingHandler, getLogger, getLevel
 from . import ConfigProxy
+
 
 class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
@@ -31,7 +33,7 @@ class Inu(lightbulb.BotApp):
         (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
         self.startup = datetime.datetime.now()
-        from utils.db import Database
+        from core.db import Database
         self.db = Database(self)
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
@@ -80,6 +82,15 @@ class Inu(lightbulb.BotApp):
     @property
     def user(self) -> hikari.User:
         return self.me
+
+    @property
+    def color(self) -> hikari.Color:
+        color = self.conf.bot.color
+        hex_ = cnames.get(str(color), None)
+        if not isinstance(hex_, str):
+            raise RuntimeError(f"matplatlib cnames has no color with name: {color}")
+        return hikari.Color.from_hex_code(str(hex_))
+
 
     def load_slash(self):
         for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/slash")):
