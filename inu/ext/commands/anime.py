@@ -155,25 +155,22 @@ plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 async def fetch_anime(ctx: context.Context):
     log = getLogger(__name__)
     log.debug(f"call with {ctx.options.name}")
-    resp = ""
-    async with AioJikanv4() as aio_jikan:
-        resp = await aio_jikan.getAnimeSearch(ctx.options.name)
-    embeds = resp_to_embed(resp)
-    with_refresh = False
-    msg = None
-    if not embeds:
-        with_refresh = True
-        embeds = await search_anime(ctx.options.name)
+    # resp = ""
+    # async with AioJikanv4() as aio_jikan:
+    #     resp = await aio_jikan.getAnimeSearch(ctx.options.name)
+    # embeds = resp_to_embed(resp)
+    # with_refresh = False
+    # msg = None
+    # if not embeds:
+    #     with_refresh = True
+    #     embeds = await search_anime(ctx.options.name)
     try:
-        pag = AnimePaginator(
-            page_s=embeds,
-            with_refresh_btn=with_refresh,
-        )
+        pag = AnimePaginator()
     except Exception:
         log = getLogger(__name__, "fetch_anime")
         log.debug(traceback.format_exc())
         return
-    await pag.start(ctx)
+    await pag.start(ctx, ctx.options.name)
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
