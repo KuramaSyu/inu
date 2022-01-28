@@ -3,6 +3,7 @@ from enum import Enum
 from pprint import pprint
 import random
 import traceback
+from pprint import pformat
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
@@ -12,8 +13,11 @@ from numpy import sort
 from .common import PaginatorReadyEvent
 from .common import Paginator
 from .common import listener
+from jikanpy import AioJikan
+from lightbulb.context import Context
 
 from core import getLogger
+from utils import Human
 
 log = getLogger(__name__)
 
@@ -46,19 +50,22 @@ class SortTypes(Enum):
 class AnimePaginator(Paginator):
     def __init__(
         self,
-        page_s: Union[List[str], List[Embed]],
         with_refresh_btn: bool = False,
         old_message = None,
     ):
         self._old_message = old_message
         self._with_refresh_btn = with_refresh_btn
-        super().__init__(page_s=page_s, timeout=10*8)
+
+        self._results = None
+        self._updated_mal_ids = set()
+        super().__init__(page_s=["None"], timeout=10*8)
+        
 
     def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
         components = super().build_default_components(position)
         if not isinstance(components, list):
             return components
-        #components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort").add_to_container()
+        # components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort by score").add_to_container()
         if self._with_refresh_btn:
             components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("more information").add_to_container()
         return components
@@ -89,6 +96,182 @@ class AnimePaginator(Paginator):
 
     def _sort_embeds(self, sort_by: SortTypes):
         self._pages = sort_by(self._pages)
+
+    async def start(self, ctx: Context, anime_name: str) -> hikari.Message:
+        self._pages = await self._search_anime(anime_name)
+        self._position = 0
+        await self._load_details()
+        super().__init__(page_s=self._pages, timeout=10*8)
+        return await super().start(ctx)
+
+    async def _update_position(self, interaction: ComponentInteraction):
+        """
+        replaces embed page first with a more detailed one, before sending the message
+        """
+        await self._load_details()
+        return await super()._update_position(interaction)
+
+    async def _search_anime(self, search: str) -> List[hikari.Embed]:
+        def build_embeds(search_title: str, results: Dict):
+            animes = []
+            for anime in results["results"]:
+                if search_title in anime["title"].lower():
+                    animes.append(anime)
+
+            if animes == []:
+                animes = results['results']
+
+            embeds = []
+            total = len(animes)
+            for i, anime in enumerate(animes):
+                embeds.append(
+                    (
+                        hikari.Embed(
+                            title=anime["title"],
+                            description=f"more information on [MyAnimeList]({anime['url']})"
+                        )
+                        .add_field("Type", anime["type"], inline=True)
+                        .add_field("Score", f"{anime['score']}/10", inline=True)
+                        .add_field("Episodes", f"{anime['episodes']} {Human.plural_('episode', anime['episodes'])[0]}", inline=True)
+                        .add_field("Description", anime['synopsis'] or "No description", inline=False)
+                        .add_field(
+                            "Other",
+                            (
+                                f"finished: {Human.bool_('airing')}\n"
+                                f"Members: {anime['members']}\n"
+                                f"MyAnimeList ID: {anime['mal_id']}\n"
+                                f"rated: {anime['rated']}\n"
+                                f"start date: {anime['start_date'][:10] if anime['start_date'] else 'unknown'}\n"
+                                f"end date: {anime['end_date'][:10] if anime['end_date'] else 'unknown'}\n"
+
+                            )
+                        )
+                        .set_image(anime["image_url"])
+                        .set_footer(f"page {i+1}/{total}")
+                    )
+                )
+            return embeds
+
+        results = None
+
+        async with AioJikan() as aio_jikan:
+            results = await aio_jikan.search(search_type='anime', query=search)
+        self._results = results["results"]
+        embeds = build_embeds(search, results)
+        if not embeds:
+            return [hikari.Embed(title="Nothing found")]
+        return embeds
+
+    async def _fetch_anime_by_id(self, mal_id: int) -> Dict:
+        """Fetch a detailed anime dict by mal_id"""
+        async with AioJikan() as jikan:
+            anime = await jikan.anime(mal_id)
+        return anime
+    
+    async def _load_details(self) -> List[hikari.Embed]:
+        """
+        updates the embed `self._pages[self._position]` to a more detailed version of the anime
+        """
+        mal_id = self._results[self._position]["mal_id"]
+        if mal_id in self._updated_mal_ids:
+            return
+        self._updated_mal_ids.add(mal_id)
+        anime = await self._fetch_anime_by_id(mal_id)
+        old_embed = self._pages[self._position]
+        
+        embed = (
+            hikari.Embed()
+            .add_field("Type", anime["type"], inline=True)
+            .add_field("Score", f"{anime['score']}/10", inline=True)
+            .add_field("Episodes", f"{anime['episodes']} {Human.plural_('episode', anime['episodes'])[0]}", inline=True)
+            .add_field("Rank", f"{anime['rank']}", inline=True)
+            .add_field("Popularity", f"{anime['popularity']}", inline=True)
+            .add_field("Rating", f"{anime['rating']}", inline=True)
+            .add_field("Duration", f"{anime['duration']}", inline=True)
+            .add_field(
+                "Genres",
+                f""" {', '.join(f"[{genre['name']}]({genre['url']})" 
+                for genre in anime["genres"])}, {', '.join(f"[{genre['name']}]({genre['url']})" 
+                for genre in anime["explicit_genres"])}
+                """,
+                inline=True,
+            )
+            .add_field(
+                "Themes",
+                ", ".join(
+                    f"[{theme['name']}]({theme['url']})" for theme in anime["themes"]
+                ),
+                inline=True,
+            )
+            .add_field(
+                "Other",
+                (
+                    f"finished: {Human.bool_('airing')}\n"
+                    f"""Licensors: {", ".join(
+                            f"[{licensor['name']}]({licensor['url']})" for licensor in anime["licensors"]
+                        )
+                    }\n"""
+                    f"""Studios: {", ".join(
+                            f"[{studio['name']}]({studio['url']})" for studio in anime["studios"]
+                        )
+                    }\n"""
+                    f"""Producers: {", ".join(
+                            f"[{producer['name']}]({producer['url']})" for producer in anime["producers"]
+                        )
+                    }\n"""
+                    f"produce date: {anime['aired']['string']}\n"
+                    # f"date: {anime['start_date'][:5] if anime['start_date'] else '?'} - "
+                    # f"{anime['end_date'][:5] if anime['end_date'] else '?'}\n"
+                    f"MyAnimeList ID: {anime['mal_id']}\n"
+                    f"""Other Names: {", ".join(anime["title_synonyms"])}\n"""
+                )
+            )
+            .set_image(anime["image_url"])
+        )
+        embed.description = ""
+        embed.title = ""
+        if anime["title"] == anime["title_english"]:
+            embed.title = anime["title"]
+        elif anime["title_english"]:
+            embed.title = anime["title_english"]
+        else:
+            embed.title = anime["title"]
+
+            embed.description += f"original name: {anime['title']}"
+        embed.description += f"\nmore information on [MyAnimeList]({anime['url']})"
+        embed.description += f"\n\n{Human.short_text(anime['synopsis'], 1980)}"
+
+        if anime["background"]:
+            embed.add_field("Background", Human.short_text(anime["background"], 1020))
+
+        # add openings if not too much
+        # TODO: remove redundant code in this function
+        # TODO: add mal database table to don't spam requests
+        if anime["trailer_url"]:
+            embed.add_field("Trailer", f"[click here]({anime['trailer_url']})")
+
+        if (len_openings := len(anime["opening_themes"])) > 5:
+            embed.add_field("Opening themes", f"Too many to show here ({len_openings})")
+        elif len_openings == 0:
+            pass
+            pass
+        else:
+            embed.add_field("Opening themes", "\n".join(anime["opening_themes"]))
+
+        # add endings if not too much
+        if (len_endings := len(anime["ending_themes"])) > 5:
+            embed.add_field("Ending themes", f"Too many to show here ({len_openings})")
+        elif len_endings == 0:
+            pass
+        else:
+            embed.add_field("Ending themes", "\n".join(anime["ending_themes"]))
+
+        for i, field in enumerate(embed.fields):
+            if not field.value:
+                embed.remove_field(i)
+        embed._footer = old_embed._footer
+        self._pages[self._position] = embed
+
 
 if __name__ == "__main__":
     embeds = []
