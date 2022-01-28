@@ -10,7 +10,7 @@ from lightbulb.commands import OptionModifier as OM
 from matplotlib.pyplot import title
 
 
-from utils import Human, Paginator, AioJikanv4, AnimePaginator
+from utils import Human, Paginator, AioJikanv4, AnimePaginator, AnimeCharacterPaginator
 from core import getLogger
 
 log = getLogger(__name__)
@@ -153,19 +153,21 @@ plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 @lightbulb.command("anime", "get information of an Anime by name")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fetch_anime(ctx: context.Context):
-    log = getLogger(__name__)
-    log.debug(f"call with {ctx.options.name}")
-    # resp = ""
-    # async with AioJikanv4() as aio_jikan:
-    #     resp = await aio_jikan.getAnimeSearch(ctx.options.name)
-    # embeds = resp_to_embed(resp)
-    # with_refresh = False
-    # msg = None
-    # if not embeds:
-    #     with_refresh = True
-    #     embeds = await search_anime(ctx.options.name)
     try:
         pag = AnimePaginator()
+    except Exception:
+        log = getLogger(__name__, "fetch_anime")
+        log.debug(traceback.format_exc())
+        return
+    await pag.start(ctx, ctx.options.name)
+
+@plugin.command
+@lightbulb.option("name", "the name of the Anime character", type=str, modifier=OM.CONSUME_REST)
+@lightbulb.command("anime-character", "get information of an Anime character by name", aliases=["character"])
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def fetch_anime_character(ctx: context.Context):
+    try:
+        pag = AnimeCharacterPaginator()
     except Exception:
         log = getLogger(__name__, "fetch_anime")
         log.debug(traceback.format_exc())
