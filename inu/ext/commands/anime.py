@@ -10,7 +10,14 @@ from lightbulb.commands import OptionModifier as OM
 from matplotlib.pyplot import title
 
 
-from utils import Human, Paginator, AioJikanv4, AnimePaginator, AnimeCharacterPaginator
+from utils import (
+    Human, 
+    Paginator,
+    AioJikanv4, 
+    AnimePaginator, 
+    AnimeCharacterPaginator,
+    MangaPaginator,
+)
 from core import getLogger
 
 log = getLogger(__name__)
@@ -169,7 +176,20 @@ async def fetch_anime_character(ctx: context.Context):
     try:
         pag = AnimeCharacterPaginator()
     except Exception:
-        log = getLogger(__name__, "fetch_anime")
+        log = getLogger(__name__, "fetch_anime_character")
+        log.debug(traceback.format_exc())
+        return
+    await pag.start(ctx, ctx.options.name)
+
+@plugin.command
+@lightbulb.option("name", "the name of the Manga", type=str, modifier=OM.CONSUME_REST)
+@lightbulb.command("manga", "get information of an Manga by name")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def fetch_manga(ctx: context.Context):
+    try:
+        pag = MangaPaginator()
+    except Exception:
+        log = getLogger(__name__, "fetch_manga")
         log.debug(traceback.format_exc())
         return
     await pag.start(ctx, ctx.options.name)
