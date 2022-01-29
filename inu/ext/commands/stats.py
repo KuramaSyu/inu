@@ -65,7 +65,7 @@ async def send_formated_json(ctx: context.Context, json_: dict):
     cmd_list.sort(key=lambda d: [*d.values()][0], reverse=True)
     for i, d in enumerate(cmd_list):
         if i % 10 == 0:
-            embed.add_field(f"---- {'top ' if i in [0,10,20] else 'row '} {i+10} ----", value="", inline=True)
+            embed.add_field(f"---- {'top ' if i in [0,10,20] else ''}{i+10} ----", value="", inline=True)
         for command, value in d.items():
             embed._fields[-1].value += f"**{command}**: {value}x\n"
             total_cmds += value
