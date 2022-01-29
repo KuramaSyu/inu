@@ -55,15 +55,22 @@ async def guild_stats(ctx: context.Context):
     await send_formated_json(ctx, json_)
 
 async def send_formated_json(ctx: context.Context, json_: dict):
-    embed = hikari.Embed(title="Command stats", description="")
+    embed = hikari.Embed(title="Command usage", description="")
     embed.color = Colors.random_color()
     cmd_list = []
+    total_cmds = 0
+
     for command, value in json_.items():
         cmd_list.append({command: value})
     cmd_list.sort(key=lambda d: [*d.values()][0], reverse=True)
-    for d in cmd_list:
+    for i, d in enumerate(cmd_list):
+        if i % 10 == 0:
+            embed.add_field(f"---- {'top ' if i in [0,10,20] else 'row '} {i+10} ----", value="", inline=True)
         for command, value in d.items():
-            embed.description += f"**{command}**: {value}x\n"
+            embed._fields[-1].value += f"**{command}**: {value}x\n"
+            total_cmds += value
+
+    embed.description = f"Total used commands: {total_cmds}"
     await ctx.respond(embed=embed)
 
 def load(bot: lightbulb.BotApp):
