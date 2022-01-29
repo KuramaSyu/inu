@@ -388,7 +388,7 @@ class Paginator():
 
     async def stop(self):
         self._stop = True
-        with suppress(NotFoundError):
+        with suppress(NotFoundError, hikari.ForbiddenError):
             if not self._disable_component:
                 await self._message.edit(component=None)
             elif not self._disable_components:
