@@ -144,7 +144,6 @@ class AnimeCharacterPaginator(Paginator):
     async def _fetch_character_by_id(self, mal_id: int) -> Dict:
         """Fetch a detailed anime dict by mal_id"""
         async with AioJikan() as jikan:
-
             result = await asyncio.wait_for(jikan.character(mal_id), 0.9)
         return result
     
