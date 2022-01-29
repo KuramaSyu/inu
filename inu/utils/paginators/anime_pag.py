@@ -15,6 +15,7 @@ from .common import Paginator
 from .common import listener
 from jikanpy import AioJikan
 from lightbulb.context import Context
+from fuzzywuzzy import fuzz
 
 from core import getLogger
 from utils import Human, Colors
@@ -56,7 +57,7 @@ class AnimePaginator(Paginator):
         self._old_message = old_message
         self._with_refresh_btn = with_refresh_btn
 
-        self._results = None
+        self._results: List[Dict]
         self._updated_mal_ids = set()
         super().__init__(page_s=["None"], timeout=10*8)
         
@@ -112,15 +113,22 @@ class AnimePaginator(Paginator):
         await self._load_details()
         return await super()._update_position(interaction)
 
+    def _fuzzy_sort_results(self, compare_name: str):
+        """fuzzy sort the anime result titles of  `self._results` by given name"""
+        for anime in self._results:
+            anime["fuzz_ratio"] = fuzz.ratio(anime["title"].lower(), compare_name)
+        self._results.sort(key=lambda anime: anime["fuzz_ratio"] >= 90, reverse=True)
+
     async def _search_anime(self, search: str) -> List[hikari.Embed]:
         def build_embeds(search_title: str, results: Dict):
             animes = []
-            for anime in results["results"]:
+            for anime in results:
                 if search_title in anime["title"].lower():
                     animes.append(anime)
 
             if animes == []:
-                animes = results['results']
+                log.debug("filter animes by name")
+                animes = results
 
             embeds = []
             total = len(animes)
@@ -148,7 +156,7 @@ class AnimePaginator(Paginator):
                             )
                         )
                         .set_image(anime["image_url"])
-                        .set_footer(f"page {i+1}/{total}")
+                        .set_footer(text=f"page {i+1}/{total}")
                     )
                 )
             return embeds
@@ -157,8 +165,14 @@ class AnimePaginator(Paginator):
 
         async with AioJikan() as aio_jikan:
             results = await aio_jikan.search(search_type='anime', query=search)
+        # store result list
+        log.debug(pformat(results))
         self._results = results["results"]
-        embeds = build_embeds(search, results)
+        # sort the list by comparing with given name
+        self._fuzzy_sort_results(search)
+        log.debug(pformat(self._results))
+        # build embeds out of 
+        embeds = build_embeds(search, self._results)
         if not embeds:
             return [hikari.Embed(title="Nothing found")]
         return embeds
@@ -271,6 +285,7 @@ class AnimePaginator(Paginator):
         for i, field in enumerate(embed.fields):
             if not field.value:
                 embed.remove_field(i)
+            field.value = Human.short_text(field.value, 1024)
         embed._footer = old_embed._footer
         self._pages[self._position] = embed
 
