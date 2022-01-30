@@ -120,6 +120,7 @@ class AnimePaginator(Paginator):
         self._results.sort(key=lambda anime: anime["fuzz_ratio"] >= 90, reverse=True)
 
     async def _search_anime(self, search: str) -> List[hikari.Embed]:
+        """Search <`search`> anime, and set results to `self._results`. These have less information"""
         def build_embeds(search_title: str, results: Dict):
             animes = []
             for anime in results:
@@ -166,11 +167,9 @@ class AnimePaginator(Paginator):
         async with AioJikan() as aio_jikan:
             results = await aio_jikan.search(search_type='anime', query=search)
         # store result list
-        log.debug(pformat(results))
         self._results = results["results"]
         # sort the list by comparing with given name
         self._fuzzy_sort_results(search)
-        log.debug(pformat(self._results))
         # build embeds out of 
         embeds = build_embeds(search, self._results)
         if not embeds:
