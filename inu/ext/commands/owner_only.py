@@ -110,7 +110,7 @@ async def log_(ctx: Context):
     for i, page in enumerate(shorted):
         description = f"```py\n{page}\n```page {i+1}/{len(shorted)}"
         embeds.append(description)
-    paginator = Paginator(page_s=embeds, timeout=10*60)
+    paginator = Paginator(page_s=embeds, timeout=10*60, download=inu_log)
     await paginator.start(ctx)
 
 @plugin.command
