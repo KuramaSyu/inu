@@ -2,6 +2,7 @@ from argparse import Action
 import asyncio
 from contextlib import suppress
 from pprint import pformat
+from turtle import down
 from typing import (
     Any,
     Callable,
@@ -17,6 +18,7 @@ import traceback
 import logging
 from abc import abstractmethod, ABCMeta
 from copy import deepcopy
+import textwrap
 
 import hikari
 from hikari.embeds import Embed
@@ -145,6 +147,7 @@ class Paginator():
         listen_to_events: List[Any] = [],
         compact: Optional[bool] = None,
         default_site: Optional[int] = 0,
+        download: Union[Callable[["Paginator"], str], str, bool] = False
     ):
         """
         A Paginator with many options
@@ -160,7 +163,11 @@ class Paginator():
             - disable_paginator_when_one_site: (bool, default=True) wether or not the pagination should be disabled when the length of the pages is 1
             - listen_to_events: (List[hikari.Event]) events the bot should listen to. These are needed to use them later with the `listener` decorator
             - compact: (bool) display only necessary components
-
+            - download: (str | Callable[[Paginator], str] | bool, default=False)
+                - (str) this will be the content of the file
+                - (Callable[[Paginator], str]) A function, which takes in `self` and returns the file content as string
+                - (bool) If True, the pagination embeds|strings will be automatically convertet into a str; 
+                         If False, deactivate download functionallity at all
         Note:
         -----
             - the listener is always listening to 2 events:
@@ -188,6 +195,7 @@ class Paginator():
         self._component_factory = component_factory
         self._components_factory = components_factory
         self._default_site = default_site
+        self._download: Union[Callable[[Paginator], str], str, None] = download
         self.bot: lightbulb.BotApp
         self.ctx: Context
 
@@ -307,7 +315,7 @@ class Paginator():
             )
         return btn
 
-    def build_basic_components(self, position = None) -> Optional[ActionRowBuilder]:
+    def _navigation_row(self, position = None) -> Optional[ActionRowBuilder]:
         if not self.pagination:
             return None
 
@@ -348,20 +356,56 @@ class Paginator():
         return action_row
     
     def build_default_component(self, position=None) -> Optional[ActionRowBuilder]:
-        return self.build_basic_components(position)
+        return self._navigation_row(position)
     
     def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
         action_rows = [self.build_default_component(position)]
         action_row = None
         if not self.compact:
             action_row = self.button_factory(
-            custom_id="search",
-            emoji="🔍"
+                custom_id="search",
+                emoji="🔍"
             )
-            action_rows.append(action_row)
+            action_rows.append(action_row)        
         return action_rows
     
-    
+    @property
+    def download(self) -> Optional[str]:
+        if not self._download:
+            return None
+        elif isinstance(self._download, Callable):
+            return self._download(self)
+        elif isinstance(self._download, str):
+            return self._download
+        elif isinstance(self._download, bool) and self._download is True:
+            return self._pages_to_str()
+
+    def _pages_to_str(self) -> str:
+        text = ""
+        if isinstance(self._pages, List[Embed]):
+            for embed in self._pages:
+                text += self._embed_to_md(embed)
+        elif isinstance(self._pages, List[str]):
+            text = "\n".join(
+                line for page in [textwrap.wrap(text, width=100) for page in self._pages] for line in page
+            )
+        else:
+            raise RuntimeError(f"Can't convert `self._pages` of type {type(self._pages)} to str")
+        return text
+
+    @staticmethod
+    def _embed_to_md(embed: hikari.Embed) -> str:
+        text = ""
+        if embed.title:
+            text += f"# {embed.title}"
+        if embed.description:
+            text += "\n#### ".textwrap.wrap(embed.description, 100)
+        for field in embed.fields:
+            text += f"\n## {field.name}"
+            text += "\n#### ".textwrap.wrap(field.value, 100)
+        text += "\n----------------------------------------\n"
+        return text
+        
 
 
 
@@ -377,14 +421,17 @@ class Paginator():
         elif not self._disable_components:
             kwargs["components"] = self.components
 
+        # if self._download:
+        #     kwargs["attachments"] = [hikari.Bytes(self.download, "content")]
+
         if isinstance(content, str):
             kwargs["content"] = content
-            await update_message(**kwargs)
         elif isinstance(content, Embed):
-            kwargs["embed"] = content
-            await update_message(**kwargs)
+            kwargs["embed"] = content  
         else:
             raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
+
+        await update_message(**kwargs)
 
     async def stop(self):
         self._stop = True
@@ -424,6 +471,8 @@ class Paginator():
             kwargs["component"] = self.component
         elif not self._disable_components:
             kwargs["components"] = self.components
+        if (download := self.download):
+            kwargs["attachment"] = hikari.Bytes(download, "content.md")
         if isinstance(self.pages[self._default_site], Embed):
             msg_proxy = await ctx.respond(
                 embed=self.pages[0],
