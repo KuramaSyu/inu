@@ -48,7 +48,7 @@ def main():
         except Exception:
             log.error(traceback.format_exc())
 
-    @inu.listen(lightbulb.events.LightbulbStartedEvent)
+    @inu.listen(lightbulb.LightbulbStartedEvent)
     async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
         table = Table("bot")
         record = await table.select_row(["key"], ["restart_count"])
