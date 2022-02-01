@@ -558,11 +558,11 @@ async def fix(ctx: context.Context) -> None:
     await ctx.respond("Should work now")
 
 
-async def _fix(guild_id: int):
-    await _join()
-    await _pause(guild_id)
+async def _fix(ctx: context.Context):
+    await _join(ctx)
+    await _pause(ctx.guild_id)
     await asyncio.sleep(0.1)
-    await _resume(guild_id)
+    await _resume(ctx.guild_id)
     
 
     # if channel_id:
@@ -607,7 +607,7 @@ async def play(ctx: context.Context) -> None:
         music.d.last_context[ctx.guild_id] = ctx
         await _play(ctx, ctx.options.query)
         if first_join:
-            await _fix(ctx.guild_id)
+            await _fix(ctx)
             first_join = False
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
