@@ -602,11 +602,11 @@ async def _leave(guild_id: int):
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def play(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
+    global first_join
     try:
         music.d.last_context[ctx.guild_id] = ctx
         await _play(ctx, ctx.options.query)
         if first_join:
-            global first_join
             await _fix(ctx.guild_id)
             first_join = False
     except Exception:
