@@ -24,7 +24,7 @@ def main():
     inu = Inu()
 
     @inu.listen(hikari.StartingEvent)
-    async def on_ready(_: hikari.StartingEvent):
+    async def on_ready(event : hikari.StartingEvent):
         try:
             await inu.init_db()
             InvokationStats.set_db(inu.db)
@@ -48,7 +48,16 @@ def main():
         except Exception:
             log.error(traceback.format_exc())
 
-        
+    @inu.listen(lightbulb.events.LightbulbStartedEvent)
+    async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
+        table = Table("bot")
+        record = await table.select_row(["key"], ["restart_count"])
+        await event.bot.update_presence(
+            status=hikari.Status.IDLE, 
+            activity=hikari.Activity(
+                name=record['value'],
+            )
+        )
 
     inu.run()
 
