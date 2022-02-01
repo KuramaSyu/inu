@@ -64,6 +64,15 @@ def main():
             afk=True,
         )
 
+    @inu.listen(hikari.PresenceUpdateEvent)
+    async def on_bot_ready(event : hikari.PresenceUpdateEvent):
+        if event.user_id != inu.get_me().id:
+            return
+        else:
+            await event.bot.update_presence(
+                status=hikari.Status.IDLE, 
+                afk=True,
+            )
     inu.run()
 
 if __name__ == "__main__":
