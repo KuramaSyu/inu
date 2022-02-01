@@ -1,11 +1,12 @@
-aiohttp==3.7.4.post0
-asyncpg==0.24.0
+
 hikari
 hikari-lightbulb==2.1.2  #update that if needed
 # hikari @ git+https://github.com/hikari-py/hikari.git@a7569dab22b43ed37fc30969cd623390b9883c99
 # hikari-lightbulb @ git+https://github.com/tandemdude/hikari-lightbulb.git@358a1b2ab6d57d8032acf91dbd3cd4b84e27b5b8
 python-dotenv==0.19.0
 matplotlib==3.4.3
+aiohttp
+asyncpg
 asyncache==0.1.1
 cachetools==4.2.2
 APScheduler==3.8.1
