@@ -545,6 +545,18 @@ async def join(ctx: context.Context) -> None:
     """Joins the voice channel you are in."""
     channel_id = await _join(ctx)
 
+@music.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("fix", "I will kick on my radio, that you will hear music again")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def fix(ctx: context.Context) -> None:
+    """I will kick on my radio, that you will hear music again"""
+    await _join(ctx)
+    await _pause(ctx.guild_id)
+    await asyncio.sleep(0.1)
+    await _resume(ctx.guild_id)
+    await ctx.respond("Should work now")
+
     # if channel_id:
     #     await ctx.respond(f"Joined <#{channel_id}>")
 
