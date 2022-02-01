@@ -61,6 +61,7 @@ def main():
         )
         await event.bot.update_presence(
             status=hikari.Status.IDLE, 
+            afk=True,
         )
 
     inu.run()
