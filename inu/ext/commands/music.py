@@ -57,7 +57,7 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
-        await queue(guild_id=event.guild_id)
+        asyncio.create_task(queue(guild_id=event.guild_id))
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
