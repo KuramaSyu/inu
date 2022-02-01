@@ -48,6 +48,9 @@ log = getLogger(__name__)
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
 HIKARI_VOICE = False
 
+# to fix bug, when join first time, no music
+first_join = True
+
 class EventHandler:
     """Events from the Lavalink server"""
     def __init__(self):
@@ -551,11 +554,16 @@ async def join(ctx: context.Context) -> None:
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fix(ctx: context.Context) -> None:
     """I will kick on my radio, that you will hear music again"""
-    await _join(ctx)
-    await _pause(ctx.guild_id)
-    await asyncio.sleep(0.1)
-    await _resume(ctx.guild_id)
+    await _fix(ctx.guild_id)
     await ctx.respond("Should work now")
+
+
+async def _fix(guild_id: int):
+    await _join()
+    await _pause(guild_id)
+    await asyncio.sleep(0.1)
+    await _resume(guild_id)
+    
 
     # if channel_id:
     #     await ctx.respond(f"Joined <#{channel_id}>")
@@ -597,6 +605,8 @@ async def play(ctx: context.Context) -> None:
     try:
         music.d.last_context[ctx.guild_id] = ctx
         await _play(ctx, ctx.options.query)
+        if first_join:
+            await _fix(ctx.guild_id)
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
 
