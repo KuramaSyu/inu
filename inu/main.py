@@ -59,6 +59,9 @@ def main():
                 name=record['value'],
             )
         )
+        await event.bot.update_presence(
+            status=hikari.Status.IDLE, 
+        )
 
     inu.run()
 
