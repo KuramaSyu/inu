@@ -469,6 +469,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
         )
         music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
         await _leave(guild_id)
+        return
     if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
         await queue(ctx)
 
