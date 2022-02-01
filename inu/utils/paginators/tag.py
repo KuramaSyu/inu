@@ -1,3 +1,4 @@
+from ast import alias
 import traceback
 import typing
 from typing import (
@@ -50,7 +51,7 @@ class Tag():
             - the owner should be an instace of `Member`, to be able, to store an tag locally
             otherwise the tag have to be stored globally
         """
-        self.owner: Union[hikari.User, hikari.Member] = owner
+        self.owners: List[hikari.Snowflake] = [owner.id]
         self._name: Optional[str] = None
         self.value: Optional[str] = None
         self.is_local_available: bool
@@ -58,6 +59,14 @@ class Tag():
         self._is_local: bool = True
         self.is_stored: bool
         self._id: Optional[int] = None
+        self.aliases: List[str] = []
+        self.guild_ids: List[int] = []
+        if isinstance(owner, hikari.Member):
+            self.guild_ids.append(owner.guild_id)
+            self._is_local = True
+        else:
+            self.guild_ids.append(0)
+            self._is_local = False
 
     @property
     def name(self):
@@ -72,18 +81,8 @@ class Tag():
 
     @property
     def is_local(self) -> bool:
-        if not isinstance(self.owner, hikari.Member):
-            self._is_local = False
-            return False
         return self._is_local
 
-    @property
-    def guild_id(self) -> Optional[int]:
-        if not isinstance(self.owner, hikari.Member):
-            return None
-        if not self._is_local:
-            return None
-        return self.owner.guild_id
 
     @property
     def id(self) -> int:
@@ -132,16 +131,18 @@ class Tag():
             await TagManager.edit(
                 key=self.name,
                 value=self.value,
-                author=self.owner,
+                author_ids=self.owners,
                 tag_id=self.id,
-                guild_id=self.guild_id,
+                guild_ids=self.guild_ids,
+                aliases=self.aliases,
             )
         else:
             tag_id = await TagManager.set(
                 key=self.name,
                 value=self.value,
-                author=self.owner,
-                guild_id=self.guild_id,
+                author_ids=self.owners,
+                guild_ids=self.guild_ids,
+                aliases=self.aliases,
             )
             self.id = tag_id
         self.is_stored = True
@@ -160,14 +161,6 @@ class Tag():
         self.value = tag["key_value"]
         self.is_stored = True
         self.id = tag["tag_id"]
-        if (
-            isinstance(self.owner, hikari.Member)
-            and tag["guild_id"] is not None
-            and self.guild_id == tag["guild_id"]
-        ):
-            self._is_local = True
-        else:
-            self._is_local = False
         self.is_global_available = not global_taken
         self.is_local_available = not local_taken
 
@@ -206,11 +199,14 @@ class Tag():
     def __str__(self) -> str:
         msg = (
             f"your tag is: {'local' if self._is_local else 'global'}\n"
-            f"the owner is: {self.owner.username}\n"
+            f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
             f"is the tag stored: {Human.bool_(self.is_stored)}\n"
+            f"available for guilds: {', '.join(str(id) for id in self.guild_ids)}\n"
             f"is the tag name local available: {Human.bool_(self.is_local_available)}\n"
             f"is the tag name global available: {Human.bool_(self.is_global_available)}\n"
         )
+        if self.aliases:
+            msg += f"aliases: {', '.join(self.aliases)}\n"
         if to_do := self.to_do:
             msg += (
                 f"\n**TO DO:**\n{to_do}"
@@ -222,9 +218,14 @@ class Tag():
         Updates self.is_global_available and self.is_local_available
         - is a coroutine
         """
-        local_taken, global_taken = await TagManager.is_taken(self.name, self.guild_id or 0)
-        self.is_global_available = not global_taken
-        self.is_local_available = not local_taken
+        self.is_global_available = True
+        self.is_local_available = True
+        for guild_id in self.guild_ids:
+            local_taken, global_taken = await TagManager.is_taken(self.name, guild_id or 0)
+            if local_taken:
+                self.is_local_available = False
+            if global_taken:
+                self.is_global_available = False
 
     async def delete(self):
         """Deletes this tag from the database if it is already stored"""
@@ -323,8 +324,9 @@ class TagHandler(Paginator):
             if not isinstance(event.interaction, ComponentInteraction):
                 return
             if (not event.interaction.message.id == self._message.id 
-                or not event.interaction.user.id == self.tag.owner.id):
+                or not event.interaction.user.id == self.ctx.author.id):
                 return
+            i = event.interaction
             custom_id = event.interaction.custom_id or None
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
@@ -340,8 +342,75 @@ class TagHandler(Paginator):
                 await self.finish(event.interaction)
             elif custom_id == "remove_tag":
                 await self.delete(event.interaction)
+            elif custom_id == "add_author_id":
+                await self.change_creators(i, List.append)
+            elif custom_id == "add_alias":
+                await self.change_aliases(i, List.append)
+            elif custom_id == "add_guild_id":
+                await self.change_guild_ids(i, List.append)
+            elif custom_id == "remove_author_id":
+                await self.change_creators(i, List.remove)
+            elif custom_id == "remove_alias":
+                await self.change_aliases(i, List.remove)
+            elif custom_id == "remove_guild_id":
+                await self.change_guild_ids(i, List.remove)
+            
         except Exception:
             self.log.error(traceback.format_exc())
+
+    async def change_creators(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
+        """
+        Args:
+        -----
+            - op (`builtins.function`) the function, where the result of the question will be passed in
+        """
+        user_id = await self.bot.ask(
+            "What is the ID of the person you want to add?",
+            interaction=interaction,
+        )
+        try:
+            op(self.tag.owners, int(user_id))
+        except ValueError:
+            await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
+            return
+        await self.update_page()
+        #await self.bot.rest.create_message(interaction.channel_id, f"`{user_id}` added to authors of this tag")
+
+    async def change_guild_ids(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
+        """
+        Args:
+        -----
+            - op (`builtins.function`) the function, where the result of the question will be passed in
+        """
+        guild_id = await self.bot.ask(
+            "What is the ID of the guild you want to add?",
+            interaction=interaction,
+        )
+        try:
+            op(self.tag.guild_ids, int(guild_id))
+        except ValueError:
+            await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
+            return
+        await self.update_page()
+        #await interaction.create_initial_response(f"You can use this tag now in `{guild_id}`")
+
+    async def change_aliases(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
+        """
+        Args:
+        -----
+            - op (`builtins.function`) the function, where the result of the question will be passed in
+        """
+        # I know this function is redundant, but otherwise it would affect the readability
+        alias = await self.bot.ask(
+            "What is the alias you want to add?",
+            interaction=interaction,
+        )
+        op(self.tag.aliases, alias)
+        await self.update_page()
+        #await interaction.create_initial_response(f"`{alias}` is now an alternative name of this tag")
+        
+        
+
 
     async def delete(self, interaction: ComponentInteraction):
         await self.tag.delete()
@@ -421,8 +490,10 @@ class TagHandler(Paginator):
     async def change_visibility(self, interaction: ComponentInteraction):
         if self.tag._is_local:
             self.tag._is_local = False
+            self.tag.guild_ids.append(0)
         else:
             self.tag._is_local = True
+            self.tag.guild_ids.remove(0)
         await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         await self.update_page()
 
@@ -511,15 +582,32 @@ class TagHandler(Paginator):
             .set_label("local/global")
             .add_to_container()
         )
+        add_options = (
+            ActionRowBuilder()
+            .add_button(ButtonStyle.SECONDARY, "add_alias")
+            .set_label("add an alias").add_to_container()
+            # .add_button(ButtonStyle.DANGER, "change_owner")
+            # .set_label("change tag owner")
+            .add_button(ButtonStyle.SECONDARY, "add_guild_id")
+            .set_is_disabled(not self.tag.is_local)
+            .set_label("add a guild").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "add_author_id")
+            .set_label("add an author").add_to_container()
+        )
         danger_tags = (
             ActionRowBuilder()
             .add_button(ButtonStyle.DANGER, "remove_tag")
-            .set_label("remove tag")
-            .set_is_disabled(disable_remove_when(self))
-            .add_to_container()
-            .add_button(ButtonStyle.DANGER, "change_owner")
-            .set_label("change tag owner")
-            .add_to_container()
+            .set_label("delete tag")
+            .set_is_disabled(not self.tag.is_stored).add_to_container()
+            # .add_button(ButtonStyle.DANGER, "change_owner")
+            # .set_label("change tag owner")
+            .add_button(ButtonStyle.DANGER, "remove_author_id")
+            .set_label("remove author").add_to_container()
+            .add_button(ButtonStyle.DANGER, "remove_alias")
+            .set_label("remove alias").add_to_container()
+            .add_button(ButtonStyle.DANGER, "remove_guild_id")
+            .set_label("remove server")
+            .set_is_disabled(not self.tag.is_local).add_to_container()
         )
         finish = (
             ActionRowBuilder()
@@ -528,9 +616,9 @@ class TagHandler(Paginator):
             .set_is_disabled(disable_save_when(self))
             .add_to_container()
         )
-        if self.pagination:
-            return [navi, tag_specific, danger_tags, finish] #type: ignore
-        return [tag_specific, finish]
+        #if self.pagination:
+        return [navi, tag_specific, add_options, danger_tags, finish] #type: ignore
+        #return [tag_specific, finish]
 
     async def load_tag(self, tag: Mapping[str, Any], author: Union[hikari.Member, hikari.User]):
         """
@@ -544,13 +632,16 @@ class TagHandler(Paginator):
         local_taken, global_taken = await TagManager.is_taken(key=tag["tag_key"], guild_id = guild_id or 0)
         new_tag: Tag = Tag(author)
         new_tag.name = tag["tag_key"]
-        new_tag.value = tag["tag_value"][0]
+        new_tag.value = tag["tag_value"]
         new_tag.is_stored = True
         new_tag.id = tag["tag_id"]
+        new_tag.guild_ids = tag["guild_ids"]
+        new_tag.aliases = tag["aliases"]
+        new_tag.owners = tag["author_ids"]
         if (
             isinstance(author, hikari.Member)
-            and tag["guild_id"] is not None
-            and author.guild_id == tag["guild_id"]
+            and not 0 in tag["guild_ids"]
+            and author.guild_id in tag["guild_ids"]
         ):
             new_tag._is_local = True
         else:
