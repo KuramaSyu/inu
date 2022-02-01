@@ -12,12 +12,13 @@ logging.setLoggerClass(LoggingHandler)
 from dotenv import dotenv_values
 import hikari
 import lightbulb
-from lightbulb import events
 from core import Inu, Table
 from utils import InvokationStats, Reminders, TagManager
 from core import getLogger
 
 log = getLogger(__name__)
+log.info(f"hikari version:{hikari.__version__}")
+log.info(f"lightbulb version:{lightbulb.__version__}")
 
 def main():
     log.info("Create Inu")
