@@ -36,6 +36,7 @@ import math
 import operator
 
 from core import getLogger
+from utils import Human
 
 log = getLogger(__name__)
 
@@ -72,7 +73,7 @@ async def calc(message: hikari.PartialMessage):
         result = str(calculator.eval(text))
         result = result[:-2] if result.endswith(".0") else result
         await message.respond(
-            hikari.Embed(title=result)
+            hikari.Embed(title=Human.number(result))
         )
     except:
         return
