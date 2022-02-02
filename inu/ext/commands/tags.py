@@ -13,6 +13,7 @@ from typing import (
 import logging
 from logging import DEBUG
 import asyncio
+import textwrap
 
 import hikari
 from hikari import ComponentInteraction, Embed, InteractionCreateEvent, ResponseType
@@ -24,6 +25,7 @@ from lightbulb.context import Context
 import asyncpg
 from matplotlib.style import context
 from numpy import where
+
 
 from core import Inu, Table
 from utils.tag_mamager import TagIsTakenError, TagManager, TagType
@@ -78,10 +80,10 @@ async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
     if len(records) >= 1:
         typing.cast(int, ctx.guild_id)
         for r in records:
-            if r["guild_id"] == ctx.guild_id:
+            if ctx.guild_id in r["guild_ids"]:
                 record = r
                 break
-            elif r["guild_id"] is None:
+            elif 0 in r["guild_ids"]:
                 record = r
     return record
 
@@ -92,8 +94,8 @@ async def show_record(record: asyncpg.Record, ctx: Context, key: str) -> None:
         # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
         return
     messages = []
-    for value in crumble("\n".join(v for v in record["tag_value"]), 1900):
-        message = f"**{key}**\n\n{value}\n\ncreated by <@{(record['creator_id'])}>"
+    for value in crumble(record["tag_value"], 1900):
+        message = f"**{key}**\n\n{value}"
         messages.append(message)
     pag = Paginator(messages)
     await pag.start(ctx)
@@ -122,7 +124,15 @@ async def add(ctx: Context):
         return await taghandler.start(ctx)
     typing.cast(str, ctx.options.value)
     try:
-        await TagManager.set(ctx.options.key, ctx.options.value, ctx.member or ctx.author)
+        await TagManager.set(
+            ctx.options.key, 
+            ctx.options.value, 
+            [ctx.member or ctx.author],
+            [ctx.guild_id or 0],
+            [],
+
+
+        )
     except TagIsTakenError:
         return await ctx.respond("Your tag is already taken")
     return await ctx.respond(f"Your tag `{ctx.options.key}` has been added to my storage")
@@ -144,7 +154,7 @@ async def edit(ctx: Context):
     raw_results: List[Mapping[str, Any]] = await TagManager.get(ctx.options.key, ctx.guild_id)
     results = []
     for result in raw_results:
-        if result["creator_id"] == ctx.author.id:
+        if ctx.author.id in result["author_ids"]:
             results.append(result)
     # case 0: no entry in database
     # case 1: 1 entry in db; check if global or in guild
@@ -158,7 +168,7 @@ async def edit(ctx: Context):
         #  select between global and local - needs to lookup the results if there are tags of author
         records = {}
         for record in results:
-            if record["guild_id"] == ctx.guild_id and record["guild_id"] is None:
+            if 0 in record["guild_ids"]:
                 records["global"] = record
             else:
                 records["local"] = record
@@ -200,10 +210,10 @@ async def remove(ctx: Context):
         - key: the name of the tag which you want to remove
     """
     key = ctx.options.key
-    raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id)
+    raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id, ctx.author.id)
     results = []
     for result in raw_results:
-        if result["creator_id"] == ctx.author.id:
+        if ctx.author.id in result["author_ids"]:
             results.append(result)
     # case 0: no entry in database
     # case 1: 1 entry in db; check if global or in guild
@@ -213,12 +223,12 @@ async def remove(ctx: Context):
     elif len(results) == 1:
         tag = results[0]
         await TagManager.remove(tag["tag_id"])
-        return await ctx.respond(f"I removed the {'local' if tag['guild_id'] else 'global'} tag `{tag['tag_key']}`")
+        return await ctx.respond(f"I removed the {'local' if 0 in tag['guild_ids'] else 'global'} tag `{tag['tag_key']}`")
     else:
         #  select between global and local - needs to lookup the results if there are tags of author
         records = {}
         for record in results:
-            if record["guild_id"] == ctx.guild_id and record["guild_id"] is None:
+            if ctx.guild_id in record["guild_ids"] and 0 in record["guild_ids"]:
                 records["global"] = record
             else:
                 records["local"] = record
@@ -274,9 +284,11 @@ async def overview(ctx: Context):
         .add_select_menu("overview_menu")
         .add_option("guild tags", "guild")
         .add_to_menu()
-        .add_option("all tags", "global")
-        .add_to_menu()
         .add_option("your tags", "your")
+        .add_to_menu()
+        .add_option("all tags", "all")
+        .add_to_menu()
+        .add_option("global tags (all guilds)", "global")
         .add_to_menu()
         .add_to_container()
     )
@@ -298,6 +310,7 @@ async def overview(ctx: Context):
     result = event.interaction.values[0]
     type_ = {
         "guild": TagType.GUILD,
+        "all": TagType.ALL,
         "global": TagType.GLOBAL,
         "your": TagType.YOUR,
     }.get(result)
@@ -318,18 +331,23 @@ async def overview(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_execute(ctx: Context):
     record = await get_tag(ctx, ctx.options.key)
-    ctx._options["code"] = record["tag_value"][0]  # tag value is a list
+    ctx._options["code"] = record["tag_value"]  # tag value is a list
     ext = tags.bot.get_plugin("Owner")
     for cmd in ext.all_commands:
         if cmd.name == "run":
             return await cmd.callback(ctx)
 
-def records_to_embed(records: List[asyncpg.Record]) -> List[hikari.Embed]:
+def records_to_embed(
+    records: List[asyncpg.Record], 
+    value_length: int = 80, 
+    tags_per_page: int = 15
+) -> List[hikari.Embed]:
     desc = ""
     embeds = [hikari.Embed(title="tag_overview")]
     for i, record in enumerate(records):
-        embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][0][:1000]} {"..." if len(record["tag_value"][0]) > 999 else ""}', inline=False)
-        if i % 10 == 0 and len(records) > i+1 and i != 0:
+        embeds[-1].add_field(record["tag_key"], f'```{textwrap.shorten(record["tag_value"].replace("```", ""), value_length)}```', inline=False)
+        #embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][0][:1000]} {"..." if len(record["tag_value"][0]) > 999 else ""}', inline=False)
+        if i % tags_per_page == 0 and len(records) > i+1 and i != 0:
             embeds.append(hikari.Embed(title="tag_overview"))
     return embeds
 
@@ -367,19 +385,19 @@ async def find_similar(
 
     Note:
     -----
-        - global tags will shown always (guild_id is None)
+        - global tags will shown always (guild_id is 0)
     """
-    cols = ["guild_id"]
+    cols = ["guild_ids"]
     vals = [guild_id]
     if creator_id:
-        cols.append("creator_id")
+        cols.append("author_ids")
         vals.append(creator_id)
     table = Table("tags")
     records = await tags.bot.db.fetch(
         f"""
         SELECT *
         FROM tags
-        WHERE (guild_id=$1 OR guild_id IS NULL) AND tag_key % $2
+        WHERE ($1 = ANY(guild_ids)) AND tag_key % $2
         ORDER BY similarity(tag_key, $2) > {tags.bot.conf.tags.prediction_accuracy} DESC
         LIMIT 10;
         """,

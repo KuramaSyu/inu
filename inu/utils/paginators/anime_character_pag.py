@@ -186,8 +186,12 @@ class AnimeCharacterPaginator(Paginator):
             embed.description = ""
             embed.description += f"\nmore information on [MyAnimeList]({info['url']})"
             embed.set_image(info["image_url"])
-            with suppress(Exception):
-                embed.add_field("Anime", ", ".join(info["anime"]))
+            if info["anime"]:
+                dict_ = {}
+                for d in [i for i in info["anime"]]:
+                    dict_.update(d)
+                embed.add_field("Anime", "\n".join(f"{k}: {v}" for k, v in dict_.items()))
+            if info["alternative_names"]:
                 embed.add_field("Alternative Names", ", ".join(info["alternative_names"]))
 
         for i, field in enumerate(embed.fields):

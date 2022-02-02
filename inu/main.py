@@ -12,19 +12,20 @@ logging.setLoggerClass(LoggingHandler)
 from dotenv import dotenv_values
 import hikari
 import lightbulb
-from lightbulb import events
 from core import Inu, Table
 from utils import InvokationStats, Reminders, TagManager
 from core import getLogger
 
 log = getLogger(__name__)
+log.info(f"hikari version:{hikari.__version__}")
+log.info(f"lightbulb version:{lightbulb.__version__}")
 
 def main():
     log.info("Create Inu")
     inu = Inu()
 
     @inu.listen(hikari.StartingEvent)
-    async def on_ready(_: hikari.StartingEvent):
+    async def on_ready(event : hikari.StartingEvent):
         try:
             await inu.init_db()
             InvokationStats.set_db(inu.db)
@@ -48,8 +49,30 @@ def main():
         except Exception:
             log.error(traceback.format_exc())
 
-        
+    @inu.listen(lightbulb.LightbulbStartedEvent)
+    async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
+        table = Table("bot")
+        record = await table.select_row(["key"], ["restart_count"])
+        await event.bot.update_presence(
+            status=hikari.Status.IDLE, 
+            activity=hikari.Activity(
+                name=record['value'],
+            )
+        )
+        await event.bot.update_presence(
+            status=hikari.Status.IDLE, 
+            afk=True,
+        )
 
+    @inu.listen(hikari.PresenceUpdateEvent)
+    async def on_bot_ready(event : hikari.PresenceUpdateEvent):
+        if event.user_id != inu.get_me().id:
+            return
+        else:
+            await event.bot.update_presence(
+                status=hikari.Status.IDLE, 
+                afk=True,
+            )
     inu.run()
 
 if __name__ == "__main__":

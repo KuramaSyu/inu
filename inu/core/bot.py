@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from optparse import Option
 import os
 import traceback
 import typing
@@ -164,6 +165,46 @@ class Inu(lightbulb.BotApp):
                 return event.interaction.custom_id, event
         except asyncio.TimeoutError:
             return None, None
+    
+    async def ask(
+        self,
+        question: str,
+        /, 
+        *,
+        timeout: int = 60,
+        channel_id: int = None,
+        user_id: Optional[hikari.User] = None,
+        interaction: Optional[ComponentInteraction] = None,
+        response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE
+    ) -> Optional[str]:
+        """
+        Shortcut for wait_for MessageCreateEvent
+
+        Returns:
+        --------
+            - (str | None) the content of the answer or None
+        
+        """
+        if interaction:
+            msg = await interaction.create_initial_response(response_type, question)
+        else:
+            await self.rest.create_message(channel_id, question)
+            msg = None
+        try:
+            event = await self.wait_for(
+                hikari.MessageCreateEvent,
+                timeout=timeout,
+                predicate=lambda e:(
+                    True if not channel_id else e.channel_id == msg.channel_id
+                    and (True if not user_id else e.interaction.user.id == user_id)
+                    and (True if not interaction else interaction.channel_id == e.interaction.channel_id)
+                )
+            )
+            return event.message.content
+        except asyncio.TimeoutError:
+            return None
+
+        
 
     #override
     def run(self):

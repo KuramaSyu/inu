@@ -26,6 +26,7 @@ class TagType(Enum):
     YOUR = 1
     GUILD = 2
     GLOBAL = 3
+    ALL = 4  # all tags the user can see
 
 class TagManager():
     db: Database
@@ -42,8 +43,9 @@ class TagManager():
         cls, 
         key: str,
         value: str,
-        author: Union[User, Member],
-        guild_id: Optional[int] = None,
+        author_ids: List[int],
+        guild_ids: List[int],
+        aliases: List[str],
         check_if_taken: bool = True,
     ) -> int:
         """
@@ -54,7 +56,7 @@ class TagManager():
             - key: (str) the tag name
             - value: (str) the tag value
             - author: (User | Member) the user who created the tag
-            - guild_id: (int | None, default=None) the guild_id if the tag should be local;
+            - guild_id: (int) the guild_id if the tag should be local;
             to make a tag global set guild_id to None
             - check_if_taken: (bool, default=True) check if the tag is already taken
 
@@ -66,17 +68,19 @@ class TagManager():
             - TagIsTakenError if tag is taken
         """
         #guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
-        await cls._do_check_if_taken(key, guild_id, check_if_taken)
+        for guild_id in guild_ids:
+            await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(
             """
-            INSERT INTO tags(tag_key, tag_value, creator_id, guild_id)
-            VALUES($1, $2, $3, $4)
+            INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases)
+            VALUES($1, $2, $3, $4, $5)
             RETURNING tag_id
             """,
             key,
-            [value],
-            author.id,
-            guild_id,
+            value,
+            author_ids,
+            guild_ids,
+            aliases,
         )
         return record["tag_id"]
 
@@ -84,11 +88,12 @@ class TagManager():
     async def edit(
         cls, 
         key: str,
-        value: str,
-        author: Union[hikari.User, hikari.Member],
         tag_id: int,
-        guild_id: Optional[int] = None,
+        value: Optional[str] = None,
+        author_ids: Optional[List[int]] = None,
+        guild_ids: Optional[List[Union[int, None]]] = None,
         check_if_taken: bool = False,
+        aliases: Optional[List[str]] = None,
     ) -> Mapping[str, Any]:
         """
         Updates a tag by key
@@ -96,8 +101,8 @@ class TagManager():
         -----
             - key: (str) the name which the tag should have
             - value: (str) the value of the tag
-            - guild_id: (int | None, default=None) the guild id to check for. None=global
-            NOTE: if its None it will only check global, otherwise only local
+            - guild_id: (int) the guild id to check for. 0=global
+            NOTE: if its 0 it will only check global, otherwise only local
             - check_if_taken: wether the check should be executed or not
 
         Raises:
@@ -105,33 +110,25 @@ class TagManager():
             - utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
 
         """
-        def correct_value(value) -> List[str]: #type: ignore
-            if isinstance(value, str):
-                return [value]
-            elif isinstance(value, list):
-                if isinstance(value[0], list):
-                    correct_value(value[0])
-                else:
-                    return value
-            else:
-                raise TypeError
         sql = """
             SELECT * FROM tags
             WHERE tag_id = $1
             """
         # guild_id = author.guild_id if isinstance(author, hikari.Member) else None
-        await cls._do_check_if_taken(key, guild_id, check_if_taken)
+        for guild_id in guild_ids:
+            await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(sql, tag_id)
-        new_record = {
-            "creator_id": author.id,
-            "tag_value": correct_value(value),  # is already in a list
-            "tag_key": key,
-            "guild_id": guild_id,
-            "tag_ID": record["tag_id"]
-        }
-
+        new_record = {k: v for k, v in record.items()}
+        if value:
+            new_record["tag_value"] = value
+        if author_ids:
+            new_record["author_ids"] = author_ids
+        if guild_ids:
+            new_record["guild_ids"] = guild_ids
+        if aliases:
+            new_record["aliases"] = aliases
         await cls.sync_record(new_record)
-        return record
+        return new_record
 
 
     @classmethod
@@ -148,7 +145,8 @@ class TagManager():
     async def get(
         cls,
         key: str,
-        guild_id: Optional[int] = None,
+        guild_id: Optional[int] = 0,
+        author_id: Optional[int] = 0,
         only_accessable: bool = True
     ) -> List[Mapping[str, Any]]:
         """
@@ -159,28 +157,32 @@ class TagManager():
         -----
         key: (str) the key to search
         - guild_id: (int) [default None] the guild_id the tag should have
-            - Note: None is equivilant with `global` tag
+            - Note: 0 is equivilant with `global` tag
         - only_accessable: (bool) wehter or not the function should return only 
             the gobal and/or local one instead of every tag with matching `key`
         """
-        sql = """
+        sql = f"""
             SELECT * FROM tags
-            WHERE (tag_key = $1) AND (guild_id = $2::BIGINT OR guild_id IS NULL)
+            WHERE (tag_key = $1 OR $1 = ANY(aliases)) 
+            AND (
+                ($2::BIGINT = ANY(guild_ids) OR 0 = ANY(guild_ids)) 
+                OR $3 = ANY(author_ids)
+                )
             """
-        records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id)
-
-        if not records:
-            return []
-        if not only_accessable:
-            return records
-        filtered_records = []
-        for record in records:
-            if (
-                record["guild_id"] == guild_id
-                or record["guild_id"] is None
-            ):
-                filtered_records.append(record)
-        return filtered_records
+        records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id, author_id)
+        return records
+        # if not records:
+        #     return []
+        # if not only_accessable:
+        #     return records
+        # filtered_records = []
+        # for record in records:
+        #     if (
+        #         guild_id in record["guild_ids"]
+        #         or None in record["guild_ids"]
+        #     ):
+        #         filtered_records.append(record)
+        # return filtered_records
 
 
     @classmethod
@@ -197,16 +199,17 @@ class TagManager():
         """
         sql = """
             UPDATE tags
-            SET (tag_value, tag_key, creator_id, guild_id) = ($1, $2, $3, $4)
-            WHERE tag_ID = $5
+            SET (tag_value, tag_key, author_ids, guild_ids, aliases) = ($1, $2, $3, $4, $5)
+            WHERE tag_id = $6
             """
         await cls.db.execute(
             sql,
             record["tag_value"],
             record["tag_key"],
-            record["creator_id"],
-            record["guild_id"],
-            record["tag_ID"],
+            record["author_ids"],
+            record["guild_ids"],
+            record["aliases"],
+            record["tag_id"],
         )
 
     @classmethod
@@ -219,7 +222,7 @@ class TagManager():
             utils.tag_manager.TagIsTakenError
         """
         sql = """
-            SELECT tags, guild_id FROM tags
+            SELECT guild_ids FROM tags
             WHERE tags = $1
             """
         if not tags:
@@ -244,21 +247,21 @@ class TagManager():
             bool: is global taken
         """
         sql = """
-            SELECT tags FROM tags
-            WHERE tag_key = $1
+            SELECT * FROM tags
+            WHERE tag_key = $1 OR $1 = ANY(aliases)
             """
         if guild_id is None:
             guild_id = 0
-        records = await cls.db.column(sql, key, column="tags")
+        records = await cls.db.fetch(sql, key)
         if len(records) == 0:
             return False, False
 
         global_taken = False
         local_taken = False
         for record in records:
-            if record["guild_id"] == guild_id:
+            if  guild_id in record["guild_ids"]:
                 local_taken = True
-            elif record["guild_id"] is None:
+            elif None in record["guild_ids"]:
                 global_taken = True
             if global_taken and local_taken:
                 return True, True
@@ -272,7 +275,7 @@ class TagManager():
         Args:
             key: the key to match for#
             guild_id: the guild if to check for.
-            NOTE: if its None it will only check global, otherwise only local
+            NOTE: if its 0 it will only check global, otherwise only local
             check: wether the check should be executed or not
         Raises:
             utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
@@ -293,18 +296,22 @@ class TagManager():
             SELECT * FROM tags
             """
         if type == TagType.GLOBAL:
-            sql = f"{sql} WHERE guild_id IS NULL"
+            sql = f"{sql} WHERE 0 = ANY(guild_ids)"
             return await cls.db.fetch(sql)
         elif type == TagType.GUILD:
             if guild_id is None:
                 raise RuntimeError("Can't fetch tags of a guild without an id (id is None)")
-            sql = f"{sql} WHERE guild_id = $1"
+            sql = f"{sql} WHERE $1 = ANY(guild_ids)"
             return await cls.db.fetch(sql, guild_id)
         elif type == TagType.YOUR:
             if author_id is None:
                 raise RuntimeError("Can't fetch tags of a creator without an id (id is None)")
-            sql = f"{sql} WHERE creator_id = $1"
+            sql = f"{sql} WHERE $1 = ANY(author_ids)"
             return await cls.db.fetch(sql, author_id)
+        elif type == TagType.ALL:
+            sql = f"{sql} WHERE $1 = ANY(author_ids) OR $2 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
+            return await cls.db.fetch(sql, author_id, guild_id)
+
         
 
 class Tag():

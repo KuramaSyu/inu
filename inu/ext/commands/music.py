@@ -48,24 +48,8 @@ log = getLogger(__name__)
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
 HIKARI_VOICE = False
 
-class NodeBackups:
-    """
-    Class which tries to fix/minimize failures of lavalink
-    """
-    backups = {}
-
-    @classmethod
-    @logger()
-    def set(cls, guild_id: int, value: lavasnek_rs.Node):
-        """stores a deepcopy of given object"""
-        queue = [*value.queue]
-        cls.backups[guild_id] = queue
-
-
-    @classmethod
-    @logger()
-    def get(cls, guild_id: int):
-        return cls.backups.get(guild_id, None)
+# to fix bug, when join first time, no music
+first_join = True
 
 class EventHandler:
     """Events from the Lavalink server"""
@@ -73,11 +57,10 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
-        await queue(guild_id=event.guild_id)
+        asyncio.create_task(queue(guild_id=event.guild_id))
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
-        NodeBackups.set(event.guild_id, node)
         track = node.queue[0].track
         await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
 
@@ -382,13 +365,6 @@ async def on_ready(event: hikari.ShardReadyEvent):
     music.d.last_context: Dict[int,Context] = {} # guild_id: lightbulb.Context
     music.d.music_helper = MusicHelper()
     await start_lavalink()
-    # await asyncio.sleep(6)
-    # await MusicHistoryHandler.add(
-    #     538398443006066728,
-    #     "test",
-    #     "test uri"
-    # )
-    # music.d.log.debug(await MusicHistoryHandler.get(538398443006066728))
 
 @music.listener(hikari.VoiceStateUpdateEvent)
 async def on_voice_state_update(event: VoiceStateUpdateEvent):
@@ -496,6 +472,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
         )
         music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
         await _leave(guild_id)
+        return
     if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
         await queue(ctx)
 
@@ -522,6 +499,8 @@ async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
                 "I was unable to connect to the voice channel, maybe missing permissions? or some internal issue."
             )
             return None
+        except Exception:
+            music.d.log.error(f"Exception while joining: {traceback.format_exc()}")
 
     await music.bot.data.lavalink.create_session(connection_info)
 
@@ -530,7 +509,7 @@ async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
     if not bool(int(music.bot.conf.lavalink.connect)):
-        log.warning(f"Lavalink connection won't be established")
+        music.d.log.warning(f"Lavalink connection won't be established")
         return
     for x in range(3):
         try:
@@ -569,8 +548,25 @@ async def join(ctx: context.Context) -> None:
     """Joins the voice channel you are in."""
     channel_id = await _join(ctx)
 
-    if channel_id:
-        await ctx.respond(f"Joined <#{channel_id}>")
+@music.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("fix", "I will kick on my radio, that you will hear music again")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def fix(ctx: context.Context) -> None:
+    """I will kick on my radio, that you will hear music again"""
+    await _fix(ctx)
+    await ctx.respond("Should work now")
+
+
+async def _fix(ctx: context.Context):
+    await _join(ctx)
+    await _pause(ctx.guild_id)
+    await asyncio.sleep(0.1)
+    await _resume(ctx.guild_id)
+    
+
+    # if channel_id:
+    #     await ctx.respond(f"Joined <#{channel_id}>")
 
 
 @music.command
@@ -595,6 +591,8 @@ async def _leave(guild_id: int):
     # Destroy nor leave remove the node nor the queue loop, you should do this manually.
     await music.bot.data.lavalink.remove_guild_node(guild_id)
     await music.bot.data.lavalink.remove_guild_from_loops(guild_id)
+    music.d.music_message[guild_id] = None
+
     
 # @lightbulb.check(lightbulb.guild_only)
 @music.command
@@ -604,8 +602,15 @@ async def _leave(guild_id: int):
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def play(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
-    music.d.last_context[ctx.guild_id] = ctx
-    await _play(ctx, ctx.options.query)
+    global first_join
+    try:
+        music.d.last_context[ctx.guild_id] = ctx
+        await _play(ctx, ctx.options.query)
+        if first_join:
+            await _fix(ctx)
+            first_join = False
+    except Exception:
+        music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
 
 async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
     if not ctx.guild_id or not ctx.member:
@@ -680,11 +685,6 @@ async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = Fa
         await music.bot.data.lavalink.play(guild_id, track).requester(
             author_id
         ).queue()
-        await MusicHistoryHandler.add(
-            ctx.guild_id,
-            track.info.title,
-            track.info.uri
-        )
     except lavasnek_rs.NoSessionPresent:
         await ctx.respond(f"Use `{music.bot.conf.DEFAULT_PREFIX}join` first")
         return
@@ -695,11 +695,6 @@ async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = Fa
             description=f'[{track.info.title}]({track.info.uri})'
         ).set_thumbnail(ctx.member.avatar_url)  # type: ignore
         await ctx.respond(embed=embed)
-    await MusicHistoryHandler.add(
-        ctx.guild_id, 
-        str(track.info.title), 
-        track.info.uri
-    )
 
 async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> lavasnek_rs.Tracks:
     """
@@ -957,11 +952,30 @@ async def history(ctx: Context):
     await pag.start(ctx)
     
 @m.child
-@lightbulb.command("restart", "reconnects to lavalink")
+@lightbulb.command("restart", "reconnects to lavalink", hidden=True)
 @lightbulb.implements(commands.PrefixSubCommand)
 async def restart(ctx: context.Context):
     await start_lavalink()
 
+@m.child
+@lightbulb.option("query", "What do you want to search?", modifier=OM.CONSUME_REST)
+@lightbulb.command("seach", "Searches the queue; every match will be added infront of queue", aliases=["s"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def music_search(ctx: context.Context):
+    node = await music.bot.data.lavalink.get_guild_node(ctx.guild_id)
+    query = ctx.options.query
+    query = query.lower()
+    response = []
+    for track in node.queue:
+        if query in track.info.title.lower() or query in track.info.author:
+            node_changed = True
+            node.queue.insert(1, track)
+            response.append(f"{track.info.author} | {track.info.title}")
+    if response:
+        response.insert(0, "Titles added:\n")
+        return await ctx.respond("\n".join(response)) 
+    else:
+        return await ctx.respond("No matches found")
 
 async def queue(ctx: Context = None, guild_id: int = None):
     '''
@@ -976,20 +990,12 @@ async def queue(ctx: Context = None, guild_id: int = None):
         ctx = music.d.last_context[guild_id]
     if not ctx.guild_id:
         return
-    channel = ctx.get_channel()
     node = await music.bot.data.lavalink.get_guild_node(guild_id)
     if not node:
         music.d.log.warning(f"node is None, in queue command; {guild_id=};")
-        queue = NodeBackups.get(guild_id)
-        if node is None:
-            log.info(f"No backup for queue of node found - returning")
-            return
+        music.d.log.info("Try to reconnect to websocket")
         await _join(ctx)
         node = await music.bot.data.lavalink.get_guild_node(guild_id)
-        node.queue = queue
-        log.info(f"Backup Node queue {guild_id} will be loaded; Node: {node}")
-        await music.d.lavalink.set_guild_node(guild_id, node)
-        log.info(f"backuped")
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
@@ -1068,6 +1074,11 @@ async def queue(ctx: Context = None, guild_id: int = None):
 
 
 async def add_music_reactions(message: hikari.Message):
+    # reactions = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '🔀', '🗑', '🛑', '⏸']
+    # tasks = []
+    # for r in reactions:
+    #     tasks.append(asyncio.create_task(message.add_reaction(str(r))))
+    # await asyncio.wait(tasks, asyncio.ALL_COMPLETED)
     await message.add_reaction(str('1️⃣'))
     await message.add_reaction(str('2️⃣'))
     await message.add_reaction(str('3️⃣'))

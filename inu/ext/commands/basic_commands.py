@@ -136,6 +136,11 @@ async def invite(ctx: context.Context):
         )
     )
 
+@basics.command
+@lightbulb.command("test", "test")
+@lightbulb.implements(commands.UserCommand)
+async def test_(ctx: context.Context):
+    await ctx.respond("test")
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(basics)
