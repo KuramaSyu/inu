@@ -58,8 +58,10 @@ async def on_error(event: events.CommandErrorEvent):
                 return True
             return False
         
-        for reaction in ['🍭', '❔']:
+        for reaction in ['❔']:
             await message.add_reaction(reaction)
+        if int(pl.bot.conf.bot.owner_id) == ctx.user.id:
+            await message.add_reaction("🍭")
         try:
             e: hikari.ReactionAddEvent = await pl.bot.wait_for(
                 hikari.ReactionAddEvent,
