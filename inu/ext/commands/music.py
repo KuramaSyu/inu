@@ -958,22 +958,30 @@ async def restart(ctx: context.Context):
     await start_lavalink()
 
 @m.child
+@lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "What do you want to search?", modifier=OM.CONSUME_REST)
-@lightbulb.command("seach", "Searches the queue; every match will be added infront of queue", aliases=["s"])
+@lightbulb.command("search", "Searches the queue; every match will be added infront of queue", aliases=["s"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def music_search(ctx: context.Context):
     node = await music.bot.data.lavalink.get_guild_node(ctx.guild_id)
+    if not node:
+        return await ctx.respond("You have to play music, that I can search for songs")
     query = ctx.options.query
     query = query.lower()
     response = []
+    tracks = []
     for track in node.queue:
-        if query in track.info.title.lower() or query in track.info.author:
-            node_changed = True
-            node.queue.insert(1, track)
-            response.append(f"{track.info.author} | {track.info.title}")
+        if query in track.track.info.title.lower() or query in track.track.info.author.lower():
+            tracks.append(track)
+            response.append(f"\"{track.track.info.title}\" by {track.track.info.author}")
     if response:
-        response.insert(0, "Titles added:\n")
-        return await ctx.respond("\n".join(response)) 
+        node_queue = node.queue[1:]
+        new_queue = [node.queue[0], *tracks, *node_queue]
+        node.queue = new_queue
+        await music.bot.data.lavalink.set_guild_node(ctx.guild_id, node)
+        resp = "Titles added:```py\n" + '\n'.join([f'{i}. | {resp}' for i, resp in enumerate(response)]) + "```"
+        await ctx.respond(resp) 
+        return await queue(ctx)
     else:
         return await ctx.respond("No matches found")
 
