@@ -5,7 +5,7 @@ import logging
 
 from core.db import Database
 
-from core import getLogger
+from core import getLogger, Inu
 
 log = getLogger(__name__)
 
@@ -18,8 +18,9 @@ class InvokationStats:
         self.key = key
 
     @classmethod
-    def set_db(cls, database: Database):
-        cls.db = database
+    def init_db(cls, bot: Inu):
+        cls.db = bot.db
+        cls.bot = bot
 
     @classmethod
     def bare_bone_json(
