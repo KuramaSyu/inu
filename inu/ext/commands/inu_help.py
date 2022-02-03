@@ -61,6 +61,7 @@ class CustomHelp(help_command.BaseHelpCommand):
         # Override this method to change the message sent when help is
         # requested for an object that does not exist
         commands = self.search(obj)
+        log.debug(commands)
         dicts_prebuild = self.arbitrary_commands_to_dicts(commands, context, resolve_subcommands=True)
         await self.dicts_to_pagination(dicts_prebuild, context)
 
@@ -90,15 +91,10 @@ class CustomHelp(help_command.BaseHelpCommand):
         groups = []
         commands = []
         for command in arb_commands:
-            if isinstance(command, PrefixCommandGroup):
+            if isinstance(command, (PrefixCommandGroup, PrefixSubGroup)):
                 groups.append(command)
-            elif isinstance(command, PrefixCommand):
+            elif isinstance(command, (PrefixCommand, PrefixSubCommand)):
                 commands.append(command)
-            elif command.is_subcommand:
-                if command.parent not in groups and resolve_subcommands:
-                    groups.append(command)
-                else:
-                    commands.append(command)
         for group in groups:
             # get ALL subcommands of a group and add it to resolved_commands
             # for the first, I ll try to put all commands from a group on one site
@@ -123,6 +119,8 @@ class CustomHelp(help_command.BaseHelpCommand):
             - List[List[Dict[str, str]]] this list should be extended to an existing list with dicts.
               will also work if not.
         """
+        if not commands:
+            return []
         if len(commands) <= self.cmds_per_list + max_above:
             return [commands]
         parted_commands = []
@@ -143,16 +141,37 @@ class CustomHelp(help_command.BaseHelpCommand):
 
 
 
-    def search(self, obj) -> List[Command]:
-        results = []
-        for name, command in self.bot.prefix_commands.items():
-            if obj in name and not command in results:
-                results.append(command)
+    def search(self, obj, commands=[], search_deeper: bool = True) -> List[Command]:
+        """
+        ### Iterates recursivly through the bot commands/groups/subcommands
+        
+        Returns
+        -------
+            - (List[Command]) a List with commandlike objects, where the name matches with <`obj`> 
 
-        if not results:
-            return self.search(obj[:-1])
+        """
+        results = []
+        commands = commands or self.bot.prefix_commands.values()
+        for command in commands:
+            if (
+                (obj in command.name or [a for a in command.aliases if obj in a]) 
+                and not command in results
+            ):
+                results.append(command)
+            elif isinstance(command, (PrefixSubGroup, PrefixCommandGroup)):
+                if (sub_commands := [*command.subcommands.values()]):
+                    matching_sub_cmds = self.search(
+                        obj, 
+                        commands=sub_commands,
+                        search_deeper=False,
+                    )
+                    if matching_sub_cmds:
+                        results.extend(matching_sub_cmds)
+
+        if not results and search_deeper:
+            return list(set(self.search(obj[:-1])))
         else:
-            return results
+            return list(set(results))
 
     def group_to_commands(self, group: Union[PrefixCommandGroup, PrefixSubGroup], ctx: Context):
         commands: List[Command] = [group]  # because the group is also a command
