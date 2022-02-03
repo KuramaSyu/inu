@@ -20,6 +20,7 @@ from numpy import column_stack
 
 
 from core.db import Database
+from core import Inu
 
 
 class TagType(Enum):
@@ -35,8 +36,10 @@ class TagManager():
         self.key = key
 
     @classmethod
-    def set_db(cls, database: Database):
-        cls.db = database
+    def init_db(cls, bot: Inu):
+        cls.db = bot.db
+        cls.bot = bot
+
 
     @classmethod
     async def set(
@@ -311,6 +314,48 @@ class TagManager():
         elif type == TagType.ALL:
             sql = f"{sql} WHERE $1 = ANY(author_ids) OR $2 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
             return await cls.db.fetch(sql, author_id, guild_id)
+    
+    @classmethod
+    async def find_similar(
+        cls,
+        tag_name: str, 
+        guild_id: Optional[int], 
+        creator_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        ### searches similar tags to <`tag_name`> in every reachable scope
+
+        Args:
+        -----
+            - tag_name (`str`) the name of the tag, to search
+            - guild_id (`int`) the guild_id, which the returning tags should have
+            - creator_id (`int` | None) the creator_id, which the returning tags should have
+
+        Note:
+        -----
+            - global tags will shown always (guild_id is 0)
+            - if creator_id is None, the creator will be ignored
+        """
+        cols = ["guild_ids"]
+        vals = [guild_id]
+        if creator_id:
+            cols.append("author_ids")
+            vals.append(creator_id)
+        records = await cls.bot.db.fetch(
+            f"""
+            SELECT *
+            FROM tags
+            WHERE (($1 = ANY(guild_ids)) or 0 = ANY(guild_ids)) AND tag_key % $2
+            ORDER BY similarity(tag_key, $2) > {cls.bot.conf.tags.prediction_accuracy} DESC
+            LIMIT 10;
+            """,
+            guild_id, 
+            tag_name
+
+        )
+        if creator_id:
+            return [r for r in records if creator_id in r["author_ids"]]
+        return records
 
         
 
