@@ -28,9 +28,9 @@ def main():
     async def on_ready(event : hikari.StartingEvent):
         try:
             await inu.init_db()
-            InvokationStats.set_db(inu.db)
+            InvokationStats.init_db(inu)
             await Reminders.init_bot(inu)
-            TagManager.set_db(inu.db)
+            TagManager.init_db(inu)
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
