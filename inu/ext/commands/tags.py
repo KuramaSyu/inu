@@ -358,7 +358,7 @@ async def no_tag_found_msg(
     creator_id: Optional[int] = None
 ):
     """Sends similar tags, if there are some, otherwise a inform message, that there is no tag like that"""
-    similar_records = await find_similar(tag_name, guild_id, creator_id)
+    similar_records = await TagManager.find_similar(tag_name, guild_id, creator_id)
     if not similar_records:
         await ctx.respond(f"I can't find a tag or similar ones with the name `{tag_name}`")
     else:
@@ -369,43 +369,6 @@ async def no_tag_found_msg(
         answer += "\n".join(f"`{sim['tag_key']}`" for sim in similar_records)
         await ctx.respond(answer)
 
-async def find_similar(
-    tag_name: str, 
-    guild_id: Optional[int], 
-    creator_id: Optional[int] = None
-) -> List:
-    """
-    ### searches similar tags to <`tag_name`>
-
-    Args:
-    -----
-        - tag_name (`str`) the name of the tag, to search
-        - guild_id (`int`) the guild_id, which the returning tags should have
-        - creator_id (`int`) the creator_id, which the returning tags should have
-
-    Note:
-    -----
-        - global tags will shown always (guild_id is 0)
-    """
-    cols = ["guild_ids"]
-    vals = [guild_id]
-    if creator_id:
-        cols.append("author_ids")
-        vals.append(creator_id)
-    table = Table("tags")
-    records = await tags.bot.db.fetch(
-        f"""
-        SELECT *
-        FROM tags
-        WHERE ($1 = ANY(guild_ids)) AND tag_key % $2
-        ORDER BY similarity(tag_key, $2) > {tags.bot.conf.tags.prediction_accuracy} DESC
-        LIMIT 10;
-        """,
-        guild_id, 
-        tag_name
-
-    )
-    return records
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(tags)
