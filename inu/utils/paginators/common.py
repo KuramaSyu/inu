@@ -147,10 +147,11 @@ class Paginator():
         listen_to_events: List[Any] = [],
         compact: Optional[bool] = None,
         default_site: Optional[int] = 0,
-        download: Union[Callable[["Paginator"], str], str, bool] = False
+        download: Union[Callable[["Paginator"], str], str, bool] = False,
+        first_message_kwargs: Dict[str, Any] = {},
     ):
         """
-        A Paginator with many options
+        ### A Paginator with many options
 
         Args:
         -----
@@ -168,6 +169,7 @@ class Paginator():
                 - (Callable[[Paginator], str]) A function, which takes in `self` and returns the file content as string
                 - (bool) If True, the pagination embeds|strings will be automatically convertet into a str; 
                          If False, deactivate download functionallity at all
+            - first_message_kwargs: (Dict[str, Any], default) kwargs, which should be added to the first created message
         Note:
         -----
             - the listener is always listening to 2 events:
@@ -179,6 +181,7 @@ class Paginator():
                 - passing in `component(s)_factory`
                 or
                 - overriding `build_default_component(s)`; args: self, position (int)
+            - to first_message_kwargs: this will add the kwargs, even if the kwargs are already in the method. So this could raise errors
         """
         global count
         count  += 1
@@ -196,6 +199,7 @@ class Paginator():
         self._components_factory = components_factory
         self._default_site = default_site
         self._download: Union[Callable[[Paginator], str], str, None] = download
+        self._first_message_kwargs = first_message_kwargs or {}
         self.bot: lightbulb.BotApp
         self.ctx: Context
 
@@ -458,15 +462,17 @@ class Paginator():
             if isinstance(self.pages[0], Embed):
                 msg_proxy = await ctx.respond(
                     embed=self.pages[0],
+                    **self._first_message_kwargs
                 )
             else:
                 msg_proxy = await ctx.respond(
                     content=self.pages[0],
+                    **self._first_message_kwargs
                 )
             return await msg_proxy.message()
 
         self._position = 0
-        kwargs = {}
+        kwargs = self._first_message_kwargs
         if not self._disable_component:
             kwargs["component"] = self.component
         elif not self._disable_components:

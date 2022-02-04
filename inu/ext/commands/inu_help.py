@@ -1,6 +1,7 @@
 import random
 import re
 from tokenize import group
+import traceback
 import typing
 from typing import (
     List,
@@ -100,8 +101,9 @@ class CustomHelp(help_command.BaseHelpCommand):
             # for the first, I ll try to put all commands from a group on one site
             resolved = self.commands_to_dicts(self.group_to_commands(group, ctx), ctx)
             resolved_commands.append(resolved)
-        parted_commands = self.part_up_dicts(self.commands_to_dicts(commands, ctx))
-        resolved_commands.extend(parted_commands)
+        if commands:
+            parted_commands = self.part_up_dicts(self.commands_to_dicts(commands, ctx))
+            resolved_commands.extend(parted_commands)
         return resolved_commands
 
 
@@ -194,6 +196,18 @@ class CustomHelp(help_command.BaseHelpCommand):
               The Dict inside the second List represents one field of the embed (mapping from name: value)
             - ctx: (Context) the context, to send the message(s)
         """
+        embeds = self.dicts_to_embeds(dicts)
+        pag = Paginator(page_s=embeds, timeout=500)
+        await pag.start(ctx)
+
+    def dicts_to_embeds(self, dicts: List[List[Dict[str, str]]]) -> List[hikari.Embed]:
+        """
+        ### converts <`dicts`> to a list with embeds
+
+        Returns
+        -------
+            - (List[Embed]) the list with embeds
+        """
         embeds = []
         for i, prebuild in enumerate(dicts):
             name = prebuild[0]["group"]
@@ -204,8 +218,7 @@ class CustomHelp(help_command.BaseHelpCommand):
                 embed.add_field(field["sign"], field["description"])
             embed.color = Colors.random_color()
             embeds.append(embed)
-        pag = Paginator(page_s=embeds, timeout=500)
-        await pag.start(ctx)
+        return embeds
             
     
     def commands_to_dicts(self, commands: List[Command], ctx: Context) -> List[Dict[str, str]]:
@@ -215,7 +228,13 @@ class CustomHelp(help_command.BaseHelpCommand):
         return [self.command_to_dict(command, ctx, group_name) for command in commands]
 
 
-    def command_to_dict(self, command: Command, ctx: Context, group_name: str = None) -> Dict:
+    def command_to_dict(
+        self, 
+        command: Command, 
+        ctx: Context, 
+        group_name: str = None,
+        with_cmd_docs: bool = False,
+    ) -> Dict:
         """returns a string with the command signature, aliases and options"""
         desc = ""
         desc += f"_{command.description}_"
@@ -254,7 +273,11 @@ class CustomHelp(help_command.BaseHelpCommand):
         return signature
     
 
-    def _get_command_info(self, command: Command) -> str:
+    def _get_command_info(
+        self, 
+        command: Command,
+        with_doc_strings: bool = True,
+    ) -> str:
         """
         Returns
         -------
@@ -272,11 +295,11 @@ class CustomHelp(help_command.BaseHelpCommand):
             else:
                 optional.append(option)
         if required:
-            args += "< required >\n"
+            args += "required\n"
             for option in required:
                 args += f"    {option.name}: {option.description}\n"
         if optional:
-            args += "[ optional ]\n"
+            args += "optional\n"
             for option in optional:
                 args += f"    {option.name}: {option.description}\n"
         return args
@@ -289,14 +312,24 @@ class CustomHelp(help_command.BaseHelpCommand):
 class OutsideHelp:
     bot: Optional[lightbulb.BotApp] = None
     @classmethod
-    async def search(cls, obj: str, ctx: Context) -> None:
+    async def search(cls, obj: str, ctx: Context, message: Optional[str] = None) -> None:
         if cls.bot is None:
             log.warning(f"can't execute search because bot is not initialized")
             return
-        help = CustomHelp(cls.bot)
-        commands = help.search(obj)
-        dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
-        await help.dicts_to_pagination(dicts_prebuild, ctx)
+        try:
+            
+            help = CustomHelp(cls.bot)
+            commands = help.search(obj)
+            log.debug(commands)
+            dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
+            embeds = help.dicts_to_embeds(dicts_prebuild)
+            kwargs = {}
+            if message:
+                kwargs["content"] = message
+            pag = Paginator(page_s=embeds, first_message_kwargs=kwargs)
+            await pag.start(ctx)
+        except Exception:
+            log.debug(traceback.format_exc())
 
 
 def load(bot):

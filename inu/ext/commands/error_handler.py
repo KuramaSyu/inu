@@ -41,6 +41,7 @@ async def on_error(event: events.CommandErrorEvent):
         return
 
     if ctx.prefix == "":
+        log.debug("Suppress exception (no prefix): {event}")
         return
 
     error = event.exception
@@ -98,10 +99,16 @@ async def on_error(event: events.CommandErrorEvent):
         return
 
     if isinstance(error, errors.CommandNotFound):
+        return await OutsideHelp.search(
+            error.invoked_with, 
+            ctx, 
+            f"I haven't a command called `{error.invoked_with}`"
+        )
         embed = hikari.Embed()
         embed.title = "Not Found"
         embed.description = f"No command called '{error.invoked_with}' found"
         return await message_dialog(embed)
+    elif 
         
 
     else:
