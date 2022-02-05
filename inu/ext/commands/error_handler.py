@@ -33,10 +33,11 @@ async def on_error(event: events.CommandErrorEvent):
     error: commands.CommandError
         The Exception raised.
     """
+    log.debug(f"error type: ")
     ctx: Optional[Context] = event.context
 
     if ctx is None:
-        log.debug("Exception uncaught: {event}")
+        log.debug(f"Exception uncaught: {event.__class__}")
         return
 
     if ctx.prefix == "":
