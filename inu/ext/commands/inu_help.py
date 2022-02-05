@@ -316,6 +316,7 @@ class OutsideHelp:
         if cls.bot is None:
             log.warning(f"can't execute search because bot is not initialized")
             return
+<<<<<<< Updated upstream
         try:
             
             help = CustomHelp(cls.bot)
@@ -330,6 +331,13 @@ class OutsideHelp:
             await pag.start(ctx)
         except Exception:
             log.debug(traceback.format_exc())
+=======
+        help = CustomHelp(cls.bot)
+        commands = help.search(obj)
+        log.debug(commands)
+        dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
+        await help.dicts_to_pagination(dicts_prebuild, ctx)
+>>>>>>> Stashed changes
 
 
 def load(bot):

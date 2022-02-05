@@ -33,7 +33,6 @@ async def on_error(event: events.CommandErrorEvent):
     error: commands.CommandError
         The Exception raised.
     """
-
     ctx: Optional[Context] = event.context
 
     if ctx is None:
@@ -97,6 +96,7 @@ async def on_error(event: events.CommandErrorEvent):
             await OutsideHelp.search(ctx.invoked_with, ctx)
             await message.remove_all_reactions()
         return
+<<<<<<< Updated upstream
 
     if isinstance(error, errors.CommandNotFound):
         return await OutsideHelp.search(
@@ -116,6 +116,28 @@ async def on_error(event: events.CommandErrorEvent):
         error_embed.title = random.choice(['ERROR', '3RR0R'])
         error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
         await message_dialog(error_embed)
+=======
+    try:
+        if isinstance(error, errors.CommandNotFound):
+            embed = hikari.Embed()
+            embed.title = "Not Found"
+            embed.description = f"No command called '{error.invoked_with}' found"
+            return await message_dialog(embed)
+        elif isinstance(errors.NotEnoughArguments):
+            await OutsideHelp.search(
+                obj=ctx.invoked_with,
+                ctx=ctx,
+            )
+            
+
+        else:
+            error_embed = hikari.Embed()
+            error_embed.title = random.choice(['ERROR', '3RR0R'])
+            error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
+            await message_dialog(error_embed)
+    except Exception:
+        log.warning(traceback.format_exc())
+>>>>>>> Stashed changes
 
 
 def load(bot: Inu):
