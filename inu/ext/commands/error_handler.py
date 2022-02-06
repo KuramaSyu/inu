@@ -14,6 +14,7 @@ from lightbulb import events, errors
 from lightbulb.context import Context
 
 from core import Inu
+from utils.language import Human
 from .inu_help import OutsideHelp
 
 from core import getLogger
@@ -33,22 +34,19 @@ async def on_error(event: events.CommandErrorEvent):
     error: commands.CommandError
         The Exception raised.
     """
-    log.debug(f"error type: ")
     ctx: Optional[Context] = event.context
 
     if ctx is None:
         log.debug(f"Exception uncaught: {event.__class__}")
         return
 
-    if ctx.prefix == "":
-        log.debug("Suppress exception (no prefix): {event}")
-        return
+
 
     error = event.exception
-    channel_id = event.context.get_channel()
-    rest = pl.bot.rest
-    if isinstance(event, events.PrefixCommandErrorEvent):
-        message_id = event.context.event.message_id
+    # channel_id = event.context.get_channel()
+    # rest = pl.bot.rest
+    # if isinstance(event, events.PrefixCommandErrorEvent):
+    #     message_id = event.context.event.message_id
 
 
     async def message_dialog(error_embed: hikari.Embed):
@@ -97,49 +95,35 @@ async def on_error(event: events.CommandErrorEvent):
             await OutsideHelp.search(ctx.invoked_with, ctx)
             await message.remove_all_reactions()
         return
-<<<<<<< Updated upstream
 
     if isinstance(error, errors.CommandNotFound):
         return await OutsideHelp.search(
-            error.invoked_with, 
-            ctx, 
-            f"I haven't a command called `{error.invoked_with}`"
+            obj=error.invoked_with, 
+            ctx=ctx, 
+            message=f"There is no command called `{error.invoked_with}`"
         )
-        embed = hikari.Embed()
-        embed.title = "Not Found"
-        embed.description = f"No command called '{error.invoked_with}' found"
-        return await message_dialog(embed)
-    elif 
-        
+    elif isinstance(error, errors.NotEnoughArguments):
+        return await OutsideHelp.search(
+            obj=ctx.invoked_with,
+            ctx=ctx,
+            message=(
+                f"to use the `{ctx.invoked.qualname}` command, "
+                f"I need {Human.list_([o.name for o in error.missing_options], '`')} to use it"
+            ),
+            only_one_entry=True,
+        )
+    elif isinstance(error, errors.CommandIsOnCooldown):
+        return await ctx.respond(
+            f"You have used `{ctx.invoked.qualname}` to often. Retry it in `{error.retry_after:.01f} seconds` again"
+        )
 
-    else:
+    elif not ctx.prefix == "":
         error_embed = hikari.Embed()
         error_embed.title = random.choice(['ERROR', '3RR0R'])
         error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
         await message_dialog(error_embed)
-=======
-    try:
-        if isinstance(error, errors.CommandNotFound):
-            embed = hikari.Embed()
-            embed.title = "Not Found"
-            embed.description = f"No command called '{error.invoked_with}' found"
-            return await message_dialog(embed)
-        elif isinstance(errors.NotEnoughArguments):
-            await OutsideHelp.search(
-                obj=ctx.invoked_with,
-                ctx=ctx,
-            )
-            
-
-        else:
-            error_embed = hikari.Embed()
-            error_embed.title = random.choice(['ERROR', '3RR0R'])
-            error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
-            await message_dialog(error_embed)
-    except Exception:
-        log.warning(traceback.format_exc())
->>>>>>> Stashed changes
-
+    else:
+        log.debug(f"Supressing error: {error.__class__}")
 
 def load(bot: Inu):
     bot.add_plugin(pl)
