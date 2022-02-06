@@ -135,7 +135,8 @@ async def on_error(event: events.CommandErrorEvent):
             error_embed = hikari.Embed()
             error_embed.title = random.choice(['ERROR', '3RR0R'])
             error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
-            await message_dialog(error_embed)
+            with suppress(hikari.ForbiddenError):
+                await message_dialog(error_embed)
     except Exception:
         log.error(traceback.format_exc())
 
