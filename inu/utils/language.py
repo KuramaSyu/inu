@@ -185,6 +185,7 @@ class Human():
         """
         if text is None:
             return ""
+        text = str(text)
         if len(text) > max_lengh:
             return f"{text[:max_lengh-3]}..."
         else:
