@@ -333,42 +333,33 @@ class OutsideHelp:
         message: Optional[str] = None,
         only_one_entry: bool = False,
     ) -> None:
-        complete_invokation = f"{ctx.prefix}{ctx.invoked.qualname}"
-        log.debug(complete_invokation)
+
         if cls.bot is None:
             log.warning(f"can't execute search because bot is not initialized")
             return
-        try:
-            
-            help = CustomHelp(cls.bot)
-            commands = help.search(obj)
-            log.debug(commands)
-            dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
-            def get_matching_entry(dicts_prebuild: List[List[Dict[str, str]]]) -> Optional[List[List[Dict[str, str]]]]:
-                if only_one_entry:
-                    for embed in dicts_prebuild:
-                        for field in embed:
-                            log.debug(f"{complete_invokation} in {field['sign']}")
-                            if complete_invokation in field["sign"]:
-                                return [[field]]
-                return None
-            if only_one_entry:
-                dicts_prebuild = get_matching_entry(dicts_prebuild)
-                assert isinstance(dicts_prebuild, list)
 
-            embeds = help.dicts_to_embeds(dicts_prebuild, small=True)
-            kwargs = {}
-            if message:
-                kwargs["content"] = message
-            pag = Paginator(page_s=embeds, first_message_kwargs=kwargs)
-            await pag.start(ctx)
-        except Exception:
-            log.debug(traceback.format_exc())
-        # help = CustomHelp(cls.bot)
-        # commands = help.search(obj)
-        # log.debug(commands)
-        # dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
-        # await help.dicts_to_pagination(dicts_prebuild, ctx)
+        help = CustomHelp(cls.bot)
+        commands = help.search(obj)
+        dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
+        def get_matching_entry(dicts_prebuild: List[List[Dict[str, str]]]) -> Optional[List[List[Dict[str, str]]]]:
+            complete_invokation = f"{ctx.prefix}{ctx.invoked.qualname}"
+            if only_one_entry:
+                for embed in dicts_prebuild:
+                    for field in embed:
+                        log.debug(f"{complete_invokation} in {field['sign']}")
+                        if complete_invokation in field["sign"]:
+                            return [[field]]
+            return None
+        if only_one_entry:
+            dicts_prebuild = get_matching_entry(dicts_prebuild)
+            assert isinstance(dicts_prebuild, list)
+
+        embeds = help.dicts_to_embeds(dicts_prebuild, small=True)
+        kwargs = {}
+        if message:
+            kwargs["content"] = message
+        pag = Paginator(page_s=embeds, first_message_kwargs=kwargs)
+        await pag.start(ctx)
 
 
 def load(bot):
