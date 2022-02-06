@@ -1,5 +1,5 @@
 import datetime
-from typing import TypeVar, Union, List, Optional
+from typing import Sequence, TypeVar, Union, List, Optional
 
 from numpy import real
 
@@ -36,9 +36,17 @@ def opposite(boolean: bool):
 class Multiple():
     @staticmethod
     def endswith_(word: str, ends_w: list):
-        """returns True, if `word` ends with <0 entries of list `ends_w`"""
+        """returns True, if `word` ends with more than 0 entries of list `ends_w`"""
         for w in ends_w:
             if word.endswith(w):
+                return True
+        return False
+
+    @staticmethod
+    def startswith_(word: str, starts_w: list):
+        """returns True, if `word` starts with more than 0 entries of list `ends_w`"""
+        for w in starts_w:
+            if word.startswith(w):
                 return True
         return False
 
@@ -179,3 +187,43 @@ class Human():
         else:
             return text
 
+    @classmethod
+    def list_(
+        cls,
+        list_: Sequence[str],
+        wrap_word_with: str = "",
+        split_with = ", "
+    ):
+        """
+        ### Converts a list to a more human like list
+
+        Example:
+        --------
+        Human.list_(["house", "horse", "apple"])
+        >>> "a house, a hourse and an apple"
+
+        Returns:
+        --------
+            - (str) the human like list converted to a str
+        """
+        result_str = ""
+        split_with
+        for i, word in enumerate(list_):
+            end = ""
+            if i < len(list_)-2:
+                end = split_with
+            elif i == len(list_)-2:
+                end = " and "
+            result_str += f"{cls.a_or_an(word)} {wrap_word_with}{word}{wrap_word_with}{end}"
+        return result_str
+
+    @classmethod
+    def a_or_an(cls, word: str):
+        """
+        Returns:
+        -------- 
+            - (str) "a" or "an" depending on the word
+        """
+        if Multiple.startswith_(word, ["a", "e", "i", "o", "u"]):
+            return "an"
+        return "a"
