@@ -86,7 +86,8 @@ class CustomHelp(help_command.BaseHelpCommand):
         Returns
         -------
             - dicts (List[List[Dict[str, str]]]) A list which represents all embeds. The second List represents one embed
-              The Dict inside the second List represents one field of the embed (mapping from name: value)
+              The Dict inside the second List represents one field. It's keys are: `sign`, `description`, `group`.
+              `sign` will the the name of the field. The other keys will be in the value
         """
         resolved_commands = []
         groups = []
@@ -200,10 +201,18 @@ class CustomHelp(help_command.BaseHelpCommand):
         pag = Paginator(page_s=embeds, timeout=500)
         await pag.start(ctx)
 
-    def dicts_to_embeds(self, dicts: List[List[Dict[str, str]]]) -> List[hikari.Embed]:
+    def dicts_to_embeds(
+        self, 
+        dicts: List[List[Dict[str, str]]],
+        small: bool = False,
+    ) -> List[hikari.Embed]:
         """
         ### converts <`dicts`> to a list with embeds
 
+        Args:
+        -----
+            - dicts (List[List[Dict[str, str]]]) the dict prebuild
+            - small (bool, default=True) wether the embed should have footer and title 
         Returns
         -------
             - (List[Embed]) the list with embeds
@@ -211,9 +220,11 @@ class CustomHelp(help_command.BaseHelpCommand):
         embeds = []
         for i, prebuild in enumerate(dicts):
             name = prebuild[0]["group"]
-            embed = hikari.Embed(title=f"Help {name}")
-            embed.set_footer(f"page {i+1}/{len(dicts)}", icon=self.bot.get_me().avatar_url)
-            embed.description = "<...> required - I need it\n[...] optional - I don't need it"
+            embed = hikari.Embed()
+            if not small:
+                embed.title=f"Help {name}"
+                embed.set_footer(f"page {i+1}/{len(dicts)}", icon=self.bot.get_me().avatar_url)
+            # embed.description = "<...> required - I need it\n[...] optional - I don't need it"
             for field in prebuild:
                 embed.add_field(field["sign"], field["description"])
             embed.color = Colors.random_color()
@@ -286,22 +297,25 @@ class CustomHelp(help_command.BaseHelpCommand):
         args = ""
         optional = []
         required = []
-        aliases = ", ".join(command.aliases)
         cmd_invoke = f"{command.name}"
-        args += f"'{cmd_invoke}' is equal to: {aliases}\n" if aliases else ''
+        if command.aliases:
+            args += f"'{cmd_invoke}' is equal to:\n"
+            for a in command.aliases:
+                args += f"    - {a}\n"
+        
         for name, option in command.options.items():
             if option.required:
                 required.append(option)
             else:
                 optional.append(option)
         if required:
-            args += "required\n"
+            args += "required:\n"
             for option in required:
-                args += f"    {option.name}: {option.description}\n"
+                args += f"    - {option.name}: {option.description}\n"
         if optional:
-            args += "optional\n"
+            args += "optional:\n"
             for option in optional:
-                args += f"    {option.name}: {option.description}\n"
+                args += f"    - {option.name}: {option.description}\n"
         return args
 
     async def help(self, ctx: Context):
@@ -312,18 +326,37 @@ class CustomHelp(help_command.BaseHelpCommand):
 class OutsideHelp:
     bot: Optional[lightbulb.BotApp] = None
     @classmethod
-    async def search(cls, obj: str, ctx: Context, message: Optional[str] = None) -> None:
+    async def search(
+        cls, 
+        obj: str, 
+        ctx: Context, 
+        message: Optional[str] = None,
+        only_one_entry: bool = False,
+    ) -> None:
+        complete_invokation = f"{ctx.prefix}{ctx.invoked.qualname}"
+        log.debug(complete_invokation)
         if cls.bot is None:
             log.warning(f"can't execute search because bot is not initialized")
             return
-<<<<<<< Updated upstream
         try:
             
             help = CustomHelp(cls.bot)
             commands = help.search(obj)
             log.debug(commands)
             dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
-            embeds = help.dicts_to_embeds(dicts_prebuild)
+            def get_matching_entry(dicts_prebuild: List[List[Dict[str, str]]]) -> Optional[List[List[Dict[str, str]]]]:
+                if only_one_entry:
+                    for embed in dicts_prebuild:
+                        for field in embed:
+                            log.debug(f"{complete_invokation} in {field['sign']}")
+                            if complete_invokation in field["sign"]:
+                                return [[field]]
+                return None
+            if only_one_entry:
+                dicts_prebuild = get_matching_entry(dicts_prebuild)
+                assert isinstance(dicts_prebuild, list)
+
+            embeds = help.dicts_to_embeds(dicts_prebuild, small=True)
             kwargs = {}
             if message:
                 kwargs["content"] = message
@@ -331,13 +364,11 @@ class OutsideHelp:
             await pag.start(ctx)
         except Exception:
             log.debug(traceback.format_exc())
-=======
-        help = CustomHelp(cls.bot)
-        commands = help.search(obj)
-        log.debug(commands)
-        dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
-        await help.dicts_to_pagination(dicts_prebuild, ctx)
->>>>>>> Stashed changes
+        # help = CustomHelp(cls.bot)
+        # commands = help.search(obj)
+        # log.debug(commands)
+        # dicts_prebuild = help.arbitrary_commands_to_dicts(commands, ctx)
+        # await help.dicts_to_pagination(dicts_prebuild, ctx)
 
 
 def load(bot):
