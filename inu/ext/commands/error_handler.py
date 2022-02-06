@@ -97,13 +97,8 @@ async def on_error(event: events.CommandErrorEvent):
                 await message.remove_all_reactions()
             return
 
-        if isinstance(error, errors.CommandNotFound):
-            return await OutsideHelp.search(
-                obj=error.invoked_with, 
-                ctx=ctx, 
-                message=f"There is no command called `{error.invoked_with}`\nMaybe you mean one from the following ones?"
-            )
-        elif isinstance(error, errors.NotEnoughArguments):
+        # errors which will be handled also without prefix
+        if isinstance(error, errors.NotEnoughArguments):
             return await OutsideHelp.search(
                 obj=ctx.invoked_with,
                 ctx=ctx,
@@ -117,14 +112,30 @@ async def on_error(event: events.CommandErrorEvent):
             return await ctx.respond(
                 f"You have used `{ctx.invoked.qualname}` to often. Retry it in `{error.retry_after:.01f} seconds` again"
             )
+        elif isinstance(error, errors.ConverterFailure):
+            return await OutsideHelp.search(
+                obj=ctx.invoked_with,
+                ctx=ctx,
+                message=(
+                    f"the option `{error.option.name}` has to be {Human.type_(error.option.arg_type, True)}"
+                ),
+                only_one_entry=True,
+            )
 
-        elif not ctx.prefix == "":
+        # errors which will only be handled, if the command was invoked with a prefix
+        if not ctx.prefix:
+            return log.debug(f"Suppress error of type: {error.__class__.__name__}")
+        if isinstance(error, errors.CommandNotFound):
+            return await OutsideHelp.search(
+                obj=error.invoked_with, 
+                ctx=ctx, 
+                message=f"There is no command called `{error.invoked_with}`\nMaybe you mean one from the following ones?"
+            )
+        else:
             error_embed = hikari.Embed()
             error_embed.title = random.choice(['ERROR', '3RR0R'])
             error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
             await message_dialog(error_embed)
-        else:
-            log.debug(f"Supressing error: {error.__class__}")
     except Exception:
         log.error(traceback.format_exc())
 
