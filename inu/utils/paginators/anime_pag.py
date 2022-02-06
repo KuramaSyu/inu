@@ -208,7 +208,12 @@ class AnimePaginator(Paginator):
             .add_field("Popularity", f"{anime['popularity']}", inline=True)
             .add_field("Rating", f"{anime['rating']}", inline=True)
             .add_field("Duration", f"{anime['duration']}", inline=True)
-            .add_field(
+
+
+            .set_image(anime["image_url"])
+        )
+        if anime["genres"]:
+            embed.add_field(
                 "Genres",
                 f""" {', '.join(f"[{genre['name']}]({genre['url']})" 
                 for genre in anime["genres"])}, {', '.join(f"[{genre['name']}]({genre['url']})" 
@@ -216,32 +221,34 @@ class AnimePaginator(Paginator):
                 """,
                 inline=True,
             )
-            .add_field(
+        if anime["themes"]:
+            embed.add_field(
                 "Themes",
                 ", ".join(
                     f"[{theme['name']}]({theme['url']})" for theme in anime["themes"]
                 ),
                 inline=True,
             )
-            .set_image(anime["image_url"])
-        )
         if anime["trailer_url"]:
             embed.add_field("Trailer", f"[click here]({anime['trailer_url']})", inline=True)
-        embed.add_field(
-            "Studios", 
-            ", ".join(f"[{studio['name']}]({studio['url']})" for studio in anime["studios"]),
-            inline=True
-        )
-        embed.add_field(
-            "Producers", 
-            ", ".join(f"[{producer['name']}]({producer['url']})" for producer in anime["producers"]),
-            inline=True
-        )
-        embed.add_field(
-            "Licensors", 
-            ", ".join(f"[{licensor['name']}]({licensor['url']})" for licensor in anime["licensors"]),
-            inline=True
-        )
+        if anime["studios"]:
+            embed.add_field(
+                "Studios", 
+                ", ".join(f"[{studio['name']}]({studio['url']})" for studio in anime["studios"]),
+                inline=True
+            )
+        if anime["producers"]:
+            embed.add_field(
+                "Producers", 
+                ", ".join(f"[{producer['name']}]({producer['url']})" for producer in anime["producers"]),
+                inline=True
+            )
+        if anime["licensors"]:
+            embed.add_field(
+                "Licensors", 
+                ", ".join(f"[{licensor['name']}]({licensor['url']})" for licensor in anime["licensors"]),
+                inline=True
+            )
         if anime["title_synonyms"]:
             embed.add_field(
                 "Licensors", 
