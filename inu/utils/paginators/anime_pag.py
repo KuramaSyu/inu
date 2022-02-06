@@ -199,13 +199,24 @@ class AnimePaginator(Paginator):
         anime = await self._fetch_anime_by_id(mal_id)
         old_embed = self._pages[self._position]
         
+        popularity = ""
+        if anime['popularity'] <= 100:
+            popularity = f"very popular | {anime['popularity']}"
+        elif anime['popularity'] <= 250:
+            popularity = f"well known | {anime['popularity']}"
+        elif anime['popularity'] <= 350:
+            popularity = f"known | {anime['popularity']}"
+        elif anime['popularity'] <= 1000:
+            popularity = f"somewhat known | {anime['popularity']}"
+        else:
+            popularity = anime['popularity']
         embed = (
             hikari.Embed()
             .add_field("Type", anime["type"], inline=True)
             .add_field("Score", f"{anime['score']}/10", inline=True)
             .add_field("Episodes", f"{anime['episodes']} {Human.plural_('episode', anime['episodes'])[0]}", inline=True)
             .add_field("Rank", f"{anime['rank']}", inline=True)
-            .add_field("Popularity", f"{anime['popularity']}", inline=True)
+            .add_field("Popularity", popularity, inline=True)
             .add_field("Rating", f"{anime['rating']}", inline=True)
             .add_field("Duration", f"{anime['duration']}", inline=True)
 
