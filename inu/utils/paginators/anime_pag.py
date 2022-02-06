@@ -10,6 +10,7 @@ from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import ActionRowBuilder
 import lightbulb
 from numpy import sort
+from pyparsing import CloseMatch
 from .common import PaginatorReadyEvent
 from .common import Paginator
 from .common import listener
@@ -115,9 +116,14 @@ class AnimePaginator(Paginator):
 
     def _fuzzy_sort_results(self, compare_name: str):
         """fuzzy sort the anime result titles of  `self._results` by given name"""
-        for anime in self._results:
+        close_matches = []
+        for anime in self._results.copy():
             anime["fuzz_ratio"] = fuzz.ratio(anime["title"].lower(), compare_name)
-        self._results.sort(key=lambda anime: anime["fuzz_ratio"] >= 90, reverse=True)
+            if anime["fuzz_ratio"] >= 90:
+                self._results.remove(anime)
+                close_matches.append(anime)
+        close_matches.sort(key=lambda anime: anime["fuzz_ratio"], reverse=True)
+        self._results = [*close_matches, *self._results]
 
     async def _search_anime(self, search: str) -> List[hikari.Embed]:
         """Search <`search`> anime, and set results to `self._results`. These have less information"""
