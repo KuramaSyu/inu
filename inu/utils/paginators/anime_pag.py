@@ -262,7 +262,7 @@ class AnimePaginator(Paginator):
             )
         if anime["title_synonyms"]:
             embed.add_field(
-                "Licensors", 
+                "Synonyms", 
                 ",\n".join(anime["title_synonyms"]),
                 inline=True
             )
