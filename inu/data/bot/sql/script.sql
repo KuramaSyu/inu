@@ -47,4 +47,38 @@ CREATE TABLE IF NOT EXISTS tags (
     aliases TEXT []
 
 );
+CREATE TABLE IF NOT EXISTS myanimelist (
+    mal_id BIGINT NOT NULL PRIMARY KEY,
+    title TEXT,
+    title_english TEXT,
+    title_japanse TEXT,
+    title_synonyms TEXT [],
+    synopsis TEXT,
+    background TEXT,
+    related JSONB,
+    themes JSONB [],
+    explicit_themes JSONB [],
+    genres JSONB [],
+    "type" TEXT,
+    episodes INT,
+    ending_themes TEXT [],
+    opening_themes TEXT [],
+    duration TEXT,
+    rating TEXT,
+    "rank" INT,
+    score FLOAT,
+    popularity INT,
+    favorites INT,
+    source TEXT,
+    "status" TEXT,
+    airing BOOLEAN,
+    airing_start TIMESTAMP,
+    airing_stop TIMESTAMP,
+    image_url VARCHAR(2048),
+    mal_url VARCHAR(2048),
+    trailer_url VARCHAR(2048),
+    licensors JSONB [],
+    producers JSONB [],
+    studios JSONB []
+)
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
