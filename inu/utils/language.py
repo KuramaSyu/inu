@@ -1,7 +1,10 @@
 import datetime
-from typing import Sequence, TypeVar, Union, List, Optional
+from re import M
+from typing import Sequence, TypeVar, Union, List, Optional, Any
 
-from numpy import real
+import hikari
+from numpy import isin, real
+import inspect
 
 T_str_list = TypeVar("T_str_list", str, List[str])
 
@@ -227,3 +230,60 @@ class Human():
         if Multiple.startswith_(word, ["a", "e", "i", "o", "u"]):
             return "an"
         return "a"
+
+    @classmethod
+    def type_(cls, obj: Any, with_examples: bool = False):
+        """
+        Args:
+        -----
+            - obj (Any) the object of which you want to have a readable variant
+            - with_examples (bool, default=False) wether or not the return value should have an example
+
+        Returns:
+        -------
+            - (str) the type but readable and understandable
+
+        Examples:
+        --------
+             
+            >>> Human.type_(12)
+            >>> "Number"
+            >>> Human.type_(12.3, True)
+            >>> "a Number like 42 or 6.9"
+
+        Note:
+        -----
+            - this is more a `hikari` specific function instead of a general function
+        """
+        examples = {
+            "Discord ID": "362262726191349762",
+            "Discord Channel": "#general",
+            "Discord User": "@Inu",
+            "Number": "42",
+            "(point) Number": "42 or 6.9",
+            "Text": 'I want to have a RTX 3090'        
+        }
+        if not isinstance(obj, type):
+            obj = obj.__class__
+        readable_type = None
+        if obj is hikari.Snowflake or issubclass(obj, hikari.Snowflake):
+            readable_type = "Discord ID"
+        elif obj is int:
+            readable_type = "Number"
+        elif obj is float:
+            readable_type = "(point) Number"
+        elif obj is str:
+            readable_type = "Text"
+        elif obj is hikari.PartialChannel or issubclass(obj, hikari.PartialChannel):
+            readable_type = "Discord Channel"
+        elif obj is hikari.PartialUser or issubclass(obj, hikari.PartialUser):
+            readable_type = "Discord User"
+        if not readable_type:
+            return obj.__name__
+        if readable_type and with_examples:
+            return f"{cls.a_or_an(readable_type)} {readable_type} like `{examples[readable_type]}`"
+        else:
+            return readable_type
+        
+        
+
