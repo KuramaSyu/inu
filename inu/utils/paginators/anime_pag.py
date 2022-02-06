@@ -223,31 +223,33 @@ class AnimePaginator(Paginator):
                 ),
                 inline=True,
             )
-            .add_field(
-                "Other",
-                (
-                    f"finished: {Human.bool_('airing')}\n"
-                    f"""Licensors: {", ".join(
-                            f"[{licensor['name']}]({licensor['url']})" for licensor in anime["licensors"]
-                        )
-                    }\n"""
-                    f"""Studios: {", ".join(
-                            f"[{studio['name']}]({studio['url']})" for studio in anime["studios"]
-                        )
-                    }\n"""
-                    f"""Producers: {", ".join(
-                            f"[{producer['name']}]({producer['url']})" for producer in anime["producers"]
-                        )
-                    }\n"""
-                    f"produce date: {anime['aired']['string']}\n"
-                    # f"date: {anime['start_date'][:5] if anime['start_date'] else '?'} - "
-                    # f"{anime['end_date'][:5] if anime['end_date'] else '?'}\n"
-                    f"MyAnimeList ID: {anime['mal_id']}\n"
-                    f"""Other Names: {", ".join(anime["title_synonyms"])}\n"""
-                )
-            )
             .set_image(anime["image_url"])
         )
+        if anime["trailer_url"]:
+            embed.add_field("Trailer", f"[click here]({anime['trailer_url']})", inline=True)
+        embed.add_field(
+            "Studios", 
+            ", ".join(f"[{studio['name']}]({studio['url']})" for studio in anime["studios"]),
+            inline=True
+        )
+        embed.add_field(
+            "Producers", 
+            ", ".join(f"[{producer['name']}]({producer['url']})" for producer in anime["producers"]),
+            inline=True
+        )
+        embed.add_field(
+            "Licensors", 
+            ", ".join(f"[{licensor['name']}]({licensor['url']})" for licensor in anime["licensors"]),
+            inline=True
+        )
+        if anime["title_synonyms"]:
+            embed.add_field(
+                "Licensors", 
+                ",\n".join(anime["title_synonyms"]),
+                inline=True
+            )
+        embed.add_field("finished", f"{Human.bool_('airing')}\n{anime['aired']['string']}", inline=True)
+
         embed.description = ""
         embed.title = ""
         if anime["title"] == anime["title_english"]:
@@ -262,14 +264,13 @@ class AnimePaginator(Paginator):
         embed.description += f"\n\n{Human.short_text(anime['synopsis'], 1980)}"
 
         if anime["background"]:
-            embed.add_field("Background", Human.short_text(anime["background"], 1020))
+            embed.add_field("Background", Human.short_text(anime["background"], 200))
 
         # add openings if not too much
         # TODO: remove redundant code in this function
         # TODO: add mal database table to don't spam requests
         # TODO: if no anime was found (404), send message and stop paginating
-        if anime["trailer_url"]:
-            embed.add_field("Trailer", f"[click here]({anime['trailer_url']})")
+
 
         if (len_openings := len(anime["opening_themes"])) > 5:
             embed.add_field("Opening themes", f"Too many to show here ({len_openings})")
