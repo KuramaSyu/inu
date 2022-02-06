@@ -157,7 +157,7 @@ plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 
 @plugin.command
 @lightbulb.option("name", "the name of the Anime", type=str, modifier=OM.CONSUME_REST)
-@lightbulb.command("anime", "get information of an Anime by name")
+@lightbulb.command("anime", "get information of an Anime by name", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fetch_anime(ctx: context.Context):
     try:
@@ -170,7 +170,7 @@ async def fetch_anime(ctx: context.Context):
 
 @plugin.command
 @lightbulb.option("name", "the name of the Anime character", type=str, modifier=OM.CONSUME_REST)
-@lightbulb.command("anime-character", "get information of an Anime character by name", aliases=["character"])
+@lightbulb.command("anime-character", "get information of an Anime character by name", aliases=["character"], auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fetch_anime_character(ctx: context.Context):
     try:
@@ -183,7 +183,7 @@ async def fetch_anime_character(ctx: context.Context):
 
 @plugin.command
 @lightbulb.option("name", "the name of the Manga", type=str, modifier=OM.CONSUME_REST)
-@lightbulb.command("manga", "get information of an Manga by name")
+@lightbulb.command("manga", "get information of an Manga by name", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fetch_manga(ctx: context.Context):
     try:
