@@ -266,7 +266,7 @@ class AnimePaginator(Paginator):
                 ",\n".join(anime["title_synonyms"]),
                 inline=True
             )
-        embed.add_field("finished", f"{Human.bool_('airing')}\n{anime['aired']['string']}", inline=True)
+        embed.add_field("finished", f"{Human.bool_(anime['aired']['string'].endswith('?'), True)}\n{anime['aired']['string']}", inline=True)
 
         embed.description = ""
         embed.title = ""
