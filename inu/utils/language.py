@@ -113,7 +113,7 @@ class Human():
             if isinstance(word_s, list):
                 return word_s
             else:
-                return [word_s]
+                return word_s
         
         def mk_plural(word_s: list) -> List[str]:
             pl_word_s = []
