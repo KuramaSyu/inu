@@ -6,6 +6,7 @@ from .r_channel_manager import DailyContentChannels
 from .grid import Grid
 from .stats import InvokationStats
 from .language import Human
+from .db_anime import Anime, MyAnimeList
 from .reminders import HikariReminder, Reminders
 from .logger import *
 from .tag_mamager import TagManager
@@ -14,6 +15,7 @@ from .emojis import Emoji
 from .jikanv4 import AioJikanv4
 from .paginators import *
 from .reddit import Reddit
+
 
 import logging
 from core._logging import LoggingHandler
