@@ -56,7 +56,7 @@ class Anime:
         if not cached_for and not cached_until:
             raise RuntimeError(
                 f"to construct an Anime, cached_for or cached until is needed"
-            ) from None
+            )
         self.mal_id: int = mal_id
         self.origin_title: str = title
         self.title_english: str = title_english
@@ -105,9 +105,9 @@ class Anime:
 
     @property
     def cached_until(self):
-        if not self.airing_stop or not self.episodes or self.airing_stop > datetime.now():
+        if not self.is_finished:
             return datetime.now() + timedelta(seconds=self._cached_for+600)
-        # update not needed
+        # update not needed. Maybe None/Null would be better here
         return datetime(year=9999, month=12, day=31)
     
     def __str__(self) -> str:
