@@ -176,6 +176,7 @@ class Table():
             return wrapper
         return decorator
 
+
     @logging()
     async def insert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
@@ -278,14 +279,40 @@ class Table():
     async def update(self):
         pass
 
-    async def delete_by_id(self, column: str, value: Any) -> Optional[Dict]:
+    async def delete_by_id(self, column: str, id: Any) -> Optional[Dict]:
         """
         Delete a record by it's id
         """
         return await self.delete(
             columns=[column],
-            matching_values=[value],
+            matching_values=[id],
         )
+
+    @logging()
+    async def update(self):
+        pass
+
+    async def fetch_by_id(self, column: str, id: Any) -> Optional[Dict]:
+        """
+        Fetch a record by it's id
+        """
+        rec = await self.select(
+            columns=[column],
+            matching_values=[id],
+        )
+        if not rec:
+            return None
+        return rec[0]
+
+    @logging()
+    async def update(self):
+        pass
+
+    async def fetch(self, sql: str, *args) -> Optional[List[asyncpg.Record]]:
+        """
+        Execute custom SQL with return
+        """
+        return await self.db.fetch(sql, *args)
 
     @staticmethod
     def create_where_statement(columns: List[str]) -> str:
