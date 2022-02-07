@@ -51,13 +51,13 @@ CREATE TABLE IF NOT EXISTS myanimelist (
     mal_id BIGINT NOT NULL PRIMARY KEY,
     title TEXT,
     title_english TEXT,
-    title_japanse TEXT,
+    title_japanese TEXT,
     title_synonyms TEXT [],
     synopsis TEXT,
     background TEXT,
     related JSONB,
     themes JSONB [],
-    explicit_themes JSONB [],
+    explicit_genres JSONB [],
     genres JSONB [],
     "type" TEXT,
     episodes INT,
@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS myanimelist (
     trailer_url VARCHAR(2048),
     licensors JSONB [],
     producers JSONB [],
-    studios JSONB []
-)
+    studios JSONB [],
+    cached_until TIMESTAMP
+);
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
