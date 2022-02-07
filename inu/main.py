@@ -13,7 +13,7 @@ from dotenv import dotenv_values
 import hikari
 import lightbulb
 from core import Inu, Table
-from utils import InvokationStats, Reminders, TagManager
+from utils import InvokationStats, Reminders, TagManager, MyAnimeList
 from core import getLogger
 
 log = getLogger(__name__)
@@ -49,6 +49,7 @@ def main():
         except Exception:
             log.error(traceback.format_exc())
 
+
     @inu.listen(lightbulb.LightbulbStartedEvent)
     async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
         table = Table("bot")
@@ -63,6 +64,13 @@ def main():
             status=hikari.Status.IDLE, 
             afk=True,
         )
+        # log.debug("start test")
+        # try:
+        #     anime = await MyAnimeList.fetch_anime_by_id(1)
+        #     for k,v in anime.__dict__.items():
+        #         log.debug(f"{k}={v}: {type(v)}")
+        # except Exception:
+        #     log.error(traceback.format_exc())
 
     @inu.listen(hikari.PresenceUpdateEvent)
     async def on_bot_ready(event : hikari.PresenceUpdateEvent):
