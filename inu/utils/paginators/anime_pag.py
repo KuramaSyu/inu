@@ -11,6 +11,7 @@ from hikari.impl import ActionRowBuilder
 import lightbulb
 from numpy import sort
 from pyparsing import CloseMatch
+
 from .common import PaginatorReadyEvent
 from .common import Paginator
 from .common import listener
@@ -19,7 +20,7 @@ from lightbulb.context import Context
 from fuzzywuzzy import fuzz
 
 from core import getLogger
-from utils import Human, Colors
+from utils import Human, Colors, MyAnimeList, Anime
 
 log = getLogger(__name__)
 
@@ -182,11 +183,9 @@ class AnimePaginator(Paginator):
             return [hikari.Embed(title="Nothing found")]
         return embeds
 
-    async def _fetch_anime_by_id(self, mal_id: int) -> Dict:
+    async def _fetch_anime_by_id(self, mal_id: int) -> Anime:
         """Fetch a detailed anime dict by mal_id"""
-        async with AioJikan() as jikan:
-            anime = await jikan.anime(mal_id)
-        return anime
+        return await MyAnimeList.fetch_anime_by_id(mal_id)
     
     async def _load_details(self) -> List[hikari.Embed]:
         """
@@ -200,89 +199,79 @@ class AnimePaginator(Paginator):
         old_embed = self._pages[self._position]
         
         popularity = ""
-        if anime['popularity'] <= 100:
-            popularity = f"very popular | {anime['popularity']}"
-        elif anime['popularity'] <= 250:
-            popularity = f"well known | {anime['popularity']}"
-        elif anime['popularity'] <= 350:
-            popularity = f"known | {anime['popularity']}"
-        elif anime['popularity'] <= 1000:
-            popularity = f"somewhat known | {anime['popularity']}"
+        if anime.popularity <= 100:
+            popularity = f"very popular | {anime.popularity}"
+        elif anime.popularity <= 250:
+            popularity = f"well known | {anime.popularity}"
+        elif anime.popularity <= 350:
+            popularity = f"known | {anime.popularity}"
+        elif anime.popularity <= 1000:
+            popularity = f"somewhat known | {anime.popularity}"
         else:
-            popularity = anime['popularity']
+            popularity = anime.popularity
         embed = (
             hikari.Embed()
-            .add_field("Type", anime["type"], inline=True)
-            .add_field("Score", f"{anime['score']}/10", inline=True)
-            .add_field("Episodes", f"{anime['episodes']} {Human.plural_('episode', anime['episodes'])[0]}", inline=True)
-            .add_field("Rank", f"{anime['rank']}", inline=True)
+            .add_field("Type", anime.type_, inline=True)
+            .add_field("Score", f"{anime.score}/10", inline=True)
+            .add_field("Episodes", f"{anime.episodes} {Human.plural_('episode', anime.episodes)}", inline=True)
+            .add_field("Rank", f"{anime.rank}", inline=True)
             .add_field("Popularity", popularity, inline=True)
-            .add_field("Rating", f"{anime['rating']}", inline=True)
-            .add_field("Duration", f"{anime['duration']}", inline=True)
+            .add_field("Rating", f"{anime.rating}", inline=True)
+            .add_field("Duration", f"{anime.duration}", inline=True)
 
 
-            .set_image(anime["image_url"])
+            .set_image(anime.image_url)
         )
-        if anime["genres"]:
+        if anime.genres:
             embed.add_field(
                 "Genres",
-                f""" {', '.join(f"[{genre['name']}]({genre['url']})" 
-                for genre in anime["genres"])}, {', '.join(f"[{genre['name']}]({genre['url']})" 
-                for genre in anime["explicit_genres"])}
-                """,
+                anime.markup_link_str(anime.all_genres),
                 inline=True,
             )
-        if anime["themes"]:
+        if anime.themes:
             embed.add_field(
                 "Themes",
-                ", ".join(
-                    f"[{theme['name']}]({theme['url']})" for theme in anime["themes"]
-                ),
+                anime.markup_link_str(anime.themes),
                 inline=True,
             )
-        if anime["trailer_url"]:
-            embed.add_field("Trailer", f"[click here]({anime['trailer_url']})", inline=True)
-        if anime["studios"]:
+        if anime.trailer_url:
+            embed.add_field("Trailer", f"[click here]({anime.trailer_url})", inline=True)
+        if anime.studios:
             embed.add_field(
                 "Studios", 
-                ", ".join(f"[{studio['name']}]({studio['url']})" for studio in anime["studios"]),
+                anime.markup_link_str(anime.studios),
                 inline=True
             )
-        if anime["producers"]:
+        if anime.producers:
             embed.add_field(
                 "Producers", 
-                ", ".join(f"[{producer['name']}]({producer['url']})" for producer in anime["producers"]),
+                anime.markup_link_str(anime.producers),
                 inline=True
             )
-        if anime["licensors"]:
+        if anime.licensors:
             embed.add_field(
                 "Licensors", 
-                ", ".join(f"[{licensor['name']}]({licensor['url']})" for licensor in anime["licensors"]),
+                anime.markup_link_str(anime.licensors),
                 inline=True
             )
-        if anime["title_synonyms"]:
+        if anime.title_synonyms:
             embed.add_field(
                 "Synonyms", 
-                ",\n".join(anime["title_synonyms"]),
+                ",\n".join(anime.title_synonyms),
                 inline=True
             )
-        embed.add_field("finished", f"{Human.bool_(anime['aired']['string'].endswith('?'), True)}\n{anime['aired']['string']}", inline=True)
+        embed.add_field("finished", f"{Human.bool_(anime.is_finished)}\n{anime.airing_str}", inline=True)
 
         embed.description = ""
-        embed.title = ""
-        if anime["title"] == anime["title_english"]:
-            embed.title = anime["title"]
-        elif anime["title_english"]:
-            embed.title = anime["title_english"]
-        else:
-            embed.title = anime["title"]
+        embed.title = anime.title
 
-            embed.description += f"original name: {anime['title']}"
-        embed.description += f"\nmore information on [MyAnimeList]({anime['url']})"
-        embed.description += f"\n\n{Human.short_text(anime['synopsis'], 1980)}"
+        if anime.title != anime.origin_title:
+            embed.description += f"original name: {anime.origin_title}"
+        embed.description += f"\nmore information on [MyAnimeList]({anime.mal_url})"
+        embed.description += f"\n\n{Human.short_text(anime.synopsis, 1980)}"
 
-        if anime["background"]:
-            embed.add_field("Background", Human.short_text(anime["background"], 200))
+        if anime.background:
+            embed.add_field("Background", Human.short_text(anime.background, 200))
 
         # add openings if not too much
         # TODO: remove redundant code in this function
@@ -290,21 +279,21 @@ class AnimePaginator(Paginator):
         # TODO: if no anime was found (404), send message and stop paginating
 
 
-        if (len_openings := len(anime["opening_themes"])) > 5:
+        if (len_openings := len(anime.opening_themes)) > 5:
             embed.add_field("Opening themes", f"Too many to show here ({len_openings})")
         elif len_openings == 0:
             pass
             pass
         else:
-            embed.add_field("Opening themes", "\n".join(anime["opening_themes"]))
+            embed.add_field("Opening themes", "\n".join(anime.opening_themes))
 
         # add endings if not too much
-        if (len_endings := len(anime["ending_themes"])) > 5:
+        if (len_endings := len(anime.ending_themes)) > 5:
             embed.add_field("Ending themes", f"Too many to show here ({len_openings})")
         elif len_endings == 0:
             pass
         else:
-            embed.add_field("Ending themes", "\n".join(anime["ending_themes"]))
+            embed.add_field("Ending themes", "\n".join(anime.ending_themes))
 
         for i, field in enumerate(embed.fields):
             if not field.value:
