@@ -1,5 +1,6 @@
 """The entrance point of the bot"""
 
+from distutils import command
 from inspect import trace
 import os
 import asyncio
@@ -81,6 +82,14 @@ def main():
                 status=hikari.Status.IDLE, 
                 afk=True,
             )
+
+    @inu.listen(lightbulb.events.CommandInvocationEvent)
+    async def on_event(event: lightbulb.events.CommandInvocationEvent):
+        log.debug(
+            (
+                f"[{event.context.user.id}] {event.context.author.username} "
+                f"called {event.context.event.content}")
+        )
     inu.run()
 
 if __name__ == "__main__":
