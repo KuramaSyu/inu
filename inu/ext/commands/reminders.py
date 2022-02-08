@@ -41,6 +41,7 @@ plugin = lightbulb.Plugin("Basics", "Extends the commands with basic commands", 
         
 
 @plugin.command
+@lightbulb.add_cooldown(300, 3, lightbulb.UserBucket)
 @lightbulb.option(
     "info", 
     "the waiting time, continued by the text you want to be reminded", 
@@ -93,6 +94,7 @@ async def reminder(ctx: context.Context):
     pass
 
 @reminder.child
+@lightbulb.add_cooldown(300, 5, lightbulb.UserBucket)
 @lightbulb.command("list", "Get a list with all your reminders")
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def reminder_list(ctx: context.Context):
@@ -118,6 +120,7 @@ async def reminder_list(ctx: context.Context):
     await pag.start(ctx)
 
 @reminder.child
+@lightbulb.add_cooldown(300, 5, lightbulb.UserBucket)
 @lightbulb.option("id", "The id (get it with reminder list) of the reminder", type=int)
 @lightbulb.command("cancel", "cancel a reminder", aliases=["delete"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
