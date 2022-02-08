@@ -33,6 +33,7 @@ async def on_ready(event: hikari.ShardReadyEvent):
     await Reddit.init_reddit_credentials(plugin.bot)
     
 @plugin.command
+@lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
 @lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
 @lightbulb.command("pic", "sends a nice picture from Reddit", aliases = ['rand_pic', 'picture'])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
@@ -49,6 +50,7 @@ async def pic(ctx: Context):
 
 
 @plugin.command
+@lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
 @lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
 @lightbulb.command("meme", "sends a meme from Reddit")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
@@ -66,6 +68,7 @@ async def memes(ctx: Context):
 
 
 @plugin.command
+@lightbulb.add_cooldown(1, 4, lightbulb.UserBucket)
 @lightbulb.option("subreddit", "A Subreddit where the pic should come from", default=None)
 @lightbulb.command("hentai", "sends a hentai picture from Reddit")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
