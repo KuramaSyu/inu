@@ -319,23 +319,31 @@ async def probability(ctx: Context) -> None:
             return True
         s_num = f"{num}"
         if "e" in s_num:
-            s_num = f"{num:.9f}"
-            while s_num.endswith("0"):
-                s_num = s_num[:-1]
+            return False
         if len(s_num) > 7:
             return False
         return True
     probability = ctx.options.number_1
     probability2 = ctx.options.number_2
 
+    footer = ""
     # test if any number is too big -> avoid memoryError
     num1 = is_float_allowed(probability)
     num2 = is_float_allowed(probability2)
     if not (num1 and num2):
-        await ctx.respond(
-            f'Your {"numbers are" if probability2 else "number is"} too big.'
-        )
-        return
+        # check failed - try to round the numbers and do the check again
+        probability = round(probability, 4)
+        if probability2:
+            probability2 = round(probability2, 4)
+        num1 = is_float_allowed(probability)
+        num2 = is_float_allowed(probability2)
+        if not (num1 and num2):
+            await ctx.respond(
+                f'Your {"numbers are" if probability2 else "number is"} too big.'
+            )
+            return
+        else:
+            footer = "Your numbers are rounded because they were to small"
     # creating fraction
     if probability2:
         fraction = Fraction(f'{int(round(probability))}/{probability2}')
@@ -361,6 +369,8 @@ async def probability(ctx: Context) -> None:
     )
     embed.set_thumbnail(ctx.author.avatar_url)
     embed.color = hikari.Color(0x2A48A8)
+    if footer:
+        embed.set_footer(footer)
     await ctx.respond(embed=embed)
     return
 
