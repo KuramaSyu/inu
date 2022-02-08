@@ -596,6 +596,7 @@ async def _leave(guild_id: int):
     
 # @lightbulb.check(lightbulb.guild_only)
 @music.command
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.command("play", "play a matching song to your query", aliases=["pl"])
@@ -636,6 +637,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
         await load_track(ctx, track, be_quiet)
 
 @play.child
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.command("now", "enqueue a title at the beginning of the queue", aliases=["1st"])
@@ -646,6 +648,7 @@ async def now(ctx: Context) -> None:
     await queue(ctx)
 
 @play.child
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.command("second", "enqueue a title at the beginning of the queue", aliases=["2nd"])
@@ -655,6 +658,7 @@ async def second(ctx: Context) -> None:
     await play_at_pos(ctx, 2, ctx.options.query)
 
 @play.child
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
@@ -762,6 +766,7 @@ async def stop(ctx: Context) -> None:
     await ctx.respond("Stopped playing")
 
 @music.command
+@lightbulb.add_cooldown(1, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("amount", "How many titles do you want to skip?", type=int, default=1)
 @lightbulb.command("skip", "skip the current title")
@@ -853,6 +858,7 @@ if HIKARI_VOICE:
         )
 
 @music.command
+@lightbulb.add_cooldown(20, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("queue", "Resend the music message")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
@@ -952,6 +958,7 @@ async def history(ctx: Context):
     await pag.start(ctx)
     
 @m.child
+@lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("restart", "reconnects to lavalink", hidden=True)
 @lightbulb.implements(commands.PrefixSubCommand)
 async def restart(ctx: context.Context):
