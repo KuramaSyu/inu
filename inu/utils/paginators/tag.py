@@ -327,7 +327,11 @@ class TagHandler(Paginator):
                 or not event.interaction.user.id == self.ctx.author.id):
                 return
             i = event.interaction
-            custom_id = event.interaction.custom_id or None
+            try:
+                custom_id = event.interaction.values[0]
+            except IndexError:
+                # interaction was no menu interaction
+                return
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
             elif custom_id == "set_value":
@@ -354,6 +358,9 @@ class TagHandler(Paginator):
                 await self.change_aliases(i, List.remove)
             elif custom_id == "remove_guild_id":
                 await self.change_guild_ids(i, List.remove)
+            if self.tag.name and self.tag.value:
+                await self.tag.save()
+                await self.update_page(update_value=custom_id in ["set_value", "extend_value"])
             
         except Exception:
             self.log.error(traceback.format_exc())
@@ -373,7 +380,7 @@ class TagHandler(Paginator):
         except ValueError:
             await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
             return
-        await self.update_page()
+        
         #await self.bot.rest.create_message(interaction.channel_id, f"`{user_id}` added to authors of this tag")
 
     async def change_guild_ids(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
@@ -391,7 +398,6 @@ class TagHandler(Paginator):
         except ValueError:
             await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
             return
-        await self.update_page()
         #await interaction.create_initial_response(f"You can use this tag now in `{guild_id}`")
 
     async def change_aliases(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
@@ -406,7 +412,6 @@ class TagHandler(Paginator):
             interaction=interaction,
         )
         op(self.tag.aliases, alias)
-        await self.update_page()
         #await interaction.create_initial_response(f"`{alias}` is now an alternative name of this tag")
         
         
@@ -423,7 +428,6 @@ class TagHandler(Paginator):
         self.tag.is_local_available = False
         self.tag.is_global_available = False
         await self.tag.update()
-        await self.update_page(update_value=True)
 
     async def set_name(self, interaction: ComponentInteraction):
         embed = Embed(title="Enter a name for your tag:", description=f"You have {self.timeout}s")
@@ -449,7 +453,7 @@ class TagHandler(Paginator):
                 f"Your name is {l - 256} letters too long"
             )
         self.tag.name = event.message.content
-        await self.update_page()
+        # await self.update_page()
         if (channel := self.ctx.get_channel()):
             await channel.delete_messages(bot_message, event.message)
 
@@ -480,7 +484,6 @@ class TagHandler(Paginator):
             self.tag.value += event.message.content
         else:
             self.tag.value = event.message.content
-        await self.update_page(update_value=True)
         if (channel := self.ctx.get_channel()):
             await channel.delete_messages(bot_message, event.message)
 
@@ -495,7 +498,7 @@ class TagHandler(Paginator):
             self.tag._is_local = True
             self.tag.guild_ids.remove(0)
         await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
-        await self.update_page()
+        # await self.update_page()
 
     async def finish(self, interaction: ComponentInteraction):
         try:
@@ -560,7 +563,7 @@ class TagHandler(Paginator):
         if user and (channel := self.ctx.get_channel()):
             await channel.delete_messages(bot_message, event.message)
         self.tag.owner = user
-        await self.update_page()
+        # await self.update_page()
 
     def build_default_components(self, position) -> List[ActionRowBuilder]:
         navi = super().build_default_component(position)
@@ -616,8 +619,24 @@ class TagHandler(Paginator):
             .set_is_disabled(disable_save_when(self))
             .add_to_container()
         )
+        menu = (
+            ActionRowBuilder()
+            .add_select_menu("tag_options")
+            .add_option("set name", "set_name").add_to_menu()
+            .add_option("set value", "set_value").add_to_menu()
+            .add_option("append to value", "extend_value").add_to_menu()
+            .add_option("local / global", "change_visibility").add_to_menu()
+            .add_option("add an alias", "add_alias").add_to_menu()
+            .add_option("add a guild", "add_guild").add_to_menu()
+            .add_option("add an author", "add_author_id").add_to_menu()
+            .add_option("delete tag", "remove_tag").add_to_menu()
+            .add_option("remove an Author", "remove_author_id").add_to_menu()
+            .add_option("remove Alias", "remove_alias").add_to_menu()
+            .add_option("remove Server", "remove_server").add_to_menu()
+            .add_to_container()
+        )
         #if self.pagination:
-        return [navi, tag_specific, add_options, danger_tags, finish] #type: ignore
+        return [navi, menu] #type: ignore
         #return [tag_specific, finish]
 
     async def load_tag(self, tag: Mapping[str, Any], author: Union[hikari.Member, hikari.User]):
