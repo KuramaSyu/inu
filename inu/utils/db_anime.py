@@ -96,6 +96,11 @@ class Anime:
     
     @property
     def title(self) -> str:
+        """
+        Returns:
+        -------
+            - (str) the english title or the original title. English is prefered
+        """
         if self.origin_title == self.title_english:
             return self.origin_title
         elif self.title_english:
@@ -105,6 +110,12 @@ class Anime:
 
     @property
     def cached_until(self):
+        """
+        Note:
+        -----
+            - it'll cache until 9999/12/31 if the anime is finsished. 
+              Otherwise obout 1 month (given from jikan meta data)
+         """
         if not self.is_finished:
             return datetime.now() + timedelta(seconds=self._cached_for+600)
         # update not needed. Maybe None/Null would be better here
@@ -115,18 +126,54 @@ class Anime:
 
     @staticmethod
     def markup_link_list(list_: List[Dict[str, str]]):
+        """
+        Args:
+        -----
+            - list_ (List[Dict[str,str]]) the list which should be converted
+                - NOTE: The dict needs the keys: `"url"` and `"name"`
+
+        Returns:
+        --------
+            - (List[str, str]) the list with markup strings
+
+        Note:
+        -----
+            - this function is meant for `self.`|`genres`|`explicit_genres`|`themes`|`studios`|`licensors`|`producers`
+        """
         return [f"[{x['name']}]({x['url']})" for x in list_]
 
     @staticmethod
     def markup_link_str(list_: List[Dict[str, str]]):
+        """
+        Args:
+        -----
+            - list_ (List[Dict[str,str]]) the list which should be converted
+                - NOTE: The dict needs the keys: `"url"` and `"name"`
+
+        Returns:
+        --------
+            - (str) the markup string which ", " seperated list entries
+
+        Note:
+        -----
+            - this function is meant for `self.`|`genres`|`explicit_genres`|`themes`|`studios`|`licensors`|`producers`
+        """
         return ", ".join([f"[{x['name']}]({x['url']})" for x in list_])
     
     @property
     def all_genres(self) -> List[Dict[str, str]]:
+        """
+        Returns:
+        --------
+            - (List[Dict[str, str]]) a list with all genres and explicit genres
+        """
         return [*self.genres, *self.explicit_genres]
 
     @property
     def is_finished(self) -> bool:
+        """
+        ### wether or not the anime is finished
+        """
         return (
             (
                 self.airing_stop 
@@ -146,10 +193,16 @@ class Anime:
         if self.airing_stop:
             stop = f" {self.airing_stop.year or '?'}/{f'{self.airing_stop.month:02}' or '?'}"
         else:
-            stop = "?"
-        return f"{start} - {stop}"
+            stop = ""
+        return f"{start} {'- ' + stop or ''}"
     @classmethod
     def from_json(cls, resp: Dict[str, str]) -> "Anime":
+        """
+        ### build an Anime with the jikan v3 json response
+        Returns:
+        --------
+            - (Anime) The coresponding Anime to the json
+        """
         airing_start = None
         airing_stop = None
         try:
@@ -208,6 +261,20 @@ class Anime:
 
     @classmethod
     def from_db_record(cls, resp: Dict[str, str]) -> "Anime":
+        """
+        ### build an `Anime` with a db record
+        Args:
+        -----
+            - resp: (`Dict[str, str]` | `asyncpg.Record`) the db record
+
+        Returns:
+        --------
+            - (Anime) the coresponding `Anime` the the db record
+
+        Note:
+        -----
+            - for more information to the db record look: `{cwd}/inu/data/bot/sql/script.sql (table: myanimelist)` 
+        """ 
         return cls(
             mal_id=resp["mal_id"],
             title=resp["title"],
@@ -246,6 +313,9 @@ class Anime:
     
     @property
     def needs_update(self) -> bool:
+        """
+        ### wether or not the anime needs an update
+        """
         return datetime.now() > self.cached_until
 
 class MyAnimeList:
@@ -256,6 +326,16 @@ class MyAnimeList:
         cls,
         mal_id: int
     ) -> Anime:
+        """
+        Returns:
+        --------
+            - (`Anime`) the coresponding `Anime` to the mal_id
+        
+        Note:
+        -----
+            - The `Anime` will be stored in a database for caching puprposes
+            - The internal db/cache will be checked first, before making a request to jikan
+        """
         anime = await cls._fetch_anime_by_id_db(mal_id)
         if anime:
             if anime.needs_update:
@@ -263,7 +343,7 @@ class MyAnimeList:
                 anime = await cls._fetch_anime_by_id_rest(mal_id)
                 await cls._cache_anime(anime)
         else:
-            log.debug(f"fetch new anime: {anime}")
+            log.debug(f"fetch new anime form REST: {mal_id}")
             anime = await cls._fetch_anime_by_id_rest(mal_id)
             await cls._cache_anime(anime)
         return anime
@@ -273,6 +353,11 @@ class MyAnimeList:
         cls,
         mal_id: int
     ) -> Anime:
+        """
+        Returns:
+        --------
+            - (`Anime`) the coresponding `Anime` to the mal_id
+        """
         async with AioJikan() as jikan:
             resp = await jikan.anime(mal_id)
             anime = Anime.from_json(resp)
@@ -284,6 +369,11 @@ class MyAnimeList:
         cls,
         mal_id: int
     ) -> Optional[Anime]:
+        """
+        Returns:
+        -------
+            - (`Anime` | `None`) the coresponding `Anime` to the id or `None` if not cached
+        """
         table = Table("myanimelist")
         record = await table.fetch_by_id("mal_id", mal_id)
         if not record:
@@ -298,6 +388,11 @@ class MyAnimeList:
 
     @classmethod
     async def _cache_anime(cls, anime: Anime):
+        """
+        Args:
+        ----
+            - (`Anime`) the `Anime` which should be stored in the db
+        """
         table = Table("myanimelist")
         r = await table.upsert(
             which_columns=[
