@@ -1,18 +1,13 @@
-import os
+import asyncio
+from jikanpy import AioJikan
+import json
+from pprint import pprint, pformat
 
-from data import Data
+async def fetch(anime="cowboy bebop"):
+    async with AioJikan() as jikan:
+        # resp = await jikan.search("anime", anime)
+        resp = await jikan.anime(1)
+        with open("models/animev3_resp", "w", encoding="utf-8") as f:
+            f.write(pformat(resp))
 
-SETTINGS_DIR = os.path.dirname(os.path.abspath(__file__))
-UTILS_DIR = os.path.dirname(SETTINGS_DIR)
-ROOT_DIR = os.path.dirname(UTILS_DIR)
-DATA_DIR = f'{ROOT_DIR}/data'
-MODELS_DIR = f'{ROOT_DIR}/models'
-
-print(ROOT_DIR)
-Data = Data()
-Data.append('key', 'my name is asdfgdfgsdfsdfad', file_name='file')
-data = Data.load(key = 'key' ,file_name = 'file')
-print(data)
-Data.append('new key', 'new value', file_name='file')
-print('-----')
-print(Data.load(file_name='file'))
+asyncio.run(fetch())
