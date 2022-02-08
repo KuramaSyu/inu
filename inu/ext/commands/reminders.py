@@ -94,7 +94,7 @@ async def reminder(ctx: context.Context):
     pass
 
 @reminder.child
-@lightbulb.add_cooldown(300, 5, lightbulb.UserBucket)
+@lightbulb.add_cooldown(300, 8, lightbulb.UserBucket)
 @lightbulb.command("list", "Get a list with all your reminders")
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def reminder_list(ctx: context.Context):
