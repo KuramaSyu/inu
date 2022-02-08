@@ -289,7 +289,7 @@ async def coin(ctx: Context) -> None:
 
 
 @plugin.command
-@lightbulb.add_cooldown(120, 10, lightbulb.GuildBucket)
+@lightbulb.add_cooldown(120, 10, lightbulb.UserBucket)
 @lightbulb.option(
     "number_2", 
     "needed if you choose to set propability with 2 numbers. like 3 4 wihch would mean 3 in 4 aka 75%",
