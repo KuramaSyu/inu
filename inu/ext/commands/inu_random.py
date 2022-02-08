@@ -289,7 +289,7 @@ async def coin(ctx: Context) -> None:
 
 
 @plugin.command
-@lightbulb.add_cooldown(1, 4, lightbulb.GuildBucket)
+@lightbulb.add_cooldown(120, 10, lightbulb.GuildBucket)
 @lightbulb.option(
     "number_2", 
     "needed if you choose to set propability with 2 numbers. like 3 4 wihch would mean 3 in 4 aka 75%",
@@ -315,7 +315,13 @@ async def probability(ctx: Context) -> None:
 
     def is_float_allowed(num):
         '''checks if number is to long'''
-        s_num = str(num)
+        if num is None:
+            return True
+        s_num = f"{num}"
+        if "e" in s_num:
+            s_num = f"{num:.9f}"
+            while s_num.endswith("0"):
+                s_num = s_num[:-1]
         if len(s_num) > 7:
             return False
         return True
@@ -327,7 +333,7 @@ async def probability(ctx: Context) -> None:
     num2 = is_float_allowed(probability2)
     if not (num1 and num2):
         await ctx.respond(
-            f'Your {"numbers are" if probability2 else "number is"} to big.'
+            f'Your {"numbers are" if probability2 else "number is"} too big.'
         )
         return
     # creating fraction
