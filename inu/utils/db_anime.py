@@ -198,7 +198,7 @@ class Anime:
             stop = f" {self.airing_stop.year or '?'}/{f'{self.airing_stop.month:02}' or '?'}"
         else:
             stop = ""
-        return f"{start} {'- ' + stop or ''}"
+        return f"{start} {'- ' + stop if stop else ''}"
     @classmethod
     def from_json(cls, resp: Dict[str, str]) -> "Anime":
         """
