@@ -61,10 +61,10 @@ def main():
                 name=record['value'],
             )
         )
-        await event.bot.update_presence(
-            status=hikari.Status.IDLE, 
-            afk=True,
-        )
+        # await event.bot.update_presence(
+        #     status=hikari.Status.IDLE, 
+        #     afk=True,
+        # )
         # log.debug("start test")
         # try:
         #     anime = await MyAnimeList.fetch_anime_by_id(1)
@@ -73,23 +73,24 @@ def main():
         # except Exception:
         #     log.error(traceback.format_exc())
 
-    @inu.listen(hikari.PresenceUpdateEvent)
-    async def on_bot_ready(event : hikari.PresenceUpdateEvent):
-        if event.user_id != inu.get_me().id:
-            return
-        else:
-            await event.bot.update_presence(
-                status=hikari.Status.IDLE, 
-                afk=True,
-            )
+    # @inu.listen(hikari.PresenceUpdateEvent)
+    # async def on_bot_ready(event : hikari.PresenceUpdateEvent):
+    #     if event.user_id != inu.get_me().id:
+    #         return
+    #     else:
+    #         await event.bot.update_presence(
+    #             status=hikari.Status.IDLE, 
+    #             afk=True,
+    #         )
 
     @inu.listen(lightbulb.events.CommandInvocationEvent)
     async def on_event(event: lightbulb.events.CommandInvocationEvent):
         log.debug(
             (
-                f"[{event.context.user.id}] {event.context.author.username} "
-                f"called {event.context.event.content}")
+                f"[{event.context.user.id}] {event.context.author.username} called {event.command.name}"
+            )
         )
+
     inu.run()
 
 if __name__ == "__main__":
