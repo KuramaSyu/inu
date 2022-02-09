@@ -50,10 +50,10 @@ class Anime:
         producers: List[Dict[str, str]],
         studios: List[Dict[str, str]],
         cached_for: Optional[int] = None,
-        cached_until: Optional[datetime] = None,
+        cached_until: Optional[datetime] = False,
 
     ):
-        if not cached_for and not cached_until:
+        if not cached_for and cached_until == False:
             raise RuntimeError(
                 f"to construct an Anime, cached_for or cached until is needed"
             )
@@ -91,6 +91,8 @@ class Anime:
         self.studios: List[Dict[str, str]] = studios
         if cached_until:
             self._cached_for = cached_until.timestamp() - int(time.time())
+        elif cached_until is None:
+            self._cached_for = None
         else:
             self._cached_for = cached_for
     
@@ -109,17 +111,19 @@ class Anime:
             return self.origin_title
 
     @property
-    def cached_until(self):
+    def cached_until(self) -> Optional[int]:
         """
         Note:
         -----
             - it'll cache until 9999/12/31 if the anime is finsished. 
               Otherwise obout 1 month (given from jikan meta data)
          """
-        if not self.is_finished:
+        if not self.is_finished and self._cached_for:
+            # if self._chached_for is None, than it don't need an update
             return datetime.now() + timedelta(seconds=self._cached_for+600)
         # update not needed. Maybe None/Null would be better here
-        return datetime(year=9999, month=12, day=31)
+        else:
+            None
     
     def __str__(self) -> str:
         return f"[{self.mal_id}] {self.title}"
@@ -316,6 +320,8 @@ class Anime:
         """
         ### wether or not the anime needs an update
         """
+        if self.is_finished:
+            return False
         return datetime.now() > self.cached_until
 
 class MyAnimeList:
