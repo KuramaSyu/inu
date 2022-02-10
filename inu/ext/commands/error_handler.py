@@ -124,7 +124,7 @@ async def on_error(event: events.CommandErrorEvent):
 
         # errors which will only be handled, if the command was invoked with a prefix
         if not ctx.prefix:
-            return log.debug(f"Suppress error of type: {error.__class__.__name__}")
+            return # log.debug(f"Suppress error of type: {error.__class__.__name__}")
         if isinstance(error, errors.CommandNotFound):
             return await OutsideHelp.search(
                 obj=error.invoked_with, 
