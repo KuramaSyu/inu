@@ -71,6 +71,10 @@ class TagManager():
             - TagIsTakenError if tag is taken
         """
         #guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
+        if 0 in guild_ids:
+            # when a local tag changes scope to global, the guilds wont be deleted
+            # hence, the check would fail, since these are still in
+            guild_ids = [0]
         for guild_id in guild_ids:
             await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(
