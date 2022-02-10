@@ -147,22 +147,52 @@ class Tag():
             self.id = tag_id
         self.is_stored = True
 
-    async def load_tag(self, tag: Mapping[str, Any]):
+    @classmethod
+    async def from_record(cls, record: Mapping[str, Any], author: hikari.User) -> "Tag":
+        # """
+        # loads an existing tag in form of a dict like object into self.tag (`Tag`)
+        # Args:
+        # -----
+        #     - tag: (Mapping[str, Any]) the tag which should be loaded
+        #     - author: (Member, User) the user which stored the tag
+        # """
+        # guild_id = self.owner.guild_id if isinstance(self.owner, hikari.Member) else 0
+        # local_taken, global_taken = await TagManager.is_taken(key=self.tag.name, guild_id = guild_id or 0)
+        # self.name = tag["tag_key"]
+        # self.value = tag["key_value"]
+        # self.is_stored = True
+        # self.id = tag["tag_id"]
+        # self.is_global_available = not global_taken
+        # self.is_local_available = not local_taken
+
         """
         loads an existing tag in form of a dict like object into self.tag (`Tag`)
         Args:
         -----
-            - tag: (Mapping[str, Any]) the tag which should be loaded
+            - record: (Mapping[str, Any]) the tag which should be loaded
             - author: (Member, User) the user which stored the tag
         """
-        guild_id = self.owner.guild_id if isinstance(self.owner, hikari.Member) else 0
-        local_taken, global_taken = await TagManager.is_taken(key=self.tag.name, guild_id = guild_id or 0)
-        self.name = tag["tag_key"]
-        self.value = tag["key_value"]
-        self.is_stored = True
-        self.id = tag["tag_id"]
-        self.is_global_available = not global_taken
-        self.is_local_available = not local_taken
+        guild_id = author.guild_id if isinstance(author, hikari.Member) else 0
+        local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_id = guild_id or 0)
+        new_tag: cls = cls(author)
+        new_tag.name = record["tag_key"]
+        new_tag.value = record["tag_value"]
+        new_tag.is_stored = True
+        new_tag.id = record["tag_id"]
+        new_tag.guild_ids = record["guild_ids"]
+        new_tag.aliases = record["aliases"]
+        new_tag.owners = record["author_ids"]
+        if (
+            isinstance(author, hikari.Member)
+            and not 0 in record["guild_ids"]
+            and author.guild_id in record["guild_ids"]
+        ):
+            new_tag._is_local = True
+        else:
+            new_tag._is_local = False
+        new_tag.is_global_available = not global_taken
+        new_tag.is_local_available = not local_taken
+        return new_tag
 
     def get_embed(self) -> hikari.Embed:
         embed = Embed()
@@ -359,7 +389,10 @@ class TagHandler(Paginator):
             elif custom_id == "remove_guild_id":
                 await self.change_guild_ids(i, List.remove)
             if self.tag.name and self.tag.value:
-                await self.tag.save()
+                try:
+                    await self.tag.save()
+                except Exception:
+                    pass
             await self.update_page(update_value=custom_id in ["set_value", "extend_value"])
             
         except Exception:
@@ -647,26 +680,27 @@ class TagHandler(Paginator):
             - tag: (Mapping[str, Any]) the tag which should be loaded
             - author: (Member, User) the user which stored the tag
         """
-        guild_id = author.guild_id if isinstance(author, hikari.Member) else 0
-        local_taken, global_taken = await TagManager.is_taken(key=tag["tag_key"], guild_id = guild_id or 0)
-        new_tag: Tag = Tag(author)
-        new_tag.name = tag["tag_key"]
-        new_tag.value = tag["tag_value"]
-        new_tag.is_stored = True
-        new_tag.id = tag["tag_id"]
-        new_tag.guild_ids = tag["guild_ids"]
-        new_tag.aliases = tag["aliases"]
-        new_tag.owners = tag["author_ids"]
-        if (
-            isinstance(author, hikari.Member)
-            and not 0 in tag["guild_ids"]
-            and author.guild_id in tag["guild_ids"]
-        ):
-            new_tag._is_local = True
-        else:
-            new_tag._is_local = False
-        new_tag.is_global_available = not global_taken
-        new_tag.is_local_available = not local_taken
+        # guild_id = author.guild_id if isinstance(author, hikari.Member) else 0
+        # local_taken, global_taken = await TagManager.is_taken(key=tag["tag_key"], guild_id = guild_id or 0)
+        # new_tag: Tag = Tag(author)
+        # new_tag.name = tag["tag_key"]
+        # new_tag.value = tag["tag_value"]
+        # new_tag.is_stored = True
+        # new_tag.id = tag["tag_id"]
+        # new_tag.guild_ids = tag["guild_ids"]
+        # new_tag.aliases = tag["aliases"]
+        # new_tag.owners = tag["author_ids"]
+        # if (
+        #     isinstance(author, hikari.Member)
+        #     and not 0 in tag["guild_ids"]
+        #     and author.guild_id in tag["guild_ids"]
+        # ):
+        #     new_tag._is_local = True
+        # else:
+        #     new_tag._is_local = False
+        # new_tag.is_global_available = not global_taken
+        # new_tag.is_local_available = not local_taken
+        new_tag = await Tag.from_record(record=tag, author=author)
         self.tag = new_tag
 
         self.embed = Embed()
