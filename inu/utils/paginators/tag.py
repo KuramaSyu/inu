@@ -360,7 +360,7 @@ class TagHandler(Paginator):
                 await self.change_guild_ids(i, List.remove)
             if self.tag.name and self.tag.value:
                 await self.tag.save()
-                await self.update_page(update_value=custom_id in ["set_value", "extend_value"])
+            await self.update_page(update_value=custom_id in ["set_value", "extend_value"])
             
         except Exception:
             self.log.error(traceback.format_exc())
