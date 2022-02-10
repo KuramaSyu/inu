@@ -471,5 +471,56 @@ async def tag_remove_author(ctx: Context):
         f"Removed {ctx.options.author.username} from the author of `{tag.name}`"
     )
 
+@tag.child
+@lightbulb.option("guild", "The guild/server ID you want to add", type=hikari.Snowflake)
+@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.command("add-guild", "add a guild to your tag")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_add_guild(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    tag.guild_ids.append(int(ctx.options.guild))
+    await tag.save()
+    await ctx.respond(
+        f"You will now be able to see `{tag.name}` in the guild with id `{ctx.options.guild}`"
+    )
+
+@tag.child
+@lightbulb.option("guild", "The guild/server ID you want to add", type=hikari.Snowflake)
+@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.command("remove-guild", "remove a guild/server to your tag", aliases=["rm-guild"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_remove_guild(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    try:
+        tag.guild_ids.remove(int(ctx.options.guild))
+    except ValueError:
+        return await ctx.respond(
+            f"There was never a guild with id `{ctx.options.guild}` in your tag"
+        )
+    await tag.save()
+    await ctx.respond(
+        f"You won't see `{tag.name}` in the guild with id `{ctx.options.guild}` anymore"
+    )
+
+
+
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(tags)
