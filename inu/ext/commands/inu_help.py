@@ -32,14 +32,17 @@ from core import getLogger
 log = getLogger(__name__)
 
 
-bot_app: Optional[lightbulb.BotApp] = None
+bot_app: Optional[Inu] = None
 
 class CustomHelp(help_command.BaseHelpCommand):
     def __init__(self, bot: lightbulb.BotApp):
         super().__init__(bot)
+        global bot_app
+        bot_app = bot
         self.cmds_per_list: int = 5
     async def send_bot_help(self, context: Context):
-        commands = self.search("")
+        commands = list(set(list(command for command in self.bot.prefix_commands.values())))
+
         dicts_prebuild = self.arbitrary_commands_to_dicts(commands, context, False)
         await self.dicts_to_pagination(dicts_prebuild, context)
 
@@ -54,7 +57,7 @@ class CustomHelp(help_command.BaseHelpCommand):
 
     async def send_group_help(self, context: Context, group):
         commands = self.group_to_commands(group, context)
-        dicts = [self.commands_to_dicts(commands, context)]
+        dicts = self.part_up_dicts(self.commands_to_dicts(commands, context))
         await self.dicts_to_pagination(dicts, context)
 
 
@@ -100,8 +103,13 @@ class CustomHelp(help_command.BaseHelpCommand):
         for group in groups:
             # get ALL subcommands of a group and add it to resolved_commands
             # for the first, I ll try to put all commands from a group on one site
-            resolved = self.commands_to_dicts(self.group_to_commands(group, ctx), ctx)
-            resolved_commands.append(resolved)
+            resolved = self.part_up_dicts(
+                self.commands_to_dicts(
+                    self.group_to_commands(group, ctx),
+                    ctx
+                )
+            )
+            resolved_commands.extend(resolved)
         if commands:
             parted_commands = self.part_up_dicts(self.commands_to_dicts(commands, ctx))
             resolved_commands.extend(parted_commands)
@@ -135,7 +143,7 @@ class CustomHelp(help_command.BaseHelpCommand):
             part.append(command)
         if part:
             parted_commands.append(part)
-        if len(parted_commands[-1]) <= max_above and len(parted_commands) >= 2:
+        if len(parted_commands[-1]) <= max_above and len(parted_commands) >= max_above:
             part = parted_commands.pop()
             parted_commands[-1].extend(part)
         return parted_commands
