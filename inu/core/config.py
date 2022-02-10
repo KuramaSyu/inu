@@ -56,7 +56,7 @@ class ConfigProxy():
             if len(search) > 1:
                 raise AttributeError(f"`config` (./config.ini) has multiple arrs called `{name}`; specify it with section")
             if len(search) == 0:
-                raise AttributeError(f"no section in config has a attr `{name}`")
+                raise AttributeError(f"no section in config with name: `{name}`")
         elif len(sections) > 1:
             raise RuntimeError(f"config file (./config.ini) has multiple sections named `{name}`. Consider changing it!")
         return sections[0]
