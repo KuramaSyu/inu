@@ -6,6 +6,7 @@ from typing import (
     Mapping,
     Optional,
     List,
+    Tuple,
     Union,
     Any
 
@@ -21,6 +22,7 @@ from hikari.impl import ActionRowBuilder
 from hikari.messages import ButtonStyle
 import lightbulb
 from lightbulb import commands
+from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import asyncpg
 from matplotlib.style import context
@@ -33,11 +35,130 @@ from utils import crumble
 from utils.colors import Colors
 from utils import Paginator
 from utils.paginators.common import navigation_row
-from utils.paginators import TagHandler
+from utils.paginators.tag import TagHandler, Tag
 
 from core import getLogger
 
 log = getLogger(__name__)
+
+
+async def get_tag_interactive(ctx: Context) -> Optional[asyncpg.Record]:
+    """
+    Get the tag interactive
+    Note:
+    -----
+        - if there are multiple tags with same name, the user will be asked, which one to use
+    """
+    raw_results: List[Mapping[str, Any]] = await TagManager.get(ctx.options.key, ctx.guild_id)
+    results = []
+    for result in raw_results:
+        if ctx.author.id in result["author_ids"]:
+            results.append(result)
+    # case 0: no entry in database
+    # case 1: 1 entry in db; check if global or in guild
+    # case _: let user select if he wants the global or local one
+    if len(results) == 0:
+        return None
+    elif len(results) == 1:
+        return results[0]
+    else:
+        #  select between global and local - needs to lookup the results if there are tags of author
+        records = {}
+        for record in results:
+            if 0 in record["guild_ids"]:
+                records["global"] = record
+            else:
+                records["local"] = record
+        menu = (
+            ActionRowBuilder()
+            .add_select_menu("menu")
+            .add_option(f"{ctx.options.key} - global / everywhere", "global")
+            .add_to_menu()
+            .add_option(f"{ctx.options.key} - local / guild only", "local")
+            .add_to_menu()
+            .add_to_container()
+        )
+        try:
+            await ctx.respond("There are multiple tags with this name. Which one do you want?", component=menu)
+            event = await tags.bot.wait_for(
+                InteractionCreateEvent,
+                30,
+            )
+            if not isinstance(event.interaction, ComponentInteraction):
+                return None
+            await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
+            return records[event.interaction.values[0]]
+        except asyncio.TimeoutError:
+            return None
+            
+
+async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
+    """
+    Searches the <key> and sends the result into the channel of <ctx>
+    NOTE:
+    -----
+        - tags created in your guild will be prefered sent, in case there is a global tag too
+    """
+    records = await TagManager.get(key, ctx.guild_id or 0)
+    record: Optional[Mapping[str, Any]] = None
+    # if records are > 1 return the local overridden one
+    if len(records) >= 1:
+        typing.cast(int, ctx.guild_id)
+        for r in records:
+            if ctx.guild_id in r["guild_ids"]:
+                record = r
+                break
+            elif 0 in r["guild_ids"]:
+                record = r
+    return record
+
+
+async def show_record(record: asyncpg.Record, ctx: Context) -> None:
+    """Sends the given tag(record) into the channel of <ctx>"""
+    if record is None:
+        await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id)
+        # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
+        return
+    messages = []
+    for value in crumble(record["tag_value"], 1900):
+        message = f"**{record['tag_key']}**\n\n{value}"
+        messages.append(message)
+    pag = Paginator(messages)
+    await pag.start(ctx)
+
+
+def records_to_embed(
+    records: List[asyncpg.Record], 
+    value_length: int = 80, 
+    tags_per_page: int = 15
+) -> List[hikari.Embed]:
+    desc = ""
+    embeds = [hikari.Embed(title="tag_overview")]
+    for i, record in enumerate(records):
+        embeds[-1].add_field(record["tag_key"], f'```{textwrap.shorten(record["tag_value"].replace("```", ""), value_length)}```', inline=False)
+        #embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][0][:1000]} {"..." if len(record["tag_value"][0]) > 999 else ""}', inline=False)
+        if i % tags_per_page == 0 and len(records) > i+1 and i != 0:
+            embeds.append(hikari.Embed(title="tag_overview"))
+    return embeds
+
+
+async def no_tag_found_msg(
+    ctx: Context,
+    tag_name: str, 
+    guild_id: Optional[int], 
+    creator_id: Optional[int] = None
+):
+    """Sends similar tags, if there are some, otherwise a inform message, that there is no tag like that"""
+    similar_records = await TagManager.find_similar(tag_name, guild_id, creator_id)
+    if not similar_records:
+        await ctx.respond(f"I can't find a tag or similar ones with the name `{tag_name}`")
+    else:
+        answer = (
+            f"can't find a tag with name `{tag_name}`\n"
+            f"Maybe it's one of these?\n"
+        )
+        answer += "\n".join(f"`{sim['tag_key']}`" for sim in similar_records)
+        await ctx.respond(answer)
 
 
 tags = lightbulb.Plugin("Tags", "Commands all arround tags")
@@ -67,38 +188,7 @@ async def tag(ctx: Context):
     await show_record(record, ctx)
 
 
-async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
-    """
-    Searches the <key> and sends the result into the channel of <ctx>
-    NOTE:
-    -----
-        - tags created in your guild will be prefered sent, in case there is a global tag too
-    """
-    records = await TagManager.get(key, ctx.guild_id or 0)
-    record: Optional[Mapping[str, Any]] = None
-    # if records are > 1 return the local overridden one
-    if len(records) >= 1:
-        typing.cast(int, ctx.guild_id)
-        for r in records:
-            if ctx.guild_id in r["guild_ids"]:
-                record = r
-                break
-            elif 0 in r["guild_ids"]:
-                record = r
-    return record
 
-async def show_record(record: asyncpg.Record, ctx: Context) -> None:
-    """Sends the given tag(record) into the channel of <ctx>"""
-    if record is None:
-        await no_tag_found_msg(ctx, key, ctx.guild_id)
-        # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
-        return
-    messages = []
-    for value in crumble(record["tag_value"], 1900):
-        message = f"**{record['tag_key']}**\n\n{value}"
-        messages.append(message)
-    pag = Paginator(messages)
-    await pag.start(ctx)
 
 @tag.child
 @lightbulb.option(
@@ -150,51 +240,17 @@ async def edit(ctx: Context):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
-
-    raw_results: List[Mapping[str, Any]] = await TagManager.get(ctx.options.key, ctx.guild_id)
-    results = []
-    for result in raw_results:
-        if ctx.author.id in result["author_ids"]:
-            results.append(result)
-    # case 0: no entry in database
-    # case 1: 1 entry in db; check if global or in guild
-    # case _: let user select if he wants the global or local one
-    if len(results) == 0:
+    record = await get_tag_interactive(ctx)
+    if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
-    elif len(results) == 1:
-        taghandler = TagHandler()
-        return await taghandler.start(ctx, results[0])
-    else:
-        #  select between global and local - needs to lookup the results if there are tags of author
-        records = {}
-        for record in results:
-            if 0 in record["guild_ids"]:
-                records["global"] = record
-            else:
-                records["local"] = record
-        menu = (
-            ActionRowBuilder()
-            .add_select_menu("menu")
-            .add_option(f"{ctx.options.key} - global / everywhere", "global")
-            .add_to_menu()
-            .add_option(f"{ctx.options.key} - local / guild only", "local")
-            .add_to_menu()
-            .add_to_container()
-        )
-        try:
-            await ctx.respond("Do you want to edit your local or global tag?", component=menu)
-            event = await tags.bot.wait_for(
-                InteractionCreateEvent,
-                30,
-            )
-            if not isinstance(event.interaction, ComponentInteraction):
-                return
-            await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
-            taghandler = TagHandler()
-            await taghandler.start(ctx, records[event.interaction.values[0]])
+    taghandler = TagHandler()
+    await taghandler.start(ctx, record)
 
-        except asyncio.TimeoutError:
-            pass
+
+
+
+
+
     # selection menu here
         
     
@@ -210,53 +266,14 @@ async def remove(ctx: Context):
         - key: the name of the tag which you want to remove
     """
     key = ctx.options.key
-    raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id, ctx.author.id)
-    results = []
-    for result in raw_results:
-        if ctx.author.id in result["author_ids"]:
-            results.append(result)
-    # case 0: no entry in database
-    # case 1: 1 entry in db; check if global or in guild
-    # case _: let user select if he wants the global or local one
-    if len(results) == 0:
-        return await ctx.respond(f"I can't find a tag with the name `{key}` where you are the owner :/")
-    elif len(results) == 1:
-        tag = results[0]
-        await TagManager.remove(tag["tag_id"])
-        return await ctx.respond(f"I removed the {'local' if 0 in tag['guild_ids'] else 'global'} tag `{tag['tag_key']}`")
-    else:
-        #  select between global and local - needs to lookup the results if there are tags of author
-        records = {}
-        for record in results:
-            if ctx.guild_id in record["guild_ids"] and 0 in record["guild_ids"]:
-                records["global"] = record
-            else:
-                records["local"] = record
-        menu = (
-            ActionRowBuilder()
-            .add_select_menu("menu")
-            .add_option(f"{key} - global / everywhere", "global")
-            .add_to_menu()
-            .add_option(f"{key} - local / guild only", "local")
-            .add_to_menu()
-            .add_to_container()
-        )
-        try:
-            await ctx.respond("Do you want to edit your local or global tag?", component=menu)
-            event = await tags.bot.wait_for(
-                InteractionCreateEvent,
-                30,
-            )
-            if not isinstance(event.interaction, ComponentInteraction):
-                return
-            await TagManager.remove(records[event.interaction.values[0]]['tag_id'])
-            await event.interaction.create_initial_response(
-                ResponseType.MESSAGE_CREATE,
-                f"I removed the {event.interaction.values[0]} tag `{key}`"
-            )
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    await TagManager.remove(record['tag_id'])
+    await ctx.respond(
+        f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{key}`"
+    )
 
-        except asyncio.TimeoutError:
-            pass
 
 @tag.child
 @lightbulb.option("key", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True) 
@@ -337,38 +354,122 @@ async def tag_execute(ctx: Context):
         if cmd.name == "run":
             return await cmd.callback(ctx)
 
-def records_to_embed(
-    records: List[asyncpg.Record], 
-    value_length: int = 80, 
-    tags_per_page: int = 15
-) -> List[hikari.Embed]:
-    desc = ""
-    embeds = [hikari.Embed(title="tag_overview")]
-    for i, record in enumerate(records):
-        embeds[-1].add_field(record["tag_key"], f'```{textwrap.shorten(record["tag_value"].replace("```", ""), value_length)}```', inline=False)
-        #embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][0][:1000]} {"..." if len(record["tag_value"][0]) > 999 else ""}', inline=False)
-        if i % tags_per_page == 0 and len(records) > i+1 and i != 0:
-            embeds.append(hikari.Embed(title="tag_overview"))
-    return embeds
+@tag.child
+@lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
+@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.command("append", "remove a tag you own")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_append(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    key = ctx.options.key
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    tag.value += f"\n{ctx.options.text.lstrip()}"
+    await tag.save()
+    await ctx.respond(
+        f"Done."
+    )
 
-async def no_tag_found_msg(
-    ctx: Context,
-    tag_name: str, 
-    guild_id: Optional[int], 
-    creator_id: Optional[int] = None
-):
-    """Sends similar tags, if there are some, otherwise a inform message, that there is no tag like that"""
-    similar_records = await TagManager.find_similar(tag_name, guild_id, creator_id)
-    if not similar_records:
-        await ctx.respond(f"I can't find a tag or similar ones with the name `{tag_name}`")
-    else:
-        answer = (
-            f"can't find a tag with name `{tag_name}`\n"
-            f"Maybe it's one of these?\n"
-        )
-        answer += "\n".join(f"`{sim['tag_key']}`" for sim in similar_records)
-        await ctx.respond(answer)
+@tag.child
+@lightbulb.option("alias", "The optional name you want to add", modifier=OM.CONSUME_REST)
+@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.command("add-alias", "remove a tag you own")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_add_alias(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    tag.aliases.append(f"{ctx.options.alias.strip()}")
+    await tag.save()
+    await ctx.respond(
+        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`"
+    )
 
+@tag.child
+@lightbulb.option("alias", "The optional name you want to remove", modifier=OM.CONSUME_REST)
+@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.command("remove-alias", "remove a tag you own", aliases=["rm-alias"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_remove_alias(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    try:
+        tag.aliases.append(f"{ctx.options.alias.strip()}")
+    except ValueError:
+        return await ctx.respond(f"This tag don't have an ailias called `{ctx.options.alias.strip()}` which I could remove")
+    await tag.save()
+    await ctx.respond(
+        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`"
+    )
+
+@tag.child
+@lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
+@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.command("add-author", "add an author to your tag")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_add_author(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    tag.owners.append(int(ctx.options.author.id))
+    await tag.save()
+    await ctx.respond(
+        f"Added {ctx.options.author.username} as an author of `{tag.name}`"
+    )
+
+@tag.child
+@lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
+@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.command("remove-author", "add an author to your tag", aliases=["rm-author"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_remove_author(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    record = await get_tag_interactive(ctx)
+    if not record:
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    try:
+        tag.owners.remove(int(ctx.options.author.id))
+    except ValueError:
+        return await ctx.respond(f"{ctx.options.author.username} was never an author")
+    await tag.save()
+    await ctx.respond(
+        f"Removed {ctx.options.author.username} from the author of `{tag.name}`"
+    )
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(tags)
