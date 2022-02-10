@@ -104,7 +104,7 @@ async def log_(ctx: Context):
         log.error(traceback.format_exc())
         return
     inu_log_file.close()
-    shorted = crumble(inu_log, max_length_per_string=1980)
+    shorted = crumble(inu_log, max_length_per_string=1970)
 
     embeds = []
     for i, page in enumerate(shorted):
