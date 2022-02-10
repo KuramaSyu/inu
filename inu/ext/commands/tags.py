@@ -64,7 +64,7 @@ async def tag(ctx: Context):
         taghandler = TagHandler()
         return await taghandler.start(ctx)
     record = await get_tag(ctx, key)
-    await show_record(record, ctx, key)
+    await show_record(record, ctx)
 
 
 async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
@@ -87,7 +87,7 @@ async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
                 record = r
     return record
 
-async def show_record(record: asyncpg.Record, ctx: Context, key: str) -> None:
+async def show_record(record: asyncpg.Record, ctx: Context) -> None:
     """Sends the given tag(record) into the channel of <ctx>"""
     if record is None:
         await no_tag_found_msg(ctx, key, ctx.guild_id)
@@ -95,7 +95,7 @@ async def show_record(record: asyncpg.Record, ctx: Context, key: str) -> None:
         return
     messages = []
     for value in crumble(record["tag_value"], 1900):
-        message = f"**{key}**\n\n{value}"
+        message = f"**{record['tag_key']}**\n\n{value}"
         messages.append(message)
     pag = Paginator(messages)
     await pag.start(ctx)
@@ -270,7 +270,7 @@ async def get(ctx: Context):
         - key: the name the tag should have
     """
     record = await get_tag(ctx, ctx.options.key)
-    await show_record(record, ctx, ctx.options.key)
+    await show_record(record, ctx)
     
 @tag.child
 @lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
