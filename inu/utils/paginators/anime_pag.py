@@ -275,12 +275,19 @@ class AnimePaginator(Paginator):
             # related contains a dict, with sequel, prequel, adaption and sidestory. 
             # Every entry of the dict has as value a list, which contains dicts. 
             # Every dict in there represents one of wahtever the name of the value is
-            related_str += f"{name}:\n"
+            related_str =""
+            if name == "Sequel":
+                name = "Sequel (watch after)"
+            elif name == "Prequel":
+                name = "Prequel (watch before)"
             for i in info:
                 # check if i (dict) contains name and url
-                if set("name", "url") <= set([*i.keys()]):
-                    f"○ {anime.markup_link_str([i])}"
-        embed.add_field("Related", related_str)
+                if set(["name", "url"]) <= (keys := set([*i.keys()])):
+                    if "type" in keys:
+                        related_str += f"{i['type']}: "
+                    related_str += f"{anime.markup_link_str([i])}\n"
+            embed.add_field(name, related_str, inline=True)
+
 
         if anime.background:
             embed.add_field("Background", Human.short_text(anime.background, 200))
