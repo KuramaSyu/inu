@@ -5,6 +5,7 @@ from typing import Sequence, TypeVar, Union, List, Optional, Any
 import hikari
 from numpy import isin, real
 import inspect
+import textwrap
 
 T_str_list = TypeVar("T_str_list", str, List[str])
 
@@ -59,7 +60,7 @@ class Human():
     Converts datatypes/other stuff to human readable things.
     Methods named with trailing _ to don't overwrite stuff.
     """
-
+    short_text = textwrap.shorten
     @staticmethod
     def bool_(boolean, twisted=False):
         if not twisted:
@@ -176,20 +177,6 @@ class Human():
             result_number = result_number[:-1]
         return result_number[::-1]
 
-    @staticmethod
-    def short_text(text: Optional[str], max_lengh: int) -> str:
-        """
-        Returns:
-        --------
-            - (str) the text until max_lengh with ... or complete text
-        """
-        if text is None:
-            return ""
-        text = str(text)
-        if len(text) > max_lengh:
-            return f"{text[:max_lengh-3]}..."
-        else:
-            return text
 
     @classmethod
     def list_(
