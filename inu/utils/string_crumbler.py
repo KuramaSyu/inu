@@ -192,6 +192,26 @@ class SentenceInterator():
         except StopIteration:
             self.eof: bool = True
 
+class WordIterator:
+    """
+    ### Iterates through a string <`to_iter`> and returns word for word 
+    """
+
+    def __init__(self, 
+        to_iter: str, 
+    ) -> None:
+        self.to_iter = to_iter
+        self._gen = (word for word in to_iter.split(" "))
+
+    def __iter__(self):
+        return self
+
+    def __next__(self):
+        # don't return value instantly
+        # add the removed whitespace for splitting to it
+        return f"{self._gen.__next__()} "
+
+
 class NumberWordIterator:
     """
     Iterator with 1 peak look ahead with peek atribute
