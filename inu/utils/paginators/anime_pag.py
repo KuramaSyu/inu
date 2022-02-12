@@ -119,7 +119,7 @@ class AnimePaginator(Paginator):
         """fuzzy sort the anime result titles of  `self._results` by given name"""
         close_matches = []
         for anime in self._results.copy():
-            anime["fuzz_ratio"] = fuzz.ratio(anime["title"].lower(), compare_name)
+            anime["fuzz_ratio"] = fuzz.ratio(anime["title"].lower(), compare_name.lower())
             if anime["fuzz_ratio"] >= 90:
                 self._results.remove(anime)
                 close_matches.append(anime)
