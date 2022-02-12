@@ -270,6 +270,18 @@ class AnimePaginator(Paginator):
         embed.description += f"\nmore information on [MyAnimeList]({anime.mal_url})"
         embed.description += f"\n\n{Human.short_text(anime.synopsis, 1980)}"
 
+        related_str = ""
+        for name, info in anime.related.items():
+            # related contains a dict, with sequel, prequel, adaption and sidestory. 
+            # Every entry of the dict has as value a list, which contains dicts. 
+            # Every dict in there represents one of wahtever the name of the value is
+            related_str += f"{name}:\n"
+            for i in info:
+                # check if i (dict) contains name and url
+                if set("name", "url") <= set([*i.keys()]):
+                    f"○ {anime.markup_link_str([i])}"
+        embed.add_field("Related", related_str)
+
         if anime.background:
             embed.add_field("Background", Human.short_text(anime.background, 200))
 
