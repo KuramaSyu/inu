@@ -131,7 +131,7 @@ class AnimePaginator(Paginator):
         def build_embeds(search_title: str, results: Dict):
             animes = []
             for anime in results:
-                if search_title in anime["title"].lower():
+                if search_title.lower() in anime["title"].lower():
                     animes.append(anime)
 
             if animes == []:
