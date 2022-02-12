@@ -7,6 +7,8 @@ from numpy import isin, real
 import inspect
 import textwrap
 
+from utils import WordIterator
+
 T_str_list = TypeVar("T_str_list", str, List[str])
 
 def human_bool(bool_, twisted=False):
@@ -60,7 +62,7 @@ class Human():
     Converts datatypes/other stuff to human readable things.
     Methods named with trailing _ to don't overwrite stuff.
     """
-    short_text = textwrap.shorten
+
     @staticmethod
     def bool_(boolean, twisted=False):
         if not twisted:
@@ -177,6 +179,25 @@ class Human():
             result_number = result_number[:-1]
         return result_number[::-1]
 
+    @staticmethod
+    def short_text(text: Optional[str], max_lengh: int) -> str:
+        """
+        Returns:
+        --------
+            - (str) the text until max_lengh with ... or complete text
+        """
+        text = str(text)
+        if len(text) <= max_lengh:
+            return text
+        suffix = " [...]"
+        short_text = ""
+        for word in WordIterator(text):
+            if len(short_text) + len(word) + len(suffix) <= max_lengh:
+                short_text += word
+            else:
+                short_text += suffix
+                break
+        return short_text
 
     @classmethod
     def list_(
