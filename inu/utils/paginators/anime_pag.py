@@ -242,12 +242,12 @@ class AnimePaginator(Paginator):
                 anime.markup_link_str(anime.studios),
                 inline=True
             )
-        if anime.producers:
-            embed.add_field(
-                "Producers", 
-                anime.markup_link_str(anime.producers),
-                inline=True
-            )
+        # if anime.producers:
+        #     embed.add_field(
+        #         "Producers", 
+        #         anime.markup_link_str(anime.producers),
+        #         inline=True
+        #     )
         if anime.licensors:
             embed.add_field(
                 "Licensors", 
