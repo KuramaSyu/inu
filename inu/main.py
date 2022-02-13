@@ -7,6 +7,7 @@ import asyncio
 import logging
 import traceback
 
+import aiohttp
 from core import LoggingHandler
 logging.setLoggerClass(LoggingHandler)
 
@@ -55,10 +56,17 @@ def main():
     async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
         table = Table("bot")
         record = await table.select_row(["key"], ["restart_count"])
+        activity = record["value"]
+        try:
+            async with aiohttp.ClientSession() as session:
+                resp = await session.get(f"http://numbersapi.com/{activity}")
+                activity = (await resp.read()).decode("utf-8")
+        except Exception:
+            traceback.print_exc()
         await event.bot.update_presence(
             status=hikari.Status.IDLE, 
             activity=hikari.Activity(
-                name=record['value'],
+                name=activity,
             )
         )
         # await event.bot.update_presence(
