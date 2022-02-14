@@ -413,7 +413,7 @@ class MyAnimeList:
                 "producers", "studios", "cached_until"
             ],
             values=[
-                anime.mal_id, anime.title, anime.title_english, anime.title_japanese,
+                anime.mal_id, anime.origin_title, anime.title_english, anime.title_japanese,
                 anime.title_synonyms, anime.synopsis, anime.background,
                 json.dumps(anime.related),
                 [json.dumps(x) for x in anime.themes], 
