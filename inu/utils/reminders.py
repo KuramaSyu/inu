@@ -29,11 +29,34 @@ log = getLogger(__name__)
 # the time in seconds, after the next sql statement, to get further reminders, will be executed
 REMINDER_UPDATE = 5*60
 
+weekdays = {
+    0: "monday",
+    1: "tuesday",
+    2: "wednesday",
+    3: "thursday"
+}
+
+def get_seconds_until_next(weekday: int) -> int:
+    now = datetime.datetime.now()
+    start_of_day = datetime.datetime(year=now.year, month=now.month, day=now.day, minute=1)
+    weekday_n = now.weekday()
+    i = weekday_n
+    
+    for x in range(1, 8):
+        y = (x + i) % 7
+        log.debug(f"{y}")
+        if y == weekday:
+            fut_day = start_of_day + timedelta(days=x)
+            return int(fut_day.timestamp() - now.timestamp())
+    return 0
 
 class TimeUnits(Enum):
     """
     Enum, which represents time units
     """
+
+
+
     second = {
         "aliases": ["second", "s", "sec", "seconds"],
         "in_seconds": 1,
@@ -65,7 +88,7 @@ class TimeUnits(Enum):
         "in_seconds": day["in_seconds"] * 7,  
     }
     month = {
-        "aliases": ["month", "mon", "m", "months"],
+        "aliases": ["month", "m", "months"],
         "in_seconds": day["in_seconds"] * 30,  
     }
     year = {
@@ -76,6 +99,42 @@ class TimeUnits(Enum):
         "aliases": ["pizza", "pizzas"],
         "in_seconds": minute["in_seconds"] * 15,  
     }
+    monday = {
+        "aliases": {"monday", "mon"},
+        "in_seconds": get_seconds_until_next(0),
+        "d": 0
+    }
+    tuesday = {
+        "aliases": {"tuesday", "tue"},
+        "in_seconds": get_seconds_until_next(1),
+        "d": 1
+    }
+    wednesday = {
+        "aliases": {"wednesday", "wed"},
+        "in_seconds": get_seconds_until_next(2),
+        "d": 2
+    } 
+    thursday = {
+        "aliases": {"thursday", "thu"},
+        "in_seconds": get_seconds_until_next(3),
+        "d": 3
+    }
+    friday = {
+        "aliases": {"friday", "fri"},
+        "in_seconds": get_seconds_until_next(4),
+        "d": 4
+    }
+    saturday = {
+        "aliases": {"saturday", "sat"},
+        "in_seconds": get_seconds_until_next(5),
+        "d": 5
+    }
+    sunday = {
+        "aliases": {"sunday", "sun"},
+        "in_seconds": get_seconds_until_next(6),
+        "d": 6,
+    }
+        
 
 
 class TimeConverter:
@@ -90,6 +149,9 @@ class TimeConverter:
         --------
             - (float) the given time unit and it's ammount in seconds
         """
+        if unit.value.get("d"):
+            unit.value["in_seconds"] = get_seconds_until_next(unit.value.get("d"))
+        log.debug(f"{unit=};{float(unit.value['in_seconds'])}")
         return float(unit.value["in_seconds"] * amount)
 
     @classmethod
@@ -111,6 +173,8 @@ class TimeConverter:
         for unit in TimeUnits.__members__.values():
             if str_unit in unit.value["aliases"]:
                 return unit
+
+
 
     @classmethod
     def time_to_seconds(cls, time: List) -> int:
