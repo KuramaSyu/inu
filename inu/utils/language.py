@@ -192,7 +192,7 @@ class Human():
         suffix = " [...]"
         short_text = ""
         for word in WordIterator(text):
-            if len(short_text) + len(word) + len(suffix) <= max_lengh:
+            if len(short_text) + len(word) + len(suffix) < max_lengh:
                 short_text += word
             else:
                 short_text += suffix
