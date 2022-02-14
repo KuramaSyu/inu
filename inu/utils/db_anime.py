@@ -6,6 +6,7 @@ from typing import *
 from datetime import datetime, timedelta
 import time
 
+import aiohttp
 from jikanpy import AioJikan
 
 from core import Database, Table, getLogger
@@ -262,6 +263,40 @@ class Anime:
             studios=resp["studios"],
             cached_for=resp["request_cache_expiry"],
         )
+    
+    @property
+    def links(self) -> Dict[str, str]:
+        """
+        Returns:
+        -------
+            - (Dict[str, str]) mapping from site + dub/dub and the link, where the anime COULD be
+        Note:
+        -----
+            - through cloudflare protection, checking if link is valid is not possbile
+        """
+        links = {}
+        links_temp = {}
+        links_temp["animeheaven"] = f"https://animeheaven.ru/detail/{self.origin_title.replace(' ', '-').lower()}"
+        for k, v in links_temp.items():
+            links[f"{k} - sub"] = f"{v}"
+            links[f"{k} - dub"] = f"{v}-dub"
+        return links
+
+    async def fetch_links(self) -> Dict[str, str]:
+        start = time.time()
+        ok_links = {}
+        links = {}
+        links["animeheaven SUB"] = f"https://animeheaven.ru/detail/{self.origin_title.replace(' ', '-').lower()}"
+        async with aiohttp.ClientSession() as session:
+            for site, link in links.items():
+                resp = await session.get(link)
+                log.debug(f"{link};{resp.status}")
+                log.debug(f"{await resp.text('utf-8')}")
+                if resp.status == 200:
+                    ok_links[site] = link
+        log.debug(ok_links)
+        log.debug(time.time() - start)
+        return links
 
     @classmethod
     def from_db_record(cls, resp: Dict[str, str]) -> "Anime":
