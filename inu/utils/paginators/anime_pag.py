@@ -4,6 +4,7 @@ from pprint import pprint
 import random
 import traceback
 from pprint import pformat
+from copy import deepcopy
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
@@ -261,7 +262,6 @@ class AnimePaginator(Paginator):
                 inline=True
             )
         embed.add_field("finished", f"{Human.bool_(anime.is_finished)}\n{anime.airing_str}", inline=True)
-
         embed.description = ""
         embed.title = anime.title
 
@@ -286,9 +286,10 @@ class AnimePaginator(Paginator):
                     if "type" in keys:
                         related_str += f"{i['type']}: "
                     related_str += f"{anime.markup_link_str([i])}\n"
-            embed.add_field(name, related_str, inline=True)
-
-
+            embed.add_field(name, related_str, inline=len(related_str) < 100)
+        
+        watch_here_str = "\n".join([f"[{s}]({l})" for s, l in anime.links.items()])
+        embed.add_field("Watch here", watch_here_str, inline=True)
         if anime.background:
             embed.add_field("Background", Human.short_text(anime.background, 200))
 
@@ -314,10 +315,20 @@ class AnimePaginator(Paginator):
         else:
             embed.add_field("Ending themes", "\n".join(anime.ending_themes))
 
+        
         for i, field in enumerate(embed.fields):
             if not field.value:
                 embed.remove_field(i)
             field.value = Human.short_text(field.value, 1024)
+        # optimizing space
+        inline_fields = []
+        outline_fields = []
+        for field in embed.fields:
+            if field.is_inline:
+                inline_fields.append(field)
+            else:
+                outline_fields.append(field)
+        embed._fields = [*inline_fields, *outline_fields]
         embed._footer = old_embed._footer
         self._pages[self._position] = embed
 
