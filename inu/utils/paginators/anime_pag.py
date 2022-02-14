@@ -256,10 +256,11 @@ class AnimePaginator(Paginator):
                 inline=True
             )
         if anime.title_synonyms:
+            synonyms = ",\n".join(anime.title_synonyms)
             embed.add_field(
                 "Synonyms", 
-                ",\n".join(anime.title_synonyms),
-                inline=True
+                synonyms,
+                inline=len(synonyms) < 80,
             )
         embed.add_field("finished", f"{Human.bool_(anime.is_finished)}\n{anime.airing_str}", inline=True)
         embed.description = ""
@@ -286,7 +287,7 @@ class AnimePaginator(Paginator):
                     if "type" in keys:
                         related_str += f"{i['type']}: "
                     related_str += f"{anime.markup_link_str([i])}\n"
-            embed.add_field(name, related_str, inline=len(related_str) < 100)
+            embed.add_field(name, related_str, inline=len(related_str) < 180)
         
         watch_here_str = "\n".join([f"[{s}]({l})" for s, l in anime.links.items()])
         embed.add_field("Watch here", watch_here_str, inline=True)
