@@ -1,6 +1,6 @@
 import datetime
 from re import M
-from typing import Sequence, TypeVar, Union, List, Optional, Any
+from typing import Iterable, Sequence, TypeVar, Union, List, Optional, Any
 
 import hikari
 from numpy import isin, real
@@ -55,6 +55,12 @@ class Multiple():
             if word.startswith(w):
                 return True
         return False
+    
+    @staticmethod
+    def repalce_(text: str, symbols: Iterable, with_: str):
+        for symbol in symbols:
+            text = text.replace(symbol, with_)
+        return text
 
 
 class Human():
