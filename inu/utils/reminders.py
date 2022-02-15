@@ -29,12 +29,6 @@ log = getLogger(__name__)
 # the time in seconds, after the next sql statement, to get further reminders, will be executed
 REMINDER_UPDATE = 5*60
 
-weekdays = {
-    0: "monday",
-    1: "tuesday",
-    2: "wednesday",
-    3: "thursday"
-}
 
 def get_seconds_until_next(weekday: int) -> int:
     now = datetime.datetime.now()
