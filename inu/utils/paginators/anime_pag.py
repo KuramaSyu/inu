@@ -235,8 +235,8 @@ class AnimePaginator(Paginator):
                 anime.markup_link_str(anime.themes),
                 inline=True,
             )
-        if anime.trailer_url:
-            embed.add_field("Trailer", f"[click here]({anime.trailer_url})", inline=True)
+        # if anime.trailer_url:
+        #     embed.add_field("Trailer", f"[click here]({anime.trailer_url})", inline=True)
         if anime.studios:
             embed.add_field(
                 "Studios", 
@@ -269,6 +269,14 @@ class AnimePaginator(Paginator):
         if anime.title != anime.origin_title:
             embed.description += f"original name: {anime.origin_title}"
         embed.description += f"\nmore information on [MyAnimeList]({anime.mal_url})"
+        media = (
+            f"Watch: "
+            f"[sub]({anime.links.get('animeheaven-sub')}) "
+            f"| [dub]({anime.links.get('animeheaven-dub')})"
+        )
+        if anime.trailer_url:
+            media += f" | [trailer]({anime.trailer_url})"
+        embed.description += f"\n{media}"
         embed.description += f"\n\n{Human.short_text(anime.synopsis, 1980)}"
 
         related_str = ""
@@ -289,8 +297,8 @@ class AnimePaginator(Paginator):
                     related_str += f"{anime.markup_link_str([i])}\n"
             embed.add_field(name, related_str, inline=len(related_str) < 180)
         
-        watch_here_str = "\n".join([f"[{s}]({l})" for s, l in anime.links.items()])
-        embed.add_field("Watch here", watch_here_str, inline=True)
+        # watch_here_str = "\n".join([f"[{s}]({l})" for s, l in anime.links.items()])
+        # embed.add_field("Watch here", watch_here_str, inline=True)
         if anime.background:
             embed.add_field("Background", Human.short_text(anime.background, 200))
 
@@ -331,6 +339,7 @@ class AnimePaginator(Paginator):
                 outline_fields.append(field)
         embed._fields = [*inline_fields, *outline_fields]
         embed._footer = old_embed._footer
+
         self._pages[self._position] = embed
 
 
