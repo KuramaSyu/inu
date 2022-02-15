@@ -10,6 +10,7 @@ import aiohttp
 from jikanpy import AioJikan
 
 from core import Database, Table, getLogger
+from utils import Multiple
 
 log = getLogger(__name__)
 
@@ -274,12 +275,16 @@ class Anime:
         -----
             - through cloudflare protection, checking if link is valid is not possbile
         """
+        title = self.origin_title.lower()
+        title = Multiple.repalce_(title, ".;,: ", "-")
+        title = title.replace("--", "-")
         links = {}
         links_temp = {}
-        links_temp["animeheaven"] = f"https://animeheaven.ru/detail/{self.origin_title.replace(' ', '-').lower()}"
+        links_temp["animeheaven"] = f"https://animeheaven.ru/detail/{title}"
         for k, v in links_temp.items():
-            links[f"{k} - sub"] = f"{v}"
-            links[f"{k} - dub"] = f"{v}-dub"
+
+            links[f"{k}-sub"] = f"{v}"
+            links[f"{k}-dub"] = f"{v}-dub"
         return links
 
     async def fetch_links(self) -> Dict[str, str]:
