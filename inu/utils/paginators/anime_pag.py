@@ -142,7 +142,6 @@ class AnimePaginator(Paginator):
                     animes.append(anime)
 
             if animes == []:
-                log.debug("filter animes by name")
                 animes = results
 
             embeds = []
@@ -313,7 +312,7 @@ class AnimePaginator(Paginator):
         
         # watch_here_str = "\n".join([f"[{s}]({l})" for s, l in anime.links.items()])
         # embed.add_field("Watch here", watch_here_str, inline=True)
-        if anime.background:
+        if anime.background and detailed:
             embed.add_field("Background", Human.short_text(anime.background, 200))
 
         # add openings if not too much
@@ -325,7 +324,6 @@ class AnimePaginator(Paginator):
         if (len_openings := len(anime.opening_themes)) > 5:
             embed.add_field("Opening themes", f"Too many to show here ({len_openings})")
         elif len_openings == 0:
-            pass
             pass
         else:
             embed.add_field("Opening themes", "\n".join(anime.opening_themes))
