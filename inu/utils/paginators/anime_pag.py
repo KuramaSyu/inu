@@ -10,7 +10,7 @@ import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import ActionRowBuilder
 import lightbulb
-from numpy import sort
+from numpy import longdouble, sort
 from pyparsing import CloseMatch
 
 from .common import PaginatorReadyEvent
@@ -71,7 +71,10 @@ class AnimePaginator(Paginator):
             return components
         # components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort by score").add_to_container()
         if self._with_refresh_btn:
-            components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("more information").add_to_container()
+            pass
+            components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("show more").add_to_container()
+        # add more information button
+        components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_more_info").set_label("show more").add_to_container()
         return components
     
     @listener(hikari.InteractionCreateEvent)
@@ -97,6 +100,9 @@ class AnimePaginator(Paginator):
                         return
             except:
                 log.error(traceback.format_exc())
+        elif event.interaction.custom_id == "btn_anime_more_info":
+            await self._update_position(event.interaction, detailed=True)
+            return
 
     def _sort_embeds(self, sort_by: SortTypes):
         self._pages = sort_by(self._pages)
@@ -109,11 +115,11 @@ class AnimePaginator(Paginator):
         super().__init__(page_s=self._pages, timeout=10*8)
         return await super().start(ctx)
 
-    async def _update_position(self, interaction: ComponentInteraction):
+    async def _update_position(self, interaction: ComponentInteraction, detailed=False):
         """
         replaces embed page first with a more detailed one, before sending the message
         """
-        await self._load_details()
+        await self._load_details(detailed=detailed)
         return await super()._update_position(interaction)
 
     def _fuzzy_sort_results(self, compare_name: str):
@@ -188,15 +194,17 @@ class AnimePaginator(Paginator):
         """Fetch a detailed anime dict by mal_id"""
         return await MyAnimeList.fetch_anime_by_id(mal_id)
     
-    async def _load_details(self) -> List[hikari.Embed]:
+    async def _load_details(self, detailed=False) -> List[hikari.Embed]:
         """
         updates the embed `self._pages[self._position]` to a more detailed version of the anime
         """
         mal_id = self._results[self._position]["mal_id"]
-        if mal_id in self._updated_mal_ids:
+        if mal_id in self._updated_mal_ids and not detailed:
             return
         self._updated_mal_ids.add(mal_id)
-        anime = await self._fetch_anime_by_id(mal_id)
+        if not (anime := self._results[self._position].get("anime")):
+            anime = await self._fetch_anime_by_id(mal_id)
+            self._results[self._position]["anime"] = anime
         old_embed = self._pages[self._position]
         
         popularity = ""
@@ -280,18 +288,24 @@ class AnimePaginator(Paginator):
         embed.description += f"\n\n{Human.short_text(anime.synopsis, 1980)}"
 
         related_str = ""
+        always_used = ["Prequel", "Sequel", "Adaption"]
+        log.debug(f"{detailed=}")
         for name, info in anime.related.items():
             # related contains a dict, with sequel, prequel, adaption and sidestory. 
             # Every entry of the dict has as value a list, which contains dicts. 
             # Every dict in there represents one of wahtever the name of the value is
+            if not name in always_used and not detailed:
+                continue
+
             related_str =""
             if name == "Sequel":
                 name = "Sequel (watch after)"
             elif name == "Prequel":
                 name = "Prequel (watch before)"
             for i in info:
-                # check if i (dict) contains name and url
+                # check if i (dict) contains name and url as keys
                 if set(["name", "url"]) <= (keys := set([*i.keys()])):
+
                     if "type" in keys:
                         related_str += f"{i['type']}: "
                     related_str += f"{anime.markup_link_str([i])}\n"
