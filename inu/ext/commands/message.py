@@ -78,10 +78,10 @@ async def calc(message: hikari.PartialMessage):
             .replace(",", ".")
         )
         calculator = NumericStringParser()
-        result = str(calculator.eval(text))
+        result = Human.number(str(calculator.eval(text)))
         result = result[:-2] if result.endswith(".0") and not "," in result else result
         await message.respond(
-            hikari.Embed(title=Human.number(result))
+            hikari.Embed(title=result)
         )
     except:
         return
