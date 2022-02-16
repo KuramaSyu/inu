@@ -278,6 +278,8 @@ class Anime:
         title = self.origin_title.lower()
         title = Multiple.repalce_(title, ".;,: ", "-")
         title = title.replace("--", "-")
+        while title.endswith("-"):
+            title = title[:-1]
         links = {}
         links_temp = {}
         links_temp["animeheaven"] = f"https://animeheaven.ru/detail/{title}"
