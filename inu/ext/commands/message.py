@@ -68,10 +68,18 @@ async def artur_ist_dumm(message: hikari.PartialMessage):
 async def calc(message: hikari.PartialMessage):
     text = str(message.content)
     try:
-        text = text.replace("x", "*").replace(" ", "").replace(":", "/").replace("=", "")
+        text = (
+            text
+            .lower()
+            .replace("x", "*")
+            .replace(" ", "")
+            .replace(":", "/")
+            .replace("=", "")
+            .replace(",", ".")
+        )
         calculator = NumericStringParser()
         result = str(calculator.eval(text))
-        result = result[:-2] if result.endswith(".0") else result
+        result = result[:-2] if result.endswith(".0") and not "," in result else result
         await message.respond(
             hikari.Embed(title=Human.number(result))
         )
