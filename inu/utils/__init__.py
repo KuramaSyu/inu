@@ -4,6 +4,7 @@ from .string_crumbler import crumble, StringCutter, WordIterator
 from .r_channel_manager import DailyContentChannels
 from .grid import Grid
 from .stats import InvokationStats
+from .vote import *
 from .language import Human, Multiple
 from .db_anime import Anime, MyAnimeList
 from .reminders import HikariReminder, Reminders
