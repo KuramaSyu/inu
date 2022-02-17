@@ -103,7 +103,7 @@ class Anime:
         """
         Returns:
         -------
-            - (str) the english title or the original title. English is prefered
+            - (`str`) the english title or the original title. English is prefered
         """
         if self.origin_title == self.title_english:
             return self.origin_title
@@ -153,12 +153,12 @@ class Anime:
         """
         Args:
         -----
-            - list_ (List[Dict[str,str]]) the list which should be converted
+            - list_ (`List[Dict[str,str]]`) the list which should be converted
                 - NOTE: The dict needs the keys: `"url"` and `"name"`
 
         Returns:
         --------
-            - (str) the markup string which ", " seperated list entries
+            - (`str`) the markup string which ", " seperated list entries
 
         Note:
         -----
@@ -171,14 +171,14 @@ class Anime:
         """
         Returns:
         --------
-            - (List[Dict[str, str]]) a list with all genres and explicit genres
+            - (`List[Dict[str, str]]`) a list with all genres and explicit genres
         """
         return [*self.genres, *self.explicit_genres]
 
     @property
     def is_finished(self) -> bool:
         """
-        ### wether or not the anime is finished
+        ### (`bool`) wether or not the anime is finished
         """
         return (
             (
@@ -192,6 +192,11 @@ class Anime:
 
     @property
     def airing_str(self) -> str:
+        """
+        Returns:
+        -------
+            - (`str`) The string from the airing time of the Anime
+        """
         if self.airing_start:
             start = f"{self.airing_start.year or '?'}/{f'{self.airing_start.month:02}' or '?'}"
         else:
@@ -207,7 +212,7 @@ class Anime:
         ### build an Anime with the jikan v3 json response
         Returns:
         --------
-            - (Anime) The coresponding Anime to the json
+            - (`~.Anime`) The coresponding Anime to the json
         """
         airing_start = None
         airing_stop = None
@@ -270,10 +275,11 @@ class Anime:
         """
         Returns:
         -------
-            - (Dict[str, str]) mapping from site + dub/dub and the link, where the anime COULD be
+            - (`Dict[str, str]`) mapping from site + dub/dub and the link, where the anime COULD be
         Note:
         -----
             - through cloudflare protection, checking if link is valid is not possbile
+            - The link could return 404
         """
         title = self.origin_title.lower()
         title = Multiple.repalce_(title, ".;,: ", "-")
@@ -289,21 +295,6 @@ class Anime:
             links[f"{k}-dub"] = f"{v}-dub"
         return links
 
-    async def fetch_links(self) -> Dict[str, str]:
-        start = time.time()
-        ok_links = {}
-        links = {}
-        links["animeheaven SUB"] = f"https://animeheaven.ru/detail/{self.origin_title.replace(' ', '-').lower()}"
-        async with aiohttp.ClientSession() as session:
-            for site, link in links.items():
-                resp = await session.get(link)
-                log.debug(f"{link};{resp.status}")
-                log.debug(f"{await resp.text('utf-8')}")
-                if resp.status == 200:
-                    ok_links[site] = link
-        log.debug(ok_links)
-        log.debug(time.time() - start)
-        return links
 
     @classmethod
     def from_db_record(cls, resp: Dict[str, str]) -> "Anime":
@@ -360,7 +351,7 @@ class Anime:
     @property
     def needs_update(self) -> bool:
         """
-        ### wether or not the anime needs an update
+        ### wether or not the anime needs an update (related to `cached_until`)
         """
         if self.is_finished:
             return False
