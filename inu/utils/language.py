@@ -110,13 +110,14 @@ class Human():
         word_s: the word or words with will be converted relating to <relation>
         relation: bool or int -> bool=True == plural; int > 1 = plural
         """
-        if isinstance(relation, float):
-            relation = True if relation >= 1 else False
         plural = False
-        if isinstance(relation, int) and relation > 1:
+        if isinstance(relation, float) and relation != 1:
+            plural = True
+        
+        if isinstance(relation, int) and relation > 1 or relation == 0:
             plural = True
         elif isinstance(relation, bool):
-            plural = relation
+            plural = relation 
 
         if not plural:
             if isinstance(word_s, list):
