@@ -190,11 +190,20 @@ class Table():
         return return_values
 
     @logging()
-    async def upsert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
+    async def upsert(
+        self, 
+        which_columns: List[str], 
+        values: List,
+        compound_of: int = 0,
+        returning: str = "*"
+    ) -> Optional[asyncpg.Record]:
         """
         NOTE
         ----
             - the first value of `which_columns` and `values` should be the id!
+            - if the id is a compound, then pass these first into `which_columns` and `values`
+              and set `compound_of` to the number, how many values count 
+              (until wich index + 1) to that compound
         """
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         update_set_query = ""
@@ -203,10 +212,13 @@ class Table():
                 continue
             update_set_query += f"{item[0]}={item[1]}, "
         update_set_query = update_set_query[:-2]  # remove last ","
+        on_conflict_values = which_columns[0]
+        if compound_of:
+            on_conflict_values = ", ".join(c for c in which_columns[:compound_of])
         sql = (
             f"INSERT INTO {self.name} ({', '.join(which_columns)}) \n"
             f"VALUES ({', '.join(values_chain)}) \n"
-            f"ON CONFLICT ({which_columns[0]}) DO UPDATE \n"
+            f"ON CONFLICT ({on_conflict_values}) DO UPDATE \n"
             f"SET {update_set_query}"
         )
         self._create_sql_log_message(sql, values)
@@ -308,10 +320,12 @@ class Table():
     async def update(self):
         pass
 
+    @logging()
     async def fetch(self, sql: str, *args) -> Optional[List[asyncpg.Record]]:
         """
         Execute custom SQL with return
         """
+        self._create_sql_log_message(sql, args)
         return await self.db.fetch(sql, *args)
 
     @staticmethod
