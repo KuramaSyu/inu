@@ -1,5 +1,6 @@
 
 from .colors import Colors
+from .string_calculator import NumericStringParser
 from .string_crumbler import crumble, StringCutter, WordIterator
 from .r_channel_manager import DailyContentChannels
 from .grid import Grid
