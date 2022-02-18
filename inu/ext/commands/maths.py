@@ -122,14 +122,41 @@ plugin = lightbulb.Plugin("mind_training", "Contains calcualtion commands")
 
 bot: Optional[Inu] = None
 stages = {
-    "1": CalculationBlueprint(
+    "Stage 1": CalculationBlueprint(
         max_number=9,
         operations=1,
         max_time=10,
         allowed_partial_endings=[],
         allowed_endings=[".0"],
-        name="1",
-    )
+        name="Stage 1",
+    ),
+    "Stage 2": CalculationBlueprint(
+        max_number=9,
+        operations=2,
+        max_time=20,
+        allowed_partial_endings=[],
+        allowed_endings=[".0"],
+        name="Stage 2",
+    ),
+    "Stage 3": CalculationBlueprint(
+        max_number=15,
+        operations=2,
+        max_time=25,
+        allowed_partial_endings=["0.5"],
+        allowed_endings=[".0"],
+        name="Stage 3",
+        max_result_number=500,
+    ),
+    "Stage Artur": CalculationBlueprint(
+        max_number=1,
+        operations=1,
+        max_time=99,
+        allowed_symbols=["+"],
+        allowed_partial_endings=[],
+        allowed_endings=[".0"],
+        name="Stage Artur",
+    ),
+
 }
 
 @plugin.command
