@@ -12,11 +12,17 @@ from lightbulb import ResponseProxy, commands
 from lightbulb.context import Context
 import hikari
 from hikari.impl import ActionRowBuilder
-from hikari import Embed, ResponseType
+from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
 from core.bot import Inu, getLogger
 from utils.language import Human
 
-from utils import NumericStringParser, Multiple, Colors, MathScoreManager
+from utils import (
+    NumericStringParser,
+    Multiple, 
+    Colors, 
+    MathScoreManager, 
+    Paginator
+)
 
 log = getLogger(__name__)
 
@@ -31,6 +37,7 @@ class CalculationBlueprint:
         allowed_symbols: List[str] = ["*", "/", "+", "-"],
         allowed_partial_endings: List[str] = [".1", ".2", "0.5"],
         name: str = "",
+        max_result_number: Optional[int] = None,
 
         
     ):
@@ -54,6 +61,7 @@ class CalculationBlueprint:
         self._min_number = min_number
         self._max_time = max_time
         self.name = name
+        self._max_result_number = max_result_number
 
         # when exeeding 2000 raise error
     @staticmethod
@@ -74,17 +82,17 @@ class CalculationBlueprint:
         op = self.get_rnd_symbol()
         num = self.get_rnd_number()
         for x in range(self._operations):
+            op = self.get_rnd_symbol()
+            num = self.get_rnd_number()
             if x != self._operations:
                 while not self.is_allowed(f"{calc_str}{op}{num}"):
                     op = self.get_rnd_symbol()
                     num = self.get_rnd_number()
                     creation_trys += 1
-                    if creation_trys > 2000:
+                    if creation_trys > 200:
                         raise RuntimeError(f"Creation not possible with string: {calc_str}{op}{num}")
                 calc_str = f"{calc_str}{op}{num}"
             else:
-                op = self.get_rnd_symbol()
-                num = self.get_rnd_number()
                 while not self.is_allowed(f"{calc_str}{op}{num}"):
                     op = self.get_rnd_symbol()
                     num = self.get_rnd_number()
@@ -103,6 +111,10 @@ class CalculationBlueprint:
         except Exception:
             log.error(f"Can't calculate: {calc}")
             log.error(traceback.format_exc())
+        if self._max_result_number:
+            too_big = float(result) >= self._max_result_number
+            if too_big:
+                return False
         if end:
             return Multiple.endswith_(result, self._allowed_endings)
         else:
@@ -110,11 +122,12 @@ class CalculationBlueprint:
 
     def __str__(self) -> str:
         text = ""
-        text += f"Operations: {', '.join(f'`{s}`' for s in self._allowed_symbols)}\n"
-        text += f"Amount of operations: {self._operations}\n"
-        text += f"Numbers from {self._min_number} to {self._max_number}\n"
-        text += f"Time: {self._max_time}s/Task\n"
-        text += f"Example: `{self.get_task()}`"
+        text += f"**{self._operations} Operations from** \n{', '.join(f'`{s}`' for s in self._allowed_symbols)}.\n"
+        text += f"Numbers from `{self._min_number}` to `{self._max_number}`\n"
+        text += f"and `{self._max_time}s/Task` time.\n"
+        if self._max_result_number:
+            text += f"The will be smaller than `{self._max_result_number}`\n"
+        text += f"Example: \n`{self.get_task()}`"
         return text
 
 
@@ -158,6 +171,7 @@ stages = {
     ),
 
 }
+running_games = {}
 
 @plugin.command
 @lightbulb.command("math", "Menu with all calculation tasks I have")
@@ -165,22 +179,33 @@ stages = {
 async def calculation_tasks(ctx: Context):
     embed = Embed(title="Calculation tasks")
     menu = ActionRowBuilder().add_select_menu("calculation_task_menu")
-    for i, c in stages.items():
-        embed.add_field(f"Stage {i}", str(c), inline=True)
-        menu.add_option(f"Stage {i}", f"{i}").add_to_menu()
+    for stage_name, c in stages.items():
+        embed.add_field(f"{stage_name}", str(c), inline=True)
+        menu.add_option(f"{stage_name}", f"{stage_name}").add_to_menu()
     menu = menu.add_to_container()
+    buttons = ActionRowBuilder().add_button(ButtonStyle.PRIMARY, "math_highscore_btn").set_label("highscores").add_to_container()
     if bot is None:
         raise RuntimeError
-    await ctx.respond(embed=embed, component=menu)
-    stage, _, cmp_interaction = await bot.wait_for_interaction("calculation_task_menu", ctx.user.id, ctx.channel_id)
+    await ctx.respond(embed=embed, components=[menu, buttons])
+    stage, _, cmp_interaction = await bot.wait_for_interaction(
+        custom_ids=["calculation_task_menu", "math_highscore_btn"], 
+        user_id=ctx.user.id, 
+        channel_id=ctx.channel_id,
+    )
+    log.debug(stage)
     await cmp_interaction.create_initial_response(
         ResponseType.MESSAGE_CREATE, 
-        f"Well then, let's go!\nAll people can answer the questions; it's not over when you calculate wrong"
+        f"Well then, let's go!\nIt's not over when you calculate wrong\nYou can always stop with `stop`"
     )
     if not stage:
         return
+    elif stage == "math_highscore_btn":
+        await show_highscores("guild" if ctx.guild_id else "user", ctx, cmp_interaction)
+        return
     else:
         c = stages[stage]
+        amount = running_games.get(ctx.guild_id or 0, 0)
+        running_games[ctx.guild_id or 0] = amount + 1 
         highscore = await execute_task(ctx, c)
     await MathScoreManager.maybe_set_record(
         ctx.guild_id or 0,
@@ -236,11 +261,21 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
             answer, event = await bot.wait_for_message(
                 timeout=expire_time.timestamp() - time(),
                 channel_id=ctx.channel_id,
-                user_id=ctx.user,
+                user_id=ctx.user.id,
             )
-            log.debug(f"{answer=}")
+
+            # stopped by timeout
             if not event:
                 continue
+
+            log.debug(f"{answer=}, {event.author.username=}")
+            # stopped by user
+            answer = answer.replace(",", ".")
+            if answer.strip().lower() == "stop":
+                resume_task_creation = False
+                break
+
+            # compare
             try:
                 answer = float(answer.strip())
                 if answer == current_task_result:
@@ -251,19 +286,20 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
                 # answer is not a number -> ignore
                 pass
 
-
-        if time_is_up():
+        for task in tasks:
+            task.cancel()
+        if time_is_up() or not resume_task_creation:
             resume_task_creation = False
         else:
-            for task in tasks:
-                task.cancel()
             tasks_done += 1
-    if tasks_done == 0 and c.name in ["1"]:
+    if tasks_done == 0 and c.name in ["Stage 1", "Stage 2"]:
         await ctx.respond(
             f"You really solved nothing? Stupid piece of shit and waste of my precious time"
         )
     else:
-        await ctx.respond(f"You solved {tasks_done} {Human.plural_('task', tasks_done)}")
+        await ctx.respond(
+            f"You solved {tasks_done} {Human.plural_('task', tasks_done)}. The last answer was {Human.number(c.get_result(current_task))}"
+        )
     return tasks_done
 
 async def show_highscores(from_: str, ctx: Context):
