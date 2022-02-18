@@ -144,8 +144,9 @@ class Inu(lightbulb.BotApp):
         user_id: Optional[int] = None, 
         channel_id: Optional[int] = None,
         message_id: Optional[int] = None,
-    ) -> Tuple[str, InteractionCreateEvent]:
+    ) -> Tuple[str, InteractionCreateEvent, ComponentInteraction]:
         try:
+            self.log.debug(self)
             event = await self.wait_for(
                 InteractionCreateEvent,
                 timeout=10*60,
@@ -158,13 +159,13 @@ class Inu(lightbulb.BotApp):
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
-                return None, None
+                return None, None, None
             if len(event.interaction.values) > 0:
-                return event.interaction.values[0], event
+                return event.interaction.values[0], event, event.interaction
             else:
-                return event.interaction.custom_id, event
+                return event.interaction.custom_id, event, event.interaction
         except asyncio.TimeoutError:
-            return None, None
+            return None, None, None
     
     async def wait_for_message(
         self,
@@ -187,7 +188,7 @@ class Inu(lightbulb.BotApp):
             timeout=timeout,
             channel_id=channel_id,
             user_id=user_id,
-            iteraction=interaction,
+            interaction=interaction,
             response_type=response_type,
             embed=None,
         )
@@ -212,15 +213,17 @@ class Inu(lightbulb.BotApp):
         """
         if interaction and (question or embed):
             msg = await interaction.create_initial_response(response_type, question)
-        else:
+        elif question or embed:
             await self.rest.create_message(channel_id, question)
+            msg = None
+        else:
             msg = None
         try:
             event = await self.wait_for(
                 hikari.MessageCreateEvent,
                 timeout=timeout,
                 predicate=lambda e:(
-                    True if not channel_id else e.channel_id == msg.channel_id
+                    True if not channel_id or not msg else e.channel_id == msg.channel_id
                     and (True if not user_id else e.interaction.user.id == user_id)
                     and (True if not interaction else interaction.channel_id == e.interaction.channel_id)
                 )
