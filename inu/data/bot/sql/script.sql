@@ -82,4 +82,11 @@ CREATE TABLE IF NOT EXISTS myanimelist (
     studios JSONB [],
     cached_until TIMESTAMP
 );
+CREATE TABLE IF NOT EXISTS math_scores (
+    guild_id BIGINT NOT NULL,
+    user_id BIGINT NOT NULL,
+    stage VARCHAR(50) NOT NULL,
+    highscore INTEGER NOT NULL,
+    PRIMARY KEY (guild_id, user_id, stage)
+);
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
