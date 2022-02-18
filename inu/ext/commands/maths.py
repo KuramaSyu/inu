@@ -302,8 +302,42 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
         )
     return tasks_done
 
-async def show_highscores(from_: str, ctx: Context):
-    show_highscores
+async def show_highscores(from_: str, ctx: Context, i: ComponentInteraction):
+    log.debug("show highscores")
+    stages = await MathScoreManager.fetch_highscores(
+        type_=from_,
+        guild_id=ctx.guild_id or 0,
+        user_id=ctx.user.id,
+    )
+    embeds: List[Embed] = []
+    for i, d in enumerate(stages.items()):
+        stage, highscore_dicts = d
+        log.debug(d)
+        if i % 24 == 0:
+            embeds.append(
+                Embed(title=f"Highscores", color=Colors.random_color())
+            )
+        if ctx.guild_id:
+            value = (
+                "\n".join(
+                    [
+                        f"{(await bot.mrest.fetch_member(ctx.guild_id, user_id)).display_name:<15}: {score:>}" 
+                        for d in highscore_dicts for user_id, score in d.items()
+                    ]
+                )
+            )
+        else:
+            value = (
+                "\n".join(
+                    [
+                        f"{(await bot.mrest.fetch_user(user_id)).display_name:<20} {score:>}" 
+                        for d in highscore_dicts for user_id, score in d.items()
+                    ]
+                )
+            )
+        embeds[-1].add_field(stage, f"```{value}```", inline=True)
+    pag = Paginator(page_s=embeds)
+    await pag.start(ctx)
 
 
 def load(inu: Inu):
