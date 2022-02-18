@@ -1,5 +1,6 @@
 
 from .colors import Colors
+from .db_maths import MathScoreManager
 from .string_calculator import NumericStringParser
 from .string_crumbler import crumble, StringCutter, WordIterator
 from .r_channel_manager import DailyContentChannels
