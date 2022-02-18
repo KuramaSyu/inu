@@ -166,17 +166,14 @@ class Inu(lightbulb.BotApp):
         except asyncio.TimeoutError:
             return None, None
     
-    async def ask(
+    async def wait_for_message(
         self,
-        question: str,
-        /, 
-        *,
         timeout: int = 60,
         channel_id: int = None,
         user_id: Optional[hikari.User] = None,
         interaction: Optional[ComponentInteraction] = None,
-        response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE
-    ) -> Optional[str]:
+        response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE,
+    ) -> Tuple[Optional[str], Optional[hikari.MessageCreateEvent]]:
         """
         Shortcut for wait_for MessageCreateEvent
 
@@ -185,7 +182,35 @@ class Inu(lightbulb.BotApp):
             - (str | None) the content of the answer or None
         
         """
-        if interaction:
+        return await self.ask(
+            question=None,
+            timeout=timeout,
+            channel_id=channel_id,
+            user_id=user_id,
+            iteraction=interaction,
+            response_type=response_type,
+            embed=None,
+        )
+    async def ask(
+        self,
+        question: str = None,
+        *,
+        timeout: int = 60,
+        channel_id: int = None,
+        user_id: Optional[hikari.User] = None,
+        interaction: Optional[ComponentInteraction] = None,
+        response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE,
+        embed: Optional[hikari.Embed] = None
+    ) -> Tuple[Optional[str], Optional[hikari.MessageCreateEvent]]:
+        """
+        Shortcut for wait_for MessageCreateEvent
+
+        Returns:
+        --------
+            - (str | None) the content of the answer or None
+        
+        """
+        if interaction and (question or embed):
             msg = await interaction.create_initial_response(response_type, question)
         else:
             await self.rest.create_message(channel_id, question)
@@ -200,9 +225,9 @@ class Inu(lightbulb.BotApp):
                     and (True if not interaction else interaction.channel_id == e.interaction.channel_id)
                 )
             )
-            return event.message.content
+            return event.message.content, event
         except asyncio.TimeoutError:
-            return None
+            return None, None
 
         
 
