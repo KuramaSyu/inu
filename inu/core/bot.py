@@ -62,7 +62,7 @@ class Inu(lightbulb.BotApp):
             logs=logs,
 
         )
-        
+        self.mrest = MaybeRest(self)
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
 
@@ -140,7 +140,8 @@ class Inu(lightbulb.BotApp):
 
     async def wait_for_interaction(
         self, 
-        custom_id: str, 
+        custom_id: str = "",
+        custom_ids: List[str] = [],
         user_id: Optional[int] = None, 
         channel_id: Optional[int] = None,
         message_id: Optional[int] = None,
@@ -152,10 +153,11 @@ class Inu(lightbulb.BotApp):
                 timeout=10*60,
                 predicate=lambda e:(
                     isinstance(e.interaction, ComponentInteraction)
-                    and custom_id == e.interaction.custom_id
+                    and (True if not custom_id else custom_id == e.interaction.custom_id)
                     and (True if not user_id else e.interaction.user.id == user_id)
                     and (True if not channel_id else e.interaction.channel_id == channel_id)
                     and (True if not message_id else e.interaction.message.id == message_id)
+                    and (True if not custom_ids else e.interaction.custom_id in custom_ids)
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
@@ -273,9 +275,9 @@ class MaybeRest:
             t_ids=[user_id],
         )
 
-    async def fetch_member(self, member_id) -> Optional[hikari.Member]:
+    async def fetch_member(self, guild_id: int, member_id: int) -> Optional[hikari.Member]:
         return await self.fetch_T(
             cache_method=self.bot.cache.get_member,
             rest_coro= self.bot.rest.fetch_member,
-            t_ids=[member_id],
+            t_ids=[guild_id, member_id],
         )
