@@ -1,3 +1,19 @@
+from pyparsing import (
+    Literal,
+    CaselessLiteral,
+    Word,
+    Combine,
+    Group,
+    Optional,
+    ZeroOrMore,
+    Forward,
+    nums,
+    alphas,
+    oneOf,
+)
+import math
+import operator
+
 class NumericStringParser(object):
     '''
     Most of this code comes from the fourFn.py pyparsing example
