@@ -7,4 +7,6 @@ class ScaleVoteInstance(Paginator):
         title: str,
         description: str = "",
     ) -> None:
-        pass
+        self.title = title
+        self.description = description
+        super().__init__()
