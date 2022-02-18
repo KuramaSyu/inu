@@ -15,7 +15,7 @@ from lightbulb.context import Context
 
 from core import Inu
 from utils.language import Human
-from .inu_help import OutsideHelp
+from .help import OutsideHelp
 
 from core import getLogger
 
