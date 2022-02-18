@@ -1,4 +1,6 @@
-from core import Table, Database
+from core import Table, Database, getLogger
+
+log = getLogger(__name__)
 
 
 class MathScoreManager:
@@ -34,7 +36,7 @@ class MathScoreManager:
         return False
 
     @classmethod
-    async def get_highscores(
+    async def fetch_highscores(
         cls,
         type_: str,
         guild_id: int,
@@ -70,6 +72,9 @@ class MathScoreManager:
         stages = {}
         for r in records:
             stage = r["stage"]
-            stages[stage] = stages.get(stage, []).append({r["user_id"]: r["highscore"]})
+            stage_list = stages.get(stage, [])
+            stage_list.append({r["user_id"]: r["highscore"]})
+            stages[stage] = stage_list
+        log.debug(stages)
         return stages
         
