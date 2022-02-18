@@ -175,7 +175,7 @@ class Human():
                 result_number += number[index]
                 count += 1
                 index -= 1
-                if count % 3 == 0:
+                if count % 3 == 0 and not number[index+1] in ["-", "+"]:
                     result_number += ","
                     count = 0
                 if index == -1:
@@ -184,7 +184,8 @@ class Human():
                 break
         if result_number[-1] == ",":
             result_number = result_number[:-1]
-        return result_number[::-1]
+        result_number = result_number[::-1]
+        return result_number[:-2] if result_number.endswith(".0") and not "," in result_number else result_number
 
     @staticmethod
     def short_text(text: Optional[str], max_lengh: int) -> str:
