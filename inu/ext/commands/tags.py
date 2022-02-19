@@ -49,7 +49,7 @@ async def get_tag_interactive(ctx: Context) -> Optional[asyncpg.Record]:
     -----
         - if there are multiple tags with same name, the user will be asked, which one to use
     """
-    raw_results: List[Mapping[str, Any]] = await TagManager.get(ctx.options.key, ctx.guild_id)
+    raw_results: List[Mapping[str, Any]] = await TagManager.get(ctx.options.key, ctx.guild_id or ctx.channel_id)
     results = []
     for result in raw_results:
         if ctx.author.id in result["author_ids"]:
@@ -99,7 +99,7 @@ async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
     -----
         - tags created in your guild will be prefered sent, in case there is a global tag too
     """
-    records = await TagManager.get(key, ctx.guild_id or 0)
+    records = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     record: Optional[Mapping[str, Any]] = None
     # if records are > 1 return the local overridden one
     if len(records) >= 1:
@@ -116,7 +116,7 @@ async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
 async def show_record(record: asyncpg.Record, ctx: Context) -> None:
     """Sends the given tag(record) into the channel of <ctx>"""
     if record is None:
-        await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id)
+        await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id or ctx.channel_id)
         # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
         return
     messages = []
@@ -218,10 +218,8 @@ async def add(ctx: Context):
             ctx.options.key, 
             ctx.options.value, 
             [ctx.member or ctx.author],
-            [ctx.guild_id or 0],
+            [ctx.guild_id or ctx.channel_id],
             [],
-
-
         )
     except TagIsTakenError:
         return await ctx.respond("Your tag is already taken")
@@ -333,7 +331,7 @@ async def overview(ctx: Context):
     }.get(result)
     if type_ is None:
         raise RuntimeError("Can't get Tags, when TagType is None")
-    records = await TagManager.get_tags(type_, guild_id=ctx.guild_id, author_id=ctx.author.id)
+    records = await TagManager.get_tags(type_, guild_id=ctx.guild_id or ctx.channel_id, author_id=ctx.author.id)
     if records is None:
         return
     embeds = records_to_embed(records)
