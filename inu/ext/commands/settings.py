@@ -1,4 +1,5 @@
 import asyncio
+from email.policy import default
 import traceback
 import typing
 from typing import (
@@ -20,17 +21,18 @@ import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
 
-from utils import DailyContentChannels
+from utils import DailyContentChannels, PrefixManager
 from core import Inu, Table
 from utils.r_channel_manager import Columns as Col
 
-from core import getLogger
+from core import getLogger, Inu
 
 log = getLogger(__name__)
 
 
 plugin = lightbulb.Plugin("Settings", "Commands, to change Inu's behavior to certain things")
-    
+bot: Inu
+
 @plugin.listener(hikari.ShardReadyEvent)
 async def on_ready(_: hikari.ShardReadyEvent):
     DailyContentChannels.set_db(plugin.bot.db)
@@ -122,19 +124,33 @@ async def remove_top_channel(ctx: Context):
 @lightbulb.command("prefix", "add/remove custom prefixes", aliases=["p"])
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def prefix(ctx: Context):
-    pass
+    ...
 
 @prefix.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.option("new_prefix", "The prefix you want to add", type=str, default="")
 @lightbulb.command("add", "Add a prefix")
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def add(ctx: Context):
-    pass
+    prefix = ctx.options.new_prefix
+    if prefix == "empty":
+        prefix = ""
+    prefixes = await PrefixManager.add_prefix(ctx.guild_id, prefix)
+    await ctx.respond(f"""I added it. For this guild, the prefixes are now: {', '.join([f'`{p or "<empty>"}`' for p in prefixes])}""")
 
 @prefix.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.option("prefix", "The prefix you want to add", type=str, default="")
 @lightbulb.command("remove", "Remove a prefix")
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def remove(ctx: Context):
-    pass
+    prefix = ctx.options.prefix
+    if prefix == "empty":
+        prefix = ""
+    elif prefix == bot._default_prefix:
+        return await ctx.respond(f"I wont do that xD")
+    prefixes = await PrefixManager.remove_prefix(ctx.guild_id, prefix)
+    await ctx.respond(f"""I removed it. For this guild, the prefixes are now: {', '.join([f'`{p or "<empty>"}`' for p in prefixes])}""")
 
 @settings.child
 @lightbulb.command("timezone", "Timezone related commands")
@@ -212,6 +228,8 @@ async def timez_set(ctx: Context):
         pass
 
 
-def load(bot: Inu):
-    bot.add_plugin(plugin)
+def load(inu: Inu):
+    inu.add_plugin(plugin)
+    global bot
+    bot = inu
         
