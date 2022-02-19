@@ -761,7 +761,8 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def stop(ctx: Context) -> None:
     """Stops the current song (skip to continue)."""
-
+    if not await music.bot.data.lavalink.get_guild_node(ctx.guild_id):
+        return
     await music.bot.data.lavalink.stop(ctx.guild_id)
     await ctx.respond("Stopped playing")
 
