@@ -26,6 +26,23 @@ def main():
     log.info("Create Inu")
     inu = Inu()
 
+    @inu.listen(lightbulb.LightbulbStartedEvent)
+    async def sync_prefixes(event: hikari.ShardReadyEvent):
+        await inu.db.execute_many(
+            "INSERT INTO guilds (guild_id, prefixes) VALUES ($1, $2) ON CONFLICT DO NOTHING",
+            [(guild, [inu._default_prefix]) for guild in inu.db.bot.cache.get_available_guilds_view()],
+        )
+        
+        # remove guilds where the bot is no longer in
+        stored = [guild_id for guild_id in await inu.db.column("SELECT guild_id FROM guilds")]
+        member_of = inu.db.bot.cache.get_available_guilds_view()
+        to_remove = [(guild_id,) for guild_id in set(stored) - set(member_of)]
+        await inu.db.execute_many("DELETE FROM guilds WHERE guild_id = $1;", to_remove)
+        records = await inu.db.fetch("SELECT * FROM guilds")
+        for record in records:
+            inu.db.bot._prefixes[record["guild_id"]] = record["prefixes"]
+        log.debug("Synced Prefixes")
+
     @inu.listen(hikari.StartingEvent)
     async def on_ready(event : hikari.StartingEvent):
         try:
@@ -33,6 +50,7 @@ def main():
             InvokationStats.init_db(inu)
             await Reminders.init_bot(inu)
             TagManager.init_db(inu)
+
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
