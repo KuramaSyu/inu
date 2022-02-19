@@ -239,7 +239,8 @@ stages = [
         display_name="Stage 6️⃣\n_--Multiply Many--_",
     ),
     CalculationBlueprint(
-        max_number=3,
+        max_number=1,
+        min_number=0,
         operations=1,
         max_time=99,
         allowed_symbols=["+"],
