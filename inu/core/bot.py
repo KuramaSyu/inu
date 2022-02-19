@@ -173,7 +173,7 @@ class Inu(lightbulb.BotApp):
         self,
         timeout: int = 60,
         channel_id: int = None,
-        user_id: Optional[hikari.User] = None,
+        user_id: Optional[Snowflakeish] = None,
         interaction: Optional[ComponentInteraction] = None,
         response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE,
     ) -> Tuple[Optional[str], Optional[hikari.MessageCreateEvent]]:
@@ -200,7 +200,7 @@ class Inu(lightbulb.BotApp):
         *,
         timeout: int = 60,
         channel_id: int = None,
-        user_id: Optional[hikari.User] = None,
+        user_id: Optional[Snowflakeish] = None,
         interaction: Optional[ComponentInteraction] = None,
         response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE,
         embed: Optional[hikari.Embed] = None
@@ -225,12 +225,12 @@ class Inu(lightbulb.BotApp):
                 hikari.MessageCreateEvent,
                 timeout=timeout,
                 predicate=lambda e:(
-                    True if not channel_id or not msg else e.channel_id == msg.channel_id
-                    and (True if not user_id else e.interaction.user.id == user_id)
+                    (True if not channel_id or not msg else e.channel_id == msg.channel_id)
+                    and (True if not user_id else e.author_id == user_id)
                     and (True if not interaction else interaction.channel_id == e.interaction.channel_id)
                 )
             )
-            return event.message.content, event
+            return event.message.content, event 
         except asyncio.TimeoutError:
             return None, None
 
