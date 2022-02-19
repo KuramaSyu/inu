@@ -47,6 +47,7 @@ CREATE TABLE IF NOT EXISTS tags (
     aliases TEXT []
 
 );
+-- supposed to work as cache, to prevent too many requests 429
 CREATE TABLE IF NOT EXISTS myanimelist (
     mal_id BIGINT NOT NULL PRIMARY KEY,
     title TEXT,
@@ -87,6 +88,7 @@ CREATE TABLE IF NOT EXISTS math_scores (
     user_id BIGINT NOT NULL,
     stage VARCHAR(50) NOT NULL,
     highscore INTEGER NOT NULL,
+    "date" TIMESTAMP NOT NULL,
     PRIMARY KEY (guild_id, user_id, stage)
 );
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
