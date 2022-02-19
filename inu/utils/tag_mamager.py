@@ -1,3 +1,4 @@
+from threading import local
 from typing import (
     Dict,
     Optional,
@@ -15,7 +16,7 @@ import asyncpg
 from asyncache import cached
 from cachetools import TTLCache, LRUCache
 import hikari
-from hikari import User, Member
+from hikari import Snowflake, User, Member
 from numpy import column_stack
 
 
@@ -242,7 +243,21 @@ class TagManager():
         return False
 
     @classmethod
-    async def is_taken(cls, key, guild_id: Optional[int]) -> Tuple[bool, bool]:
+    async def is_taken(cls, key, guild_ids: Union[List[int], int]):
+        if isinstance(guild_ids, int):
+            guild_ids = [guild_ids]
+        local_taken = False
+        global_taken = False
+        for guild_id in guild_ids:
+            local_taken_, global_taken_ = await cls.is_taken(key, guild_id)
+            if local_taken_:
+                local_taken = True
+            if global_taken_:
+                global_taken = True
+        return local_taken, global_taken
+
+    @classmethod
+    async def single_is_taken(cls, key, guild_id: Optional[int]) -> Tuple[bool, bool]:
         """
         Args:
             key: the key to search
