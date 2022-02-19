@@ -90,19 +90,7 @@ class Database(metaclass=Singleton):
 
     async def sync(self) -> None:
         await self.execute_script(os.path.join(os.getcwd(), "inu/data/bot/sql/script.sql"), self.bot.conf.bot.DEFAULT_PREFIX)
-        await self.execute_many(
-            "INSERT INTO guilds (guild_id, prefixes) VALUES ($1, $2) ON CONFLICT DO NOTHING",
-            [(guild, ["inu."]) for guild in self.bot.cache.get_available_guilds_view()],
-        )
-        log.debug(list(self.bot.cache.get_available_guilds_view()))
-        # remove guilds where the bot is no longer in
-        stored = [guild_id for guild_id in await self.column("SELECT guild_id FROM guilds")]
-        member_of = self.bot.cache.get_available_guilds_view()
-        to_remove = [(guild_id,) for guild_id in set(stored) - set(member_of)]
-        await self.execute_many("DELETE FROM guilds WHERE guild_id = $1;", to_remove)
-        records = await self.fetch("SELECT * FROM guilds")
-        for record in records:
-            self.bot._prefixes[record["guild_id"]] = record["prefixes"]
+
 
         self.log.info("Synchronised database.")
 
