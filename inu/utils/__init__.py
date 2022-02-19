@@ -1,5 +1,6 @@
 
 from .colors import Colors
+from .db_prefixes import PrefixManager
 from .db_maths import MathScoreManager
 from .string_calculator import NumericStringParser
 from .string_crumbler import crumble, StringCutter, WordIterator
