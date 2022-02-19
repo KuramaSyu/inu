@@ -75,8 +75,16 @@ class Inu(lightbulb.BotApp):
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
 
-    def prefixes_from(self, guild_id: int) -> List[str]:
-        return self._prefixes.get(guild_id, [self._default_prefix])
+    def prefixes_from(self, guild_id: Optional[int]) -> List[str]:
+        if not guild_id:
+            return [self._default_prefix, ""]
+        prefixes = self._prefixes.get(guild_id, None)
+        if not prefixes:
+            # insert guild into table
+            from core.db import Table
+            table = Table("guilds")
+            asyncio.create_task(table.insert(["guild_id", "prefixes"], [guild_id, self._default_prefix]))
+        return prefixes or [self._default_prefix]
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
