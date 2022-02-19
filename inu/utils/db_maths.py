@@ -1,3 +1,4 @@
+from datetime import datetime
 from core import Table, Database, getLogger
 
 log = getLogger(__name__)
@@ -28,8 +29,8 @@ class MathScoreManager:
             old_highscore = 0
         if old_highscore < highscore:
             await table.upsert(
-                ["guild_id", "user_id", "stage", "highscore"],
-                values=[guild_id, user_id, stage, highscore],
+                ["guild_id", "user_id", "stage", "highscore", "date"],
+                values=[guild_id, user_id, stage, highscore, datetime.now()],
                 compound_of=3
             )
             return True
@@ -75,6 +76,5 @@ class MathScoreManager:
             stage_list = stages.get(stage, [])
             stage_list.append({r["user_id"]: r["highscore"]})
             stages[stage] = stage_list
-        log.debug(stages)
         return stages
         
