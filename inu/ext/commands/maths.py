@@ -392,9 +392,9 @@ async def show_highscores(from_: str, ctx: Context, i: ComponentInteraction):
     )
     embeds: List[Embed] = []
     medals = {
-        "1": "🥇",
-        "2": "🥈",
-        "3": "🥉",
+        0: "🥇",
+        1: "🥈",
+        2: "🥉",
     }
     for i, d in enumerate(stages.items()):
         stage, highscore_dicts = d
@@ -407,8 +407,8 @@ async def show_highscores(from_: str, ctx: Context, i: ComponentInteraction):
             value = (
                 "\n".join(
                     [
-                        f"{medals.get(str(i+1), '')}{(await bot.mrest.fetch_member(ctx.guild_id, d_items[0])).display_name:<25} {d_items[1]:>}" 
-                        for d in highscore_dicts for i, d_items in enumerate(d.items()) if i < 5
+                        f"{medals.get(i, '')}{(await bot.mrest.fetch_member(ctx.guild_id, u_id)).display_name:<25} {score:>}" 
+                        for i,  d in enumerate(highscore_dicts) for u_id, score in d.items() if i < 5
                     ]
                 )
             )
@@ -416,8 +416,8 @@ async def show_highscores(from_: str, ctx: Context, i: ComponentInteraction):
             value = (
                 "\n".join(
                     [
-                        f"{medals.get(str(i+1), '')}{(await bot.mrest.fetch_user(d_items[0])).display_name:<25} {d_items[1]:>}" 
-                        for d in highscore_dicts for i, d_items in enumerate(d.items()) if i < 5
+                        f"{medals.get(i, '')}{(await bot.mrest.fetch_user(u_id)).display_name:<25} {score:>}" 
+                        for i,  d in enumerate(highscore_dicts) for u_id, score in d.items() if i < 5
                     ]
                 )
             )
