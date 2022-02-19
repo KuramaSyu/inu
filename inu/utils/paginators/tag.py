@@ -36,7 +36,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 class Tag():
-    def __init__(self, owner: hikari.User):
+    def __init__(self, owner: hikari.User, channel_id: Optional[hikari.Snowflakeish] = None):
         """
         Members:
         --------
@@ -65,8 +65,12 @@ class Tag():
             self.guild_ids.append(owner.guild_id)
             self._is_local = True
         else:
-            self.guild_ids.append(0)
-            self._is_local = False
+            if channel_id:
+                self.guild_ids.append(channel_id)
+                self._is_local = True
+            else:
+                self.guild_ids.append(0)
+                self._is_local = False
 
     @property
     def name(self):
@@ -172,8 +176,7 @@ class Tag():
             - record: (Mapping[str, Any]) the tag which should be loaded
             - author: (Member, User) the user which stored the tag
         """
-        guild_id = author.guild_id if isinstance(author, hikari.Member) else 0
-        local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_id = guild_id or 0)
+        local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_ids=record["guild_ids"])
         new_tag: cls = cls(author)
         new_tag.name = record["tag_key"]
         new_tag.value = record["tag_value"]
@@ -250,12 +253,11 @@ class Tag():
         """
         self.is_global_available = True
         self.is_local_available = True
-        for guild_id in self.guild_ids:
-            local_taken, global_taken = await TagManager.is_taken(self.name, guild_id or 0)
-            if local_taken:
-                self.is_local_available = False
-            if global_taken:
-                self.is_global_available = False
+        local_taken, global_taken = await TagManager.is_taken(self.name, self.guild_ids)
+        if local_taken:
+            self.is_local_available = False
+        if global_taken:
+            self.is_global_available = False
 
     async def delete(self):
         """Deletes this tag from the database if it is already stored"""
