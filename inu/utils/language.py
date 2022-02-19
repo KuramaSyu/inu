@@ -104,12 +104,18 @@ class Human():
     def plural_(
         word_s: T_str_list,
         relation: Union[int, bool, float],
+        with_number: bool = False,
     ) -> T_str_list:
         """ 
-        returns a words plural.
+        returns
+            - (str) a word/s plural.
         word_s: the word or words with will be converted relating to <relation>
-        relation: bool or int -> bool=True == plural; int > 1 = plural
+        relation: bool or int -> bool=True == plural; int > 1 = plural,
+        with_number (bool) wether or not to put relation before the word when it is int or float
         """
+        if with_number:
+            if not isinstance(relation, (int, float)):
+                with_number = False
         plural = False
         if isinstance(relation, float) and relation != 1:
             plural = True
@@ -121,9 +127,15 @@ class Human():
 
         if not plural:
             if isinstance(word_s, list):
-                return word_s
+                if with_number:
+                    return [f"{relation} {w}" for w in word_s]
+                else:
+                    return word_s
             else:
-                return word_s
+                if with_number:
+                    return f"{relation} {word_s}"
+                else:
+                    return word_s
         
         def mk_plural(word_s: list) -> List[str]:
             pl_word_s = []
@@ -153,12 +165,20 @@ class Human():
             return pl_word_s
 
         if isinstance(word_s, list):
-            return mk_plural(word_s)
+            words = mk_plural(word_s)
+            if with_number:
+                return [f"{relation} {w}" for w in word_s]
+            else:
+                return words
         else:
-            return mk_plural([word_s])[0]
+            entry = mk_plural([word_s])[0]
+            if with_number:
+                return f"{relation} {entry}"
+            else:
+                return entry
 
     @staticmethod
-    def number(number: Union[int, str, float]) -> str:
+    def number(number: Union[int, str, float], with_inteligent_zero: bool = True) -> str:
         """
         Adds commas to <number> every 3 places starting at point or on right side of number
         """
@@ -185,7 +205,10 @@ class Human():
         if result_number[-1] == ",":
             result_number = result_number[:-1]
         result_number = result_number[::-1]
-        return result_number[:-2] if result_number.endswith(".0") and not "," in result_number else result_number
+        if with_inteligent_zero:
+            return result_number[:-2] if result_number.endswith(".0") and not "," in result_number else result_number
+        else:
+            return result_number
 
     @staticmethod
     def short_text(text: Optional[str], max_lengh: int) -> str:
