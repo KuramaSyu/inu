@@ -1,5 +1,6 @@
 import asyncio
 import datetime
+from email.message import Message
 from optparse import Option
 import os
 import traceback
@@ -12,7 +13,7 @@ from hikari.interactions.component_interactions import ComponentInteraction
 
 
 import lightbulb
-from lightbulb import context, commands
+from lightbulb import context, commands, when_mentioned_or
 import hikari
 from hikari.snowflakes import Snowflakeish
 from dotenv import dotenv_values
@@ -20,6 +21,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from colorama import Fore, Style
 from lightbulb.context.base import Context
 from matplotlib.colors import cnames
+
 
 from ._logging import LoggingHandler, getLogger, getLevel
 from . import ConfigProxy
@@ -39,6 +41,9 @@ class Inu(lightbulb.BotApp):
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
+        self._prefixes = {}
+        self._default_prefix = self.conf.bot.DEFAULT_PREFIX
+
         
         logger_names = [
             "hikari", "hikari.event_manager", "ligthbulb.app", "lightbulb",
@@ -52,9 +57,13 @@ class Inu(lightbulb.BotApp):
         }
         for log_name in ["hikari.rest", "hikari.ratelimits", "hikari.models"]:
             pass
+
+        def get_prefix(bot: Inu, message: hikari.Message):
+            return bot.prefixes_from(message.guild_id)
+
         super().__init__(
             *args, 
-            prefix=[self.conf.bot.DEFAULT_PREFIX, ""], 
+            prefix=when_mentioned_or(get_prefix), 
             token=self.conf.bot.DISCORD_TOKEN, 
             **kwargs,
             case_insensitive_prefix_commands=True,
@@ -65,6 +74,9 @@ class Inu(lightbulb.BotApp):
         self.mrest = MaybeRest(self)
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
+
+    def prefixes_from(self, guild_id: int) -> List[str]:
+        return self._prefixes.get(guild_id, [self._default_prefix])
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
