@@ -243,13 +243,13 @@ class TagManager():
         return False
 
     @classmethod
-    async def is_taken(cls, key, guild_ids: Union[List[int], int]):
+    async def is_taken(cls, key, guild_ids: Union[List[int], int]) -> Tuple[bool, bool]:
         if isinstance(guild_ids, int):
             guild_ids = [guild_ids]
         local_taken = False
         global_taken = False
         for guild_id in guild_ids:
-            local_taken_, global_taken_ = await cls.is_taken(key, guild_id)
+            local_taken_, global_taken_ = await cls.single_is_taken(key, guild_id)
             if local_taken_:
                 local_taken = True
             if global_taken_:
