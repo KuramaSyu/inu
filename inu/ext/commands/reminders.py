@@ -26,7 +26,7 @@ from numpy import isin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from inu.utils.db.reminders import REMINDER_UPDATE, Reminders
+from utils.db.reminders import REMINDER_UPDATE, Reminders
 from utils import HikariReminder, Human, Paginator, crumble
 from core import Table
 

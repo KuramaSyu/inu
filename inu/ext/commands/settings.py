@@ -23,7 +23,7 @@ from lightbulb import commands
 
 from utils import DailyContentChannels, PrefixManager
 from core import Inu, Table
-from inu.utils.db.r_channel_manager import Columns as Col
+from utils.db.r_channel_manager import Columns as Col
 
 from core import getLogger, Inu
 
