@@ -217,7 +217,7 @@ stages = [
         display_name="Stage 4️⃣\n_--Big Numbers--_",
     ),
     CalculationBlueprint(
-        max_number=30,
+        max_number=40,
         min_number=5,
         operations=1,
         max_time=50,
@@ -252,6 +252,7 @@ stages = [
 
 ]
 
+active_sessions: Set[hikari.Snowflakeish] = set()
 @plugin.command
 @lightbulb.command("math", "Menu with all calculation tasks I have")
 @lightbulb.implements(commands.PrefixCommand)
@@ -279,18 +280,30 @@ async def calculation_tasks(ctx: Context):
         await show_highscores("guild" if ctx.guild_id else "user", ctx, cmp_interaction)
         return
     else:
+        # prevent user from running multiple sessions
+        if ctx.user.id in active_sessions:
+            return await ctx.respond(f"You already play a game. End it with `stop! or wait`")
+        else:
+            active_sessions.add(ctx.user.id)
+
         await cmp_interaction.create_initial_response(
             ResponseType.MESSAGE_CREATE, 
             f"Well then, let's go!\nIt's not over when you calculate wrong\nYou can always stop with `stop!`"
         )
         c = get_calculation_blueprint(stage)
         highscore = await execute_task(ctx, c)
-    await MathScoreManager.maybe_set_record(
-        ctx.guild_id or 0,
-        ctx.user.id,
-        c.name,
-        highscore,
-    )
+        # insert highscore
+        await MathScoreManager.maybe_set_record(
+            ctx.guild_id or 0,
+            ctx.user.id,
+            c.name,
+            highscore,
+        )
+        # session is over - delete it
+        try:
+            active_sessions.remove(ctx.user.id)
+        except ValueError:
+            log.error(traceback.format_exc())
     
 
 async def _change_embed_color(msg: ResponseProxy, embed: Embed, in_seconds: int):
