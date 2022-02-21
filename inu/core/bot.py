@@ -247,7 +247,7 @@ class Inu(lightbulb.BotApp):
                 predicate=lambda e:(
                     (True if not channel_id or not msg else e.channel_id == msg.channel_id)
                     and (True if not user_id else e.author_id == user_id)
-                    and (True if not interaction else interaction.channel_id == e.interaction.channel_id)
+                    and (True if not interaction else interaction.channel_id == e.channel_id)
                 )
             )
             return event.message.content, event 
