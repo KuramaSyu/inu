@@ -62,29 +62,6 @@ async def ping(ctx: context.Context):
     )
     await msg.edit(embed=embed)
 
-@basics.command
-@lightbulb.option("to_echo", "the text I should echo", modifier=commands.OptionModifier.CONSUME_REST)
-@lightbulb.command("echo", "echo your input")
-@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
-async def echo(ctx: context.Context):
-    await ctx.respond(ctx.options.to_echo)
-
-@echo.child
-@lightbulb.option("to_echo", "the text I should echo", modifier=commands.OptionModifier.CONSUME_REST)
-@lightbulb.option("multiplier", "How often should I repeat?", type=int)
-@lightbulb.command("multiple", "echo your input multiple times")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def multiple(ctx):
-    await ctx.respond(str(ctx.options.multiplier * ctx.options.to_echo))
-
-@basics.command
-@lightbulb.command("test", "/")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def test(ctx):
-    embed = hikari.Embed()
-    embed.title = "test"
-    embed.add_field("```test```", "test")
-    await ctx.respond(embed=embed)
     
 @basics.command
 @lightbulb.add_cooldown(60*60, 4, lightbulb.UserBucket)
@@ -135,12 +112,6 @@ async def invite(ctx: context.Context):
             ).set_label("my invite link").add_to_container()
         )
     )
-
-@basics.command
-@lightbulb.command("test", "test")
-@lightbulb.implements(commands.UserCommand)
-async def test_(ctx: context.Context):
-    await ctx.respond("test")
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(basics)
