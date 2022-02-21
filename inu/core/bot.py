@@ -228,11 +228,23 @@ class Inu(lightbulb.BotApp):
         """
         Shortcut for wait_for MessageCreateEvent
 
+        Args:
+        ----
+            - question (`str` | `None`) A string, which the bot should send, before waiting
+            - timeout (`int` | `None`) The amount of time in seconds, the bot should wait for an answer
+            - user_id (`int` | `None`) The user_id which the message, which the bot will wait for, should have
+            - channel_id (`int`, `None`) The channel_id which the message, which the bot will wait for, should have
+            - interaction (`int` | `None`) Will be used, for inital response of <`ask`> and for the channel_id
+            - response_type (`hikari.ResponseType`) The response type, which will be used to ask <`ask`>
+            - embed (`hiarki.Embed` | `None`) alternative to <`ask`> but which an embed, not string
+
         Returns:
         --------
             - (str | None) the content of the answer or None
         
         """
+        if interaction and not channel_id:
+            channel_id = interaction.channel_id
         if interaction and (question or embed):
             msg = await interaction.create_initial_response(response_type, question)
         elif question or embed:
@@ -247,7 +259,7 @@ class Inu(lightbulb.BotApp):
                 predicate=lambda e:(
                     (True if not channel_id or not msg else e.channel_id == msg.channel_id)
                     and (True if not user_id else e.author_id == user_id)
-                    and (True if not interaction else interaction.channel_id == e.channel_id)
+                    and (True if not channel_id else channel_id == e.channel_id)
                 )
             )
             return event.message.content, event 
