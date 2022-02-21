@@ -13,9 +13,7 @@ import lightbulb
 from numpy import longdouble, sort
 from pyparsing import CloseMatch
 
-from .common import PaginatorReadyEvent
-from .common import Paginator
-from .common import listener
+from .base import PaginatorReadyEvent, Paginator, listener
 from jikanpy import AioJikan
 from lightbulb.context import Context
 from fuzzywuzzy import fuzz

@@ -1,12 +1,13 @@
-from argparse import Action
+
 import asyncio
 from datetime import datetime, timedelta
 from email.message import Message
 import random
 from time import time
 import traceback
-from typing import *
 from typing_extensions import Self
+from typing import *
+
 
 import lightbulb
 from lightbulb import ResponseProxy, commands

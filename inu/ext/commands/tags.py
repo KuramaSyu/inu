@@ -30,11 +30,11 @@ from numpy import where
 
 
 from core import Inu, Table
-from utils.tag_mamager import TagIsTakenError, TagManager, TagType
+from utils import TagIsTakenError, TagManager, TagType
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator
-from utils.paginators.common import navigation_row
+from utils.paginators.base import navigation_row
 from utils.paginators.tag import TagHandler, Tag
 
 from core import getLogger

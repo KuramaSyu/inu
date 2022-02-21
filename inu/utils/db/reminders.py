@@ -19,7 +19,7 @@ import mock
 
 from core.bot import Inu
 from core import Database, Table
-from .string_crumbler import PeekIterator, NumberWordIterator
+from ..string_crumbler import PeekIterator, NumberWordIterator
 
 from core import getLogger
 

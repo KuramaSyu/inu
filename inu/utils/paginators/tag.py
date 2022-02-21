@@ -17,10 +17,11 @@ from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, 
 from hikari.messages import ButtonStyle
 from hikari.impl import ActionRowBuilder
 import lightbulb
+from lightbulb import MemberConverter, GuildConverter, UserConverter
 from lightbulb.context import Context
 
-from utils.tag_mamager import TagIsTakenError
-from .common import (
+from utils import TagIsTakenError
+from .base import (
     Paginator,
     EventListener,
     EventObserver,
@@ -28,8 +29,7 @@ from .common import (
 )
 import asyncpg
 
-from utils import crumble
-from utils.tag_mamager import TagManager
+from utils import crumble, TagManager
 from utils.language import Human
 
 log = logging.getLogger(__name__)
@@ -406,12 +406,16 @@ class TagHandler(Paginator):
         -----
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
-        user_id = await self.bot.ask(
-            "What is the ID of the person you want to add?",
+        user_str = await self.bot.ask(
+            "What is the person you want to add?\nI accept something like @user, user#0000 or the ID of the user",
             interaction=interaction,
         )
         try:
-            op(self.tag.owners, int(user_id))
+            user = await UserConverter(self.ctx).convert(user_str)
+        except TypeError:
+            return await self.ctx.respond(f"No person like `{user_str}` found.")
+        try:
+            op(self.tag.owners, user.id)
         except ValueError:
             await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
             return

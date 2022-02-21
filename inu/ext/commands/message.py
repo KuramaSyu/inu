@@ -19,21 +19,7 @@ import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
 import re
-from pyparsing import (
-    Literal,
-    CaselessLiteral,
-    Word,
-    Combine,
-    Group,
-    Optional,
-    ZeroOrMore,
-    Forward,
-    nums,
-    alphas,
-    oneOf,
-)
-import math
-import operator
+
 
 from core import getLogger
 from utils import Human, NumericStringParser

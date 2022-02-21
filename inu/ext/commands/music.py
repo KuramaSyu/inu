@@ -39,7 +39,7 @@ from core import Inu, getLevel
 from utils import Paginator, Colors
 from utils import method_logger as logger
 from core.db import Database
-from utils.paginators.specific_paginators import MusicHistoryPaginator
+from inu.utils.paginators.music_history import MusicHistoryPaginator
 
 from core import getLogger
 log = getLogger(__name__)

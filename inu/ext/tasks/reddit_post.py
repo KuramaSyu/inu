@@ -19,7 +19,7 @@ from utils import Reddit
 from core.db import Database
 from core import Inu
 from utils import DailyContentChannels
-from utils.r_channel_manager import Columns as Col
+from utils import Columns as Col
 
 
 from core import getLogger

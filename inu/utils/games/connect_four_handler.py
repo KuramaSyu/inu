@@ -13,7 +13,7 @@ from hikari.impl import ActionRowBuilder
 import lightbulb
 from lightbulb.context import Context
 
-from utils.paginators.common import PaginatorReadyEvent, listener, Paginator
+from inu.utils.paginators.base import PaginatorReadyEvent, listener, Paginator
 from utils import Colors, Grid
 
 log = logging.getLogger(__name__)

@@ -19,7 +19,7 @@ from utils import crumble
 from utils import Paginator
 from utils.tree import tree as tree_
 from core import Inu
-from utils.reminders import BaseReminder, HikariReminder, Reminders
+from utils import BaseReminder, HikariReminder, Reminders
 from utils.string_crumbler import NumberWordIterator as NWI
 
 from core import getLogger

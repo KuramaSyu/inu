@@ -14,7 +14,7 @@ from lightbulb.commands.base import OptionModifier as OM
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from utils.reminders import REMINDER_UPDATE, Reminders
+from utils import REMINDER_UPDATE, Reminders
 
 
 plugin = lightbulb.Plugin("reminder loader", "loads reminders from database")

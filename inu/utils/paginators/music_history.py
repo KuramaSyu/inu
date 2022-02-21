@@ -8,9 +8,9 @@ from hikari.impl import ActionRowBuilder
 import lightbulb
 from lightbulb import context
 
-from .common import PaginatorReadyEvent
-from .common import Paginator
-from .common import listener
+from .base import PaginatorReadyEvent
+from .base import Paginator
+from .base import listener
 
 from utils import Colors
 

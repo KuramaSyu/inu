@@ -11,9 +11,7 @@ import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import ActionRowBuilder
 import lightbulb
-from .common import PaginatorReadyEvent
-from .common import Paginator
-from .common import listener
+from .base import PaginatorReadyEvent, Paginator, listener
 from jikanpy import AioJikan
 from lightbulb.context import Context
 
