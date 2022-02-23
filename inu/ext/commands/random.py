@@ -4,7 +4,7 @@ from fractions import Fraction
 import os
 import traceback
 import typing
-from typing import Union
+from typing import *
 import logging
 
 import hikari
@@ -40,197 +40,61 @@ async def rnd(ctx: Context):
 async def list_(ctx: Context):
     # I know - this command is fucking redundant. But understand me, that I really don't want
     # to rewrite that
-    fact_list = ctx.options.list.split(",")
+    fact_list: List[str] = ctx.options.list.split(",")
+    if fact_list[-1] in ["", " "]:
+        fact_list.pop(-1)
+    fact_list = [fact.strip() for fact in fact_list]
     random.shuffle(fact_list)
     random.shuffle(fact_list)
-    shortestFact = int(2000)
-    longestFact = int(0)
-    interrupt = int(0)
 
-    for element in fact_list:
-        length = int(len(element))
-        if length > longestFact:
-            longestFact = int(length)
+    longest_fact = max([len(fact) for fact in fact_list])
+    shortest_fact = min([len(fact) for fact in fact_list])
+    fact_list = [f"{fact:^{longest_fact}}" for fact in fact_list]
 
-    for element in fact_list:
-        length1 = int(len(element))
-        if int(length1) < int(shortestFact):
-            shortestFact = int(length1)
+    # def len_compensation(fact_list=fact_list, longest_fact: int = longest_fact):
+    #     for fact_i, fact in enumerate(fact_list):
+    #         if int(len(fact)) < int(longest_fact):
+    #             fact_list[fact_i] = f'{fact_list[fact_i]:^{longest_fact}}'
+    #     return fact_list
 
-    def len_compensation(fact_list=fact_list, longestFact=longestFact, shortestFact=shortestFact):
-        i = 0
-        for fact in fact_list:
-            if int(len(fact)) < int(longestFact):
-                #print(f'{int(len(fact)) % 4), = modulo zu {fact_list[i]}')
-                if int(len(fact)) % 6 == 0:
-                    fact_list[i] = f'-{fact_list[i]}'##############
-
-                elif int(len(fact)) % 6 == 1:
-                    fact_list[i] = f'{fact_list[i]}-'
-                elif int(len(fact)) % 6 == 2:
-                    fact_list[i] = f'-{fact_list[i]}'
-                elif int(len(fact)) % 6 == 3:
-                    fact_list[i] = f'{fact_list[i]}-'
-                elif int(len(fact)) % 6 == 4:
-                    fact_list[i] = f'~{fact_list[i]}'
-                elif int(len(fact)) % 6 == 5:
-                    fact_list[i] = f'{fact_list[i]}~'
-            i += 1
-        return fact_list
-
-    while True:
-        shortestFact = int(2000)
-        for element in fact_list:
-            length1 = int(len(element))
-            if length1 <= int(shortestFact):
-                shortestFact = int(length1)
-        if shortestFact == longestFact:
-            break
-        
-        fact_list = len_compensation()
-        interrupt += 1
-        if interrupt == 500:
-            break
+    # fact_list = len_compensation(fact_list=fact_list, longest_fact=longest_fact)
+ 
     #how many columns
-    x = float(2)
+    columns: int
     gr1 = float(1.5)
     gr2 = float(2.8)
     gr3 = float(3.7)
     gr4 = float(4.7)
     gr5 = float(5.7)
-    if 60 / float(longestFact) <= gr1:
-        i = 0
-        count = 1
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
-        for var in range(0,int(len(fact_list ) + count),count):
-            try:
-                fact1 = f'||{fact_list[int(i)]}||'
-            except:
-                fact1 = ""
-            if fact1 == "":
-                break
-            try:
-                await ctx.respond(f'| {fact1:<20}')
-            except:
-                break
-            i += count
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
-    elif 60 / float(longestFact) <= gr2:
-        i = 0
-        count = 2
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
+    log.debug(60 / longest_fact)
+    if 60 / float(longest_fact) <= gr1:
+        columns = 1
+    elif 60 / float(longest_fact) <= gr2:
+        columns = 2
+    elif 60 / float(longest_fact) <= gr3:
+        columns = 3
+    elif 60 / float(longest_fact) <= gr4: 
+        columns = 4
+    else:  #  60 / longest_fact > gr4
+        columns = 5
+    
+    fact_list_parted = [[]]
+    for fact in fact_list:
+        if len(fact_list_parted[-1]) >= columns:
+            fact_list_parted.append([])
+        fact_list_parted[-1].append(fact)
+    
+    facts_as_str = f"Options: {len(fact_list)}\n"
+    for facts in fact_list_parted:
+        for fact in facts:
+            facts_as_str += f"||`{fact}`|| "
+        facts_as_str += "\n"
+    
+    await ctx.respond(facts_as_str)
+    
+    
 
-        for var in range(0,int(len(fact_list ) + count),count):
-            try:
-                fact1 = f'||{fact_list[int(i)]}||'
-            except:
-                fact1 = ""
-            try:
-                fact2 = f'||{fact_list[int(i+1)]}||'
-            except:
-                fact2 = ""
-            if fact1 == "":
-                break
-            try:
-                await ctx.respond(f'| {fact1:<20}          {fact2:<20}')
-            except:
-                break
-            i += count
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
-    elif 60 / float(longestFact) <= gr3:
-        i = 0
-        count = 3
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
 
-        for var in range(0,int(len(fact_list ) + count),count):
-            try:
-                fact1 = f'||{fact_list[int(i)]}||'
-            except:
-                fact1 = ""
-            try:
-                fact2 = f'||{fact_list[int(i+1)]}||'
-            except:
-                fact2 = ""
-            try:
-                fact3 = f'||{fact_list[int(i+2)]}||'
-            except:
-                fact3 = ""
-            #try:
-                #fact4 = f'||{fact_list[int(i+3)]}||'
-            #except:
-                #fact4 = ""
-            if fact1 == "":
-                break
-            try:
-                await ctx.respond(f'| {fact1:<20}          {fact2:<20}          {fact3:<20}')
-            except:
-                break
-            i += count
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
-    elif 60 / float(longestFact) <= gr4: 
-        i = 0
-        count = 4
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
-
-        for var in range(0,int(len(fact_list ) + count),count):
-            try:
-                fact1 = f'||{fact_list[int(i)]}||'
-            except:
-                fact1 = ""
-            try:
-                fact2 = f'||{fact_list[int(i+1)]}||'
-            except:
-                fact2 = ""
-            try:
-                fact3 = f'||{fact_list[int(i+2)]}||'
-            except:
-                fact3 = ""
-            try:
-                fact4 = f'||{fact_list[int(i+3)]}||'
-            except:
-                fact4 = ""
-            if fact1 == "":
-                break
-            try:
-                await ctx.respond(f'| {fact1:<20}       {fact2:<20}       {fact3:<20}       {fact4:<20} ')
-            except:
-                break
-            i += count
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
-    elif 60 / longestFact > gr4:
-        i = 0
-        count = 5
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
-
-        for var in range(0,int(len(fact_list ) + count),count):
-            try:
-                fact1 = f'||{fact_list[int(i)]}||'
-            except:
-                fact1 = ""
-            try:
-                fact2 = f'||{fact_list[int(i+1)]}||'
-            except:
-                fact2 = ""
-            try:
-                fact3 = f'||{fact_list[int(i+2)]}||'
-            except:
-                fact3 = ""
-            try:
-                fact4 = f'||{fact_list[int(i+3)]}||'
-            except:
-                fact4 = ""
-            try:
-                fact5 = f'||{fact_list[int(i+4)]}||'
-            except:
-                fact5 = ""
-            if fact1 == "":
-                break
-            try:
-                await ctx.respond(f'| {fact1:<20}    {fact2:<20}    {fact3:<20}    {fact4:<20}    {fact5:<20}')
-            except:
-                break
-            i += count
-        await ctx.respond(f'————————————————{len(fact_list)}—————————————————')
 
 @plugin.command
 @lightbulb.add_cooldown(10, 8, lightbulb.UserBucket)
