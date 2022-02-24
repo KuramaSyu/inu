@@ -13,12 +13,13 @@ from typing import (
 
 class StringCutter():
     @staticmethod
-    def slice_by_wordcount(string: str,
+    def slice_by_wordcount(
+        string: str,
         cut_at: int = 10,
         seperator: str = ' '
         ) -> List[List[str]]:
         """
-        Devides string into multiple Listes with words with a given length.
+        Devides string into multiple Lists with words with a given length.
         """
         string_list = [[]]
 
@@ -51,12 +52,21 @@ class StringCutter():
         for word_list in sliced_list]
 
     @staticmethod
-    def slice_by_length(string: str,
+    def slice_by_length(
+        string: Union[List[str], str],
         cut_at: int = 1900,
         seperator: str = ' '
-        ) -> List[List[str]]:
-        """Returns a list with sublists with strings. Sublist total
-        stringlength <= cut_at."""
+    ) -> List[List[str]]:
+        """
+        Args:
+        -----
+
+
+        Returns:
+        --------
+        - (`List[List[str]]`) a list with sublists with strings. Sublist total
+          stringlength <= cut_at.
+        """
 
         list_length = 0
         word_list = []
@@ -76,7 +86,6 @@ class StringCutter():
                 word_list[-1].append(next(i))
 
         return word_list
-
 
 class PeekIterator():
     """Iterator with 1 peak look ahead with peek atribute"""
@@ -345,6 +354,34 @@ class WordToBig(Exception):
         self.message = message
         super().__init__(self.message)
 
+
+    @staticmethod
+    def slice_by_length(
+        string: Union[List[str], str],
+        cut_at: int = 1900,
+        seperator: str = ' '
+    ) -> List[List[str]]:
+        """
+        Args:
+        -----
+        string : `str`
+            the string you want to cut into lists
+        cut_at : `int`
+            how long the partial strings should be
+        seperator : `str`
+            the seperator, where to cut the <string> if not list
+ 
+        Returns:
+        --------
+        `List[str]` :
+            a List with strings with max length <= `<cut_at>`
+        """
+        word_list = StringCutter.slice_by_length(
+            string=string,
+            cut_at=cut_at,
+            seperator=seperator,
+        )
+        return [seperator.join(l) for l in word_list]
 
 def crumble(
     string: str,
