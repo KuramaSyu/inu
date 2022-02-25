@@ -607,9 +607,9 @@ async def play(ctx: context.Context) -> None:
     try:
         music.d.last_context[ctx.guild_id] = ctx
         await _play(ctx, ctx.options.query)
-        # if first_join:
-        #     await _fix(ctx)
-        #     first_join = False
+        if first_join:
+            await _fix(ctx)
+            first_join = False
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
 
