@@ -1070,7 +1070,7 @@ async def queue(ctx: Context = None, guild_id: int = None):
     if music_msg is None:
         msg_proxy = await ctx.respond(embed=music_embed)
         music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-        # await add_music_reactions(music.d.music_message[guild_id])
+        asyncio.create_task(add_music_reactions(music.d.music_message[guild_id]))
         return
 
     #edit existing message
@@ -1084,14 +1084,14 @@ async def queue(ctx: Context = None, guild_id: int = None):
             if timeout == 0:
                 msg_proxy = await ctx.respond(embed=music_embed)
                 music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-                # await add_music_reactions(music.d.music_message[ctx.guild_id])
+                asyncio.create_task(add_music_reactions(music.d.music_message[ctx.guild_id]))
                 break
     except Exception as e:
         log.error(traceback.format_exc())
 
 
 async def add_music_reactions(message: hikari.Message):
-    reactions = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '🔀', '🗑', '🛑', '⏸']
+    reactions = ['1️⃣', '2️⃣', '🔀', '🛑', '⏸'] # '🗑','3️⃣', '4️⃣',
     tasks = []
     for r in reactions:
         await message.add_reaction(str(r))
