@@ -193,15 +193,16 @@ class TimeParser:
         self.matches: Dict[TimeUnits, float] = {}
 
         self.tz = timezone(offset=timedelta(hours=offset_hours))
-        self.now: datetime.datetime = datetime.datetime.now(tz=self.tz)
+        self._now: datetime.datetime = datetime.datetime.now(tz=self.tz)
 
         self.unresolved = []
         self.unused_query = ""
         self.parse()
         self.is_interpreted = False
 
-
-
+    @property
+    def now(self):
+        return self._now + timedelta(seconds=self.in_seconds)
 
 
     def parse(self):
