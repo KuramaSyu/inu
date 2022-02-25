@@ -1091,19 +1091,20 @@ async def queue(ctx: Context = None, guild_id: int = None):
 
 
 async def add_music_reactions(message: hikari.Message):
-    # reactions = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '🔀', '🗑', '🛑', '⏸']
-    # tasks = []
-    # for r in reactions:
-    #     tasks.append(asyncio.create_task(message.add_reaction(str(r))))
+    reactions = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '🔀', '🗑', '🛑', '⏸']
+    tasks = []
+    for r in reactions:
+        await message.add_reaction(str(r))
+        await asyncio.sleep(0.8)
     # await asyncio.wait(tasks, asyncio.ALL_COMPLETED)
-    await message.add_reaction(str('1️⃣'))
-    await message.add_reaction(str('2️⃣'))
-    await message.add_reaction(str('3️⃣'))
-    await message.add_reaction(str('4️⃣'))
-    await message.add_reaction(str('🔀'))
-    await message.add_reaction(str('🗑'))
-    await message.add_reaction(str('🛑'))
-    await message.add_reaction(str('⏸'))
+    # await message.add_reaction(str('1️⃣'))
+    # await message.add_reaction(str('2️⃣'))
+    # await message.add_reaction(str('3️⃣'))
+    # await message.add_reaction(str('4️⃣'))
+    # await message.add_reaction(str('🔀'))
+    # await message.add_reaction(str('🗑'))
+    # await message.add_reaction(str('🛑'))
+    # await message.add_reaction(str('⏸'))
 
 
 def load(bot: Inu) -> None:
