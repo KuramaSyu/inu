@@ -1070,7 +1070,7 @@ async def queue(ctx: Context = None, guild_id: int = None):
     if music_msg is None:
         msg_proxy = await ctx.respond(embed=music_embed)
         music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-        await add_music_reactions(music.d.music_message[guild_id])
+        # await add_music_reactions(music.d.music_message[guild_id])
         return
 
     #edit existing message
@@ -1084,7 +1084,7 @@ async def queue(ctx: Context = None, guild_id: int = None):
             if timeout == 0:
                 msg_proxy = await ctx.respond(embed=music_embed)
                 music.d.music_message[ctx.guild_id] = await msg_proxy.message()
-                await add_music_reactions(music.d.music_message[ctx.guild_id])
+                # await add_music_reactions(music.d.music_message[ctx.guild_id])
                 break
     except Exception as e:
         log.error(traceback.format_exc())
