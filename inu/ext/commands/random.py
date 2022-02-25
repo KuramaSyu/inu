@@ -16,6 +16,7 @@ from lightbulb import events
 from lightbulb.commands import OptionModifier as OM
 
 from core import getLogger
+from utils import crumble
 
 log = getLogger(__name__)
 
@@ -38,8 +39,6 @@ async def rnd(ctx: Context):
 @lightbulb.command("list", "shuffles a given list", aliases=["l", "facts"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def list_(ctx: Context):
-    # I know - this command is fucking redundant. But understand me, that I really don't want
-    # to rewrite that
     fact_list: List[str] = ctx.options.list.split(",")
     if fact_list[-1] in ["", " "]:
         fact_list.pop(-1)
@@ -48,17 +47,8 @@ async def list_(ctx: Context):
     random.shuffle(fact_list)
 
     longest_fact = max([len(fact) for fact in fact_list])
-    shortest_fact = min([len(fact) for fact in fact_list])
     fact_list = [f"{fact:^{longest_fact}}" for fact in fact_list]
 
-    # def len_compensation(fact_list=fact_list, longest_fact: int = longest_fact):
-    #     for fact_i, fact in enumerate(fact_list):
-    #         if int(len(fact)) < int(longest_fact):
-    #             fact_list[fact_i] = f'{fact_list[fact_i]:^{longest_fact}}'
-    #     return fact_list
-
-    # fact_list = len_compensation(fact_list=fact_list, longest_fact=longest_fact)
- 
     #how many columns
     columns: int
     gr1 = float(1.5)
@@ -89,8 +79,13 @@ async def list_(ctx: Context):
         for fact in facts:
             facts_as_str += f"||`{fact}`|| "
         facts_as_str += "\n"
-    
-    await ctx.respond(facts_as_str)
+    if len(facts_as_str) > 2000:
+        embed = hikari.Embed()
+        for part in crumble(facts_as_str, 1024):
+            embed.add_field("‌‌ ", part)
+        await ctx.respond(embed=embed)
+    else:
+        await ctx.respond(facts_as_str)
     
     
 
