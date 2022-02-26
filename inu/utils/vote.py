@@ -126,8 +126,37 @@ class ScaleVote(Vote):
         return embed
 
 
+class PollVote(Vote):
+    storage: dict
+    options: Dict[str, Any]
+
+    def __init__(self, options: Dict[str, Any]):
+        self.options = options
+
+    @property
+    def embed(self):
+        ...
+    
+    def add_vote(
+        self,
+        number: int,
+        name: str,
+        add: int,
+    ):
+        """
+        Args:
+        ----
+            - number (`int`) the number, to identify the name (name will be mapped to number)
+            - name (`str`) the name, which will be mapped to the given number
+            - add (`int`) the amount of votes to add to this number. Typically -1 or 1 
+        """
+        ...
+
+
 class VoteKinds(Enum):
     SCALE = ScaleVote 
+
+
 
 
 
