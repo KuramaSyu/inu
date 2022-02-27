@@ -67,7 +67,8 @@ async def ping(ctx: context.Context):
 @lightbulb.add_cooldown(60*60, 4, lightbulb.UserBucket)
 @lightbulb.add_checks(
     lightbulb.guild_only, 
-    #lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
+    # lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
+    lightbulb.has_role_permissions(hikari.Permissions.MANAGE_CHANNELS)
 )
 @lightbulb.option(
     "ammount", 
