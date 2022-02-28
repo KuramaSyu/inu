@@ -51,8 +51,9 @@ class Multiple():
     @staticmethod
     def startswith_(word: str, starts_w: list):
         """returns True, if `word` starts with more than 0 entries of list `ends_w`"""
+        word = str(word)
         for w in starts_w:
-            if word.startswith(w):
+            if word.startswith(str(word)):
                 return True
         return False
     
@@ -235,6 +236,9 @@ class Human():
         cls,
         list_: Sequence[str],
         wrap_word_with: str = "",
+        before_word: str = "",
+        after_word: str = "",
+        with_a_or_an: bool = True,
         split_with = ", "
     ):
         """
@@ -257,7 +261,7 @@ class Human():
                 end = split_with
             elif i == len(list_)-2:
                 end = " and "
-            result_str += f"{cls.a_or_an(word)} {wrap_word_with}{word}{wrap_word_with}{end}"
+            result_str += f"{cls.a_or_an(word) if with_a_or_an else ''} {before_word}{wrap_word_with}{word}{wrap_word_with}{after_word}{end}"
         return result_str
 
     @classmethod
