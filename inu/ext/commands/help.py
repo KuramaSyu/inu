@@ -231,7 +231,7 @@ class CustomHelp(help_command.BaseHelpCommand):
             embed = hikari.Embed()
             if not small:
                 embed.title=f"Help {name}"
-                embed.set_footer(f"page {i+1}/{len(dicts)}", icon=self.bot.get_me().avatar_url)
+                embed.set_footer(text=f"page {i+1}/{len(dicts)}", icon=self.bot.get_me().avatar_url)
             # embed.description = "<...> required - I need it\n[...] optional - I don't need it"
             for field in prebuild:
                 embed.add_field(field["sign"], field["description"])
