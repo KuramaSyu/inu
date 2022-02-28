@@ -297,11 +297,11 @@ async def overview(ctx: Context):
     menu = (
         ActionRowBuilder()
         .add_select_menu("overview_menu")
+        .add_option("all tags you can use", "all")
+        .add_to_menu()
         .add_option("guild tags", "guild")
         .add_to_menu()
         .add_option("your tags", "your")
-        .add_to_menu()
-        .add_option("all tags", "all")
         .add_to_menu()
         .add_option("global tags (all guilds)", "global")
         .add_to_menu()
