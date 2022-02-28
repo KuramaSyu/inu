@@ -29,6 +29,7 @@ class TagType(Enum):
     GUILD = 2
     GLOBAL = 3
     ALL = 4  # all tags the user can see
+    SCOPE = 5
 
 class TagManager():
     db: Database
@@ -331,7 +332,7 @@ class TagManager():
             sql = f"{sql} WHERE $1 = ANY(author_ids)"
             return await cls.db.fetch(sql, author_id)
         elif type == TagType.ALL:
-            sql = f"{sql} WHERE $1 = ANY(author_ids) OR $2 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
+            sql = f"{sql} WHERE $2 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
             return await cls.db.fetch(sql, author_id, guild_id)
     
     @classmethod
