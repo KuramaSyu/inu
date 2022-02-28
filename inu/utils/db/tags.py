@@ -332,8 +332,8 @@ class TagManager():
             sql = f"{sql} WHERE $1 = ANY(author_ids)"
             return await cls.db.fetch(sql, author_id)
         elif type == TagType.ALL:
-            sql = f"{sql} WHERE $2 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
-            return await cls.db.fetch(sql, author_id, guild_id)
+            sql = f"{sql} WHERE $1 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
+            return await cls.db.fetch(sql, guild_id)
     
     @classmethod
     async def find_similar(
