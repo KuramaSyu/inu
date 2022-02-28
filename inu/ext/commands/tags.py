@@ -30,7 +30,7 @@ from numpy import where
 
 
 from core import Inu, Table
-from utils import TagIsTakenError, TagManager, TagType
+from utils import TagIsTakenError, TagManager, TagType, Human
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator
@@ -92,7 +92,7 @@ async def get_tag_interactive(ctx: Context) -> Optional[asyncpg.Record]:
             return None
             
 
-async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
+async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
     """
     Searches the <key> and sends the result into the channel of <ctx>
     NOTE:
@@ -374,6 +374,23 @@ async def tag_append(ctx: Context):
     await ctx.respond(
         f"Done."
     )
+
+@tag.child
+@lightbulb.option("key", "the name of your tag. Only one word", type=str)
+@lightbulb.command("info", "get info to a tag")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_info(ctx: Context):
+    record = await get_tag(ctx, ctx.options.key)
+    if record is None:
+        return await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id or ctx.channel_id, ctx.author.id)
+    message = ""
+    message += f"record authors: {Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
+    message += f"record guilds/channels: {Human.list_(record['guild_ids'], with_a_or_an=False)}\n"
+    message += f"record aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
+    message += f"record content: {Human.short_text(record['tag_value'], 800)}"
+    await ctx.respond(message)
+
+    
 
 @tag.child
 @lightbulb.option("alias", "The optional name you want to add", modifier=OM.CONSUME_REST)
