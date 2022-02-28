@@ -105,7 +105,7 @@ async def get_tag(ctx: Context, key: str) -> Optional[asyncpg.Record]:
     if len(records) >= 1:
         typing.cast(int, ctx.guild_id)
         for r in records:
-            if ctx.guild_id in r["guild_ids"]:
+            if (ctx.guild_id or ctx.channel_id) in r["guild_ids"]:
                 record = r
                 break
             elif 0 in r["guild_ids"]:
