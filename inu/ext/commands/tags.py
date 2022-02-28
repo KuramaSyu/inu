@@ -383,11 +383,13 @@ async def tag_info(ctx: Context):
     record = await get_tag(ctx, ctx.options.key)
     if record is None:
         return await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id or ctx.channel_id, ctx.author.id)
-    message = ""
-    message += f"record authors: {Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
-    message += f"record guilds/channels: {Human.list_(record['guild_ids'], with_a_or_an=False)}\n"
-    message += f"record aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
-    message += f"record content: {Human.short_text(record['tag_value'], 800)}"
+    message = (
+        f"tag {Human.plural_('author', len(record['author_ids']))}: "
+        f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
+        f"tag guilds/channels: {Human.list_(record['guild_ids'], with_a_or_an=False)}\n"
+        f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
+        f"tag content: ```{Human.short_text(record['tag_value'], 800).replace('`', '')}```"
+    )
     await ctx.respond(message)
 
     
