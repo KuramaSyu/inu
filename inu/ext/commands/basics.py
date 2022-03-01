@@ -44,6 +44,16 @@ async def ping(ctx: context.Context):
         else:
             return "🟢"
 
+    def ping_to_color_rest(ping: float) -> str:
+        if ping >= 1150:
+            return "🔴"
+        elif ping >= 800:
+            return "🟠"
+        elif ping >= 550:
+            return "🟡"
+        else:
+            return "🟢"
+
     request_start = datetime.now()
     embed = Embed(
             title="Pong",
@@ -58,13 +68,13 @@ async def ping(ctx: context.Context):
     embed.description = (
         f"Bot is alive\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-        f"{ping_to_color(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms"
+        f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms"
     )
     await msg.edit(embed=embed)
 
     
 @basics.command
-@lightbulb.add_cooldown(60*60, 4, lightbulb.UserBucket)
+@lightbulb.add_cooldown(60*60*10, 15, lightbulb.UserBucket)
 @lightbulb.add_checks(
     lightbulb.guild_only, 
     # lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
