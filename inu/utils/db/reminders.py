@@ -477,7 +477,7 @@ class HikariReminder(BaseReminder):
         embed.description += user.mention
         embed.set_thumbnail(user.avatar_url)
         msg = await self.bot.rest.create_message(channel=self.channel_id, embed=embed, user_mentions=True, components=[menu])
-        value, event = await self.bot.wait_for_interaction(
+        value, event, _ = await self.bot.wait_for_interaction(
             custom_id="snooze_menu",
             user_id=self.creator_id,
             message_id=msg.id,
