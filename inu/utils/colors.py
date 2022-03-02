@@ -29,6 +29,7 @@ class Colors():
 
     @classmethod
     def random_color(cls) -> hikari.Color:
+        """returns a random color from `cls.neon_colors`"""
         return hikari.Color.from_hex_code(
             cls.random_hex()
         )
