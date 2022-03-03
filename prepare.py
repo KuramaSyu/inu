@@ -2,7 +2,7 @@ from os import path
 import sys
 import subprocess
 
-# implement pip as a subprocess:
+# implement pip as a subprocess:a
 def update_package(package: str) -> None:
     if " @ " in package and "https://github.com" in package:
         # github package
