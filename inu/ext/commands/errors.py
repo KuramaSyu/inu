@@ -18,9 +18,7 @@ from utils.language import Human
 from .help import OutsideHelp
 
 from core import getLogger
-
 log = getLogger(__name__)
-
 
 pl = lightbulb.Plugin("Error Handler")
 
@@ -120,6 +118,11 @@ async def on_error(event: events.CommandErrorEvent):
                     f"the option `{error.option.name}` has to be {Human.type_(error.option.arg_type, True)}"
                 ),
                 only_one_entry=True,
+            )
+        elif isinstance(error, errors.MissingRequiredPermission):
+            error: errors.MissingRequiredPermission = error
+            return await ctx.respond(
+                f"You need the `{error.missing_perms.name}` permission, to use `{ctx.invoked_with}`"
             )
 
         # errors which will only be handled, if the command was invoked with a prefix
