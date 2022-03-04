@@ -362,7 +362,7 @@ class Connect4Handler(Paginator):
             not event.message_id == self._message.id
             or not (emoji := event.emoji_name) in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🏳']
             or event.user_id == self.bot.get_me().id
-            or not (event.user_id in [int(self.game.player1.id), int(self.game.player2.id)])
+            or not (event.user_id in [self.game.player1.user.id, self.game.player2.user.id])
         ):
             return
 
