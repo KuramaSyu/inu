@@ -256,7 +256,7 @@ stages = [
 active_sessions: Set[hikari.Snowflakeish] = set()
 @plugin.command
 @lightbulb.command("math", "Menu with all calculation tasks I have")
-@lightbulb.implements(commands.PrefixCommand)
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def calculation_tasks(ctx: Context):
     embed = Embed(title="Calculation tasks")
     menu = ActionRowBuilder().add_select_menu("calculation_task_menu")
