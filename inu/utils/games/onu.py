@@ -250,6 +250,7 @@ class Card:
             onu.cycle_hands()
         if CardColors.COLORFULL == self.color:
             self.color = self_hand.color
+            self_hand.color = CardColors.COLORFULL
 
     def maybe_make_active(self, other: "Card"):
         """edits `self.is_active` depending on the top card of cast_off stack"""
