@@ -1,3 +1,4 @@
+from ast import alias
 import typing
 from typing import (
     Union,
@@ -136,12 +137,20 @@ async def search(ctx: Context):
     pass
 
 @search.child
-@lightbulb.option("guild", "The name/part of the name/id from the guild", modifier=OM.CONSUME_REST)
-@lightbulb.command("guild", "seach guilds/servers and get it's ID with the name")
+@lightbulb.option(
+    "guild", 
+    "The name/part of the name/id from the guild", 
+    modifier=OM.CONSUME_REST,
+    type=str,
+)
+@lightbulb.command(
+    "guild", 
+    "seach guilds/servers and get it's ID with the name",
+    aliases=["server"]
+)
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def search_guild(ctx: Context):
     guilds = await ctx.bot.rest.fetch_my_guilds()
-    log.debug(guilds)
     matches = [
         g for g in guilds 
         if ctx.options.guild in str(g.id).lower() or ctx.options.guild in str(g.name).lower()
@@ -159,8 +168,17 @@ async def search_guild(ctx: Context):
 
 @search.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("member", "The name/id/alias of the member from the guild", modifier=OM.CONSUME_REST)
-@lightbulb.command("member", "seach a member in this guild")
+@lightbulb.option(
+    "member", 
+    "A part of the name/id/alias of the member from the guild", 
+    modifier=OM.CONSUME_REST,
+    type=str,
+)
+@lightbulb.command(
+    "member", 
+    "seach a member in this guild",
+    aliases=["user", "person"]
+)
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def search_guild(ctx: Context):
     members = await ctx.bot.rest.fetch_members(ctx.guild_id)
