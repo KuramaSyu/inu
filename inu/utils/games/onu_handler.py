@@ -208,7 +208,7 @@ class HikariOnu(OnuHandler):
     async def a_on_game_end(self, event: GameEndEvent):
         embed = hikari.Embed(
             title="Game Over", 
-            description=f"{event.winner.username} won the game", 
+            description=f"{event.winner.name} won the game", 
             color=Colors.from_name("darkred")
         )
         for hand in self.onu.hands:
