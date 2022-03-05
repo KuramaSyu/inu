@@ -15,11 +15,16 @@ from hikari.events import InteractionCreateEvent
 import lightbulb
 import lightbulb.utils as lightbulb_utils
 from lightbulb import commands, context
+from lightbulb import OptionModifier as OM
+from lightbulb.context import Context
 import hikari
-from numpy import isin
+from matplotlib.style import available
+from numpy import full, isin
+from fuzzywuzzy import fuzz
 
-from utils import Colors
+from utils import Colors, Human, Paginator, crumble
 from core import getLogger
+
 
 log = getLogger(__name__)
 
@@ -123,6 +128,63 @@ async def invite(ctx: context.Context):
             ).set_label("my invite link").add_to_container()
         )
     )
+
+@basics.command
+@lightbulb.command("search", "search different things and get it's ID with the name")
+@lightbulb.implements(commands.SlashCommandGroup, commands.PrefixCommandGroup)
+async def search(ctx: Context):
+    pass
+
+@search.child
+@lightbulb.option("guild", "The name/part of the name/id from the guild", modifier=OM.CONSUME_REST)
+@lightbulb.command("guild", "seach guilds/servers and get it's ID with the name")
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
+async def search_guild(ctx: Context):
+    guilds = await ctx.bot.rest.fetch_my_guilds()
+    log.debug(guilds)
+    matches = [
+        g for g in guilds 
+        if ctx.options.guild in str(g.id).lower() or ctx.options.guild in str(g.name).lower()
+    ]
+    if not matches:
+        await ctx.respond(f"No guilds with partial ID/name `{ctx.options.guild}` found")
+        return
+    str_matches = "\n".join(f"name: {g.name:<35} id: {str(g.id):>}" for g in matches)
+    result = (
+        f"I found {Human.plural_('guild', len(matches), with_number=True)}:\n"
+        f"```\n{str_matches}\n```"
+    )
+    pag = Paginator(page_s=[f"```\n{p.replace('```', '')}```" for p in crumble(result)])
+    await pag.start(ctx)
+
+@search.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.option("member", "The name/id/alias of the member from the guild", modifier=OM.CONSUME_REST)
+@lightbulb.command("member", "seach a member in this guild")
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
+async def search_guild(ctx: Context):
+    members = await ctx.bot.rest.fetch_members(ctx.guild_id)
+    matches = [
+        m for m in members 
+        if (
+            ctx.options.member in str(m.id).lower() 
+            or ctx.options.member in str(m.username).lower()
+            or ctx.options.member in m.display_name.lower()
+        )
+    ]
+    if not matches:
+        await ctx.respond(f"No member with partial name/ID/alias `{ctx.options.member}` found")
+        return
+    str_matches = "\n".join(f"name: {m.display_name:<35} id: {str(m.id):>}" for m in matches)
+    result = (
+        f"I found {Human.plural_('member', len(matches), with_number=True)}:\n"
+        f"```\n{str_matches}\n```"
+    )
+    pag = Paginator(page_s=[f"```\n{p.replace('```', '')}```" for p in crumble(result)])
+    await pag.start(ctx)
+
+
+
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(basics)
