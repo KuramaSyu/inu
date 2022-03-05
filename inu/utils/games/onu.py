@@ -244,7 +244,8 @@ class Card:
         If the card has impact on players, then it will be done here
         """
         if CardFunctions.REVERSE in self.functions:
-            [*onu.hands] = reversed(onu.hands)
+            onu.hands = [*reversed(onu.hands)]
+
         if CardFunctions.STOP in self.functions:
             onu.cycle_hands()
         if CardColors.COLORFULL == self.color:
