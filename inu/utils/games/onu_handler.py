@@ -254,8 +254,15 @@ class HikariOnu(OnuHandler):
         for i, row in enumerate(hand.build_card_row()):
             embed.add_field(name=f"`", value=f"{row}\n\n")
         embed.add_field(f"top card: {str(self.onu.cast_off.top)}", "\n".join(self.onu.cast_off.top._design), inline=True)
-        embed.add_field("upcoming players", "```py\n" + '\n--> '.join(f'{hand.name} ({len(hand.cards)})' for hand in self.onu.hands) + "```", inline=True)
-        embed.add_field("selected color for colorchanger", value=hand.color.name if hand.color else "/")
+        embed.add_field(
+            "upcoming players", 
+            "```py\n" + '\n--> '.join(f'{hand.name} ({len(hand.cards)})' for hand in self.onu.hands) + "```", 
+            inline=True
+        )
+        embed.add_field(
+            "selected color for colorchanger", 
+            value=hand.color.name.lower() if hand.color != CardColors.COLORFULL else "no color"
+        )
         if info:
             embed.add_field("Info", info)
         return embed
