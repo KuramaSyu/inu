@@ -225,7 +225,7 @@ class HikariOnu(OnuHandler):
         asyncio.create_task(
             self.ctx.respond(
                 embed=Embed(
-                    title=f"{event.winner} has won the game!", 
+                    title=f"{event.winner.name} has won the game!", 
                     color=Colors.from_name("royalblue"),
                     description=f"start another game with `/onu @player1 ...` or `inu.onu @player1 ...`"
                 ), 
