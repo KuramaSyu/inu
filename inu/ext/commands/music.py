@@ -635,6 +635,11 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
         if track is None:
             return
         await load_track(ctx, track, be_quiet)
+    await asyncio.sleep(0.2)
+    node = await music.d.lavalink.get_guild_node(ctx.guild_id)
+    if len(node.queue) > 1:
+        await queue(ctx, ctx.guild_id)
+
 
 @play.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
@@ -864,7 +869,7 @@ if HIKARI_VOICE:
 @lightbulb.command("queue", "Resend the music message")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def _queue(ctx: Context) -> None:
-    await queue(ctx)
+    await queue(ctx, force_resend=True)
 
 #  @lightbulb.check(lightbulb.guild_only)
 @music.command
@@ -993,7 +998,7 @@ async def music_search(ctx: context.Context):
     else:
         return await ctx.respond("No matches found")
 
-async def queue(ctx: Context = None, guild_id: int = None):
+async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = False):
     '''
     refreshes the queue of the player
     uses ctx if not None, otherwise it will fetch the last context with the guild_id
@@ -1066,8 +1071,9 @@ async def queue(ctx: Context = None, guild_id: int = None):
     music_embed.set_footer(text = f'{queue or "/"}')
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
+    # send new message and override
     music_msg = music.d.music_message.get(guild_id, None)
-    if music_msg is None:
+    if music_msg is None or force_resend:
         msg_proxy = await ctx.respond(embed=music_embed)
         music.d.music_message[ctx.guild_id] = await msg_proxy.message()
         asyncio.create_task(add_music_reactions(music.d.music_message[guild_id]))
@@ -1077,15 +1083,17 @@ async def queue(ctx: Context = None, guild_id: int = None):
     try:
         timeout = 4
         async for m in music.bot.rest.fetch_messages(music.d.music_message[guild_id].channel_id):
+            # edit existing message if in last messages
             if m.id == music.d.music_message[ctx.guild_id].id:
                 await music.d.music_message[ctx.guild_id].edit(embed=music_embed)
-                break
+                return
             timeout -= 1
+            # resend message
             if timeout == 0:
                 msg_proxy = await ctx.respond(embed=music_embed)
                 music.d.music_message[ctx.guild_id] = await msg_proxy.message()
                 asyncio.create_task(add_music_reactions(music.d.music_message[ctx.guild_id]))
-                break
+                return
     except Exception as e:
         log.error(traceback.format_exc())
 
@@ -1095,7 +1103,6 @@ async def add_music_reactions(message: hikari.Message):
     tasks = []
     for r in reactions:
         await message.add_reaction(str(r))
-        await asyncio.sleep(0.8)
     # await asyncio.wait(tasks, asyncio.ALL_COMPLETED)
     # await message.add_reaction(str('1️⃣'))
     # await message.add_reaction(str('2️⃣'))
