@@ -140,9 +140,13 @@ class Card:
         self.is_active = is_active or bool(self.draw_value)
         self._original_is_active = self.is_active
         self.log = getLogger(__name__, self.__class__.__name__)
+
+    @property
+    def need_cycle(self) -> bool:
+        if CardFunctions.REVERSE in self.functions:
+            return False
+        return True
         
-        
-    
     @staticmethod
     def get_value_from_design(design: CardDesigns) -> int:
         regex = "CARD_[0-9]"
@@ -245,7 +249,6 @@ class Card:
         """
         if CardFunctions.REVERSE in self.functions:
             onu.hands = [*reversed(onu.hands)]
-
         if CardFunctions.STOP in self.functions:
             onu.cycle_hands()
         if CardColors.COLORFULL == self.color:
@@ -348,7 +351,7 @@ class NewCardStack:
         colors = [CardColors.RED, CardColors.BLUE, CardColors.GREEN, CardColors.YELLOW]
 
         for color in colors:
-            for _ in range(0,4):
+            for _ in range(0, 5):
                 self.stack.extend(
                     [
                         Card(
@@ -611,9 +614,10 @@ class Onu:
             del args["top_card"]
             return GameEndEvent(**args, winner=self.winner)
         else:
-            self.cycle_hands()
+            if card.need_cycle:
+                self.cycle_hands()
             return TurnSuccessEvent(**args)
-    
+
     @property
     def game_over(self) -> bool:
         for hand in self.hands:
