@@ -1,7 +1,7 @@
 from enum import Enum
 from abc import ABC, abstractmethod
 from typing import *
-
+import random
 
 
 import hikari
@@ -140,6 +140,7 @@ class PollVote:
         self, 
         options: Dict[str, str],
         active_until: int,
+        custom_id: str,
         anonymous: bool = True,
         poll_title: str = "Poll",
         poll_description: str = "",
@@ -164,6 +165,8 @@ class PollVote:
         self._description = poll.desciption
         self._anomymous = anonymous
         self._active_until = active_until
+        self._custom_id = custom_id
+        # f"{int(time.time)}{ctx.author.id}{ctx.guild_id}"
 
     @property
     def embed(self):
