@@ -30,7 +30,7 @@ class HikariOnu(OnuHandler):
     ):
         self.log = getLogger(__name__, self.__class__.__name__)
         self.players = players
-        legacy_players = {str(snowfl): user.username for snowfl, user in players.items()}
+        legacy_players = {str(snowfl): user.display_name for snowfl, user in players.items()}
         super().__init__(legacy_players, cards_per_hand=10)
         self.timeout = 14.5*60
         self.messages: Dict[Snowflakeish, Snowflakeish] = {}
@@ -194,6 +194,7 @@ class HikariOnu(OnuHandler):
         await self.send(event.hand, info=event.info)
 
     async def a_on_side_event(self, event: SideEvent):
+        # side_event = changing color
         await self.send(event.hand, info=event.info)
 
     async def a_on_timeout(self):
