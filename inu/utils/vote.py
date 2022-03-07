@@ -67,6 +67,7 @@ class ScaleVote(Vote):
         }
         super().__init__()
 
+    @property
     def average(self) -> float:
         total_value = int(self.options['1'])*1 + int(self.options['2'])*2 + int(self.options['3'])*3 + \
             int(self.options['4'])*4 + int(self.options['5'])*5 + int(self.options['0'])*0
@@ -75,16 +76,18 @@ class ScaleVote(Vote):
             return 0
         return round(float(total_value / total_votes / 5), 2) 
 
+    @property
     def total_votes(self) -> int:
         total_votes = int(self.options['1']) + int(self.options['2']) + int(self.options['3']) + \
             int(self.options['4']) + int(self.options['5']) + int(self.options['0'])
         return total_votes
 
-    def total_grades(self) -> int:
+    @property
+    def total_options(self) -> int:
         return len(self.options.keys()) - 1 #because 0 is a key
 
     def scale(self) -> str:
-        average = self.average()
+        average = self.average
         len_scale = self.len_scale
         black = self.len_scale - round(self.len_scale*average)
         yellow = round(len_scale / float(len_scale / self.len_scale * 100) * 33)
@@ -119,9 +122,9 @@ class ScaleVote(Vote):
         if self.description:
             embed.description = self.description
         embed.add_field(
-            name=f'{round(float(self.average() * 5), 3)}/{5} ||'\
-            f'{int(round(float(self.average() * 5 *20),0))}% ',
-            value = f'{str(self)}\n\nVotes: {self.total_votes()}'
+            name=f'{round(float(self.average * 5), 3)}/{5} ||'\
+            f'{int(round(float(self.average * 5 *20),0))}% ',
+            value = f'{str(self)}\n\nVotes: {self.total_votes}'
         )
             
         if self.author:
@@ -129,34 +132,112 @@ class ScaleVote(Vote):
         return embed
 
 
-class PollVote(Vote):
+class PollVote:
     storage: dict
     options: Dict[str, Any]
 
-    def __init__(self, options: Dict[str, Any]):
-        self.options = options
+    def __init__(
+        self, 
+        options: Dict[str, str],
+        active_until: int,
+        anonymous: bool = True,
+        poll_title: str = "Poll",
+        poll_description: str = "",
+    ):
+        """
+        Args:
+        -----
+        options : `Dict[str, str]`
+            mapping from option name (e.g. A,B,C,1,2,3) to option desciption.
+        anonoymous : `bool`
+            wether or not the names of voted persons should be displayed
+        poll_title : `str`
+            the title of the poll
+        poll_description : `str`
+            the description of the poll.
+            Per default empty
+        
+        """
+        self._poll: Dict[str, List[int]] = {k: [] for k in options.keys()}
+        self._options = options
+        self._title = poll_title
+        self._description = poll.desciption
+        self._anomymous = anonymous
+        self._active_until = active_until
 
     @property
     def embed(self):
-        ...
+        """
+        converts `self` to `hikari.Embed`
+        """
+        embed = hikari.Embed(title=self._title)
+        if self._description:
+            embed.description = self._description
+        description += "\n"
+        for o, d in self._options.keys():
+            description += f"**{o}** = {d}\n"   
+        if self.anonymous:
+            vote_result = ""
+            for o, o_votes in self._poll.items():
+                vote_result += f"**{o}** | {self._amount_to_str(o)}"
+            embed.add_field("Results", value)
+        else:
+            for o, o_votes in self._poll_items():
+                value = ">>>".join(m.display_name for m in o_votes) if len(o_votes) > 0 else r"¯\_(ツ)_/¯"
+                embed.add_field(
+                    f"**{o}** | {self._amount_to_str(o)}",
+                    value,
+                )
+        embed.set_footer(f"Vote ends <t:{self._active_until}:R>")
+        return embed
+
+    @property
+    def total_votes(self):
+        count = 0
+        for v in self._options.values():
+            count += len(v)
+        return count
+
+    def _amount_to_str(option_key: str, str_len: int = 20) -> str:
+        """
+        returns a string with len <str_len> which displays the poll percentage with terminal symbols
+        """
+        # █ ░
+        option_perc = round(float(len(self._poll[option_key]) / self.total_votes), 0)
+        return f"{option_perc * '█'}{int(str_len - len(option_perc)) * '░'}"
     
     def add_vote(
         self,
-        number: int,
-        name: str,
-        add: int,
+        option: str,
+        member: hikari.Member,
+        remove_old_poll: bool = True,
     ):
         """
         Args:
         ----
         number: `int` 
             the number, to identify the name (name will be mapped to number)
-        name : `str` 
-            the name, which will be mapped to the given number
-        add : (`int`) 
-            the amount of votes to add to this number. Typically -1 or 1 
+        member : `hikari.Member` 
+            the person who voted
+        remove_old_poll : `bool`
+            wether or not to remove the old poll of that member
+            Default=True
+
+        Raises:
+        -------
+        ValueError:
+            when option is invalid
         """
-        ...
+        if remove_old_poll:
+            previous_option = None
+            for o, members in self._poll:
+                if member in members:
+                    previous_option = o
+            if o:
+                self._poll[o].remove(member)
+        self._poll[option].append(member)
+        
+        
 
 
 class VoteKinds(Enum):
