@@ -26,9 +26,12 @@ class Vote(ABC):
         """
         Args:
         ----
-            - number (`int`) the number, to identify the name (name will be mapped to number)
-            - name (`str`) the name, which will be mapped to the given number
-            - add (`int`) the amount of votes to add to this number. Typically -1 or 1 
+        number: `int` 
+            the number, to identify the name (name will be mapped to number)
+        name : `str` 
+            the name, which will be mapped to the given number
+        add : (`int`) 
+            the amount of votes to add to this number. Typically -1 or 1 
         """
         ...
 
@@ -146,9 +149,12 @@ class PollVote(Vote):
         """
         Args:
         ----
-            - number (`int`) the number, to identify the name (name will be mapped to number)
-            - name (`str`) the name, which will be mapped to the given number
-            - add (`int`) the amount of votes to add to this number. Typically -1 or 1 
+        number: `int` 
+            the number, to identify the name (name will be mapped to number)
+        name : `str` 
+            the name, which will be mapped to the given number
+        add : (`int`) 
+            the amount of votes to add to this number. Typically -1 or 1 
         """
         ...
 
