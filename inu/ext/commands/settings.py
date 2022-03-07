@@ -71,7 +71,7 @@ async def add_channel(ctx: Context):
 @daily_pictures.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("rm_channel", "Removes the channel you are in form daily content channels", aliases=["remove_channel"])
-@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def remove_channel(ctx: Context):
     """
     Removes <channel_id> from channels, where daily reddit stuff will be sent.
@@ -106,7 +106,7 @@ async def add_top_channel(ctx: Context):
 @daily_pictures.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("rm_top_channel", "Removes the channel you are in form daily content channels", aliases=["remove_top_channel"])
-@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def remove_top_channel(ctx: Context):
     """
     Removes <channel_id> from channels, where daily reddit stuff will be sent.
@@ -124,13 +124,13 @@ async def remove_top_channel(ctx: Context):
 @lightbulb.command("prefix", "add/remove custom prefixes", aliases=["p"])
 @lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
 async def prefix(ctx: Context):
-    ...
+    pass
 
 @prefix.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("new_prefix", "The prefix you want to add", type=str, default="")
 @lightbulb.command("add", "Add a prefix")
-@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def add(ctx: Context):
     prefix = ctx.options.new_prefix
     if prefix == "empty":
@@ -142,7 +142,7 @@ async def add(ctx: Context):
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("prefix", "The prefix you want to add", type=str, default="")
 @lightbulb.command("remove", "Remove a prefix")
-@lightbulb.implements(commands.SlashSubGroup, commands.PrefixSubGroup)
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def remove(ctx: Context):
     prefix = ctx.options.prefix
     if prefix == "empty":
