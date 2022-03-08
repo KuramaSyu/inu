@@ -6,3 +6,4 @@ from .r_channel_manager import *
 from .reminders import *
 from .stats import *
 from .tags import *
+from .polls import *
