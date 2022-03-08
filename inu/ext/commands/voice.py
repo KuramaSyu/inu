@@ -56,7 +56,6 @@ async def move_all(ctx: Context):
     member = ctx.options.member or ctx.author
     states = ctx.bot.cache.get_voice_states_view_for_guild(ctx.guild_id)
     voice_state = [state async for state in states.iterator().filter(lambda i: i.user_id == member.id)]
-    member.edit()
 
     if not voice_state:
         await ctx.respond(f"{member.display_name} needs to be in a voice channel")
