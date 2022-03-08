@@ -113,15 +113,36 @@ async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
     return record
 
 
-async def show_record(record: asyncpg.Record, ctx: Context) -> None:
-    """Sends the given tag(record) into the channel of <ctx>"""
+async def show_record(record: asyncpg.Record, ctx: Context, key: str = None) -> None:
+    """
+    Sends the given tag(record) into the channel of <ctx>
+    
+    Args:
+    ----
+    record : `asyncpg.Record`
+        the record/dict, which should contain the keys `tag_value` and `tag_key`
+    ctx : `Context`
+        the context, under wich the message will be sent (important for the channel)
+    key : `str`
+        The key under which the tag was invoked. If key is an alias, the tag key will be
+        displayed, otherwise it wont
+    """
+    media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
     if record is None:
         await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id or ctx.channel_id)
         # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
         return
     messages = []
+    message = ""
     for value in crumble(record["tag_value"], 1900):
-        message = f"**{record['tag_key']}**\n\n{value}"
+        # if tag isn't just a picture and tag was not invoked with original name,
+        # then append original name at start of message
+        if not (
+            key == record["tag_key"]
+            or re.match(media_regex, record["tag_value"].strip())
+        ):
+            message += f"**{record['tag_key']}**\n\n"
+        message += value
         messages.append(message)
     pag = Paginator(messages)
     await pag.start(ctx)
@@ -185,7 +206,7 @@ async def tag(ctx: Context):
         taghandler = TagHandler()
         return await taghandler.start(ctx)
     record = await get_tag(ctx, key)
-    await show_record(record, ctx)
+    await show_record(record, ctx, key)
 
 
 
@@ -285,7 +306,7 @@ async def get(ctx: Context):
         - key: the name the tag should have
     """
     record = await get_tag(ctx, ctx.options.key)
-    await show_record(record, ctx)
+    await show_record(record, ctx, ctx.options.key)
     
 @tag.child
 @lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
