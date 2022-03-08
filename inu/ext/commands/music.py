@@ -109,7 +109,7 @@ class Interactive:
             - (lavasnek_rs.Track | None) the chosen title (is None if timeout or other errors)
         """
         if not ctx.guild_id:
-            return
+            return None
         query_print = ""
         if not query_information:
             query_information = await self.lavalink.auto_search_tracks(query)
@@ -143,7 +143,7 @@ class Interactive:
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
-                return  # to avoid problems with typecheckers
+                return None  # to avoid problems with typecheckers
             track_num = int(event.interaction.values[0])
         except asyncio.TimeoutError as e:
             return None
@@ -224,12 +224,12 @@ class YouTubeHelper:
             return url[start+1:]
         return url[start+1:end+start]
 
-    @staticmethod
-    def thumbnail_from_url(url: str) -> Optional[str]:
+    @classmethod
+    def thumbnail_from_url(cls, url: str) -> Optional[str]:
         """Returns the thumbnail url of a video or None out of th given url"""
-        video_id = __class__.id_from_url(url)
+        video_id = cls.id_from_url(url)
         if not video_id:
-            return
+            return None
         return f"http://img.youtube.com/vi/{video_id}/hqdefault.jpg"
 
     @staticmethod
