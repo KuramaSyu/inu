@@ -201,13 +201,13 @@ class PollVote:
             count += len(v)
         return count
 
-    def _amount_to_str(option_key: str, str_len: int = 20) -> str:
+    def _amount_to_str(self, option_key: str, str_len: int = 20) -> str:
         """
         returns a string with len <str_len> which displays the poll percentage with terminal symbols
         """
         # █ ░
-        option_perc = round(float(len(self._poll[option_key]) / self.total_votes), 0)
-        return f"{option_perc * '█'}{int(str_len - len(option_perc)) * '░'}"
+        option_perc = int(round(float(len(self._poll[option_key]) / self.total_votes), 0))
+        return f"{option_perc * '█'}{int(str_len - option_perc) * '░'}"
     
     def add_vote(
         self,
@@ -233,7 +233,7 @@ class PollVote:
         """
         if remove_old_poll:
             previous_option = None
-            for o, members in self._poll:
+            for o, members in self._poll.items():
                 if member in members:
                     previous_option = o
             if o:
