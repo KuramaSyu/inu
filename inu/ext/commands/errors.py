@@ -130,7 +130,6 @@ async def on_error(event: events.CommandErrorEvent):
                 .replace("This command", f"`{ctx.invoked_with}`")
                 .split(", ")
             )
-            log.debug(fails)
             if len(fails) > 1:
                 str_fails = [f"{i+1}: {e}"
                     for i, e in enumerate(fails)
