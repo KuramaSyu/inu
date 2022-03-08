@@ -120,11 +120,26 @@ async def on_error(event: events.CommandErrorEvent):
                 only_one_entry=True,
             )
         elif isinstance(error, errors.MissingRequiredPermission):
-            error: errors.MissingRequiredPermission = error
             return await ctx.respond(
                 f"You need the `{error.missing_perms.name}` permission, to use `{ctx.invoked_with}`"
             )
-
+        elif isinstance(error, errors.CheckFailure):
+            fails = set(
+                str(error)
+                .replace("Multiple checks failed: ","")
+                .replace("This command", f"`{ctx.invoked_with}`")
+                .split(", ")
+            )
+            log.debug(fails)
+            if len(fails) > 1:
+                str_fails = [f"{i+1}: {e}"
+                    for i, e in enumerate(fails)
+                ]
+                return await ctx.respond(
+                    "\n".join(fails)
+                )
+            else:
+                return await ctx.respond(fails.pop())
         # errors which will only be handled, if the command was invoked with a prefix
         if not ctx.prefix:
             return # log.debug(f"Suppress error of type: {error.__class__.__name__}")
