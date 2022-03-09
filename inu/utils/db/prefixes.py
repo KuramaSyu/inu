@@ -1,6 +1,6 @@
 from typing import *
 
-from core import getLogger, Table
+from core import getLogger, Table, Inu
 
 log = getLogger(__name__)
 
@@ -21,7 +21,7 @@ class PrefixManager:
         table = Table("guilds")
         
         rec = await table.fetch_by_id("guild_id", guild_id)
-        prefixes = []
+        prefixes = [table.db.bot.conf.bot.DEFAULT_PREFIX]
         if rec:
             prefixes.extend(rec["prefixes"])
         prefixes.append(prefix)
