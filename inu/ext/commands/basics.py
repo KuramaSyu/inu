@@ -1,4 +1,3 @@
-from ast import alias
 import typing
 from typing import (
     Union,
@@ -24,7 +23,7 @@ from numpy import full, isin
 from fuzzywuzzy import fuzz
 
 from utils import Colors, Human, Paginator, crumble
-from core import getLogger
+from core import getLogger, Inu
 
 
 log = getLogger(__name__)
@@ -34,6 +33,8 @@ if not isinstance(basics.d, lightbulb_utils.DataStore):
     raise RuntimeError("Plugin don't contain a datastore")
 if basics.d is None:
     raise RuntimeError("Plugin don't contain a datastore")
+
+bot: Inu
 
 
 @basics.command
@@ -55,7 +56,7 @@ async def ping(ctx: context.Context):
             return "🔴"
         elif ping >= 800:
             return "🟠"
-        elif ping >= 550:
+        elif ping >= 450:
             return "🟡"
         else:
             return "🟢"
@@ -150,11 +151,7 @@ async def search(ctx: Context):
 )
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def search_guild(ctx: Context):
-    guilds = await ctx.bot.rest.fetch_my_guilds()
-    matches = [
-        g for g in guilds 
-        if ctx.options.guild in str(g.id).lower() or ctx.options.guild in str(g.name).lower()
-    ]
+    matches = await bot.search.guild(ctx.options.guild)
     if not matches:
         await ctx.respond(f"No guilds with partial ID/name `{ctx.options.guild}` found")
         return
@@ -180,16 +177,8 @@ async def search_guild(ctx: Context):
     aliases=["user", "person"]
 )
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
-async def search_guild(ctx: Context):
-    members = await ctx.bot.rest.fetch_members(ctx.guild_id)
-    matches = [
-        m for m in members 
-        if (
-            ctx.options.member in str(m.id).lower() 
-            or ctx.options.member in str(m.username).lower()
-            or ctx.options.member in m.display_name.lower()
-        )
-    ]
+async def search_member(ctx: Context):
+    matches = await bot.search.member(ctx.guild_id, ctx.options.member)
     if not matches:
         await ctx.respond(f"No member with partial name/ID/alias `{ctx.options.member}` found")
         return
@@ -204,5 +193,8 @@ async def search_guild(ctx: Context):
 
 
 
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(basics)
+def load(inu: lightbulb.BotApp):
+    global bot
+    bot = inu
+    inu.add_plugin(basics)
+
