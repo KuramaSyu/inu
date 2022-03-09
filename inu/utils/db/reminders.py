@@ -38,7 +38,6 @@ def get_seconds_until_next(weekday: int) -> int:
     
     for x in range(1, 8):
         y = (x + i) % 7
-        log.debug(f"{y}")
         if y == weekday:
             fut_day = start_of_day + timedelta(days=x)
             return int(fut_day.timestamp() - now.timestamp())
