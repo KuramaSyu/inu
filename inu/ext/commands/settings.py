@@ -148,7 +148,7 @@ async def remove(ctx: Context):
     if prefix == "empty":
         prefix = ""
     elif prefix == bot._default_prefix:
-        return await ctx.respond(f"I wont do that xD")
+        return await ctx.respond(f"I won't do that xD")
     prefixes = await PrefixManager.remove_prefix(ctx.guild_id, prefix)
     await ctx.respond(f"""I removed it. For this guild, the prefixes are now: {', '.join([f'`{p or "<empty>"}`' for p in prefixes])}""")
 
