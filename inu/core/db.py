@@ -160,7 +160,7 @@ class Table():
                         log.debug(f"{return_value}")
                     return return_value
                 except Exception as e:
-                    log.warning(f"{self._executed_sql}")
+                    log.error(f"{self._executed_sql}")
                     log.exception(f"{traceback.format_exc()}")
                     if reraise_exc:
                         raise e
