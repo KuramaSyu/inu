@@ -43,6 +43,7 @@ class Inu(lightbulb.BotApp):
         self.scheduler.start()
         self._prefixes = {}
         self._default_prefix = self.conf.bot.DEFAULT_PREFIX
+        self.search = Search(self)
 
         
         logger_names = [
@@ -313,3 +314,29 @@ class MaybeRest:
             rest_coro= self.bot.rest.fetch_member,
             t_ids=[guild_id, member_id],
         )
+
+class Search:
+    bot: Inu
+
+    def __init__(self, bot: Inu):
+        self.__class__.bot = bot
+
+    async def member(cls, guild_id: int, member_query: str) -> List[hikari.Member]:
+        member_query = member_query.strip().lower()
+        members = await cls.bot.rest.fetch_members(guild_id)
+        return [
+            m for m in members 
+            if (
+                member_query in str(m.id).lower() 
+                or member_query in str(m.username).lower()
+                or member_query in m.display_name.lower()
+            )
+        ]
+
+    async def guild(cls, guild_query: str) -> List[hikari.Guild]:
+        guild_query = guild_query.lower().strip()
+        guilds = await cls.bot.rest.fetch_my_guilds()
+        return [
+            g for g in guilds 
+            if guild_query in str(g.id).lower() or guild_query in str(g.name).lower()
+        ]
