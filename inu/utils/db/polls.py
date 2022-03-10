@@ -32,7 +32,7 @@ class PollManager:
     bot: Inu
     db: Database
     active_polls: Set[PollVote]
-    polls = Table("polls")
+    polls: Table
 
     @classmethod
     async def remove_poll(cls, poll: PollVote):
@@ -42,10 +42,12 @@ class PollManager:
     @classmethod
     async def add_poll(cls, poll: PollVote):
         """add poll to db"""
-        cls.polls.upsert(which_columns, values)
+        #cls.polls.upsert(which_columns, values)
+        ...
     
     @classmethod
     async def init_bot(cls, bot: Inu):
         cls.bot = bot
         cls.db = bot.db
+        cls.polls = Table("polls")
         # sync polls from db 
