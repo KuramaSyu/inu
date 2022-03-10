@@ -110,7 +110,7 @@ class Inu(lightbulb.BotApp):
             args = []
         if kwargs is None:
             kwargs = {}
-        self.scheduler.add_job(load_upcoming_reminders, trigger, args=args, kwargs=kwargs)
+        self.scheduler.add_job(func, trigger, args=args, kwargs=kwargs)
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
