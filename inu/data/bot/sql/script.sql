@@ -99,8 +99,8 @@ CREATE TABLE IF NOT EXISTS polls (
     creator_id BIGINT NOT NULL,
     title VARCHAR(255),
     "description" VARCHAR(2048),
-    options RECORD NOT NULL,
-    polls RECORD NOT NULL,
+    options JSONB,
+    polls JSONB,
     active_until TIMESTAMP NOT NULL
 );
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
