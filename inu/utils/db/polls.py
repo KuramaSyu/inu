@@ -20,7 +20,7 @@ from core.bot import Inu
 from core import Database, Table
 from ..vote import PollVote
 
-from core import getLogger
+from core import getLogger, Table
 
 log = getLogger(__name__)
 
@@ -32,6 +32,7 @@ class PollManager:
     bot: Inu
     db: Database
     active_polls: Set[PollVote]
+    polls = Table("polls")
 
     @classmethod
     async def remove_poll(cls, poll: PollVote):
@@ -41,7 +42,7 @@ class PollManager:
     @classmethod
     async def add_poll(cls, poll: PollVote):
         """add poll to db"""
-        ...
+        cls.polls.upsert(which_columns, values)
     
     @classmethod
     async def init_bot(cls, bot: Inu):
