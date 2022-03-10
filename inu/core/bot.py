@@ -38,7 +38,9 @@ class Inu(lightbulb.BotApp):
         self._me: Optional[hikari.User] = None
         self.startup = datetime.datetime.now()
         from core.db import Database
-        self.db = Database(self)
+        self.db = Database()
+        self.db.bot = self
+        self.log.debug(self)
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
