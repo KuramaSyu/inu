@@ -18,6 +18,7 @@ import hikari
 from hikari.snowflakes import Snowflakeish
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
+from apscheduler.triggers.interval import IntervalTrigger
 from colorama import Fore, Style
 from lightbulb.context.base import Context
 from matplotlib.colors import cnames
@@ -86,6 +87,30 @@ class Inu(lightbulb.BotApp):
             table = Table("guilds")
             asyncio.create_task(table.insert(["guild_id", "prefixes"], [guild_id, self._default_prefix]))
         return prefixes or [self._default_prefix]
+
+    def add_task(
+        self,
+        func: Callable,
+        seconds: int = 0,
+        minutes: int = 0,
+        hours: int = 0,
+        days: int = 0,
+        weeks: int = 0,
+        args: Sequence[Any] = None,
+        kwargs: Sequence[Any] = None,
+    ):
+        trigger = IntervalTrigger(
+            seconds=seconds,
+            minutes=minutes,
+            hours=hours,
+            days=days,
+            weeks=weeks,
+        )
+        if args is None:
+            args = []
+        if kwargs is None:
+            kwargs = {}
+        self.scheduler.add_job(load_upcoming_reminders, trigger, args=args, kwargs=kwargs)
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
