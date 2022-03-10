@@ -28,7 +28,7 @@ import hikari
 from utils import Colors
 from utils import Paginator
 
-from core import getLogger
+from core import getLogger, Inu
 
 log = getLogger(__name__)
 
@@ -179,7 +179,7 @@ async def send_manual(ctx, key: Union[str, list], obj):
         urls = key
     for url in urls:
         if not plugin.d.rtfm_cache:
-            await _update_rtfm_chache()
+            await _update_rtfm_cache()
         docs = plugin.d.rtfm_cache[url]
         # cut out "discord." "ext." "commands." of obj
         if key == get_docs_url_from('dpy-latest'):
@@ -217,7 +217,7 @@ async def send_manual(ctx, key: Union[str, list], obj):
     )
     await paginator.start(ctx)
 
-async def _update_rtfm_chache() -> None:
+async def _update_rtfm_cache() -> None:
     session = aiohttp.ClientSession(loop=asyncio.get_running_loop())
     for name, url in plugin.d.docs.items():
         try:
@@ -289,5 +289,7 @@ async def python(ctx: context.Context):
     url = get_docs_url_from('python')
     await send_manual(ctx, url, ctx.options.obj)
 
-def load(bot: lightbulb.BotApp):
+def load(bot: Inu):
     bot.add_plugin(plugin)
+    bot.add_task(_update_rtfm_cache, hours=8)
+    asyncio.create_task(_update_rtfm_cache)
