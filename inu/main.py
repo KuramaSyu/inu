@@ -15,7 +15,7 @@ from dotenv import dotenv_values
 import hikari
 import lightbulb
 from core import Inu, Table
-from utils import InvokationStats, Reminders, TagManager, MyAnimeList
+from utils import InvokationStats, Reminders, TagManager, MyAnimeList, PollManager
 from core import getLogger
 
 log = getLogger(__name__)
@@ -50,6 +50,7 @@ def main():
             InvokationStats.init_db(inu)
             await Reminders.init_bot(inu)
             TagManager.init_db(inu)
+            PollManager.init_bot(inu)
 
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
