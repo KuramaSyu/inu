@@ -161,6 +161,12 @@ plugin.d.docs = {
 
 }
 
+@plugin.listener(lightbulb.LightbulbStartedEvent)
+async def on_ready(event: lightbulb.LightbulbStartedEvent):
+    bot: Inu = event.bot
+    bot.add_task(_update_rtfm_cache, hours=8)
+    asyncio.create_task(_update_rtfm_cache)
+
 def get_docs_url_from(key):
     return plugin.d.docs.get(key)
 
@@ -291,5 +297,6 @@ async def python(ctx: context.Context):
 
 def load(bot: Inu):
     bot.add_plugin(plugin)
-    bot.add_task(_update_rtfm_cache, hours=8)
-    asyncio.create_task(_update_rtfm_cache)
+
+
+
