@@ -405,6 +405,7 @@ async def tag_info(ctx: Context):
     if record is None:
         return await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id or ctx.channel_id, ctx.author.id)
     message = (
+        f"**{record['tag_key']}**\n\n"
         f"tag {Human.plural_('author', len(record['author_ids']))}: "
         f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
         f"tag guilds/channels: {Human.list_(record['guild_ids'], with_a_or_an=False)}\n"
