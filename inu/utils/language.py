@@ -8,8 +8,11 @@ import inspect
 import textwrap
 
 from utils import WordIterator
+from core import getLogger
 
 T_str_list = TypeVar("T_str_list", str, List[str])
+
+log = getLogger(__name__)
 
 def human_bool(bool_, twisted=False):
     if not twisted:
@@ -53,7 +56,7 @@ class Multiple():
         """returns True, if `word` starts with more than 0 entries of list `ends_w`"""
         word = str(word)
         for w in starts_w:
-            if word.startswith(str(word)):
+            if word.startswith(str(w)):
                 return True
         return False
     
@@ -271,7 +274,7 @@ class Human():
         -------- 
             - (str) "a" or "an" depending on the word
         """
-        if Multiple.startswith_(word, ["a", "e", "i", "o", "u"]):
+        if Multiple.startswith_(word.lower(), ["a", "e", "i", "o", "u"]):
             return "an"
         return "a"
 
