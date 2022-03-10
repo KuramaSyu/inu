@@ -38,7 +38,7 @@ def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 class Database(metaclass=Singleton):
-    __slots__: Sequence[str] = ("bot", "_connected", "_pool", "calls", "log")
+    __slots__: Sequence[str] = ("_bot", "_connected", "_pool", "calls", "log")
     instance = None
 
     def __init__(self, bot: Optional["Inu"] = None) -> None:
@@ -46,13 +46,23 @@ class Database(metaclass=Singleton):
             #raise RuntimeError("`Database` object need the `Bot|Inu` object when init first")
             #return
         typing.cast(Inu, bot)
-        self.bot: Inu = bot #type: ignore
+        self._bot: Inu #type: ignore
         self._connected = asyncio.Event()
         self.calls = 0
         self.log = getLogger(__name__, self.__class__.__name__)
 
     async def wait_until_connected(self) -> None:
         await self._connected.wait()
+
+    @property
+    def bot(self) -> Inu:
+        assert(isinstance(self._bot, Inu))
+        return self._bot
+    
+    @bot.setter
+    def bot(self, value: Inu) -> None:
+        self._bot = value
+        log.info(f"set bot to: {value}")
 
     @property
     def is_connected(self) -> bool:
@@ -65,6 +75,7 @@ class Database(metaclass=Singleton):
 
     async def connect(self) -> None:
         assert not self.is_connected, "Already connected."
+        log.debug(self.bot)
         pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.db.DSN)
         if not isinstance(pool, asyncpg.Pool):
             typing.cast(Inu, self.bot)
