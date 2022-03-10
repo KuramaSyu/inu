@@ -187,7 +187,7 @@ class Table():
         which_columns: List[str], 
         values: List,
         compound_of: int = 0,
-        returning: str = "*"
+        returning: str = ""
     ) -> Optional[asyncpg.Record]:
         """
         NOTE
@@ -211,8 +211,10 @@ class Table():
             f"INSERT INTO {self.name} ({', '.join(which_columns)}) \n"
             f"VALUES ({', '.join(values_chain)}) \n"
             f"ON CONFLICT ({on_conflict_values}) DO UPDATE \n"
-            f"SET {update_set_query}"
+            f"SET {update_set_query} \n"
         )
+        if returning:
+            sql += f"RETURNING {returning} \n"
         self._create_sql_log_message(sql, values)
         return_values = await self.db.execute(sql, *values)
         return return_values   
