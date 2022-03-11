@@ -136,6 +136,8 @@ class TagManager():
             new_record["guild_ids"] = guild_ids
         if aliases:
             new_record["aliases"] = aliases
+        if key:
+            new_record["tag_key"] = key
         await cls.sync_record(new_record)
         return new_record
 
