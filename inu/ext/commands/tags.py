@@ -42,14 +42,16 @@ from core import getLogger
 log = getLogger(__name__)
 
 
-async def get_tag_interactive(ctx: Context) -> Optional[asyncpg.Record]:
+async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[asyncpg.Record]:
     """
     Get the tag interactive
     Note:
     -----
         - if there are multiple tags with same name, the user will be asked, which one to use
     """
-    raw_results: List[Mapping[str, Any]] = await TagManager.get(ctx.options.key, ctx.guild_id or ctx.channel_id)
+    if key is None:
+        key = ctx.options.key
+    raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     results = []
     for result in raw_results:
         if ctx.author.id in result["author_ids"]:
@@ -72,9 +74,9 @@ async def get_tag_interactive(ctx: Context) -> Optional[asyncpg.Record]:
         menu = (
             ActionRowBuilder()
             .add_select_menu("menu")
-            .add_option(f"{ctx.options.key} - global / everywhere", "global")
+            .add_option(f"{key} - global / everywhere", "global")
             .add_to_menu()
-            .add_option(f"{ctx.options.key} - local / guild only", "local")
+            .add_option(f"{key} - local / guild only", "local")
             .add_to_menu()
             .add_to_container()
         )
@@ -388,9 +390,32 @@ async def tag_append(ctx: Context):
     key = ctx.options.key
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.value += f"\n{ctx.options.text.lstrip()}"
+    await tag.save()
+    await ctx.respond(
+        f"Done."
+    )
+
+@tag.child
+@lightbulb.option("new_key", "The new key for the tag", modifier=OM.CONSUME_REST)
+@lightbulb.option("old_key", "The old name from the tag") 
+@lightbulb.command("change-key", "Change the key (name) of a tag")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def tag_change_key(ctx: Context):
+    """Remove a tag to my storage
+    
+    Args:
+    -----
+        - key: the name of the tag which you want to remove
+    """
+    old_key = ctx.options.old_key
+    record = await get_tag_interactive(ctx, old_key)
+    if not record:
+        return await ctx.respond(f"I can't find a tag with the name `{old_key}` where you are the owner :/")
+    tag: Tag = await Tag.from_record(record, ctx.author)
+    tag.name = ctx.options.new_key
     await tag.save()
     await ctx.respond(
         f"Done."
