@@ -190,6 +190,8 @@ class Paginator():
         self._components: Optional[List[ActionRowBuilder]] = None
         self._disable_components = disable_components
         self._disable_component = disable_component
+        if not self._disable_component and not self._disable_components:
+            raise RuntimeError(f"Paginator.__init__: disable_component can be False OR disable_components can be False. Not both")
         self._exit_when_one_site = disable_paginator_when_one_site
         self._task: asyncio.Task
         self._message: Message
@@ -438,11 +440,11 @@ class Paginator():
     async def stop(self):
         self._stop = True
         with suppress(NotFoundError, hikari.ForbiddenError):
-            if not self._disable_component:
-                await self._message.edit(component=None)
-            elif not self._disable_components:
+            if self.components:
                 await self._message.edit(components=[])
-            await self._message.remove_all_reactions()
+            elif self.component:
+                await self._message.edit(component=None)    
+            # await self._message.remove_all_reactions()
 
     async def start(self, ctx: Context) -> hikari.Message:
         """
