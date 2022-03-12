@@ -361,7 +361,7 @@ async def on_ready(event: hikari.ShardReadyEvent):
     music.d.log = logging.getLogger(__name__)
     music.d.log.setLevel(logging.DEBUG)
     music.d.interactive = Interactive(music.bot)
-    music.d.music_message: Dict[int, hikari.Message] = {}  # guild_id: hikari.Message
+    music.d.music_message: Dict[int, Union[hikari.Message, None]] = {}  # guild_id: hikari.Message
     music.d.last_context: Dict[int,Context] = {} # guild_id: lightbulb.Context
     music.d.music_helper = MusicHelper()
     await start_lavalink()
@@ -382,7 +382,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
     try:
         if event.user_id == music.bot.get_me().id:
             return
-        if event.message_id not in [m.id for m in music.d.music_message.values()]:
+        if not event.message_id in [m.id for m in music.d.music_message.values() if not m is None]:
             return
         try:
             message = music.bot.cache.get_message(event.message_id)
