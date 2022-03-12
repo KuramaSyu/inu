@@ -379,102 +379,105 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
 
 @music.listener(hikari.ReactionAddEvent)
 async def on_reaction_add(event: hikari.ReactionAddEvent):
-    if event.user_id == music.bot.get_me().id:
-        return
-    if event.message_id not in [m.id for m in music.d.music_message.values()]:
-        return
     try:
-        message = music.bot.cache.get_message(event.message_id)
-        guild_id = message.guild_id  # type: ignore
-        if not isinstance(message, hikari.Message) or guild_id is None:
+        if event.user_id == music.bot.get_me().id:
             return
-        member = music.bot.cache.get_member(guild_id, event.user_id)
-        if not isinstance(member, hikari.Member):
+        if event.message_id not in [m.id for m in music.d.music_message.values()]:
             return
-        if not (ctx := music.d.last_context.get(guild_id)):
+        try:
+            message = music.bot.cache.get_message(event.message_id)
+            guild_id = message.guild_id  # type: ignore
+            if not isinstance(message, hikari.Message) or guild_id is None:
+                return
+            member = music.bot.cache.get_member(guild_id, event.user_id)
+            if not isinstance(member, hikari.Member):
+                return
+            if not (ctx := music.d.last_context.get(guild_id)):
+                return
+        except AttributeError:
             return
-    except AttributeError:
-        return
 
-    emoji = event.emoji_name
-    if emoji == '🔀':
-        node = await music.d.lavalink.get_guild_node(guild_id)
-        if node is None:
-            return
+        emoji = event.emoji_name
+        if emoji == '🔀':
+            node = await music.d.lavalink.get_guild_node(guild_id)
+            if node is None:
+                return
 
-        nqueue = node.queue[1:]
-        random.shuffle(nqueue)
-        nqueue = [node.queue[0], *nqueue]
-        node.queue = nqueue
-        await music.d.lavalink.set_guild_node(guild_id, node)
-        await message.remove_reaction(emoji, user=event.user_id)
-        music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
-    elif emoji == '▶':
-        music.d.music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
-        await message.remove_reaction(emoji, user=event.user_id)
-        await message.remove_reaction(emoji, user=music.bot.me)
-        await asyncio.sleep(0.1)
-        await message.add_reaction(str('⏸'))
-        await _resume(guild_id)
-    elif emoji == '1️⃣':
-        await _skip(guild_id, amount = 1)
-        await message.remove_reaction(emoji, user=event.user_id)
-        music.d.music_helper.add_to_log(
-            guild_id = guild_id, 
-            entry = f'1️⃣ Music was skipped by {member.display_name} (once)'
-        )
-    elif emoji == '2️⃣':
-        await _skip(guild_id, amount = 2)
-        await message.remove_reaction(emoji, user=event.user_id)
-        music.d.music_helper.add_to_log(
-            guild_id =guild_id, 
-            entry = f'2️⃣ Music was skipped by {member.display_name} (twice)'
-        )
-    elif emoji == '3️⃣':
-        await _skip(guild_id, amount = 3)
-        await message.remove_reaction(emoji, user=event.user_id)
-        music.d.music_helper.add_to_log(
-            guild_id = guild_id, 
-            entry = f'3️⃣ Music was skipped by {member.display_name} (3 times)'
-        )
-    elif emoji == '4️⃣':
-        await _skip(guild_id, amount = 4)
-        await message.remove_reaction(emoji, user=event.user_id)
-        music.d.music_helper.add_to_log(
-            guild_id =guild_id, 
-            entry = f'4️⃣ Music was skipped by {member.display_name} (4 times)'
-        )
-    elif emoji == '⏸':
-        music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
-        await message.remove_reaction(emoji, user=event.user_id)
-        await message.remove_reaction(emoji, user=music.bot.get_me().id)  # type: ignore
-        await asyncio.sleep(0.1)
-        await message.add_reaction(str('▶'))
-        await _pause(guild_id)
-    elif emoji == '🗑':
-        await message.remove_reaction(emoji, user=event.user_id)
-        await message.respond(
-            embed=(
-                Embed(title="🗑 queue cleared")
-                .set_footer(text=f"music queue was cleared by {member.display_name}", icon=member.avatar_url)
+            nqueue = node.queue[1:]
+            random.shuffle(nqueue)
+            nqueue = [node.queue[0], *nqueue]
+            node.queue = nqueue
+            await music.d.lavalink.set_guild_node(guild_id, node)
+            await message.remove_reaction(emoji, user=event.user_id)
+            music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
+        elif emoji == '▶':
+            music.d.music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
+            await message.remove_reaction(emoji, user=event.user_id)
+            await message.remove_reaction(emoji, user=music.bot.me)
+            await asyncio.sleep(0.1)
+            await message.add_reaction(str('⏸'))
+            await _resume(guild_id)
+        elif emoji == '1️⃣':
+            await _skip(guild_id, amount = 1)
+            await message.remove_reaction(emoji, user=event.user_id)
+            music.d.music_helper.add_to_log(
+                guild_id = guild_id, 
+                entry = f'1️⃣ Music was skipped by {member.display_name} (once)'
             )
-        )
-        music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🗑 Queue was cleared by {member.display_name}')
-        await _clear(guild_id)
-        if not (ctx := music.d.last_context.get(guild_id)):
+        elif emoji == '2️⃣':
+            await _skip(guild_id, amount = 2)
+            await message.remove_reaction(emoji, user=event.user_id)
+            music.d.music_helper.add_to_log(
+                guild_id =guild_id, 
+                entry = f'2️⃣ Music was skipped by {member.display_name} (twice)'
+            )
+        elif emoji == '3️⃣':
+            await _skip(guild_id, amount = 3)
+            await message.remove_reaction(emoji, user=event.user_id)
+            music.d.music_helper.add_to_log(
+                guild_id = guild_id, 
+                entry = f'3️⃣ Music was skipped by {member.display_name} (3 times)'
+            )
+        elif emoji == '4️⃣':
+            await _skip(guild_id, amount = 4)
+            await message.remove_reaction(emoji, user=event.user_id)
+            music.d.music_helper.add_to_log(
+                guild_id =guild_id, 
+                entry = f'4️⃣ Music was skipped by {member.display_name} (4 times)'
+            )
+        elif emoji == '⏸':
+            music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
+            await message.remove_reaction(emoji, user=event.user_id)
+            await message.remove_reaction(emoji, user=music.bot.get_me().id)  # type: ignore
+            await asyncio.sleep(0.1)
+            await message.add_reaction(str('▶'))
+            await _pause(guild_id)
+        elif emoji == '🗑':
+            await message.remove_reaction(emoji, user=event.user_id)
+            await message.respond(
+                embed=(
+                    Embed(title="🗑 queue cleared")
+                    .set_footer(text=f"music queue was cleared by {member.display_name}", icon=member.avatar_url)
+                )
+            )
+            music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🗑 Queue was cleared by {member.display_name}')
+            await _clear(guild_id)
+            if not (ctx := music.d.last_context.get(guild_id)):
+                return
+        elif emoji == '🛑':
+            await message.respond(
+                embed=(
+                    Embed(title="🛑 music stopped")
+                    .set_footer(text=f"music was stopped by {member.display_name}", icon=member.avatar_url)
+                )
+            )
+            music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
+            await _leave(guild_id)
             return
-    elif emoji == '🛑':
-        await message.respond(
-            embed=(
-                Embed(title="🛑 music stopped")
-                .set_footer(text=f"music was stopped by {member.display_name}", icon=member.avatar_url)
-            )
-        )
-        music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
-        await _leave(guild_id)
-        return
-    if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
-        await queue(ctx)
+        if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
+            await queue(ctx)
+    except Exception:
+        log.error(f"Error reaction_add music:\n{traceback.print_exc()}")
 
 async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
     if not (guild := ctx.get_guild()) or not ctx.guild_id:
