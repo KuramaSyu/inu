@@ -25,14 +25,14 @@ from matplotlib.colors import cnames
 
 
 from ._logging import LoggingHandler, getLogger, getLevel
-from . import ConfigProxy
+from . import ConfigProxy, ConfigType
 
 
 class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
         self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
-        self.conf: ConfigProxy = ConfigProxy.create()  #Configuration(dotenv_values())
+        self.conf: ConfigProxy = ConfigProxy(ConfigType.YAML)  #Configuration(dotenv_values())
         self.log = getLogger(__name__, self.__class__.__name__)
         (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
