@@ -22,13 +22,13 @@ import datetime
 from typing import *
 
 from colorama import init, Fore, Style
-from . import ConfigProxy
+from . import ConfigProxy, ConfigType
 import colorlog
 
 
 init()
 
-config = ConfigProxy.create()
+config = ConfigProxy(ConfigType.YAML)
 #print(config.sections)
 
 msg_colors = {
