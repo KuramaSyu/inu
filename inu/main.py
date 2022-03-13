@@ -50,7 +50,7 @@ def main():
             InvokationStats.init_db(inu)
             await Reminders.init_bot(inu)
             TagManager.init_db(inu)
-            PollManager.init_bot(inu)
+            await PollManager.init_bot(inu)
 
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
