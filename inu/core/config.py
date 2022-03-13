@@ -4,6 +4,7 @@ import io
 from optparse import Option
 import os
 from typing import *
+from typing_extensions import Self
 from dotenv import dotenv_values
 import pprint
 import yaml
@@ -15,6 +16,7 @@ class SectionProxy:
         self,
         section_name: str, 
         section_options: Dict[str, Any],
+        case_insensitive: bool = True
     ):
         """
         Represents one Section of a config.ini file
@@ -23,13 +25,16 @@ class SectionProxy:
         -----
             - __getattr__ is caseinsensitive
         """
+        self.case_insensitive = case_insensitive
         self.name = section_name
         self.options = {}
         for key, value in section_options.items():
             if isinstance(value, dict):
-                self.options[key] = self._dict_to_section_proxy(key, value)
+                self.options[str(key)] = self._dict_to_section_proxy(key, value)
             else:
-                self.options[key] = value
+                self.options[str(key)] = value
+        if self.case_insensitive:
+            self.options = {k.lower(): v for k, v in self.options.items()}
 
     def __getattr__(self, name: str) -> str:
         name = name.lower()
@@ -78,8 +83,12 @@ class ConfigProxy():
     -----
         - __getattr__ is caseinsensitive
     """
-    def __init__(self, config: List[SectionProxy]):
-        self.sections = config
+    def __init__(
+        self,
+        config_type: Callable[[Optional[str]], Self],
+        path: Optional[str] = None,
+    ):
+        self.sections = config_type(path)
 
     def __getattr__(self, name: str) -> str:
         name = name.lower()
@@ -120,9 +129,7 @@ class ConfigAlgorithms:
         with open(path, "r", encoding="utf-8") as f:
             stream = f.read()
         config = yaml.load(stream, Loader=yaml.CLoader)
-        return ConfigProxy(
-            [SectionProxy(k, v) for k, v in config.items()]
-        )
+        return [SectionProxy(k, v) for k, v in config.items()]
 
     @staticmethod
     def ini_config(path: Optional[str] = None):
@@ -136,16 +143,25 @@ class ConfigAlgorithms:
                 tmp_options[option] = config.get(section, option)
             section_proxies.append(SectionProxy(section, tmp_options))
         #section_proxies.append(SectionProxy("env", dotenv_values()))       
-        configproxy = ConfigProxy(section_proxies)
-        return configproxy
+        return section_proxies
 
 
-class ConfigType:
+class ConfigType(Enum):
     YAML = ConfigAlgorithms.yaml_config
     INI = ConfigAlgorithms.ini_config
 
+    @staticmethod
+    def get_type(func: Callable) -> str:
+        if func is ConfigAlgorithms.ini_config:
+            return "ini"
+        elif func is ConfigAlgorithms.yaml_config:
+            return "yaml"
+        else:
+            raise RuntimeError(f"Function {func} is an unknown type")
+
+
 if __name__ == "__main__":
-    config = ConfigProxy.create(ConfigType.YAML)
+    config = ConfigProxy(ConfigType.YAML)
     for s in config:
         print(s)
         
