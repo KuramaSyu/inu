@@ -6,6 +6,7 @@ import os
 import asyncio
 import logging
 import traceback
+import time
 
 import aiohttp
 from core import LoggingHandler
@@ -117,8 +118,21 @@ def main():
                 f"[{event.context.user.id}] {event.context.author.username} called {event.command.name}"
             )
         )
+    stop = False
+    while not stop:
+        log.info(f"start bot")
+        try:
+            inu.run()
+            time.sleep(5)
+        except KeyboardInterrupt:
+            stop = True
+        except Exception:
+            log.critical(traceback.format_exc())
+        finally:
+            if not inu.conf.bot.reboot:
+                stop = True
+        
 
-    inu.run()
-
+        
 if __name__ == "__main__":
     main()
