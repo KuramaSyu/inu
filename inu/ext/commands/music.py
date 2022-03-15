@@ -894,7 +894,7 @@ async def events(ctx: Context):
         return
     has_perm = False  
     for role in ctx.member.get_roles():
-        if role.name == music.bot.conf.SPECIAL_ROLE_NAME or role.permissions.ADMINISTRATOR:
+        if role.name == music.bot.conf.bot.SPECIAL_ROLE_NAME or role.permissions.ADMINISTRATOR:
             has_perm = True
             break
     if not has_perm:
