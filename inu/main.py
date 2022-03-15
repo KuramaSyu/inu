@@ -1,23 +1,20 @@
 """The entrance point of the bot"""
-
-from distutils import command
-from inspect import trace
-import os
-import asyncio
 import logging
 import traceback
+import time
+
 import time
 
 import aiohttp
 from core import LoggingHandler
 logging.setLoggerClass(LoggingHandler)
 
-from dotenv import dotenv_values
 import hikari
 import lightbulb
 from core import Inu, Table
 from utils import InvokationStats, Reminders, TagManager, MyAnimeList, PollManager
 from core import getLogger
+
 
 log = getLogger(__name__)
 log.info(f"hikari version:{hikari.__version__}")
@@ -76,40 +73,21 @@ def main():
     async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
         table = Table("bot")
         record = await table.select_row(["key"], ["restart_count"])
-        activity = record["value"]
+        activity = str(record["value"])
         try:
             async with aiohttp.ClientSession() as session:
                 resp = await session.get(f"http://numbersapi.com/{activity}")
-                activity = (await resp.read()).decode("utf-8")
+                new_activity = (await resp.read()).decode("utf-8")
+                activity = activity if len(activity) > len(new_activity) else new_activity
         except Exception:
-            traceback.print_exc()
+            log.error(traceback.format_exc())
         await event.bot.update_presence(
             status=hikari.Status.IDLE, 
             activity=hikari.Activity(
                 name=activity,
             )
         )
-        # await event.bot.update_presence(
-        #     status=hikari.Status.IDLE, 
-        #     afk=True,
-        # )
-        # log.debug("start test")
-        # try:
-        #     anime = await MyAnimeList.fetch_anime_by_id(1)
-        #     for k,v in anime.__dict__.items():
-        #         log.debug(f"{k}={v}: {type(v)}")
-        # except Exception:
-        #     log.error(traceback.format_exc())
 
-    # @inu.listen(hikari.PresenceUpdateEvent)
-    # async def on_bot_ready(event : hikari.PresenceUpdateEvent):
-    #     if event.user_id != inu.get_me().id:
-    #         return
-    #     else:
-    #         await event.bot.update_presence(
-    #             status=hikari.Status.IDLE, 
-    #             afk=True,
-    #         )
 
     @inu.listen(lightbulb.events.CommandInvocationEvent)
     async def on_event(event: lightbulb.events.CommandInvocationEvent):
@@ -120,19 +98,23 @@ def main():
         )
     stop = False
     while not stop:
-        log.info(f"start bot")
         try:
             inu.run()
-            time.sleep(5)
+            print(f"Press Strl C again to exit")
+            time.sleep(3)
         except KeyboardInterrupt:
             stop = True
+            log.waring(f"Keyboard interrupt - stop session")
+            break
         except Exception:
+            log.critical(f"Bot crashed with critical Error:")
             log.critical(traceback.format_exc())
         finally:
             if not inu.conf.bot.reboot:
                 stop = True
-        
+            else:
+                log.info(f"Rebooting bot")
+    log.info(f"Bot shutted down!")
 
-        
 if __name__ == "__main__":
     main()
