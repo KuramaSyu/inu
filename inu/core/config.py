@@ -19,11 +19,11 @@ class SectionProxy:
         case_insensitive: bool = True
     ):
         """
-        Represents one Section of a config.ini file
+        Represents one Section of a `config.[yaml|ini]` file
 
         NOTE:
         -----
-            - __getattr__ is caseinsensitive
+            - __getattr__ is case insensitive
         """
         self.case_insensitive = case_insensitive
         self.name = section_name
@@ -40,7 +40,7 @@ class SectionProxy:
         name = name.lower()
         result = self.options.get(name, None)
         if result is None:
-            raise AttributeError(f"config.ini section: `{self.name}` has no attribute `{name}`")
+            raise AttributeError(f"config section: `{self.name}` has no attribute `{name}`")
         return result
 
     def __repr__(self):
@@ -96,11 +96,11 @@ class ConfigProxy():
         if sections == []:
             #search = [value for section in self.sections for value in section.options.values() if value == name]
             if len(sections) > 1:
-                raise AttributeError(f"`config` (./config.ini) has multiple arrs called `{name}`; specify it with section")
+                raise AttributeError(f"config has multiple attrs called `{name}`; specify it with section")
             if len(sections) == 0:
                 raise AttributeError(f"no section in config with name: `{name}`")
         elif len(sections) > 1:
-            raise RuntimeError(f"config file (./config.ini) has multiple sections named `{name}`. Consider changing it!")
+            raise RuntimeError(f"config has multiple sections named `{name}`")
         return sections[0]
     
     def __repr__(self) -> str:
