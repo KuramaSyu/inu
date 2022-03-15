@@ -15,3 +15,4 @@ pyparsing
 mock
 jikanpy
 fuzzywuzzy
+pyyaml
