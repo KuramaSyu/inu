@@ -1,6 +1,6 @@
 import datetime
 from re import M
-from typing import Iterable, Sequence, TypeVar, Union, List, Optional, Any
+from typing import Iterable, Sequence, TypeVar, Union, List, Optional, Any, Tuple
 
 import hikari
 from numpy import isin, real
@@ -44,21 +44,21 @@ def opposite(boolean: bool):
 
 class Multiple():
     @staticmethod
-    def endswith_(word: str, ends_w: list):
-        """returns True, if `word` ends with more than 0 entries of list `ends_w`"""
+    def endswith_(word: str, ends_w: list) -> str:
+        """returns the char or "", if `word` ends with more than 0 entries of list `ends_w`"""
         for w in ends_w:
             if word.endswith(w):
-                return True
-        return False
+                return w
+        return ""
 
     @staticmethod
-    def startswith_(word: str, starts_w: list):
-        """returns True, if `word` starts with more than 0 entries of list `ends_w`"""
+    def startswith_(word: str, starts_w: list) -> str:
+        """returns the char or "", if `word` starts with more than 0 entries of list `ends_w`"""
         word = str(word)
         for w in starts_w:
             if word.startswith(str(w)):
-                return True
-        return False
+                return w
+        return ""
     
     @staticmethod
     def repalce_(text: str, symbols: Iterable, with_: str):
