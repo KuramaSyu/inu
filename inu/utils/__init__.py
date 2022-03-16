@@ -12,6 +12,7 @@ from .emojis import Emoji
 from .jikanv4 import AioJikanv4
 from .paginators import *
 from .reddit import Reddit
+from .rest import *
 
 
 import logging
