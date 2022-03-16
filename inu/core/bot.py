@@ -28,6 +28,12 @@ from ._logging import LoggingHandler, getLogger, getLevel
 from . import ConfigProxy, ConfigType
 
 
+class BotResponseError(Exception):
+    def __init__(self, bot_message: str, *args: object) -> None:
+        self.bot_message = bot_message
+        super().__init__(*args)
+
+
 class Inu(lightbulb.BotApp):
     def __init__(self, *args, **kwargs):
         self.print_banner_()
