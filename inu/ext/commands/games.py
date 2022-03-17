@@ -2,7 +2,7 @@ import random
 from fractions import Fraction
 import os
 import traceback
-import typing
+from typing import *
 from typing import Union
 import logging
 import asyncio
