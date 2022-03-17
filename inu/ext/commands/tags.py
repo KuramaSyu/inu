@@ -49,6 +49,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[asyncpg
     -----
         - if there are multiple tags with same name, the user will be asked, which one to use
     """
+    key = key.strip()
     if key is None:
         key = ctx.options.key
     raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
@@ -101,6 +102,7 @@ async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
     -----
         - tags created in your guild will be prefered sent, in case there is a global tag too
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     records = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     record: Optional[Mapping[str, Any]] = None
     # if records are > 1 return the local overridden one
@@ -203,6 +205,7 @@ async def tag(ctx: Context):
     key: the name of the tag
     if `key` isn't provided I'll start an interactive tag creation menu
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     key = ctx.options.key
     if key is None:
         taghandler = TagHandler()
@@ -232,6 +235,7 @@ async def add(ctx: Context):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     if ctx.options.value is None or ctx.options.key is None:
         taghandler = TagHandler()
         return await taghandler.start(ctx)
@@ -261,6 +265,7 @@ async def edit(ctx: Context):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     record = await get_tag_interactive(ctx)
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
@@ -286,6 +291,7 @@ async def remove(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     key = ctx.options.key
     record = await get_tag_interactive(ctx)
     if not record:
@@ -387,6 +393,7 @@ async def tag_append(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     key = ctx.options.key
     record = await get_tag_interactive(ctx)
     if not record:
