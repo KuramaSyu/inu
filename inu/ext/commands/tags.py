@@ -49,9 +49,10 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[asyncpg
     -----
         - if there are multiple tags with same name, the user will be asked, which one to use
     """
-    key = key.strip()
+
     if key is None:
         key = ctx.options.key
+    key = key.strip()
     raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     results = []
     for result in raw_results:
