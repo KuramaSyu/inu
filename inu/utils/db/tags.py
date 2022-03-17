@@ -16,6 +16,7 @@ import asyncpg
 from asyncache import cached
 from cachetools import TTLCache, LRUCache
 import hikari
+from hikari import Embed
 from hikari import Snowflake, User, Member
 from numpy import column_stack
 
