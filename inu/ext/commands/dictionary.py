@@ -19,7 +19,7 @@ import hikari
 from numpy import isin
 
 from core import getLogger, BotResponseError
-from utils import Urban, Paginator
+from utils import Urban, Paginator, Colors
 # from utils.logging import LoggingHandler
 # logging.setLoggerClass(LoggingHandler)
 
@@ -27,12 +27,12 @@ from utils import Urban, Paginator
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Urban Dictionary", "Extends the commands with urban commands")
+plugin = lightbulb.Plugin("Dictionary", "Extends the commands with urban commands")
 
 @plugin.command
 @lightbulb.option("word", "What do you want to search?")
-@lightbulb.command("urban", "Search a word in the urban (city) dictionary")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+@lightbulb.command("urban", "Search a word in the urban (city) dictionary", aliases=["urban-dictionary"])
+@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def urban_search(ctx: context.Context):
     try:
         pag = Paginator(
@@ -42,15 +42,19 @@ async def urban_search(ctx: context.Context):
                     description=(
                         f"**description for [{ctx.options.word}]({d['permalink']}):**\n"
                         f"{d['definition'].replace('[', '').replace(']', '')}\n\n"
-                    )
+                    ),
+                    color=Colors.random_color(),
                 )
                 .add_field(
                     "Example",
-                    f"{d['example'].replace('[', '').replace(']', '')}\n\n"
+                    f"{d['example'].replace('[', '').replace(']', '')}\n\n",
+                    inline=False,
                 )
                 .set_footer(
                     text=f"{d['thumbs_up']}👍 | {d['thumbs_down']}👎",
-                    icon=ctx.bot.get_me().avatar_url,
+                )
+                .set_thumbnail(
+                    "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Urban_Dictionary_logo.svg/512px-Urban_Dictionary_logo.svg.png"
                 )
                 for d in await Urban.fetch(ctx.options.word)
             ],
