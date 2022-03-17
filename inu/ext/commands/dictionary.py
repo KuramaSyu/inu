@@ -31,16 +31,20 @@ plugin = lightbulb.Plugin("Dictionary", "Extends the commands with urban command
 
 @plugin.command
 @lightbulb.option("word", "What do you want to search?")
-@lightbulb.command("urban", "Search a word in the urban (city) dictionary", aliases=["urban-dictionary"])
+@lightbulb.command(
+    "urban", 
+    "Search a word in the urban (city) dictionary", 
+    aliases=["urban-dictionary"],
+    auto_defer=True,
+)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def urban_search(ctx: context.Context):
     try:
         pag = Paginator(
             page_s=[
                 Embed(
-                    title=f"Urban - {ctx.options.word}",
                     description=(
-                        f"**description for [{ctx.options.word}]({d['permalink']}):**\n"
+                        f"**Description for [{ctx.options.word}]({d['permalink']}):**\n"
                         f"{d['definition'].replace('[', '').replace(']', '')}\n\n"
                     ),
                     color=Colors.random_color(),
