@@ -120,7 +120,8 @@ async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
 async def show_record(
     record: asyncpg.Record, 
     ctx: Context, 
-    key: Optional[str] = None
+    key: Optional[str] = None,
+    force_show_name: bool = False,
 ) -> None:
     """
     Sends the given tag(record) into the channel of <ctx>
@@ -145,9 +146,12 @@ async def show_record(
     for value in crumble(record["tag_value"], 1900):
         # if tag isn't just a picture and tag was not invoked with original name,
         # then append original name at start of message
-        if not (
-            key == record["tag_key"]
-            or re.match(media_regex, record["tag_value"].strip())
+        if (
+            not (
+                key == record["tag_key"]
+                or re.match(media_regex, record["tag_value"].strip())
+            )
+            or force_show_name
         ):
             message += f"**{record['tag_key']}**\n\n"
         message += value
@@ -599,11 +603,15 @@ async def tag_remove_guild(ctx: Context):
 @lightbulb.command("random", "Get a random tag from all tags available")
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def tag_random(ctx: Context):
-    available_tags = await TagManager.get_tags
+    available_tags = await TagManager.get_tags(
+        TagType.SCOPE,
+        guild_id=ctx.guild_id,
+        author_id=ctx.author.id,
+    )
     if not available_tags:
         raise BotResponseError(f"No tags found for the random command")
     random_tag = random.choice(available_tags)
-    await show_record(random_tag, ctx, key=None)
+    await show_record(random_tag, ctx, force_show_name=True)
 
 
 def load(bot: lightbulb.BotApp):
