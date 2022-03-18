@@ -263,8 +263,7 @@ class TagType(Enum):
     YOUR = 1
     GUILD = 2
     GLOBAL = 3
-    ALL = 4  # all tags the user can see
-    SCOPE = 5
+    SCOPE = 4
 
 class TagManager():
     db: Database
@@ -565,7 +564,12 @@ class TagManager():
             raise TagIsTakenError(f"Tag `{key}` is local taken")
     
     @classmethod
-    async def get_tags(cls, type: TagType, guild_id: Optional[int], author_id: Optional[int]) -> Optional[asyncpg.Record]:
+    async def get_tags(
+        cls, 
+        type: TagType, 
+        guild_id: Optional[int], 
+        author_id: Optional[int]
+    ) -> Optional[List[Dict[str, Any]]]:
         sql = """
             SELECT * FROM tags
             """
@@ -582,9 +586,10 @@ class TagManager():
                 raise RuntimeError("Can't fetch tags of a creator without an id (id is None)")
             sql = f"{sql} WHERE $1 = ANY(author_ids)"
             return await cls.db.fetch(sql, author_id)
-        elif type == TagType.ALL:
+        elif type == TagType.SCOPE:
             sql = f"{sql} WHERE $1 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
             return await cls.db.fetch(sql, guild_id)
+        raise RuntimeError(f"TagType unmatched - {type}")
     
     @classmethod
     async def find_similar(
