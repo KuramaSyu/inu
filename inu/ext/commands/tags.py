@@ -1,3 +1,4 @@
+import random
 import re
 import traceback
 import typing
@@ -25,11 +26,9 @@ from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import asyncpg
-from matplotlib.style import context
-from numpy import where
-
 
 from core import Inu, Table
+from core.bot import BotResponseError
 from utils import TagIsTakenError, TagManager, TagType, Human
 from utils import crumble
 from utils.colors import Colors
@@ -118,7 +117,11 @@ async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
     return record
 
 
-async def show_record(record: asyncpg.Record, ctx: Context, key: str = None) -> None:
+async def show_record(
+    record: asyncpg.Record, 
+    ctx: Context, 
+    key: Optional[str] = None
+) -> None:
     """
     Sends the given tag(record) into the channel of <ctx>
     
@@ -355,7 +358,7 @@ async def overview(ctx: Context):
     result = event.interaction.values[0]
     type_ = {
         "guild": TagType.GUILD,
-        "all": TagType.ALL,
+        "all": TagType.SCOPE,
         "global": TagType.GLOBAL,
         "your": TagType.YOUR,
     }.get(result)
@@ -592,6 +595,15 @@ async def tag_remove_guild(ctx: Context):
         f"You won't see `{tag.name}` in the guild with id `{ctx.options.guild}` anymore"
     )
 
+@tag.child
+@lightbulb.command("random", "Get a random tag from all tags available")
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
+async def tag_random(ctx: Context):
+    available_tags = await TagManager.get_tags
+    if not available_tags:
+        raise BotResponseError(f"No tags found for the random command")
+    random_tag = random.choice(available_tags)
+    await show_record(random_tag, ctx, key=None)
 
 
 def load(bot: lightbulb.BotApp):
