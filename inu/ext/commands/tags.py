@@ -470,7 +470,7 @@ async def tag_add_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.aliases.append(f"{ctx.options.alias.strip()}")
     await tag.save()
@@ -492,7 +492,7 @@ async def tag_remove_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.aliases.append(f"{ctx.options.alias.strip()}")
@@ -517,7 +517,7 @@ async def tag_add_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.owners.append(int(ctx.options.author.id))
     await tag.save()
@@ -539,7 +539,7 @@ async def tag_remove_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.owners.remove(int(ctx.options.author.id))
@@ -564,7 +564,7 @@ async def tag_add_guild(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.guild_ids.append(int(ctx.options.guild))
     await tag.save()
@@ -586,7 +586,7 @@ async def tag_remove_guild(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.guild_ids.remove(int(ctx.options.guild))
