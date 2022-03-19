@@ -87,7 +87,7 @@ class Inu(lightbulb.BotApp):
             # insert guild into table
             from core.db import Table
             table = Table("guilds")
-            asyncio.create_task(table.insert(["guild_id", "prefixes"], [guild_id, self._default_prefix]))
+            asyncio.create_task(table.insert(["guild_id", "prefixes"], [guild_id, [self._default_prefix]]))
         return prefixes or [self._default_prefix]
 
     def add_task(
