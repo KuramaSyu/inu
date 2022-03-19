@@ -16,26 +16,274 @@ import asyncpg
 from asyncache import cached
 from cachetools import TTLCache, LRUCache
 import hikari
+from hikari import Embed
 from hikari import Snowflake, User, Member
 from numpy import column_stack
 
-
+from ..language import Human, Multiple
 from core.db import Database
 from core import Inu
 
+
+class TagProxy():
+    def __init__(self, owner: hikari.User, channel_id: Optional[hikari.Snowflakeish] = None):
+        """
+        Members:
+        --------
+            - is_local: (bool) if tag is local or global. default=True if invoked from guild else default=False
+            - owner: (User | Member) the owner of the Tag
+            - name: (str) the key of the tag
+            - is_local_available: (bool) whether or not the tag can be stored local
+            - is_global_available: (bool) whter or not the tag can be stored global
+            - is_stored: (bool) wether or not the tag is already in the db stored
+        NOTE:
+        -----
+            - the owner should be an instace of `Member`, to be able, to store an tag locally
+            otherwise the tag have to be stored globally
+        """
+        self.owners: List[hikari.Snowflake] = [owner.id]
+        self._name: Optional[str] = None
+        self.value: Optional[str] = None
+        self.is_local_available: bool
+        self.is_global_available: bool
+        self._is_local: bool = True
+        self.is_stored: bool
+        self._id: Optional[int] = None
+        self.aliases: List[str] = []
+        self.guild_ids: List[int] = []
+        if isinstance(owner, hikari.Member):
+            self.guild_ids.append(owner.guild_id)
+            self._is_local = True
+        else:
+            if channel_id:
+                self.guild_ids.append(channel_id)
+                self._is_local = True
+            else:
+                self.guild_ids.append(0)
+                self._is_local = False
+
+    @property
+    def name(self):
+        return self._name
+    
+    @name.setter
+    def name(self, key):
+        
+        if len(key) > 255:
+            raise RuntimeError(f"`{Human.short_text(key, 255)}` is longer than 255 characters")
+        elif (char := Multiple.startswith_(" ")):
+            raise RuntimeError(f"`{key}` mustn't start with `{char}`")
+        elif (char := Multiple.endswith_(" ")):
+            raise RuntimeError(f"`{key}` mustn't end with `{char}`")
+        elif " " in key:
+            raise RuntimeError(f"`{key}` mustn't contain a space")
+        self._name = key
+
+    @property
+    def is_local(self) -> bool:
+        return self._is_local
+
+
+    @property
+    def id(self) -> int:
+        if not self._id:
+            raise RuntimeError("Can't store an ID without a number")
+        return self._id
+
+    @property
+    def to_do(self) -> Optional[str]:
+        """returns a string with things which have to be done before storing the tag"""
+        to_do_msg = ""
+        if self.name is None:
+            to_do_msg += "- Enter a name\n"
+        if self.value is None:
+            to_do_msg += "- Enter a value\n"
+        if (
+            not self.is_stored
+            and self._is_local
+            and not self.is_local_available
+        ):
+            to_do_msg += "- Your tag isn't local available -> change the name\n"
+        if (
+            not self.is_stored
+            and not self._is_local
+            and not self.is_global_available
+        ):
+            to_do_msg += "- Your tag isn't global available -> change the name\n"
+        return to_do_msg or None
+        
+
+    async def save(self):
+        """
+        Saves the current tag.
+
+        Raises:
+        -------
+            - TagIsTakenError
+        """
+        if not self.name or not self.value:
+            raise RuntimeError("I can't store a tag without a name and value")
+        if self.is_stored:
+            await TagManager.edit(
+                key=self.name,
+                value=self.value,
+                author_ids=self.owners,
+                tag_id=self.id,
+                guild_ids=self.guild_ids,
+                aliases=self.aliases,
+            )
+        else:
+            tag_id = await TagManager.set(
+                key=self.name,
+                value=self.value,
+                author_ids=self.owners,
+                guild_ids=self.guild_ids,
+                aliases=self.aliases,
+            )
+            self.id = tag_id
+        self.is_stored = True
+
+    @classmethod
+    async def from_record(cls, record: Mapping[str, Any], author: hikari.User) -> "Tag":
+        # """
+        # loads an existing tag in form of a dict like object into self.tag (`Tag`)
+        # Args:
+        # -----
+        #     - tag: (Mapping[str, Any]) the tag which should be loaded
+        #     - author: (Member, User) the user which stored the tag
+        # """
+        # guild_id = self.owner.guild_id if isinstance(self.owner, hikari.Member) else 0
+        # local_taken, global_taken = await TagManager.is_taken(key=self.tag.name, guild_id = guild_id or 0)
+        # self.name = tag["tag_key"]
+        # self.value = tag["key_value"]
+        # self.is_stored = True
+        # self.id = tag["tag_id"]
+        # self.is_global_available = not global_taken
+        # self.is_local_available = not local_taken
+
+        """
+        loads an existing tag in form of a dict like object into self.tag (`Tag`)
+        Args:
+        -----
+            - record: (Mapping[str, Any]) the tag which should be loaded
+            - author: (Member, User) the user which stored the tag
+        """
+        local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_ids=record["guild_ids"])
+        new_tag: cls = cls(author)
+        new_tag.name = record["tag_key"]
+        new_tag.value = record["tag_value"]
+        new_tag.is_stored = True
+        new_tag.id = record["tag_id"]
+        new_tag.guild_ids = record["guild_ids"]
+        new_tag.aliases = record["aliases"]
+        new_tag.owners = record["author_ids"]
+        if (
+            isinstance(author, hikari.Member)
+            and not 0 in record["guild_ids"]
+            and author.guild_id in record["guild_ids"]
+        ):
+            new_tag._is_local = True
+        else:
+            new_tag._is_local = False
+        new_tag.is_global_available = not global_taken
+        new_tag.is_local_available = not local_taken
+        return new_tag
+
+    def get_embed(self) -> hikari.Embed:
+        embed = Embed()
+        embed.title = self.tag.name
+        embed.description = self.tag.value
+        embed.add_field(name="Status", value=str(self))
+        return embed
+
+    async def prepare_new_tag(self, author: Union[hikari.Member, hikari.User]):
+        """
+        creates a new tag in form of `Tag`
+        Args:
+        -----
+            - author: (Member, User) the user which stored the tag
+        """
+        tag = Tag(self.owner)
+        tag.name = None
+        tag.value = None
+        tag.is_stored = False
+        if isinstance(author, hikari.Member):
+            tag._is_local = True
+        else:
+            tag._is_local = False
+        tag.is_global_available = False
+        tag.is_local_available = False
+        self.tag = tag
+
+        self.embed = Embed()
+        self.embed.title = self.tag.name or "Name - Not set"
+        self.embed.description = self.tag.value or "Value - Not set"
+        self.embed.add_field(name="Status", value=str(self.tag))
+        self._pages = [self.embed]
+
+    def __str__(self) -> str:
+        msg = (
+            f"your tag is: {'local' if self._is_local else 'global'}\n"
+            f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
+            f"is the tag stored: {Human.bool_(self.is_stored)}\n"
+            f"available for guilds: {', '.join(str(id) for id in self.guild_ids)}\n"
+            f"is the tag name local available: {Human.bool_(self.is_local_available)}\n"
+            f"is the tag name global available: {Human.bool_(self.is_global_available)}\n"
+        )
+        if self.aliases:
+            msg += f"aliases: {', '.join(self.aliases)}\n"
+        if to_do := self.to_do:
+            msg += (
+                f"\n**TO DO:**\n{to_do}"
+            )
+        return msg
+
+    async def update(self) -> None:
+        """
+        Updates self.is_global_available and self.is_local_available
+        - is a coroutine
+        """
+        self.is_global_available = True
+        self.is_local_available = True
+        local_taken, global_taken = await TagManager.is_taken(self.name, self.guild_ids)
+        if local_taken:
+            self.is_local_available = False
+        if global_taken:
+            self.is_global_available = False
+
+    async def delete(self):
+        """Deletes this tag from the database if it is already stored"""
+        if not self.is_stored:
+            return
+        await TagManager.remove(self.id)
+        self.is_stored = False
+        return
 
 class TagType(Enum):
     YOUR = 1
     GUILD = 2
     GLOBAL = 3
-    ALL = 4  # all tags the user can see
-    SCOPE = 5
+    SCOPE = 4
 
 class TagManager():
     db: Database
     
     def __init__(self, key: Optional[str] = None):
         self.key = key
+
+    @classmethod
+    def _key_raise_if_not_allowed(key: str) -> None:
+        """
+        Raises RuntimeError if not allowed
+        """
+        if len(key) > 255:
+            raise RuntimeError(f"`{Human.short_text(key, 255)}` is longer than 255 characters")
+        elif (char := Multiple.startswith_(" ")):
+            raise RuntimeError(f"`{key}` mustn't start with `{char}`")
+        elif (char := Multiple.endswith_(" ")):
+            raise RuntimeError(f"`{key}` mustn't end with `{char}`")
+        elif " " in key:
+            raise RuntimeError(f"`{key}` mustn't contain a space")
 
     @classmethod
     def init_db(cls, bot: Inu):
@@ -316,7 +564,12 @@ class TagManager():
             raise TagIsTakenError(f"Tag `{key}` is local taken")
     
     @classmethod
-    async def get_tags(cls, type: TagType, guild_id: Optional[int], author_id: Optional[int]) -> Optional[asyncpg.Record]:
+    async def get_tags(
+        cls, 
+        type: TagType, 
+        guild_id: Optional[int], 
+        author_id: Optional[int]
+    ) -> Optional[List[Dict[str, Any]]]:
         sql = """
             SELECT * FROM tags
             """
@@ -333,9 +586,10 @@ class TagManager():
                 raise RuntimeError("Can't fetch tags of a creator without an id (id is None)")
             sql = f"{sql} WHERE $1 = ANY(author_ids)"
             return await cls.db.fetch(sql, author_id)
-        elif type == TagType.ALL:
+        elif type == TagType.SCOPE:
             sql = f"{sql} WHERE $1 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
             return await cls.db.fetch(sql, guild_id)
+        raise RuntimeError(f"TagType unmatched - {type}")
     
     @classmethod
     async def find_similar(

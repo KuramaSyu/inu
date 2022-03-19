@@ -12,7 +12,7 @@ logging.setLoggerClass(LoggingHandler)
 import hikari
 import lightbulb
 from core import Inu, Table
-from utils import InvokationStats, Reminders, TagManager, MyAnimeList, PollManager
+from utils import InvokationStats, Reminders, TagManager, MyAnimeList, PollManager, Urban
 from core import getLogger
 
 
@@ -49,6 +49,7 @@ def main():
             await Reminders.init_bot(inu)
             TagManager.init_db(inu)
             await PollManager.init_bot(inu)
+            Urban.init_bot(inu)
 
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:

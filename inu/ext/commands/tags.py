@@ -1,3 +1,4 @@
+import random
 import re
 import traceback
 import typing
@@ -25,11 +26,9 @@ from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import asyncpg
-from matplotlib.style import context
-from numpy import where
-
 
 from core import Inu, Table
+from core.bot import BotResponseError
 from utils import TagIsTakenError, TagManager, TagType, Human
 from utils import crumble
 from utils.colors import Colors
@@ -49,8 +48,10 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[asyncpg
     -----
         - if there are multiple tags with same name, the user will be asked, which one to use
     """
+
     if key is None:
         key = ctx.options.key
+    key = key.strip()
     raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     results = []
     for result in raw_results:
@@ -101,6 +102,7 @@ async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
     -----
         - tags created in your guild will be prefered sent, in case there is a global tag too
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     records = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     record: Optional[Mapping[str, Any]] = None
     # if records are > 1 return the local overridden one
@@ -115,7 +117,12 @@ async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
     return record
 
 
-async def show_record(record: asyncpg.Record, ctx: Context, key: str = None) -> None:
+async def show_record(
+    record: asyncpg.Record, 
+    ctx: Context, 
+    key: Optional[str] = None,
+    force_show_name: bool = False,
+) -> None:
     """
     Sends the given tag(record) into the channel of <ctx>
     
@@ -139,9 +146,12 @@ async def show_record(record: asyncpg.Record, ctx: Context, key: str = None) -> 
     for value in crumble(record["tag_value"], 1900):
         # if tag isn't just a picture and tag was not invoked with original name,
         # then append original name at start of message
-        if not (
-            key == record["tag_key"]
-            or re.match(media_regex, record["tag_value"].strip())
+        if (
+            not (
+                key == record["tag_key"]
+                or re.match(media_regex, record["tag_value"].strip())
+            )
+            or force_show_name
         ):
             message += f"**{record['tag_key']}**\n\n"
         message += value
@@ -203,6 +213,7 @@ async def tag(ctx: Context):
     key: the name of the tag
     if `key` isn't provided I'll start an interactive tag creation menu
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     key = ctx.options.key
     if key is None:
         taghandler = TagHandler()
@@ -232,6 +243,7 @@ async def add(ctx: Context):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     if ctx.options.value is None or ctx.options.key is None:
         taghandler = TagHandler()
         return await taghandler.start(ctx)
@@ -261,6 +273,7 @@ async def edit(ctx: Context):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     record = await get_tag_interactive(ctx)
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
@@ -286,6 +299,7 @@ async def remove(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     key = ctx.options.key
     record = await get_tag_interactive(ctx)
     if not record:
@@ -348,7 +362,7 @@ async def overview(ctx: Context):
     result = event.interaction.values[0]
     type_ = {
         "guild": TagType.GUILD,
-        "all": TagType.ALL,
+        "all": TagType.SCOPE,
         "global": TagType.GLOBAL,
         "your": TagType.YOUR,
     }.get(result)
@@ -387,6 +401,7 @@ async def tag_append(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
+    ctx.raw_options["key"] = ctx.options.key.strip()
     key = ctx.options.key
     record = await get_tag_interactive(ctx)
     if not record:
@@ -455,7 +470,7 @@ async def tag_add_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.aliases.append(f"{ctx.options.alias.strip()}")
     await tag.save()
@@ -477,7 +492,7 @@ async def tag_remove_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.aliases.append(f"{ctx.options.alias.strip()}")
@@ -502,7 +517,7 @@ async def tag_add_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.owners.append(int(ctx.options.author.id))
     await tag.save()
@@ -524,7 +539,7 @@ async def tag_remove_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.owners.remove(int(ctx.options.author.id))
@@ -549,7 +564,7 @@ async def tag_add_guild(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.guild_ids.append(int(ctx.options.guild))
     await tag.save()
@@ -571,7 +586,7 @@ async def tag_remove_guild(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.guild_ids.remove(int(ctx.options.guild))
@@ -584,6 +599,19 @@ async def tag_remove_guild(ctx: Context):
         f"You won't see `{tag.name}` in the guild with id `{ctx.options.guild}` anymore"
     )
 
+@tag.child
+@lightbulb.command("random", "Get a random tag from all tags available")
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
+async def tag_random(ctx: Context):
+    available_tags = await TagManager.get_tags(
+        TagType.SCOPE,
+        guild_id=ctx.guild_id,
+        author_id=ctx.author.id,
+    )
+    if not available_tags:
+        raise BotResponseError(f"No tags found for the random command")
+    random_tag = random.choice(available_tags)
+    await show_record(random_tag, ctx, force_show_name=True)
 
 
 def load(bot: lightbulb.BotApp):

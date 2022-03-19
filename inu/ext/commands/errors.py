@@ -17,7 +17,7 @@ from core import Inu
 from utils.language import Human
 from .help import OutsideHelp
 
-from core import getLogger
+from core import getLogger, BotResponseError
 log = getLogger(__name__)
 
 pl = lightbulb.Plugin("Error Handler")
@@ -139,6 +139,8 @@ async def on_error(event: events.CommandErrorEvent):
                 )
             else:
                 return await ctx.respond(fails.pop())
+        elif isinstance(error, BotResponseError):
+            return await ctx.respond(error.bot_message)
         # errors which will only be handled, if the command was invoked with a prefix
         if not ctx.prefix:
             return # log.debug(f"Suppress error of type: {error.__class__.__name__}")
@@ -150,7 +152,7 @@ async def on_error(event: events.CommandErrorEvent):
             )
         else:
             error_embed = hikari.Embed()
-            error_embed.title = random.choice(['ERROR', '3RR0R'])
+            error_embed.title = random.choice(['ERROR', '3RR0R', "Internal problems going on here"])
             error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
             with suppress(hikari.ForbiddenError):
                 await message_dialog(error_embed)

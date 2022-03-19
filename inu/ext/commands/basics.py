@@ -23,7 +23,7 @@ from numpy import full, isin
 from fuzzywuzzy import fuzz
 
 from utils import Colors, Human, Paginator, crumble
-from core import getLogger, Inu
+from core import getLogger, Inu, Table
 
 
 log = getLogger(__name__)
@@ -61,21 +61,39 @@ async def ping(ctx: context.Context):
         else:
             return "🟢"
 
+    def ping_to_color_db(ping: float) -> str:
+        if ping >= 80:
+            return "🔴"
+        elif ping >= 40:
+            return "🟠"
+        elif ping >= 15:
+            return "🟡"
+        else:
+            return "🟢"
+
+    db_request_start = datetime.now()
+    table = Table("bot")
+    record = await table.select_row(["key"], ["restart_count"])
+    db_delay = datetime.now() - db_request_start
     request_start = datetime.now()
     embed = Embed(
             title="Pong",
             description=(
                 f"Bot is alive\n\n"
                 f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-                f"⚫ REST: .... ms"
+                f"⚫ REST: .... ms\n\n"
+                f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
             ),
     )
     msg = await ctx.respond(embed=embed)
     rest_delay = datetime.now() - request_start
+
+
     embed.description = (
         f"Bot is alive\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-        f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms"
+        f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
+        f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
     )
     await msg.edit(embed=embed)
 

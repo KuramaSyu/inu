@@ -511,7 +511,7 @@ async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
 
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
-    if not bool(int(music.bot.conf.lavalink.connect)):
+    if not music.bot.conf.lavalink.connect:
         music.d.log.warning(f"Lavalink connection won't be established")
         return
     for x in range(3):
@@ -989,7 +989,8 @@ async def music_search(ctx: context.Context):
     for track in node.queue:
         if query in track.track.info.title.lower() or query in track.track.info.author.lower():
             tracks.append(track)
-            response.append(f"\"{track.track.info.title}\" by {track.track.info.author}")
+    tracks = list(set(tracks))
+    response = [f"\"{track.track.info.title}\" by {track.track.info.author}" for track in tracks]
     if response:
         node_queue = node.queue[1:]
         new_queue = [node.queue[0], *tracks, *node_queue]
