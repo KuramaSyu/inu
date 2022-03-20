@@ -1,12 +1,10 @@
 import typing
-from typing import (
-    Union,
-    Optional,
-    List,
-)
+from typing import *
 import asyncio
 import logging
 from datetime import datetime
+from typing_extensions import Self
+import aiohttp
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
 from hikari.messages import ButtonStyle
@@ -27,6 +25,58 @@ from core import getLogger, Inu, Table
 
 
 log = getLogger(__name__)
+
+class RestDelay:
+    def __init__(
+        self,
+        uri: str = None,
+    ):
+        self.uri = uri
+        self.headers: Optional[Dict[str, str]] = {}
+        self.params: Optional[Dict[str, str]] = {}
+        self.delay: Optional[int] = None
+        self.status: Optional[int] = None
+        self.coro: Optional[Coroutine] = None
+    
+    def with_headers(self, **headers) -> Self:
+        self.headers = headers
+        return self
+
+    def with_params(self, **params) -> Self:
+        self.params = params
+        return self
+
+    def with_coro(self, coro: Coroutine) -> Self:
+        self.coro = coro
+        return coro
+
+    async def do_request(self) -> Self:
+        if self.coro:
+            start = datetime.now()
+            await self.coro()
+            self.delay = (datetime.now() - start).seconds * 1000
+            self.status = resp.status
+        else:
+            async with aiohttp.ClientSession() as session:
+                start = datetime.now()
+                async with session.get(self.url, params=self.params, headers=self.headers) as resp:
+                    self.delay = (datetime.now() - start).seconds * 1000
+                    self.status = resp.status
+                await session.close()
+        return self
+
+    @property
+    def color(self) -> str:
+        if str(self.status)[0] != "2":
+            return "⚫"
+        if self.delay >= 500:
+            return "🔴"
+        elif self.delay >= 340:
+            return "🟠"
+        elif self.delay >= 150:
+            return "🟡"
+        else:
+            return "🟢"
 
 basics = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
 if not isinstance(basics.d, lightbulb_utils.DataStore):
