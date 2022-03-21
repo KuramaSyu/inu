@@ -10,6 +10,8 @@ from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
 from hikari.messages import ButtonStyle
 from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
 from hikari.events import InteractionCreateEvent
+import jikanpy
+from jikanpy import AioJikan
 import lightbulb
 import lightbulb.utils as lightbulb_utils
 from lightbulb import commands, context
@@ -20,8 +22,8 @@ from matplotlib.style import available
 from numpy import full, isin
 from fuzzywuzzy import fuzz
 
-from utils import Colors, Human, Paginator, crumble
-from core import getLogger, Inu, Table
+from utils import Colors, Human, Paginator, crumble, Reddit, Urban
+from core import getLogger, Inu, Table, BotResponseError
 
 
 log = getLogger(__name__)
@@ -29,14 +31,18 @@ log = getLogger(__name__)
 class RestDelay:
     def __init__(
         self,
+        name: str,
         uri: str = None,
     ):
         self.uri = uri
         self.headers: Optional[Dict[str, str]] = {}
         self.params: Optional[Dict[str, str]] = {}
-        self.delay: Optional[int] = None
-        self.status: Optional[int] = None
+        self.delay: Optional[float] = -1
+        self.status: Optional[int] = 400
         self.coro: Optional[Coroutine] = None
+        self.coro_args = None
+        self.coro_kwargs = None
+        self.name = name
     
     def with_headers(self, **headers) -> Self:
         self.headers = headers
@@ -46,16 +52,18 @@ class RestDelay:
         self.params = params
         return self
 
-    def with_coro(self, coro: Coroutine) -> Self:
+    def with_coro(self, coro: Coroutine, args: List[Any] = None, kwargs: Dict[str, Any] = None) -> Self:
         self.coro = coro
+        self.coro_args = args or []
+        self.coro_kwargs = kwargs or {}
         return coro
 
     async def do_request(self) -> Self:
         if self.coro:
             start = datetime.now()
-            await self.coro()
+            await self.coro(*self.coro_args, **self.coro_kwargs)
             self.delay = (datetime.now() - start).seconds * 1000
-            self.status = resp.status
+            self.status = 200
         else:
             async with aiohttp.ClientSession() as session:
                 start = datetime.now()
@@ -65,9 +73,17 @@ class RestDelay:
                 await session.close()
         return self
 
+    def __str__(self) -> str:
+        if self.delay != -1:
+            return f"{self.color} {self.name} {round(self.delay)} ms"
+        else:
+            return f"{self.color} {self.name}"
+
     @property
     def color(self) -> str:
-        if str(self.status)[0] != "2":
+        if self.delay == -1:
+            return "⚫"
+        elif str(self.status)[0] != "2":
             return "⚫"
         if self.delay >= 500:
             return "🔴"
@@ -138,13 +154,21 @@ async def ping(ctx: context.Context):
     msg = await ctx.respond(embed=embed)
     rest_delay = datetime.now() - request_start
 
+    apis = [
+        RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":1}),
+        RestDelay("My Anime List API (unofficial)").with_coro(AioJikan().anime, [1]),
+        RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"])
+    ]
+    tasks = [asyncio.create_task(api.do_request()) for api in apis]
+    await asyncio.wait(tasks, timeout=1.8, return_when=asyncio.ALL_COMPLETED)
 
     embed.description = (
         f"Bot is alive\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
         f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
-        f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
+        f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms\n\n"
     )
+    embed.description += "\n\n".join(str(api) for api in apis)
     await msg.edit(embed=embed)
 
     
@@ -156,10 +180,16 @@ async def ping(ctx: context.Context):
     lightbulb.has_role_permissions(hikari.Permissions.MANAGE_CHANNELS)
 )
 @lightbulb.option(
+    "message_link",
+    "Delete until this message",
+    default=None,
+    type=str,
+)
+@lightbulb.option(
     "ammount", 
     "The ammount of messages you want to delete, Default: 5", 
-    default=5, 
-    type=int,
+    default=None, 
+    type=int, 
 )
 @lightbulb.command("purge", "Delete the last messages from a channel", aliases=["clean"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
@@ -168,8 +198,14 @@ async def purge(ctx: context.Context):
         return
     if not isinstance(channel, hikari.TextableGuildChannel):
         return
+    if not ctx.options.ammount and not ctx.options.message_link:
+        raise BotResponseError(
+            f"I need the ammount of messages I should delete, or the message link until which I should delete messages"
+        )
     if (ammount := ctx.options.ammount) > 50:
-        await ctx.respond("I can't delete that much messages!")
+        raise BotResponseError("I can't delete that much messages")
+    if ctx.options.message_link:
+        ammount = 50
     messages = []
     ammount += 2
     await ctx.respond("I'll do it. Let me some time. I'll include your message and this message")
@@ -178,6 +214,10 @@ async def purge(ctx: context.Context):
         ammount -= 1
         if ammount <= 0:
             break
+        elif ctx.options.message_link and m.make_link(ctx.guild_id) == ctx.options.message_link.strip():
+            break
+    if ctx.options.message_link and ammount <= 0:
+        raise BotResponseError(f"Your linked message is not under the last 50 messages")
     await channel.delete_messages(messages)
 
 @basics.command
