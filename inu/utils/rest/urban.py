@@ -63,7 +63,7 @@ class Urban:
             raise RuntimeError(f"no response received from {headers['x-rapidapi-host']}")
         if not r['list']:
             raise BotResponseError(f"Well -- I never heard `{word}`")
-        log.debug(r)
+        # log.debug(r)
         return UrbanIterator(word, r)
 
 
