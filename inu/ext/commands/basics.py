@@ -10,7 +10,6 @@ from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
 from hikari.messages import ButtonStyle
 from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
 from hikari.events import InteractionCreateEvent
-import jikanpy
 from jikanpy import AioJikan
 import lightbulb
 import lightbulb.utils as lightbulb_utils
@@ -56,13 +55,13 @@ class RestDelay:
         self.coro = coro
         self.coro_args = args or []
         self.coro_kwargs = kwargs or {}
-        return coro
+        return self
 
     async def do_request(self) -> Self:
         if self.coro:
             start = datetime.now()
             await self.coro(*self.coro_args, **self.coro_kwargs)
-            self.delay = (datetime.now() - start).seconds * 1000
+            self.delay = (datetime.now() - start).microseconds / 1000
             self.status = 200
         else:
             async with aiohttp.ClientSession() as session:
@@ -75,7 +74,7 @@ class RestDelay:
 
     def __str__(self) -> str:
         if self.delay != -1:
-            return f"{self.color} {self.name} {round(self.delay)} ms"
+            return f"{self.color} {self.name} {self.delay:.2f} ms"
         else:
             return f"{self.color} {self.name}"
 
@@ -85,11 +84,11 @@ class RestDelay:
             return "⚫"
         elif str(self.status)[0] != "2":
             return "⚫"
-        if self.delay >= 500:
+        if self.delay >= 800:
             return "🔴"
-        elif self.delay >= 340:
+        elif self.delay >= 500:
             return "🟠"
-        elif self.delay >= 150:
+        elif self.delay >= 200:
             return "🟡"
         else:
             return "🟢"
@@ -153,14 +152,13 @@ async def ping(ctx: context.Context):
     )
     msg = await ctx.respond(embed=embed)
     rest_delay = datetime.now() - request_start
-
     apis = [
-        RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":1}),
-        RestDelay("My Anime List API (unofficial)").with_coro(AioJikan().anime, [1]),
+        RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":3, "top":True}),
+        # RestDelay("My Anime List API (unofficial)").with_coro(AioJikan().anime, [1]), # unclosed client session
         RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"])
     ]
     tasks = [asyncio.create_task(api.do_request()) for api in apis]
-    await asyncio.wait(tasks, timeout=1.8, return_when=asyncio.ALL_COMPLETED)
+    await asyncio.wait(tasks, timeout=5, return_when=asyncio.ALL_COMPLETED)
 
     embed.description = (
         f"Bot is alive\n\n"
@@ -202,7 +200,7 @@ async def purge(ctx: context.Context):
         raise BotResponseError(
             f"I need the ammount of messages I should delete, or the message link until which I should delete messages"
         )
-    if (ammount := ctx.options.ammount) > 50:
+    if (ammount := ctx.options.ammount) and ammount > 50:
         raise BotResponseError("I can't delete that much messages")
     if ctx.options.message_link:
         ammount = 50
