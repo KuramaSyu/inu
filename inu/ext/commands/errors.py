@@ -42,6 +42,7 @@ async def on_error(event: events.CommandErrorEvent):
 
 
         error = event.exception
+        
         # channel_id = event.context.get_channel()
         # rest = pl.bot.rest
         # if isinstance(event, events.PrefixCommandErrorEvent):
@@ -139,8 +140,8 @@ async def on_error(event: events.CommandErrorEvent):
                 )
             else:
                 return await ctx.respond(fails.pop())
-        elif isinstance(error, BotResponseError):
-            return await ctx.respond(error.bot_message)
+        elif isinstance(error, errors.CommandInvocationError) and isinstance(error.original, BotResponseError):
+            return await ctx.respond(error.original.bot_message)
         # errors which will only be handled, if the command was invoked with a prefix
         if not ctx.prefix:
             return # log.debug(f"Suppress error of type: {error.__class__.__name__}")
