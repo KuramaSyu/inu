@@ -148,17 +148,24 @@ class CalculationBlueprint:
             log.error(f"Can't calculate: {calc}")
             log.error(traceback.format_exc())
         if self._max_result_number:
+            # check if number is too big
             too_big = float(result) >= self._max_result_number
+            if not too_big:
+                # check if number is too small 
+                too_big = float(result) < self._max_result_number * -1
             if too_big:
                 return False
+        # check if number ends with allowed endings
         if end:
+            # check only allowed endings
             return Multiple.endswith_(result, self._allowed_endings)
         else:
+            # check allowed (partial) endings
             return Multiple.endswith_(result, [*self._allowed_partial_endings, *self._allowed_endings])
 
     def __str__(self) -> str:
         text = ""
-        text += f"**{Human.plural_('Operation', self._operations, with_number=True)} from** \n{', '.join(f'`{s}`' for s in self._allowed_symbols)}\n"
+        text += f"{Human.plural_('Operation', self._operations, with_number=True)} with \n{', '.join(f'`{s}`' for s in self._allowed_symbols)}\n"
         text += f"Numbers from `{self._min_number}` to `{self._max_number}`\n"
         text += f"and `{self._max_time}s/Task` time\n"
         if self._max_result_number:
@@ -240,6 +247,18 @@ stages = [
         display_name="Stage 6️⃣\n_--Multiply Many--_",
     ),
     CalculationBlueprint(
+        max_number=15,
+        min_number=1,
+        operations=6,
+        max_time=60,
+        max_result_number=2000,
+        allowed_symbols=["+", "-", "*", "/"],
+        allowed_partial_endings=[".0"],
+        allowed_endings=[".0", "0.5"],
+        name="Stage 7",
+        display_name="Stage 7️⃣\n_--Many Operations--_",
+    ),
+    CalculationBlueprint(
         max_number=1,
         min_number=0,
         operations=1,
@@ -250,6 +269,7 @@ stages = [
         name="Stage Artur",
         display_name="Stage Artur\n_--for intelligent individuals--_",
     ),
+
 
 ]
 
@@ -324,12 +344,16 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
     resume_task_creation = True
     while resume_task_creation:
         # new task
+        # this embed is not redundant, since it will be needed to get initial message
+        # which will be edited later on
         current_task, current_task_beautiful = c.get_task()
         log.debug(f"{current_task=}; {current_task_beautiful=}")
         embed = Embed(title=f"What is {current_task_beautiful} ?")
         embed.color = Colors.from_name("green")
         msg = await ctx.respond(embed=embed)
         tasks: List[asyncio.Task] = []
+
+        # add 3 embeds with different colors, which will be cycled according to rest time
         colors = ["yellow", "orange", "red"]
         for x in range(3):
             embed = Embed(title=f"What is {current_task_beautiful} ?")
