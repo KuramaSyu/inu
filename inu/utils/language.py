@@ -208,6 +208,8 @@ class Human():
                 break
         if result_number[-1] == ",":
             result_number = result_number[:-1]
+        if result_number.endswith(",-"):
+            result_number = f"{result_number[-2]}-"
         result_number = result_number[::-1]
         if with_inteligent_zero:
             return result_number[:-2] if result_number.endswith(".0") and not "," in result_number else result_number
