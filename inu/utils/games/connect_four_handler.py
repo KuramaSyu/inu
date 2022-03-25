@@ -6,6 +6,7 @@ import logging
 import random
 import numpy as np
 from copy import deepcopy
+from enum import Enum
 
 import hikari
 from hikari import Member
@@ -70,22 +71,32 @@ class Slot:
     def __init__(self, row: int, column: int, marker: Optional[str] = None):
         self.row = row
         self.column = column
-        self.marker = marker        
+        self.marker = marker   
+
+
+class GameStatus(Enum):
+    OVER = 0
+    RUNNING = 1
+    SURRENDERED = 2
+    DRAW = 3   
 
 class Board:
     """A class which represents a connect 4 board"""
-    def __init__(self, marker: str, rows: int = 8, columns: int = 8):
+    def __init__(self, game: "BaseConnect4", marker: str, rows: int = 8, columns: int = 8):
         """
         Args:
         -----
             - marker: (str) the emoji which should be used in __str__ to highlight the game over coordinates
         """
+        self.game = game
         self.board: List[List[Slot]] = [[Slot(r, c) for c in range(columns)] for r in range(rows)]
         # game is over when these are set
         # int, int = row, column
         self.game_over_slots: List[Slot] | None = None
         self.marker = marker
         self.bg_color = "⬛"
+        self.rows = rows
+        self.columns = columns
         
     def drop_token(self, column: int, player: Player):
         """
@@ -106,6 +117,22 @@ class Board:
             else:
                 break
         self.board[first_free_slot][column].marker = player.token
+
+    def check_for_game_draw(self):
+        """checks if game is a draw
+
+        Note:
+        -----
+        If game is draw, `self.game_status` will be set to `GameStatus.DRAW`        
+        """
+        valid_marker_count = 0
+        for row in self.board:
+            for slot in row:
+                if slot.marker:
+                    valid_marker_count += 1
+        if valid_marker_count == int(self.rows * self.columns):
+            self.game.status = GameStatus.DRAW
+
     class GameOverCoordinate:
         def __init__(self, row: int, column: int):
             self.row = row
@@ -115,6 +142,7 @@ class Board:
         """
         Checks if the game is over.
         If the game is over, `self.game_over_slots` will be changed to the coordinates and wont be `None` anymore
+        And `self.game_status` will be set to `GameStatus.OVER`
         """
         def check(lines: List[List[Slot]]) -> List[Slot]:
             # I know that this could be shorter
@@ -153,6 +181,7 @@ class Board:
             row_of_4 = check(slots)
             if row_of_4:
                 self.game_over_slots = row_of_4
+                self.game_status = GameStatus.OVER
                 break
             
     def __str__(self) -> str:
@@ -202,6 +231,8 @@ class BaseConnect4:
         player1: Player,
         player2: Player,
         extra_marker: str,
+        rows: int,
+        columns: int,
     ):
         self.player1: Player = player1
         self.player2: Player = player2
@@ -210,7 +241,13 @@ class BaseConnect4:
         self.game_winner: Optional[Player] = None
         self.game_over = True
         self.surrendered: bool = False
-        self.board = Board(extra_marker)
+        self.status = GameStatus.RUNNING
+        self.board = Board(
+            game=self,
+            marker=extra_marker,
+            rows=rows,
+            columns=columns,
+        )
         self.start()
         self.turn: int = 1
         
@@ -253,11 +290,14 @@ class BaseConnect4:
         # executing game
         self.board.drop_token(column, player)
         self.board.check_for_game_over()
-        if self.board.game_over_slots:
+        self.board.check_for_game_draw()
+        if self.status != GameStatus.RUNNING:
             self.game_over = True
-            self.game_winner = self.player_turn
+            if self.status == GameStatus.OVER:
+                self.game_winner = self.player_turn
         self.cycle_players()
-        self.turn += 1        
+        self.turn += 1
+   
     def cycle_players(self):
         if self.player_turn == self.player1:
             self.player_turn = self.player2
@@ -267,6 +307,7 @@ class BaseConnect4:
     def surrender(self, player: Player):
         self.game_over = True
         self.surrendered = True
+        self.status = GameStatus.SURRENDERED
         self.game_winner = self.player1 if player == self.player2 else self.player2
         
         
@@ -278,6 +319,8 @@ class Connect4Handler(Paginator):
         self,
         player1: hikari.Member,
         player2: hikari.Member,
+        rows: int,
+        columns: int,
     ):
         self.player1 = player1
         self.player2 = player2
@@ -301,13 +344,19 @@ class Connect4Handler(Paginator):
             marks.remove(self.mark2)
         extra_marker = random.choice(marks)
 
-        self.orienation_letter = [f':regional_indicator_{l}:' for l in 'hgfedcba']
+        self.orienation_letter = [f':regional_indicator_{l}:' for l in 'abcdefghijklmnop']
         self.orientation_number = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]  #*️⃣ #*️⃣
 
         # generate game
         g_player1 = HikariPlayer(player1.display_name, 1, self.mark1, player1)
         g_player2 = HikariPlayer(player2.display_name, 2, self.mark2, player2)
-        self.game = BaseConnect4(g_player1, g_player2, extra_marker)
+        self.game = BaseConnect4(
+            g_player1, 
+            g_player2, 
+            extra_marker,
+            rows=rows,
+            columns=columns,
+        )
         
         self.game_infos = []
         
@@ -335,11 +384,14 @@ class Connect4Handler(Paginator):
         embed.title = f"{'- '*4} Connect 4 {'- '*4}"
         embed.add_field(f"turn {self.game.turn}", self.board_to_str(), inline=True)
         embed.add_field("explanation", f"\n\n{self.game_explanation}", inline=True)
-        if self.game.surrendered:
-            p = self.game.player2 if self.game.game_winner == self.game.player1 else self.game.player1
-            embed.set_footer(f"{p.name} has surrendered the game", icon=p.user.avatar_url)  # type: ignore
-        elif self.game.game_over:
-            embed.set_footer(f"{self.game.game_winner.name} has won the game", icon=self.game.game_winner.user.avatar_url)  # type: ignore
+        if self.game.game_over:
+            if self.game.status == GameStatus.OVER:
+                embed.set_footer(f"{self.game.game_winner.name} has won the game", icon=self.game.game_winner.user.avatar_url)  # type: ignore
+            elif self.game.status == GameStatus.SURRENDERED:
+                p = self.game.player2 if self.game.game_winner == self.game.player1 else self.game.player1
+                embed.set_footer(f"{p.name} has surrendered the game", icon=p.user.avatar_url)  # type: ignore  
+            elif self.game.status == GameStatus.DRAW:
+                embed.set_footer("Game Draw")    
         else:
             embed.set_footer(f"{self.game.player_turn.name}'s turn", icon=self.game.player_turn.user.avatar_url)
         if self.game_infos:
@@ -351,8 +403,8 @@ class Connect4Handler(Paginator):
         b = str(self.game.board)
         lines = b.split("\n")
         for i, line in enumerate(lines):
-            string += f"{self.orienation_letter[i]}{line}\n"
-        string += f"*️⃣{''.join(self.orientation_number)}"
+            string += f"{self.orienation_letter[self.game.board.rows - i - 1]}{line}\n"
+        string += f"*️⃣{''.join(self.orientation_number[:self.game.board.columns])}"
         return string
     
     @listener(hikari.GuildReactionAddEvent)
