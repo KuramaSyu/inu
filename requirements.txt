@@ -16,3 +16,4 @@ mock
 jikanpy
 fuzzywuzzy
 pyyaml
+akinator.py[fast_async]
