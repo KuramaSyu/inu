@@ -24,17 +24,11 @@ Context = Union[context.SlashContext, context.PrefixContext]
 plugin = lightbulb.Plugin("Game Commands", "Extends the commands with commands all about games")
 onu_sessions = set()
 
-@plugin.command
-@lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
-@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
-@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
-@lightbulb.command("connect4", "starts a Connect 4 game", aliases=["con4", "connect-4"])
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def connect4(ctx: Context):
+async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
     if not ctx._options.get("player2"):
         ctx._options["player2"] = ctx.member
-    h = Connect4Handler(ctx.options.player1, ctx.options.player2)
+    
+    h = Connect4Handler(ctx.options.player1, ctx.options.player2, rows=rows, columns=columns)
     msg = await h.start(ctx)
     log.debug(msg)
     await msg.add_reaction("🔁")
@@ -48,10 +42,41 @@ async def connect4(ctx: Context):
                     and e.emoji_name == "🔁"
             )
         )
-        await connect4.callback(ctx)
+        await start_4_in_a_row(ctx, rows=rows, columns=columns)
     except asyncio.TimeoutError:
         pass
     await msg.remove_all_reactions()
+
+
+@plugin.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
+@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
+@lightbulb.command("connect4", "starts a Connect 4 game", aliases=["con4", "connect-4", "4-in-a-row", "4inarow"])
+@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
+async def connect4(ctx: Context):
+    await start_4_in_a_row(ctx, rows=6, columns=7)
+
+@connect4.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
+@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
+@lightbulb.command("classic", "starts a Connect 4 game", aliases=["6x7"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def connect4_classic(ctx: Context):
+    await start_4_in_a_row(ctx, rows=6, columns=7)
+
+@connect4.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
+@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
+@lightbulb.command("square", "starts a Connect 4 game", aliases=["8x8"])
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def connect4_8by8(ctx: Context):
+    await start_4_in_a_row(ctx, rows=8, columns=8)
     
 @plugin.command
 @lightbulb.add_checks(lightbulb.guild_only)
