@@ -1,4 +1,4 @@
-from .base import Paginator
+from .base import Paginator, listener
 from .tag import TagHandler
 from .anime import AnimePaginator
 from .anime_character import AnimeCharacterPaginator
