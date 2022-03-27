@@ -55,7 +55,7 @@ class AkinatorSI(Paginator):
             .set_label("❔ I don't know")
             .add_to_container()
             .add_button(hikari.ButtonStyle.SECONDARY, "aki_maybe_yes")
-            .set_label("Maybe Yes?")
+            .set_label("probably")
             .add_to_container()
             .add_button(hikari.ButtonStyle.SECONDARY, "aki_maybe_no")
             .set_label("I don't think so")
