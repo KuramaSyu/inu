@@ -494,14 +494,16 @@ class Paginator():
             return self._message
         self.log.debug("enter loop")
         self._position = 0
+        await self.post_start(ctx)
+        return self._message
+
+    async def post_start(self, ctx: Context):
         try:
             await self.dispatch_event(PaginatorReadyEvent(self.bot))
             await self.pagination_loop()
         except Exception:
             self.log.error(traceback.format_exc())
         self.log.debug("end of pagination")
-        return self._message
-
 
     async def pagination_loop(self):
         try:
