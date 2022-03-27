@@ -15,6 +15,7 @@ from lightbulb.commands import OptionModifier as OM
 
 from utils.games.connect_four_handler import Connect4Handler
 from utils.games import HikariOnu
+from utils import AkinatorSI
 
 from core import getLogger
 
@@ -110,6 +111,14 @@ async def onu(ctx: Context):
     finally:
         for p_id in players.keys():
             onu_sessions.remove(p_id)
+
+@plugin.command
+@lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+@lightbulb.command("akinator", "I guess a character for you", aliases=["aki"])
+@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
+async def akinator(ctx: Context):
+    aki = AkinatorSI("en")
+    await aki.start(ctx)
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
