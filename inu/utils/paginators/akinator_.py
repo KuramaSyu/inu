@@ -65,7 +65,7 @@ class AkinatorSI(Paginator):
             .set_label("◀ Back")
             .add_to_container()
             .add_button(hikari.ButtonStyle.PRIMARY, "aki_end")
-            .set_label("You don't get it 🔚")
+            .set_label("You don't get it ⏹")
             .add_to_container()
         ]
         i = 1
