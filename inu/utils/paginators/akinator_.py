@@ -115,7 +115,7 @@ class AkinatorSI(Paginator):
             else:
                 question = await self.aki.answer(translate_answer[answer])
             i += 1
-        if self.aki.progression <= 80:
+        if self.aki.progression >= 80:
             await self.aki.win()
 
             await msg.edit(components=[])
