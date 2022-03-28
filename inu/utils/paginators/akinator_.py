@@ -115,13 +115,13 @@ class AkinatorSI(Paginator):
             else:
                 question = await self.aki.answer(translate_answer[answer])
             i += 1
-        if win:
+        if self.aki.progression <= 80:
             await self.aki.win()
 
             await msg.edit(components=[])
             await ctx.respond(
                 embed=hikari.Embed(
-                    title=f"I think to {self.aki.progression:.0f}% it's {self.aki.first_guess['name']} ({self.aki.first_guess['description']})!"
+                    title=f"I think to {self.aki.progression*100:.0f}% it's {self.aki.first_guess['name']} ({self.aki.first_guess['description']})!"
                 )
                 .set_image(self.aki.first_guess['absolute_picture_path']),
             )
