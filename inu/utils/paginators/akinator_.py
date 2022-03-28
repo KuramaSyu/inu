@@ -121,7 +121,8 @@ class AkinatorSI(Paginator):
             await msg.edit(components=[])
             await ctx.respond(
                 embed=hikari.Embed(
-                    title=f"I think to {self.aki.progression:.0f}% it's {self.aki.first_guess['name']} ({self.aki.first_guess['description']})!"
+                    # to {self.aki.progression:.0f}%
+                    title=f"I think it's {self.aki.first_guess['name']} ({self.aki.first_guess['description']})!"
                 )
                 .set_image(self.aki.first_guess['absolute_picture_path']),
             )
