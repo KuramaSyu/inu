@@ -114,7 +114,7 @@ async def onu(ctx: Context):
 
 @plugin.command
 @lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
-@lightbulb.command("akinator", "I guess a character for you", aliases=["aki"])
+@lightbulb.command("akinator", "I guess a character for you", aliases=["aki"], auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def akinator(ctx: Context):
     aki = AkinatorSI("en")
