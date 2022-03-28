@@ -30,7 +30,6 @@ class AkinatorSI(Paginator):
         await self.main(ctx)
 
     async def main(self, ctx: Context):
-        win = False
         bot: Inu = ctx.bot
         question = await self.aki.start_game()
         interaction: Optional[hikari.ComponentInteraction] = None
