@@ -127,7 +127,14 @@ class AkinatorSI(Paginator):
             )
         else:
             await self.aki.win()
-            await ctx.respond(f"""Well played. These where the last characters I thought of: {', '.join(f"{float(a['proba'])*100:.1f}% {a['name']}" for a in self.aki.guesses)}""")
+            await ctx.respond(
+                f"""Well played. These where the last characters I thought of: {Human.list_(
+                    list(
+                        f"{float(a['proba'])*100:.1f}% {a['name']}" for a in self.aki.guesses
+                    ),
+                    with_a_or_an=False,
+                    )}"""
+            )
         # if correct.lower() == "yes" or correct.lower() == "y":
         #     print("Yay\n")
         # else:
