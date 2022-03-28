@@ -121,13 +121,13 @@ class AkinatorSI(Paginator):
             await msg.edit(components=[])
             await ctx.respond(
                 embed=hikari.Embed(
-                    title=f"I think to {self.aki.progression*100:.0f}% it's {self.aki.first_guess['name']} ({self.aki.first_guess['description']})!"
+                    title=f"I think to {self.aki.progression:.0f}% it's {self.aki.first_guess['name']} ({self.aki.first_guess['description']})!"
                 )
                 .set_image(self.aki.first_guess['absolute_picture_path']),
             )
         else:
             await self.aki.win()
-            await ctx.respond(f"""Well played. These where the last characters I thought of: {', '.join(f"{float(a['proba']):.1f}% {a['name']}" for a in self.aki.guesses)}""")
+            await ctx.respond(f"""Well played. These where the last characters I thought of: {', '.join(f"{float(a['proba'])*100:.1f}% {a['name']}" for a in self.aki.guesses)}""")
         # if correct.lower() == "yes" or correct.lower() == "y":
         #     print("Yay\n")
         # else:
