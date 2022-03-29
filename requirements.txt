@@ -17,3 +17,4 @@ jikanpy
 fuzzywuzzy
 pyyaml
 akinator.py[fast_async]
+hikari-miru
