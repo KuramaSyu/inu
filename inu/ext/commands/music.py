@@ -535,6 +535,7 @@ async def start_lavalink() -> None:
                 music.d.log.error(traceback.format_exc())
                 return
             else:
+                log.info("retrying lavalink connection in 10 seconds")
                 await asyncio.sleep(10)
     log.info("lavalink is connected")
 
@@ -604,7 +605,7 @@ async def _leave(guild_id: int):
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def play(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
-    log.debug(music)
+    log.debug(music.bot.data.lavalink)
     global first_join
     try:
         music.d.last_context[ctx.guild_id] = ctx
