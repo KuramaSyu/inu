@@ -324,6 +324,14 @@ async def tag_get(ctx: Context):
     record = await get_tag(ctx, ctx.options.name)
     await show_record(record, ctx, ctx.options.name)
 
+
+@tag_get.autocomplete("name")
+async def tag_name_ac(
+    option: hikari.AutocompleteInteractionOption, interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    tags = await TagManager.find_similar(option.value, interaction.guild_id)
+    return [tag['tag_key'] for tag in tags]
+
 @tag_get.autocomplete("name")
 async def tag_name_auto_complete(
     option: hikari.AutocompleteInteractionOption, interaction: hikari.AutocompleteInteraction
