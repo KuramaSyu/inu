@@ -527,8 +527,8 @@ async def start_lavalink() -> None:
                 builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
             music.bot.data.lavalink = lava_client
-            music.d.lavalink = music.d.interactive.lavalink = music.bot.data.lavalink
-            logging.info("lavalink is connected")
+            music.d.lavalink = lava_client
+            music.d.interactive.lavalink = lava_client
             break
         except Exception:
             if x == 2:
@@ -536,9 +536,7 @@ async def start_lavalink() -> None:
                 return
             else:
                 await asyncio.sleep(10)
-    log = getLogger("lavasnek_rs")
-    getLogger("lavalink_rs.event_loops")
-    logging.info("lavalink is connected")
+    log.info("lavalink is connected")
 
         
 
@@ -606,6 +604,7 @@ async def _leave(guild_id: int):
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def play(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
+    log.debug(music)
     global first_join
     try:
         music.d.last_context[ctx.guild_id] = ctx
