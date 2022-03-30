@@ -4,6 +4,6 @@
 FROM ubuntu:20.04
 RUN apt-get update -y && apt-get upgrade -y && apt-get dist-upgrade
 RUN apt-get install openjdk-11-jdk -y
-COPY .Lavalink.jar .Lavalink.jar
 COPY .application.yml .application.yml
+COPY .Lavalink.jar .Lavalink.jar
 CMD [ "java", "-jar Lavalink.jar" ]
