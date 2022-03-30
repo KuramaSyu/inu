@@ -38,8 +38,7 @@ class PrefixManager:
     ) -> List[str]:
         """
         Returns:
-        --------
-            - (List[str]) prefixes
+            List[str] updated list with prefixes
         """
         table = Table("guilds")
         rec = await table.fetch_by_id("guild_id", guild_id)
@@ -53,4 +52,25 @@ class PrefixManager:
         prefixes = list(set(prefixes))
         await table.upsert(["guild_id", "prefixes"], [guild_id, prefixes])
         table.db.bot._prefixes[guild_id] = prefixes
+        return prefixes
+
+    @classmethod
+    async def fetch_prefixes(
+        cls,
+        guild_id: int,
+    ) -> List[str]:
+        """
+        retruns prefixes of a guild
+
+        Args:
+            guild_id (int): the guild id
+
+        Returns:
+            List[str]: a list with prefixes
+        """
+        table = Table("guilds")
+        rec = await table.fetch_by_id("guild_id", guild_id)
+        prefixes = [table.db.bot.conf.bot.DEFAULT_PREFIX]
+        if rec:
+            prefixes.extend(rec["prefixes"])
         return prefixes
