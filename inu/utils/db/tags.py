@@ -621,12 +621,12 @@ class TagManager():
             f"""
             SELECT *
             FROM tags
-            WHERE (($1 = ANY(guild_ids)) or 0 = ANY(guild_ids)) AND similarity(tag_key, $2) > 0.1
+            WHERE (($1 = ANY(guild_ids)) or 0 = ANY(guild_ids)) AND similarity(tag_key, $2) > {cls.bot.conf.tags.prediction_accuracy} 
             ORDER BY similarity(tag_key, $2) DESC
             LIMIT 20;
             """,
             # tag_key % $2
-            # > {cls.bot.conf.tags.prediction_accuracy} 
+            # > 
             guild_id, 
             tag_name
 
