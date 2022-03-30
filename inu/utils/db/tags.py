@@ -21,7 +21,7 @@ from hikari import Snowflake, User, Member
 from numpy import column_stack
 
 from ..language import Human, Multiple
-from core.db import Database
+from core.db import Database, Table
 from core import Inu
 
 
@@ -634,6 +634,63 @@ class TagManager():
             return [r for r in records if creator_id in r["author_ids"]]
         return records
 
+    @classmethod
+    async def startswith(
+        cls,
+        starts_with: str, 
+        guild_id: Optional[int], 
+        creator_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        ### searches similar tags to <`tag_name`> in every reachable scope
+
+        Args:
+        -----
+            - tag_name (`str`) the name of the tag, to search
+            - guild_id (`int`) the guild_id, which the returning tags should have
+            - creator_id (`int` | None) the creator_id, which the returning tags should have
+
+        Note:
+        -----
+            - global tags will shown always (guild_id is 0)
+            - if creator_id is None, the creator will be ignored
+        """
+        cols = ["guild_ids"]
+        vals = [guild_id]
+        if creator_id:
+            cols.append("author_ids")
+            vals.append(creator_id)
+        table = Table("tags")
+        records = await table.fetch(
+            f"""
+            SELECT *
+            FROM tags
+            WHERE 
+                (
+                    ($1 = ANY(guild_ids) or 0 = ANY(guild_ids)) 
+                    AND 
+                    (
+                        starts_with(tag_key, $2) 
+                        or EXISTS 
+                        (
+                            SELECT alias 
+                            FROM unnest(aliases) 
+                            AS alias 
+                            WHERE starts_with(alias, $2)
+                        )
+                    )
+                )
+            """,
+            #(
+            # > {cls.bot.conf.tags.prediction_accuracy} 
+            #             LIMIT 20;
+            guild_id, 
+            starts_with,
+        )
+        if creator_id:
+            return [r for r in records if creator_id in r["author_ids"]]
+        return records
+
         
 
 class Tag():
@@ -647,3 +704,4 @@ class Tag():
 class TagIsTakenError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
+
