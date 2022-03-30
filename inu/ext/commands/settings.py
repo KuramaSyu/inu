@@ -1,3 +1,4 @@
+from abc import abstractmethod
 import asyncio
 from email.policy import default
 import traceback
@@ -11,6 +12,7 @@ from typing import (
 import logging
 import datetime
 from datetime import datetime, timedelta, timezone
+from typing_extensions import Self
 
 import hikari
 from hikari.impl import ActionRowBuilder
@@ -20,6 +22,7 @@ from hikari.messages import ButtonStyle, ComponentType
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
+import miru
 
 from utils import DailyContentChannels, PrefixManager
 from core import Inu, Table
@@ -30,8 +33,187 @@ from core import getLogger, Inu
 log = getLogger(__name__)
 
 
+################################################################################
+# Start - View for Settings
+################################################################################
+
+
+class SettingsMenuView(miru.View):
+    name: str
+    def __init__(self, *,old_view: Optional[Self], timeout: Optional[float] = 120, autodefer: bool = True) -> None:
+        super().__init__(timeout=timeout, autodefer=autodefer)
+        self.old_view = old_view
+
+    @abstractmethod
+    async def to_embed(self) -> hikari.Embed:
+        raise NotImplementedError()
+
+    @miru.button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER, row=2)
+    async def back_button(self, button: miru.Button, ctx: miru.Context):
+        await self.go_back(ctx)
+        
+
+    @miru.button(emoji=chr(9209), style=hikari.ButtonStyle.DANGER, row=2)
+    async def stop_button(self, button: miru.Button, ctx: miru.Context):
+        try:
+            self.stop()
+        except Exception as e:
+            pass
+        await self.message.delete()
+
+        #self.stop() # Stop listening for interactions
+
+    async def go_back(self, ctx: miru.Context) -> None:
+        if self.old_view is not None:
+            self.stop()
+            await self.old_view.start(self.message)
+        else:
+            await ctx.respond("You can't go back from here.")
+
+    @property
+    def total_name(self) -> str:
+        if self.old_view is not None:
+           return f"{self.old_view.total_name} > {self.__class__.name}" 
+        else:
+            return self.__class__.name
+
+    async def start(self, message: hikari.Message) -> None:
+
+        super().start(message)
+        await message.edit(
+            embed=await self.to_embed(),
+            components=self.build()
+        )
+
+
+class PrefixView(SettingsMenuView):
+    name = "Prefixes"
+    @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+    async def prefix_add(self, button: miru.Button, ctx: miru.Context) -> None:
+        await add.callback(ctx)
+
+    @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+    async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
+        await remove.callback(ctx)
+
+    async def to_embed(self):
+        embed = hikari.Embed(
+            title=self.total_name, 
+            description=(
+                "Prefixes are used to call commands in the bot.\n"
+                "You can add and remove prefixes here."
+            ),
+        )
+        embed.add_field(
+            name="Current Prefixes:", 
+            value="\n".join(
+                await PrefixManager.fetch_prefixes(
+                    self._message.guild_id
+                )
+            )
+        )
+        return embed
+
+class RedditTopChannelView(SettingsMenuView):
+    name = "Top Channels"
+    @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+    async def channels(self, button: miru.Button, ctx: miru.Context) -> None:
+        await add.callback(ctx)
+
+    @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+    async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
+        await remove.callback(ctx)
+
+    async def to_embed(self):
+        embed = hikari.Embed(
+            title=self.total_name, 
+            description="Here u should see the channels which are selected as top channels."
+        )
+        return embed
+
+class RedditChannelView(SettingsMenuView):
+    name = "Channels"
+    @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+    async def channels(self, button: miru.Button, ctx: miru.Context) -> None:
+        await add.callback(ctx)
+
+    @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+    async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
+        await remove.callback(ctx)
+
+    async def to_embed(self):
+        embed = hikari.Embed(
+            title=self.total_name, 
+            description="Here u should see the channels that are used to post content from reddit."
+        )
+        return embed
+
+
+class RedditView(SettingsMenuView):
+    name = "Reddit"
+    @miru.button(label="manage channels", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+    async def channels(self, button: miru.Button, ctx: miru.Context) -> None:
+        await RedditChannelView(old_view=self).start(self.message)
+
+    @miru.button(label="manage top channels", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+    async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
+        await RedditTopChannelView(old_view=self).start(self.message)
+
+    async def to_embed(self):
+        embed = hikari.Embed(
+            title=self.total_name, 
+            description=(
+                "Manage the channels that the bot will post content from Reddit to.\n" 
+                "Here u should see the channels that the bot is currently posting to."
+            )
+        )
+        return embed
+
+class TimezoneView(SettingsMenuView):
+    name = "Timezone"
+    @miru.button(label="set", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+    async def set_timezone(self, button: miru.Button, ctx: miru.Context) -> None:
+        await RedditChannelView(old_view=self).start(self.message)
+
+    async def to_embed(self):
+        embed = hikari.Embed(
+            title=self.total_name,
+            description="Here u should see the timezone of your guild." 
+        )
+        return embed
+
+
+
+
+class MainView(SettingsMenuView):
+    name = "Settings"
+    @miru.button(label="Prefixes", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+    async def prefixes(self, button: miru.Button, ctx: miru.Context) -> None:
+        await (PrefixView(old_view=self)).start(self._message)
+        
+    @miru.button(label="Reddit", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+    async def reddit_channels(self, button: miru.Button, ctx: miru.Context) -> None:
+        await RedditView(old_view=self).start(self._message)
+
+    @miru.button(label="Timezone", emoji=chr(9986), style=hikari.ButtonStyle.PRIMARY)
+    async def scissors_button(self, button: miru.Button, ctx: miru.Context):
+        await TimezoneView(old_view=self).start(self._message)
+
+    async def to_embed(self) -> None:
+        embed = hikari.Embed(
+            title=self.total_name,
+            description="Here you can configure the bot.",
+        )
+        return embed
+
+################################################################################
+# End - View for Settings
+################################################################################
+
+
 plugin = lightbulb.Plugin("Settings", "Commands, to change Inu's behavior to certain things")
-bot: Inu
+bot: Inu = None
+
 
 @plugin.listener(hikari.ShardReadyEvent)
 async def on_ready(_: hikari.ShardReadyEvent):
@@ -42,7 +224,9 @@ async def on_ready(_: hikari.ShardReadyEvent):
 @lightbulb.command("settings", "Settings to chagne how cretain things are handled")
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def settings(ctx: Context):
-    pass
+    main_view = MainView(old_view=None)
+    message = await ctx.respond("settings")
+    await main_view.start(await message.message())
 
 @settings.child
 @lightbulb.command("daily_pictures", "Settings to the daily pictures I send. By default I don't send pics", aliases=["dp"])
@@ -232,4 +416,5 @@ def load(inu: Inu):
     inu.add_plugin(plugin)
     global bot
     bot = inu
+    miru.load(bot)
         
