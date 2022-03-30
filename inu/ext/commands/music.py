@@ -619,7 +619,7 @@ async def play(ctx: context.Context) -> None:
 async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
     if not ctx.guild_id or not ctx.member:
         return  # just for pylance
-    con = await music.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id)
+    con = music.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id)
     # Join the user's voice channel if the bot is not in one.
     if not con:
         await _join(ctx)
