@@ -203,7 +203,7 @@ async def on_ready(_):
 @tags.command
 @lightbulb.option("name", "the name of the tag you want to get", modifier=commands.OptionModifier.CONSUME_REST, default=None) 
 @lightbulb.command("tag", "get a stored tag")
-@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
+@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup) 
 async def tag(ctx: Context):
     """
     Get the tag by `name`
@@ -213,7 +213,10 @@ async def tag(ctx: Context):
     key: the name of the tag
     if `key` isn't provided I'll start an interactive tag creation menu
     """
-    ctx.raw_options["name"] = ctx.options.name.strip()
+    try:
+        ctx.raw_options["name"] = ctx.options.name.strip()
+    except:
+        pass
     name = ctx.options.name
     if name is None:
         taghandler = TagHandler()
@@ -311,8 +314,14 @@ async def remove(ctx: Context):
 
 
 @tag.child
-@lightbulb.option("name", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True, autocomplete=True) 
-@lightbulb.command("get", "get a tag by key|name")
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    modifier=commands.OptionModifier.CONSUME_REST, 
+    required=True, 
+    autocomplete=True
+) 
+@lightbulb.command("get", "get a tag by key|name",)
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_get(ctx: Context):
     """get a tag to my storage
@@ -330,8 +339,23 @@ async def tag_get(ctx: Context):
 async def tag_name_auto_complete(
     option: hikari.AutocompleteInteractionOption, interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
-    tags = await TagManager.find_similar(option.value, guild_id=interaction.guild_id)
-    return [tag['tag_key'] for tag in tags]
+    try:
+        if len(option.value) > 2:
+            tags = await TagManager.find_similar(option.value, guild_id=interaction.guild_id)
+            return [tag['tag_key'] for tag in tags]
+        else:
+            tags = await TagManager.startswith(option.value, guild_id=interaction.guild_id)
+            return [
+                name for name in 
+                [
+                    *[name for tag in tags for name in tag["aliases"]], 
+                    *[tag['tag_key'] for tag in tags]
+                ] 
+                if name.startswith(option.value) ]
+
+    except:
+        log.error(traceback.format_exc())
+    
     
 @tag.child
 @lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
