@@ -79,7 +79,7 @@ class Inu(lightbulb.BotApp):
             case_insensitive_prefix_commands=True,
             banner=None,
             logs=logs,
-
+            default_enabled_guilds=[538398443006066728]
         )
         self.mrest = MaybeRest(self)
         self.load("inu/ext/commands/")
