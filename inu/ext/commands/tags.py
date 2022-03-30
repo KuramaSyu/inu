@@ -50,7 +50,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[asyncpg
     """
 
     if key is None:
-        key = ctx.options.key
+        key = ctx.options.name
     key = key.strip()
     raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     results = []
@@ -95,15 +95,15 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[asyncpg
             return None
             
 
-async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
+async def get_tag(ctx: Context, name: str) -> Optional[Dict[str, Any]]:
     """
     Searches the <key> and sends the result into the channel of <ctx>
     NOTE:
     -----
         - tags created in your guild will be prefered sent, in case there is a global tag too
     """
-    ctx.raw_options["key"] = ctx.options.key.strip()
-    records = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
+    ctx.raw_options["name"] = ctx.options.name.strip()
+    records = await TagManager.get(name, ctx.guild_id or ctx.channel_id)
     record: Optional[Mapping[str, Any]] = None
     # if records are > 1 return the local overridden one
     if len(records) >= 1:
@@ -120,7 +120,7 @@ async def get_tag(ctx: Context, key: str) -> Optional[Dict[str, Any]]:
 async def show_record(
     record: asyncpg.Record, 
     ctx: Context, 
-    key: Optional[str] = None,
+    name: Optional[str] = None,
     force_show_name: bool = False,
 ) -> None:
     """
@@ -138,7 +138,7 @@ async def show_record(
     """
     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
     if record is None:
-        await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id or ctx.channel_id)
+        await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id)
         # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
         return
     messages = []
@@ -148,7 +148,7 @@ async def show_record(
         # then append original name at start of message
         if (
             not (
-                key == record["tag_key"]
+                name == record["tag_key"]
                 or re.match(media_regex, record["tag_value"].strip())
             )
             or force_show_name
@@ -201,25 +201,25 @@ async def on_ready(_):
     pass
 
 @tags.command
-@lightbulb.option("key", "the name of the tag you want to get", modifier=commands.OptionModifier.CONSUME_REST, default=None) 
+@lightbulb.option("name", "the name of the tag you want to get", modifier=commands.OptionModifier.CONSUME_REST, default=None) 
 @lightbulb.command("tag", "get a stored tag")
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def tag(ctx: Context):
     """
-    Get the tag by `key`
+    Get the tag by `name`
     Args:
     ----
 
     key: the name of the tag
     if `key` isn't provided I'll start an interactive tag creation menu
     """
-    ctx.raw_options["key"] = ctx.options.key.strip()
-    key = ctx.options.key
-    if key is None:
+    ctx.raw_options["name"] = ctx.options.name.strip()
+    name = ctx.options.name
+    if name is None:
         taghandler = TagHandler()
         return await taghandler.start(ctx)
-    record = await get_tag(ctx, key)
-    await show_record(record, ctx, key)
+    record = await get_tag(ctx, name)
+    await show_record(record, ctx, name)
 
 
 
@@ -231,7 +231,7 @@ async def tag(ctx: Context):
      modifier=commands.OptionModifier.CONSUME_REST,
      required=False
 )
-@lightbulb.option("key", "the name of your tag. Only one word", required=False) 
+@lightbulb.option("name", "the name of your tag. Only one word", required=False) 
 @lightbulb.command("add", "add a new tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def add(ctx: Context):
@@ -239,18 +239,18 @@ async def add(ctx: Context):
     
     Args:
     -----
-        - key: the name the tag should have
+        - name: the name the tag should have
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
-    ctx.raw_options["key"] = ctx.options.key.strip()
-    if ctx.options.value is None or ctx.options.key is None:
+    ctx.raw_options["name"] = ctx.options.name.strip()
+    if ctx.options.value is None or ctx.options.name is None:
         taghandler = TagHandler()
         return await taghandler.start(ctx)
     typing.cast(str, ctx.options.value)
     try:
         await TagManager.set(
-            ctx.options.key, 
+            ctx.options.name, 
             ctx.options.value, 
             [ctx.member or ctx.author],
             [ctx.guild_id or ctx.channel_id],
@@ -258,10 +258,10 @@ async def add(ctx: Context):
         )
     except TagIsTakenError:
         return await ctx.respond("Your tag is already taken")
-    return await ctx.respond(f"Your tag `{ctx.options.key}` has been added to my storage")
+    return await ctx.respond(f"Your tag `{ctx.options.name}` has been added to my storage")
 
 @tag.child
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("edit", "edit a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def edit(ctx: Context):
@@ -273,10 +273,10 @@ async def edit(ctx: Context):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
-    ctx.raw_options["key"] = ctx.options.key.strip()
+    ctx.raw_options["name"] = ctx.options.name.strip()
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     taghandler = TagHandler()
     await taghandler.start(ctx, record)
 
@@ -289,7 +289,7 @@ async def edit(ctx: Context):
         
     
 @tag.child
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("remove", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def remove(ctx: Context):
@@ -299,30 +299,38 @@ async def remove(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
-    ctx.raw_options["key"] = ctx.options.key.strip()
-    key = ctx.options.key
+    ctx.raw_options["name"] = ctx.options.name.strip()
+    name = ctx.options.name
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     await TagManager.remove(record['tag_id'])
     await ctx.respond(
-        f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{key}`"
+        f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{name}`"
     )
 
 
 @tag.child
-@lightbulb.option("key", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True) 
+@lightbulb.option("name", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True) 
 @lightbulb.command("get", "get a tag by key|name")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def get(ctx: Context):
+async def tag_get(ctx: Context):
     """get a tag to my storage
     
     Args:
     -----
-        - key: the name the tag should have
+        - name: the name the tag should have
     """
-    record = await get_tag(ctx, ctx.options.key)
-    await show_record(record, ctx, ctx.options.key)
+    record = await get_tag(ctx, ctx.options.name)
+    await show_record(record, ctx, ctx.options.name)
+
+@tag_get.autocomplete("name")
+async def tag_name_auto_complete(
+    option: hikari.AutocompleteInteractionOption, interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    
+    tags = await TagManager.find_similar(option.value, guild_id=interaction.guild_id)
+    return [tag['tag_key'] for tag in tags]
     
 @tag.child
 @lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
@@ -378,11 +386,11 @@ async def overview(ctx: Context):
 
 @tag.child
 @lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("key", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True) 
+@lightbulb.option("name", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True) 
 @lightbulb.command("execute", "executes a tag with Python\nNOTE: owner only", aliases=["run", "exec"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_execute(ctx: Context):
-    record = await get_tag(ctx, ctx.options.key)
+    record = await get_tag(ctx, ctx.options.name)
     ctx._options["code"] = record["tag_value"]  # tag value is a list
     ext = tags.bot.get_plugin("Owner")
     for cmd in ext.all_commands:
@@ -391,7 +399,7 @@ async def tag_execute(ctx: Context):
 
 @tag.child
 @lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("append", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_append(ctx: Context):
@@ -401,11 +409,11 @@ async def tag_append(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
-    ctx.raw_options["key"] = ctx.options.key.strip()
-    key = ctx.options.key
+    ctx.raw_options["name"] = ctx.options.name.strip()
+    key = ctx.options.name
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.value += f"\n{ctx.options.text.lstrip()}"
     await tag.save()
@@ -414,9 +422,9 @@ async def tag_append(ctx: Context):
     )
 
 @tag.child
-@lightbulb.option("new_key", "The new key for the tag", modifier=OM.CONSUME_REST)
-@lightbulb.option("old_key", "The old name from the tag") 
-@lightbulb.command("change-key", "Change the key (name) of a tag")
+@lightbulb.option("new_name", "The new name for the tag", modifier=OM.CONSUME_REST)
+@lightbulb.option("old_name", "The old name from the tag") 
+@lightbulb.command("change-name", "Change the key (name) of a tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_change_key(ctx: Context):
     """Remove a tag to my storage
@@ -425,25 +433,25 @@ async def tag_change_key(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
-    old_key = ctx.options.old_key
+    old_key = ctx.options.old_name
     record = await get_tag_interactive(ctx, old_key)
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{old_key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.name = ctx.options.new_key
+    tag.name = ctx.options.new_name
     await tag.save()
     await ctx.respond(
         f"Done."
     )
 
 @tag.child
-@lightbulb.option("key", "the name of your tag. Only one word", type=str)
+@lightbulb.option("name", "the name of your tag. Only one word", type=str)
 @lightbulb.command("info", "get info to a tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_info(ctx: Context):
-    record = await get_tag(ctx, ctx.options.key)
+    record = await get_tag(ctx, ctx.options.name)
     if record is None:
-        return await no_tag_found_msg(ctx, ctx.options.key, ctx.guild_id or ctx.channel_id, ctx.author.id)
+        return await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id, ctx.author.id)
     message = (
         f"**{record['tag_key']}**\n\n"
         f"tag {Human.plural_('author', len(record['author_ids']))}: "
@@ -458,7 +466,7 @@ async def tag_info(ctx: Context):
 
 @tag.child
 @lightbulb.option("alias", "The optional name you want to add", modifier=OM.CONSUME_REST)
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("add-alias", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_add_alias(ctx: Context):
@@ -470,7 +478,7 @@ async def tag_add_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.aliases.append(f"{ctx.options.alias.strip()}")
     await tag.save()
@@ -480,7 +488,7 @@ async def tag_add_alias(ctx: Context):
 
 @tag.child
 @lightbulb.option("alias", "The optional name you want to remove", modifier=OM.CONSUME_REST)
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("remove-alias", "remove a tag you own", aliases=["rm-alias"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_remove_alias(ctx: Context):
@@ -492,7 +500,7 @@ async def tag_remove_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.aliases.append(f"{ctx.options.alias.strip()}")
@@ -505,7 +513,7 @@ async def tag_remove_alias(ctx: Context):
 
 @tag.child
 @lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("add-author", "add an author to your tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_add_author(ctx: Context):
@@ -517,7 +525,7 @@ async def tag_add_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.owners.append(int(ctx.options.author.id))
     await tag.save()
@@ -527,7 +535,7 @@ async def tag_add_author(ctx: Context):
 
 @tag.child
 @lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("remove-author", "add an author to your tag", aliases=["rm-author"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_remove_author(ctx: Context):
@@ -539,7 +547,7 @@ async def tag_remove_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.owners.remove(int(ctx.options.author.id))
@@ -552,7 +560,7 @@ async def tag_remove_author(ctx: Context):
 
 @tag.child
 @lightbulb.option("guild", "The guild/server ID you want to add", type=hikari.Snowflake)
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("add-guild", "add a guild to your tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_add_guild(ctx: Context):
@@ -564,7 +572,7 @@ async def tag_add_guild(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.guild_ids.append(int(ctx.options.guild))
     await tag.save()
@@ -574,7 +582,7 @@ async def tag_add_guild(ctx: Context):
 
 @tag.child
 @lightbulb.option("guild", "The guild/server ID you want to add", type=hikari.Snowflake)
-@lightbulb.option("key", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("remove-guild", "remove a guild/server to your tag", aliases=["rm-guild"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_remove_guild(ctx: Context):
@@ -586,7 +594,7 @@ async def tag_remove_guild(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.key}` where you are the owner :/")
+        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.guild_ids.remove(int(ctx.options.guild))
