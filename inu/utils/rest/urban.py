@@ -47,6 +47,23 @@ class Urban:
     @classmethod
     @inu
     async def fetch(cls, word: str) -> UrbanIterator:
+        """
+        fetch a word from urban dict
+
+        Args:
+        -----
+        word: `str`
+            word to fetch from urban
+
+        Returns:
+        --------
+        UrbanIterator:
+            Iterator with dicts which have keys:
+                - list
+                - thumps_up
+                - definition
+                - example
+        """
         url = "https://mashape-community-urban-dictionary.p.rapidapi.com/define"
 
         querystring = {"term":word}
