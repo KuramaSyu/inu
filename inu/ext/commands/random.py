@@ -16,7 +16,7 @@ from lightbulb import events
 from lightbulb.commands import OptionModifier as OM
 
 from core import getLogger
-from utils import crumble
+from utils import crumble, BoredAPI, BoredIdea
 
 log = getLogger(__name__)
 
@@ -232,6 +232,15 @@ async def probability(ctx: Context) -> None:
         embed.set_footer(footer)
     await ctx.respond(embed=embed)
     return
+
+
+@plugin.command
+@lightbulb.add_cooldown(1, 2.5, lightbulb.UserBucket) #type: ignore
+@lightbulb.command("bored", "get an idea, what you can do when you are bored")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def bored(ctx: Context) -> None:
+    await ctx.respond(embed=(await BoredAPI.fetch_idea()).embed, )
+
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
