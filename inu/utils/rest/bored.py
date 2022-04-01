@@ -1,6 +1,8 @@
 from typing import *
 import aiohttp
 import hikari
+
+from utils import Colors
 {
   "activity": "Make a couch fort",
   "type": "recreational",
@@ -26,12 +28,13 @@ class BoredIdea:
         return hikari.Embed(
             title=f"{self.activity}",
             description=f"{self.type} | {self.participants} participants | {self.price}€ | {self.accessibility * 100}% accessibility",
-        ).set_thumbnail()
+            color=Colors.from_name("mediumslateblue"),    
+        )
 
 class BoredAPI:
     Endpoint = "https://www.boredapi.com/api/activity/"
-    @staticmethod
-    async def fetch_idea(cls) -> Dict[str, str]:
+    @classmethod
+    async def fetch_idea(cls) -> BoredIdea:
         async with aiohttp.ClientSession() as session:
             async with session.get(cls.Endpoint) as resp:
                 json_resp = await resp.json()
