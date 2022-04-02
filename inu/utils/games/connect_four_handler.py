@@ -181,7 +181,7 @@ class Board:
             row_of_4 = check(slots)
             if row_of_4:
                 self.game_over_slots = row_of_4
-                self.game_status = GameStatus.OVER
+                self.game.status = GameStatus.OVER
                 break
             
     def __str__(self) -> str:
