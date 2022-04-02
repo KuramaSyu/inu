@@ -40,6 +40,20 @@ class Colors():
         if not isinstance(hex_, str):
             raise ColorNotFoundError(f"A color with name '{color}' wasn't found")
         return hikari.Color.from_hex_code(str(hex_))
+    
+    @classmethod
+    def random_blue(cls) -> hikari.Color:
+        return cls.from_name(random.choice(
+                [
+                "deepskyblue", "steelblue", "royalblue", "midnightblue", 
+                "slateblue", "blueviolet", "darkviolet", "purple", 
+                "darkblue", "navy", "mediumblue", "blue",
+                "dodgerblue", "skyblue", "lightskyblue",
+                "lightblue", "powderblue", "cadetblue", "darkturquoise",
+                "slateblue", "darkslateblue", "mediumslateblue",
+                ]
+            )
+        )
 
 class ColorNotFoundError(Exception):
     def __init__(self, message: Optional[str]):
