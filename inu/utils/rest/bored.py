@@ -28,7 +28,7 @@ class BoredIdea:
         return hikari.Embed(
             title=f"{self.activity}",
             description=f"{self.type} | {self.participants} participants | {self.price}€ | {self.accessibility * 100}% accessibility",
-            color=Colors.random_blue
+            color=Colors.random_blue(),
         )
 
 class BoredAPI:
