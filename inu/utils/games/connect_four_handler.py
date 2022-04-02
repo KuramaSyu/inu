@@ -123,7 +123,7 @@ class Board:
 
         Note:
         -----
-        If game is draw, `self.game_status` will be set to `GameStatus.DRAW`        
+        If game is draw, `self.game.status` will be set to `GameStatus.DRAW`        
         """
         valid_marker_count = 0
         for row in self.board:
@@ -142,7 +142,7 @@ class Board:
         """
         Checks if the game is over.
         If the game is over, `self.game_over_slots` will be changed to the coordinates and wont be `None` anymore
-        And `self.game_status` will be set to `GameStatus.OVER`
+        And `self.game.status` will be set to `GameStatus.OVER`
         """
         def check(lines: List[List[Slot]]) -> List[Slot]:
             # I know that this could be shorter
