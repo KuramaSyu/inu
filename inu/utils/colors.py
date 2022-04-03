@@ -54,6 +54,9 @@ class Colors():
                 ]
             )
         )
+    @classmethod
+    def pastel_color(self) -> hikari.Color:
+        pass 
 
 class ColorNotFoundError(Exception):
     def __init__(self, message: Optional[str]):
