@@ -10,12 +10,14 @@ import logging
 from asyncpraw.config import Config
 from hikari.events.interaction_events import InteractionCreateEvent
 from hikari.interactions.component_interactions import ComponentInteraction
+from hikari import ModalInteraction
 
 
 import lightbulb
 from lightbulb import context, commands, when_mentioned_or
 import hikari
 from hikari.snowflakes import Snowflakeish
+from hikari.impl import ActionRowBuilder
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -24,8 +26,10 @@ from lightbulb.context.base import Context
 from matplotlib.colors import cnames
 
 
-from ._logging import LoggingHandler, getLogger, getLevel
+from ._logging import LoggingHandler, getLogger, getLevel 
 from . import ConfigProxy, ConfigType
+
+T_INTERACTION_TYPE = TypeVar("T_INTERACTION_TYPE", bound=Union[ComponentInteraction, ModalInteraction])
 
 
 class BotResponseError(Exception):
@@ -53,6 +57,8 @@ class Inu(lightbulb.BotApp):
         self._prefixes = {}
         self._default_prefix = self.conf.bot.DEFAULT_PREFIX
         self.search = Search(self)
+        self.wait_for_: "WaitForInteraction" = WaitForInteraction(bot=self)
+        self.id_creator = IDCreator()
 
         
         logger_names = [
@@ -199,6 +205,7 @@ class Inu(lightbulb.BotApp):
         user_id: Optional[int] = None, 
         channel_id: Optional[int] = None,
         message_id: Optional[int] = None,
+        interaction_instance: Any = hikari.ComponentInteraction,
     ) -> Tuple[str, InteractionCreateEvent, ComponentInteraction]:
         try:
             self.log.debug(self)
@@ -206,7 +213,7 @@ class Inu(lightbulb.BotApp):
                 InteractionCreateEvent,
                 timeout=10*60,
                 predicate=lambda e:(
-                    isinstance(e.interaction, ComponentInteraction)
+                    isinstance(e.interaction, interaction_instance)
                     and (True if not custom_id else custom_id == e.interaction.custom_id)
                     and (True if not user_id else e.interaction.user.id == user_id)
                     and (True if not channel_id else e.interaction.channel_id == channel_id)
@@ -248,6 +255,7 @@ class Inu(lightbulb.BotApp):
             response_type=response_type,
             embed=None,
         )
+
     async def ask(
         self,
         question: str = None,
@@ -328,7 +336,7 @@ class MaybeRest:
     def __init__(self, bot: lightbulb.BotApp):
         self.bot = bot
 
-    async def fetch_T(self, cache_method: "function", rest_coro: Any , t_ids: List[Snowflakeish]):
+    async def fetch_T(self, cache_method: Callable, rest_coro: Coroutine, t_ids: List[Snowflakeish]):
         t = cache_method(*t_ids)
         if t:
             return t
@@ -373,3 +381,213 @@ class Search:
             g for g in guilds 
             if guild_query in str(g.id).lower() or guild_query in str(g.name).lower()
         ]
+
+class WaitForInteraction:
+    """
+    A class used as name space for different `wait_for` shortcuts
+    """
+    def __init__(self, bot: Inu):
+        self.bot = bot
+        # self.log = getLoggler(__name__, self.__class__.__name__)
+  
+    async def component_interaction(
+        self,
+        custom_id: str = "",
+        custom_ids: List[str] = [],
+        user_id: Optional[int] = None, 
+        channel_id: Optional[int] = None,
+        message_id: Optional[int] = None,
+        timeout: int = 15*60,
+        
+    ) -> Tuple[Dict[str, Optional[str]], ComponentInteraction, InteractionCreateEvent]:
+        """
+        waits for a component interaction
+
+        Args:
+        ----
+        custom_id : `str`
+            The custom_id of the interaction
+        custom_ids : `List[str]`
+            The custom_ids of the interaction
+        user_id : `int` | `None`
+            The id of the user who invoked the interaction
+        channel_id : `int` | `None`
+            The id of the channel where the interaction was created
+        message_id : `int` | `None`
+            Optional message, to compare message id
+        timeout : `int`
+            The amount of time in seconds, the bot should wait for an answer
+        
+        Note:
+        ----
+        All given args will be used, to compare them against the new created Interaction
+
+        Raise:
+        ----
+        asyncio.TimeoutError
+            If the interaction was not created in the given time
+
+        Returns:
+        -------
+        `Dict[str, Any]`
+            Mapping from custom_id to value of the interaction
+        `ComponentInteraction`
+            The interaction
+        `InteractionCreateEvent`
+            The belonging event
+
+        """
+        event = await self.bot.wait_for(
+            InteractionCreateEvent,
+            timeout=timeout,
+            predicate=lambda e:(
+                isinstance(e.interaction, ComponentInteraction)
+                and (True if not custom_id else custom_id == e.interaction.custom_id)
+                and (True if not user_id else e.interaction.user.id == user_id)
+                and (True if not channel_id else e.interaction.channel_id == channel_id)
+                and (True if not message_id else e.interaction.message.id == message_id)
+                and (True if not custom_ids else e.interaction.custom_id in custom_ids)
+            )
+        )
+        if not isinstance(event.interaction, ComponentInteraction):
+            raise TypeError(f"Expected `ComponentInteraction`, got `{type(event.interaction)}`")
+        if len(event.interaction.values) > 0:
+            return {event.interaction.custom_id: event.interaction.values[0]}, event.interaction, event
+        else:
+            return {event.interaction.custom_id: None}, event.interaction, event, 
+
+    async def modal(
+        self,
+        custom_id: str = "",
+        custom_ids: List[str] = [],
+        user_id: Optional[int] = None, 
+        channel_id: Optional[int] = None,
+        timeout: int = 15*60,
+    ) -> Tuple[Dict[str, Any], ModalInteraction, InteractionCreateEvent]:
+        """
+            waits for a modal interaction
+
+            Args:
+            ----
+            custom_id : `str`
+                The custom_id of the interaction
+            custom_ids : `List[str]`
+                The custom_ids of the interaction
+            user_id : `int` | `None`
+                The id of the user who invoked the interaction
+            channel_id : `int` | `None`
+                The id of the channel where the interaction was created
+            message_id : `int` | `None`
+                Optional message, to compare message id
+            timeout : `int`
+                The amount of time in seconds, the bot should wait for an answer
+            
+            Note:
+            ----
+            All given args will be used, to compare them against the new created Interaction
+
+            Raise:
+            ----
+            asyncio.TimeoutError
+                If the interaction was not created in the given time
+
+            Returns:
+            -------
+            `Dict[str, Any]`
+                Mapping from custom_id to value of the interaction
+            `ModalInteraction`
+                The interaction
+            `InteractionCreateEvent`
+                The belonging event
+            """
+        event = await self.bot.wait_for(
+            InteractionCreateEvent,
+            timeout=timeout,
+            predicate=lambda e:(
+                isinstance(e.interaction, ModalInteraction)
+                and (True if not custom_id else custom_id == e.interaction.custom_id)
+                and (True if not user_id else e.interaction.user.id == user_id)
+                and (True if not channel_id else e.interaction.channel_id == channel_id)
+                and (True if not custom_ids else e.interaction.custom_id in custom_ids)
+            )
+        )
+        if not isinstance(event.interaction, ModalInteraction):
+            raise ValueError(f"Expeced ModalInteraction, got {type(event.interaction)}")
+        text_inputs = {
+            component.custom_id: component.value
+            for action_row in event.interaction.components
+            for component in action_row.components
+        }
+        return text_inputs, event.interaction, event
+
+    async def ask_with_modal(
+        self,
+        modal_title:str,
+        question_s: Union[List[str], str],
+        interaction: hikari.ComponentInteraction,
+        placeholder: Optional[str] = None,
+        max_length: Optional[int] = None,
+        min_length: Optional[int] = None,
+    ) -> Tuple[List[str], ModalInteraction, InteractionCreateEvent]:
+        """
+        Asks a question with a modal
+
+        Args:
+        ----
+        question_s : `Union[List[str], str]`
+            The question*s to ask the user
+        interaction : `ComponentInteraction`
+            The interaction to use for initial response
+        placeholder : `str` | `None`
+            The placeholder of the input
+        max_length : `int` | `None`
+            The max length of the input
+        min_length : `int` | `None`
+            The min length of the input
+
+        Returns:
+        -------
+        `List[str]`
+            The answers of the user to the questions in the same order
+        `ModalInteraction`
+            The interaction
+        `InteractionCreateEvent`
+            The belonging event
+
+        Raise:
+        ----
+        asyncio.TimeoutError
+            If the interaction was not created in the given time
+        ValueError
+            if too many or too less arguments are given
+        """
+        if isinstance(question_s, str):
+            question_s = [question_s]
+
+        components = []
+        for i, question in enumerate(question_s):
+            modal = (
+                ActionRowBuilder()
+                .add_text_input(f"modal_answer-{i}", question)
+            )
+            if max_length:
+                modal.set_max_length(max_length)
+            if min_length:
+                modal.set_min_length(min_length)
+            if placeholder:
+                modal.set_placeholder(placeholder)
+            components.append(modal.add_to_container())
+            
+        custom_id = self.bot.id_creator.create_id()
+        await interaction.create_modal_response(modal_title, custom_id, components=components)
+        answer_dict, modal_interaction, event = await self.modal(custom_id=custom_id)
+        return [value for _, value in answer_dict.items()], modal_interaction, event
+
+
+class IDCreator:
+    _id_count = 0
+
+    @classmethod
+    def create_id(cls) -> str:
+        cls._id_count += 1
+        return str(cls._id_count)
