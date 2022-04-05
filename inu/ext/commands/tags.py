@@ -27,8 +27,7 @@ from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import asyncpg
 
-from core import Inu, Table
-from core.bot import BotResponseError
+from core import Inu, Table, BotResponseError
 from utils import TagIsTakenError, TagManager, TagType, Human
 from utils import crumble
 from utils.colors import Colors
@@ -41,7 +40,7 @@ from core import getLogger
 log = getLogger(__name__)
 
 
-async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[asyncpg.Record]:
+async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping[str, Any]]:
     """
     Get the tag interactive
     Note:
@@ -307,6 +306,7 @@ async def remove(ctx: Context):
     record = await get_tag_interactive(ctx)
     if not record:
         await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return
     await TagManager.remove(record['tag_id'])
     await ctx.respond(
         f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{name}`"
@@ -337,14 +337,16 @@ async def tag_get(ctx: Context):
 
 @tag_get.autocomplete("name")
 async def tag_name_auto_complete(
-    option: hikari.AutocompleteInteractionOption, interaction: hikari.AutocompleteInteraction
+    option: hikari.AutocompleteInteractionOption, 
+    interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
+    guild_or_channel = interaction.guild_id or interaction.channel_id
     try:
-        if len(option.value) > 2:
-            tags = await TagManager.find_similar(option.value, guild_id=interaction.guild_id)
+        if option.value and len(str(option.value)) > 2:
+            tags = await TagManager.find_similar(option.value, guild_id=guild_or_channel)
             return [tag['tag_key'] for tag in tags]
         else:
-            tags = await TagManager.startswith(option.value, guild_id=interaction.guild_id)
+            tags = await TagManager.startswith(option.value, guild_id=guild_or_channel)
             return [
                 name for name in 
                 [
@@ -416,6 +418,8 @@ async def overview(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_execute(ctx: Context):
     record = await get_tag(ctx, ctx.options.name)
+    if not record:
+        raise BotResponseError(bot_message=f"I can't find a tag with called `{ctx.options.name}`")
     ctx._options["code"] = record["tag_value"]  # tag value is a list
     ext = tags.bot.get_plugin("Owner")
     for cmd in ext.all_commands:
