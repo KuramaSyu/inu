@@ -395,6 +395,8 @@ class TagHandler(Paginator):
                 await self.change_aliases(i, List.remove)
             elif custom_id == "remove_guild_id":
                 await self.change_guild_ids(i, List.remove)
+            else:
+                log.warning(f"Unknown custom_id: {custom_id} - in {self.__class__.__name__}")
             if self.tag.name and self.tag.value:
                 try:
                     await self.tag.save()
@@ -411,10 +413,13 @@ class TagHandler(Paginator):
         -----
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
-        user_str = await self.bot.ask(
-            "What is the person you want to add?\nI accept something like @user, user#0000 or the ID of the user",
+        user_str, interaction, event = await self.bot.shortcuts.ask_with_modal(
+            "Edit Tag",
+            "What is the person you want to add?",
             interaction=interaction,
+            placeholder="something like @user, user#0000 or the ID of the user"
         )
+        await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         try:
             user = await UserConverter(self.ctx).convert(user_str)
         except TypeError:
@@ -433,9 +438,16 @@ class TagHandler(Paginator):
         -----
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
-        d, interaction, _ = self.bot.wait_for_.modal(
 
+        log.debug("ask")
+        guild_id, interaction, event = await self.bot.shortcuts.ask_with_modal(
+            "Edit Tag",
+            "Enter the guild ID you want to add",
+            placeholder="something like 1234567890123456789",
+            interaction=interaction,
         )
+
+        await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         try:
             op(self.tag.guild_ids, int(guild_id))
         except ValueError:
@@ -450,10 +462,12 @@ class TagHandler(Paginator):
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
         # I know this function is redundant, but otherwise it would affect the readability
-        alias = await self.bot.ask(
-            "What is the alias you want to add?",
+        alias, interaction, event = await self.bot.shortcuts.ask_with_modal(
+            "Edit Tag",
+            "What should be the name of the new alias?",
             interaction=interaction,
         )
+        await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         op(self.tag.aliases, alias)
         #await interaction.create_initial_response(f"`{alias}` is now an alternative name of this tag")
         
@@ -668,14 +682,14 @@ class TagHandler(Paginator):
             .add_option("set name", "set_name").add_to_menu()
             .add_option("set value", "set_value").add_to_menu()
             .add_option("append to value", "extend_value").add_to_menu()
-            .add_option("local / global", "change_visibility").add_to_menu()
             .add_option("add an alias", "add_alias").add_to_menu()
-            .add_option("add a guild", "add_guild").add_to_menu()
+            .add_option("add a guild", "add_guild_id").add_to_menu()
             .add_option("add an author", "add_author_id").add_to_menu()
+            .add_option("remove an author", "remove_author_id").add_to_menu()
+            .add_option("remove alias", "remove_alias").add_to_menu()
+            .add_option("remove guild", "remove_guild_id").add_to_menu()
+            .add_option("local / global", "change_visibility").add_to_menu()
             .add_option("delete tag", "remove_tag").add_to_menu()
-            .add_option("remove an Author", "remove_author_id").add_to_menu()
-            .add_option("remove Alias", "remove_alias").add_to_menu()
-            .add_option("remove Server", "remove_server").add_to_menu()
             .add_to_container()
         )
         #if self.pagination:
