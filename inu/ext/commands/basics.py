@@ -314,13 +314,13 @@ async def search_member(ctx: Context):
 #     await i.create_initial_response(ResponseType.MESSAGE_CREATE, f"{d}")
 
 @basics.command
-@lightbulb.command("testmodal", "Ping the bot", hidden=True)
+@lightbulb.command("testmodal", "test command for modal interactions", hidden=True)
 @lightbulb.implements(commands.SlashCommand)
 async def testmodal(ctx: context.Context):
     bot: Inu = ctx.bot
-    answers, interaction, event = await bot.wait_for_.ask_with_modal(
+    answers, interaction, event = await bot.shortcuts.ask_with_modal(
         "Just a test", 
-        ["What is your pets name?", "What is your name?"],
+        "Enter some none sense or your passowrd here",
         ctx.interaction, 
     )
     await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
