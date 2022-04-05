@@ -29,6 +29,7 @@ from matplotlib.colors import cnames
 from ._logging import LoggingHandler, getLogger, getLevel 
 from . import ConfigProxy, ConfigType
 
+T_STR_LIST = TypeVar(name="T_STR_LIST", bound=Union[List[str], str])
 T_INTERACTION_TYPE = TypeVar("T_INTERACTION_TYPE", bound=Union[ComponentInteraction, ModalInteraction])
 
 
@@ -523,7 +524,7 @@ class Shortcuts:
     async def ask_with_modal(
         self,
         modal_title:str,
-        question_s: Union[List[str], str],
+        question_s: T_STR_LIST,
         interaction: hikari.ComponentInteraction,
         placeholder: Optional[str] = None,
         max_length: Optional[int] = None,
@@ -547,7 +548,8 @@ class Shortcuts:
 
         Returns:
         -------
-        `List[str]`
+        `List[str] | str`
+            return type is given type;
             The answers of the user to the questions in the same order
         `ModalInteraction`
             The interaction
@@ -561,6 +563,7 @@ class Shortcuts:
         ValueError
             if too many or too less arguments are given
         """
+        T = question_s
         if isinstance(question_s, str):
             question_s = [question_s]
 
@@ -581,7 +584,10 @@ class Shortcuts:
         custom_id = self.bot.id_creator.create_id()
         await interaction.create_modal_response(modal_title, custom_id, components=components)
         answer_dict, modal_interaction, event = await self.wait_for_modal(custom_id=custom_id)
-        return [value for _, value in answer_dict.items()], modal_interaction, event
+        if isinstance(T, str):
+            return answer_dict["modal_answer-0"], modal_interaction, event
+        else:
+            return [value for _, value in answer_dict.items()], modal_interaction, event
 
 
 class IDCreator:
