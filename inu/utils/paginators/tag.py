@@ -32,11 +32,13 @@ import asyncpg
 from utils import crumble, TagManager
 from utils.language import Human
 
+from core import Inu
+
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
 
 class Tag():
-    def __init__(self, owner: hikari.User, channel_id: Optional[hikari.Snowflakeish] = None):
+    def __init__(self, owner: Optional[hikari.User] = None, channel_id: Optional[hikari.Snowflakeish] = None):
         """
         Members:
         --------
@@ -51,7 +53,7 @@ class Tag():
             - the owner should be an instace of `Member`, to be able, to store an tag locally
             otherwise the tag have to be stored globally
         """
-        self.owners: List[hikari.Snowflake] = [owner.id]
+        self.owners: List[hikari.Snowflake] = [owner.id] if owner else []
         self._name: Optional[str] = None
         self.value: Optional[str] = None
         self.is_local_available: bool
@@ -177,7 +179,7 @@ class Tag():
             - author: (Member, User) the user which stored the tag
         """
         local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_ids=record["guild_ids"])
-        new_tag: cls = cls(author)
+        new_tag = cls(author)
         new_tag.name = record["tag_key"]
         new_tag.value = record["tag_value"]
         new_tag.is_stored = True
@@ -211,7 +213,8 @@ class Tag():
         -----
             - author: (Member, User) the user which stored the tag
         """
-        tag = Tag(self.owner)
+        tag = Tag()
+        tag.owners = self.owners
         tag.name = None
         tag.value = None
         tag.is_stored = False
@@ -287,6 +290,7 @@ class TagHandler(Paginator):
         self._pages: List[Embed] = []
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
+        self.bot: Inu
 
         super().__init__(
             page_s=self._pages,
@@ -309,6 +313,7 @@ class TagHandler(Paginator):
         """
         try:
             self.ctx = ctx
+            self.bot = ctx.bot
             if not tag:
                 await self.prepare_new_tag(ctx.member or ctx.author)
             else:
@@ -428,9 +433,8 @@ class TagHandler(Paginator):
         -----
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
-        guild_id = await self.bot.ask(
-            "What is the ID of the guild you want to add?",
-            interaction=interaction,
+        d, interaction, _ = self.bot.wait_for_.modal(
+
         )
         try:
             op(self.tag.guild_ids, int(guild_id))
