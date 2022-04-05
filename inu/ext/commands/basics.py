@@ -1,29 +1,27 @@
-import typing
-from typing import *
 import asyncio
 import logging
+import typing
 from datetime import datetime
-from typing_extensions import Self
-import aiohttp
+from typing import *
 
-from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
-from hikari.messages import ButtonStyle
-from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
-from hikari.events import InteractionCreateEvent
-from jikanpy import AioJikan
+import aiohttp
+import hikari
 import lightbulb
 import lightbulb.utils as lightbulb_utils
-from lightbulb import commands, context
+from core import BotResponseError, Inu, Table, getLogger
+from fuzzywuzzy import fuzz
+from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ResponseType
+from hikari.events import InteractionCreateEvent
+from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
+from hikari.messages import ButtonStyle
+from jikanpy import AioJikan
 from lightbulb import OptionModifier as OM
+from lightbulb import commands, context
 from lightbulb.context import Context
-import hikari
 from matplotlib.style import available
 from numpy import full, isin
-from fuzzywuzzy import fuzz
-
-from utils import Colors, Human, Paginator, crumble, Reddit, Urban
-from core import getLogger, Inu, Table, BotResponseError
-
+from typing_extensions import Self
+from utils import Colors, Human, Paginator, Reddit, Urban, crumble
 
 log = getLogger(__name__)
 
@@ -295,6 +293,37 @@ async def search_member(ctx: Context):
     )
     pag = Paginator(page_s=[f"```\n{p.replace('```', '')}```" for p in crumble(result)])
     await pag.start(ctx)
+
+# @basics.command
+# @lightbulb.command("testmodal", "Ping the bot", hidden=True)
+# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+# async def testmodal(ctx: context.Context):
+#     modal = (
+#         ActionRowBuilder()
+#         .add_text_input("test_modal", "The title")
+#         .set_placeholder("test placeholder")
+#         .add_to_container()
+#     )
+
+#     resp = await ctx.interaction.create_modal_response("title from interac", "custom_id", components=[modal])
+#     cast(Inu, ctx.bot)
+#     bot: Inu = ctx.bot
+#     d, i, _ = await bot.wait_for_.modal(
+#         "custom_id",
+#     )
+#     await i.create_initial_response(ResponseType.MESSAGE_CREATE, f"{d}")
+
+@basics.command
+@lightbulb.command("testmodal", "Ping the bot", hidden=True)
+@lightbulb.implements(commands.SlashCommand)
+async def testmodal(ctx: context.Context):
+    bot: Inu = ctx.bot
+    answers, interaction, event = await bot.wait_for_.ask_with_modal(
+        "Just a test", 
+        ["What is your pets name?", "What is your name?"],
+        ctx.interaction, 
+    )
+    await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
 
 
 
