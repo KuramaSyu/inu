@@ -57,7 +57,7 @@ class Inu(lightbulb.BotApp):
         self._prefixes = {}
         self._default_prefix = self.conf.bot.DEFAULT_PREFIX
         self.search = Search(self)
-        self.wait_for_: "WaitForInteraction" = WaitForInteraction(bot=self)
+        self.shortcuts: "WaitForInteraction" = Shortcuts(bot=self)
         self.id_creator = IDCreator()
 
         
@@ -382,7 +382,7 @@ class Search:
             if guild_query in str(g.id).lower() or guild_query in str(g.name).lower()
         ]
 
-class WaitForInteraction:
+class Shortcuts:
     """
     A class used as name space for different `wait_for` shortcuts
     """
@@ -456,7 +456,7 @@ class WaitForInteraction:
         else:
             return {event.interaction.custom_id: None}, event.interaction, event, 
 
-    async def modal(
+    async def wait_for_modal(
         self,
         custom_id: str = "",
         custom_ids: List[str] = [],
@@ -580,7 +580,7 @@ class WaitForInteraction:
             
         custom_id = self.bot.id_creator.create_id()
         await interaction.create_modal_response(modal_title, custom_id, components=components)
-        answer_dict, modal_interaction, event = await self.modal(custom_id=custom_id)
+        answer_dict, modal_interaction, event = await self.wait_for_modal(custom_id=custom_id)
         return [value for _, value in answer_dict.items()], modal_interaction, event
 
 
