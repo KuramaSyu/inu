@@ -13,7 +13,6 @@ def update_package(package: str) -> None:
         path_name = display_name
     else:
         display_name = path_name = package
-        # raise NameError(f"Package not known:\n{package}")
     print(display_name, path_name)
     try:
         subprocess.check_call(
