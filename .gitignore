@@ -148,3 +148,4 @@ models/test_data.py
 models/temp_stuff/related
 config.yaml
 dependencies/fredboat/Lavalink.jar
+models/temp_stuff/backup.py
