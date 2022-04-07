@@ -29,6 +29,7 @@ from matplotlib.colors import cnames
 
 from ._logging import LoggingHandler, getLogger, getLevel 
 from . import ConfigProxy, ConfigType
+from . import Bash
 
 T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 T_INTERACTION_TYPE = TypeVar("T_INTERACTION_TYPE", bound=Union[ComponentInteraction, ModalInteraction])
@@ -61,7 +62,7 @@ class Inu(lightbulb.BotApp):
         self._prefixes = {}
         self._default_prefix = self.conf.bot.DEFAULT_PREFIX
         self.search = Search(self)
-        self.shortcuts: "WaitForInteraction" = Shortcuts(bot=self)
+        self.shortcuts: "Shortcuts" = Shortcuts(bot=self)
         self.id_creator = IDCreator()
 
         
