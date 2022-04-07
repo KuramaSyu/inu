@@ -1,3 +1,6 @@
+import os
+from typing import Union
+import re
 from pyparsing import (
     Literal,
     CaselessLiteral,
@@ -13,6 +16,9 @@ from pyparsing import (
 )
 import math
 import operator
+
+from core import Bash
+from utils import Human
 
 class NumericStringParser(object):
     '''
@@ -91,7 +97,7 @@ class NumericStringParser(object):
                    "round": round,
                    "sgn": lambda a: abs(a) > epsilon and cmp(a, 0) or 0}
 
-    def evaluateStack(self, s):
+    def evaluateStack(self, s) -> Union[float, int]:
         op = s.pop()
         if op == 'unary -':
             return -self.evaluateStack(s)
@@ -110,8 +116,33 @@ class NumericStringParser(object):
         else:
             return float(op)
 
-    def eval(self, num_string, parseAll=True):
+    def eval(self, num_string, parseAll=True) -> Union[float, int]:
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
         val = self.evaluateStack(self.exprStack[:])
         return val
+
+
+async def calc(calculation: str) -> str:
+
+    if calculation.startswith("="):
+        calculation = calculation[1:]
+
+    if os.name == 'nt':
+        text = (
+            calculation
+            .lower()
+            .replace("x", "*")
+            .replace(" ", "")
+            .replace(":", "/")
+            .replace(",", ".")
+        )
+        result = Human.number(str(NumericStringParser().eval(text)))
+
+        #return result[:-2] if result.endswith(".0") else result #and not "," in result
+    else:
+        result = await Bash.qalc(calculation)
+
+    def replace_number(match):
+        return Human.number(match.group(0))
+    return re.sub(r'[-]?\d+\.?\d*', replace_number, result)

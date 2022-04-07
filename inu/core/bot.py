@@ -18,6 +18,7 @@ from lightbulb import context, commands, when_mentioned_or
 import hikari
 from hikari.snowflakes import Snowflakeish
 from hikari.impl import ActionRowBuilder
+from hikari import TextInputStyle
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -29,8 +30,10 @@ from matplotlib.colors import cnames
 from ._logging import LoggingHandler, getLogger, getLevel 
 from . import ConfigProxy, ConfigType
 
-T_STR_LIST = TypeVar(name="T_STR_LIST", bound=Union[List[str], str])
+T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 T_INTERACTION_TYPE = TypeVar("T_INTERACTION_TYPE", bound=Union[ComponentInteraction, ModalInteraction])
+T_INTERACTION_CTX = TypeVar("T_INTERACTION_CTX", lightbulb.SlashContext, hikari.ComponentInteraction, hikari.ModalInteraction)
+T = TypeVar("T")
 
 
 class BotResponseError(Exception):
@@ -328,7 +331,7 @@ class Configuration():
 
     def __getattr__(self, name: str) -> str:
         result = self.config[name]
-        if result == None:
+        if result is None:
             raise AttributeError(f"`Configuration` (.env in root dir) has no attribute `{name}`")
         return result
 
@@ -337,12 +340,12 @@ class MaybeRest:
     def __init__(self, bot: lightbulb.BotApp):
         self.bot = bot
 
-    async def fetch_T(self, cache_method: Callable, rest_coro: Coroutine, t_ids: List[Snowflakeish]):
+    async def fetch_T(self, cache_method: Callable, rest_coro: Callable[[Any], Awaitable[Any]], t_ids: List[Snowflakeish]):
         t = cache_method(*t_ids)
         if t:
             return t
         return await rest_coro(*t_ids)
-
+#typing.Callable[[params go here], typing.Awaitable[return value goes here]]
     async def fetch_user(self, user_id) -> Optional[hikari.User]:
         return await self.fetch_T(
             cache_method=self.bot.cache.get_user,
@@ -515,7 +518,7 @@ class Shortcuts:
         if not isinstance(event.interaction, ModalInteraction):
             raise ValueError(f"Expeced ModalInteraction, got {type(event.interaction)}")
         text_inputs = {
-            component.custom_id: component.value
+            component.custom_id: component.value  # type: ignore
             for action_row in event.interaction.components
             for component in action_row.components
         }
@@ -525,10 +528,14 @@ class Shortcuts:
         self,
         modal_title:str,
         question_s: T_STR_LIST,
-        interaction: hikari.ComponentInteraction,
-        placeholder: Optional[str] = None,
-        max_length: Optional[int] = None,
-        min_length: Optional[int] = None,
+        interaction: Union[hikari.ComponentInteraction, hikari.CommandInteraction],
+        input_style_s: Union[TextInputStyle, List[Union[TextInputStyle, None]]] = TextInputStyle.PARAGRAPH,
+        placeholder_s: Optional[Union[str, List[Union[str, None]]]] = None,
+        max_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+        min_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+        pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
+        is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
+        components: Optional[List[ActionRowBuilder]] = None,
     ) -> Tuple[List[str], ModalInteraction, InteractionCreateEvent]:
         """
         Asks a question with a modal
@@ -563,28 +570,59 @@ class Shortcuts:
         ValueError
             if too many or too less arguments are given
         """
-        T = question_s
-        if isinstance(question_s, str):
-            question_s = [question_s]
+        T = TypeVar("T")
+        def get_index_or_last(index: int, list_: List[T]) -> T:
+            if index >= len(list_):
+                return list_[-1]
+            return list_[index]
 
-        components = []
-        for i, question in enumerate(question_s):
-            modal = (
-                ActionRowBuilder()
-                .add_text_input(f"modal_answer-{i}", question)
-            )
-            if max_length:
-                modal.set_max_length(max_length)
-            if min_length:
-                modal.set_min_length(min_length)
-            if placeholder:
-                modal.set_placeholder(placeholder)
-            components.append(modal.add_to_container())
+        orig_questions = question_s
+        questions: List[str] = []
+        if isinstance(question_s, str):
+            questions = [question_s]
+        else:
+            questions = question_s
+        if isinstance(min_length_s, int):
+            min_length_s = [min_length_s]
+        if isinstance(max_length_s, int):
+            max_length_s = [max_length_s]
+        if isinstance(placeholder_s, str):
+            placeholder_s = [placeholder_s]
+        if isinstance(input_style_s, TextInputStyle):
+            input_style_s = [input_style_s]
+        if isinstance(pre_value_s, str):
+            pre_value_s = [pre_value_s]
+        if isinstance(is_required_s, bool):
+            is_required_s = [is_required_s]
+        if not components:
+            components = []
+            for i, question in enumerate(questions):
+                modal = (
+                    ActionRowBuilder()
+                    .add_text_input(f"modal_answer-{i}", question)
+                )
+
+                # adds corresponding items to the modal
+                if max_length_s and (max_length := get_index_or_last(i, max_length_s)):
+                    modal.set_max_length(max_length)
+                if min_length_s and (min_length := get_index_or_last(i, min_length_s)):
+                    modal.set_min_length(min_length)
+                if placeholder_s and (placeholder := get_index_or_last(i, placeholder_s)):
+                    modal.set_placeholder(placeholder)
+                if pre_value_s and (pre_value := get_index_or_last(i, pre_value_s)):
+                    modal.set_value(pre_value)
+                if is_required_s and (is_required := get_index_or_last(i, is_required_s)):
+                    modal.set_required(is_required)
+                if input_style_s and (input_style := get_index_or_last(i, input_style_s)):
+                    modal.set_style(input_style)
+
+                # add modal part to the components
+                components.append(modal.add_to_container())
             
         custom_id = self.bot.id_creator.create_id()
         await interaction.create_modal_response(modal_title, custom_id, components=components)
         answer_dict, modal_interaction, event = await self.wait_for_modal(custom_id=custom_id)
-        if isinstance(T, str):
+        if isinstance(orig_questions, str):
             return answer_dict["modal_answer-0"], modal_interaction, event
         else:
             return [value for _, value in answer_dict.items()], modal_interaction, event

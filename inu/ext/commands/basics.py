@@ -10,7 +10,7 @@ import lightbulb
 import lightbulb.utils as lightbulb_utils
 from core import BotResponseError, Inu, Table, getLogger
 from fuzzywuzzy import fuzz
-from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ResponseType
+from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ResponseType, TextInputStyle
 from hikari.events import InteractionCreateEvent
 from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
 from hikari.messages import ButtonStyle
@@ -318,10 +318,15 @@ async def search_member(ctx: Context):
 @lightbulb.implements(commands.SlashCommand)
 async def testmodal(ctx: context.Context):
     bot: Inu = ctx.bot
-    answers, interaction, event = await bot.shortcuts.ask_with_modal(
-        "Just a test", 
-        "Enter some none sense or your passowrd here",
-        ctx.interaction, 
+    answers, interaction, _ = await bot.shortcuts.ask_with_modal(
+        "Tag", 
+        ["Name:", "Value:"], 
+        interaction=ctx.interaction,
+        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
+        placeholder_s=[None, "What you will see, when you do /tag get <name>"],
+        is_required_s=[True, None],
+        pre_value_s=[None, "Well idc"]
+
     )
     await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
 
