@@ -1,5 +1,6 @@
 import asyncio
 from typing import *
+import traceback
 
 from ._logging import getLogger
 log = getLogger(__name__)
@@ -23,6 +24,8 @@ class Bash:
         )
 
         stdout, stderr = await proc.communicate()
+        if stderr:
+            log.error(stderr.decode())
         return stdout.decode("utf-8"), stderr.decode("utf-8")
 
     @classmethod
