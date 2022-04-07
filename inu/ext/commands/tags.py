@@ -18,7 +18,7 @@ import asyncio
 import textwrap
 
 import hikari
-from hikari import ComponentInteraction, Embed, InteractionCreateEvent, ResponseType
+from hikari import ComponentInteraction, Embed, InteractionCreateEvent, ResponseType, TextInputStyle
 from hikari.impl import ActionRowBuilder
 from hikari.messages import ButtonStyle
 import lightbulb
@@ -94,7 +94,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
             return None
             
 
-async def get_tag(ctx: Context, name: str) -> Optional[Dict[str, Any]]:
+async def get_tag(ctx: Context, name: str) -> Optional[Mapping[str, Any]]:
     """
     Searches the <key> and sends the result into the channel of <ctx>
     NOTE:
@@ -194,6 +194,7 @@ async def no_tag_found_msg(
 
 
 tags = lightbulb.Plugin("Tags", "Commands all arround tags")
+bot: Inu
 
 @tags.listener(hikari.ShardReadyEvent)
 async def on_ready(_):
@@ -236,7 +237,7 @@ async def tag(ctx: Context):
 @lightbulb.option("name", "the name of your tag. Only one word", required=False) 
 @lightbulb.command("add", "add a new tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def add(ctx: Context):
+async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
     """Add a tag to my storage
     
     Args:
@@ -245,22 +246,36 @@ async def add(ctx: Context):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
-    ctx.raw_options["name"] = ctx.options.name.strip()
-    if ctx.options.value is None or ctx.options.name is None:
-        taghandler = TagHandler()
-        return await taghandler.start(ctx)
-    typing.cast(str, ctx.options.value)
+    interaction = ctx.interaction
+    try:
+        name = ctx.options.name.strip()
+        value = ctx.options.value.strip()
+    except:
+    # ctx.raw_options["name"] = ctx.options.name.strip()
+    # if ctx.options.value is None or ctx.options.name is None:
+    #     taghandler = TagHandler()
+    #     return await taghandler.start(ctx)
+    # typing.cast(str, ctx.options.value)
+        answers, interaction, _ = await bot.shortcuts.ask_with_modal(
+            "Tag", 
+            ["Name:", "Value:"], 
+            interaction=ctx.interaction,
+            input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
+            placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"]
+        )
+        name, value = answers
+        ctx._interaction = interaction
     try:
         await TagManager.set(
-            ctx.options.name, 
-            ctx.options.value, 
+            name, 
+            value,
             [ctx.member or ctx.author],
             [ctx.guild_id or ctx.channel_id],
             [],
         )
     except TagIsTakenError:
         return await ctx.respond("Your tag is already taken")
-    return await ctx.respond(f"Your tag `{ctx.options.name}` has been added to my storage")
+    return await ctx.respond(f"Your tag `{name}` has been added to my storage")
 
 @tag.child
 @lightbulb.option("name", "the name of your tag. Only one word") 
@@ -357,6 +372,7 @@ async def tag_name_auto_complete(
 
     except:
         log.error(traceback.format_exc())
+        return []
     
     
 @tag.child
@@ -651,5 +667,7 @@ async def tag_random(ctx: Context):
     await show_record(random_tag, ctx, force_show_name=True)
 
 
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(tags)
+def load(inu: Inu):
+    inu.add_plugin(tags)
+    global bot
+    bot = inu
