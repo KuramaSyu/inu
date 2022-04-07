@@ -46,9 +46,9 @@ class Bash:
             If the query could not be calculated (error contains stderr)
         """
         args = ["qalc"]
-        args.append(f"--base={base}")
+        #args.append(f"--base={base}")
         if terse:
-            args.append("-terse")
+            args.append("-t")
         args.append(query)
         out, err = await cls.execute(args) # "-t",
         if err:
