@@ -32,6 +32,7 @@ from . import ConfigProxy, ConfigType
 
 T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 T_INTERACTION_TYPE = TypeVar("T_INTERACTION_TYPE", bound=Union[ComponentInteraction, ModalInteraction])
+T_INTERACTION_CTX = TypeVar("T_INTERACTION_CTX", lightbulb.SlashContext, hikari.ComponentInteraction, hikari.ModalInteraction)
 T = TypeVar("T")
 
 
@@ -527,11 +528,14 @@ class Shortcuts:
         self,
         modal_title:str,
         question_s: T_STR_LIST,
-        interaction: hikari.ComponentInteraction,
-        input_style_s: Union[TextInputStyle, List[TextInputStyle]] = TextInputStyle.PARAGRAPH,
-        placeholder_s: Optional[Union[str, List[str]]] = None,
-        max_length_s: Optional[Union[int, List[int]]] = None,
-        min_length_s: Optional[Union[int, List[int]]] = None,
+        interaction: Union[hikari.ComponentInteraction, hikari.CommandInteraction],
+        input_style_s: Union[TextInputStyle, List[Union[TextInputStyle, None]]] = TextInputStyle.PARAGRAPH,
+        placeholder_s: Optional[Union[str, List[Union[str, None]]]] = None,
+        max_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+        min_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+        pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
+        is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
+        components: Optional[List[ActionRowBuilder]] = None,
     ) -> Tuple[List[str], ModalInteraction, InteractionCreateEvent]:
         """
         Asks a question with a modal
@@ -576,6 +580,8 @@ class Shortcuts:
         questions: List[str] = []
         if isinstance(question_s, str):
             questions = [question_s]
+        else:
+            questions = question_s
         if isinstance(min_length_s, int):
             min_length_s = [min_length_s]
         if isinstance(max_length_s, int):
@@ -583,22 +589,35 @@ class Shortcuts:
         if isinstance(placeholder_s, str):
             placeholder_s = [placeholder_s]
         if isinstance(input_style_s, TextInputStyle):
-            input_style_s = [input_style_s]   
+            input_style_s = [input_style_s]
+        if isinstance(pre_value_s, str):
+            pre_value_s = [pre_value_s]
+        if isinstance(is_required_s, bool):
+            is_required_s = [is_required_s]
+        if not components:
+            components = []
+            for i, question in enumerate(questions):
+                modal = (
+                    ActionRowBuilder()
+                    .add_text_input(f"modal_answer-{i}", question)
+                )
 
-        components = []
-        for i, question in enumerate(questions):
-            modal = (
-                ActionRowBuilder()
-                .add_text_input(f"modal_answer-{i}", question)
-                .set_style(get_index_or_last(i, input_style_s))
-            )
-            if max_length_s:
-                modal.set_max_length(get_index_or_last(i, max_length_s))
-            if min_length_s:
-                modal.set_min_length(get_index_or_last(i, min_length_s))
-            if placeholder_s:
-                modal.set_placeholder(get_index_or_last(i, placeholder_s))
-            components.append(modal.add_to_container())
+                # adds corresponding items to the modal
+                if max_length_s and (max_length := get_index_or_last(i, max_length_s)):
+                    modal.set_max_length(max_length)
+                if min_length_s and (min_length := get_index_or_last(i, min_length_s)):
+                    modal.set_min_length(min_length)
+                if placeholder_s and (placeholder := get_index_or_last(i, placeholder_s)):
+                    modal.set_placeholder(placeholder)
+                if pre_value_s and (pre_value := get_index_or_last(i, pre_value_s)):
+                    modal.set_value(pre_value)
+                if is_required_s and (is_required := get_index_or_last(i, is_required_s)):
+                    modal.set_required(is_required)
+                if input_style_s and (input_style := get_index_or_last(i, input_style_s)):
+                    modal.set_style(input_style)
+
+                # add modal part to the components
+                components.append(modal.add_to_container())
             
         custom_id = self.bot.id_creator.create_id()
         await interaction.create_modal_response(modal_title, custom_id, components=components)
