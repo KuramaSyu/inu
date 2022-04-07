@@ -10,7 +10,7 @@ import textwrap
 from utils import WordIterator
 from core import getLogger
 
-T_str_list = TypeVar("T_str_list", str, List[str])
+T_str_list = TypeVar("T_str_list", str, list)
 
 log = getLogger(__name__)
 
