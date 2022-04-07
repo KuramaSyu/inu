@@ -51,7 +51,7 @@ class Bash:
         args = ["qalc"]
         #args.append(f"--base={base}")
         if terse:
-            args.append("-terse")
+            args.append("-t")
         args.append(query)
         out, err = await cls.execute(args) # "-t",
         if err:

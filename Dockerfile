@@ -8,4 +8,7 @@ ADD requirements.txt requirements.txt
 RUN pip install asyncpg
 RUN pip install -r requirements.txt
 COPY . .
+RUN mkdir /.config
+RUN mkdir /.config/qalculate
+RUN cp -r /inu/dependencies/qalculate/qalc.cfg /.config/qalculate/qalc.cfg
 CMD [ "sh", "entry.sh" ]
