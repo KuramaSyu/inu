@@ -182,39 +182,47 @@ class Human():
                 return entry
 
     @staticmethod
-    def number(number: Union[int, str, float], with_inteligent_zero: bool = True) -> str:
+    def number(number: Union[int, str, float]) -> str:
         """
-        Adds commas to <number> every 3 places starting at point or on right side of number
-        """
-        number = str(number)
-        result_number = ""
-        index = str.find(number, ".")
-        if index != -1:
-            result_number += number[index : ][::-1]
-            index -= 1
-        count = 0
+        Add commas to an integer `n`.
 
-        while True:
-            try:
-                result_number += number[index]
-                count += 1
-                index -= 1
-                if count % 3 == 0 and not number[index+1] in ["-", "+"]:
-                    result_number += ","
-                    count = 0
-                if index == -1:
-                    break
-            except Exception:
-                break
-        if result_number[-1] == ",":
-            result_number = result_number[:-1]
-        if result_number.endswith(",-"):
-            result_number = f"{result_number[-2]}-"
-        result_number = result_number[::-1]
-        if with_inteligent_zero:
-            return result_number[:-2] if result_number.endswith(".0") and not "," in result_number else result_number
+            >>> commify(1)
+            '1'
+            >>> commify(123)
+            '123'
+            >>> commify(1234)
+            '1,234'
+            >>> commify(1234567890)
+            '1,234,567,890'
+            >>> commify(123.0)
+            '123.0'
+            >>> commify(1234.5)
+            '1,234.5'
+            >>> commify(1234.56789)
+            '1,234.56789'
+            >>> commify('%.2f' % 1234.5)
+            '1,234.50'
+            >>> commify(None)
+            >>>
+
+        """
+        if isinstance(number, int):
+            return f"{number:,d}"
+        number = str(number)
+        if '.' in number:
+            dollars, cents = number.split('.')
         else:
-            return result_number
+            dollars, cents = number, None
+
+        r: List[Any] = []
+        for i, c in enumerate(str(dollars)[::-1]):
+            if i and (not (i % 3)):
+                r.insert(0, ',')
+            r.insert(0, c)
+        out = ''.join(r)
+        if cents:
+            out += '.' + cents
+        return out
 
     @staticmethod
     def short_text(text: Optional[str], max_lengh: int) -> str:
