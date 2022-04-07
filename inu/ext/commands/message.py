@@ -22,7 +22,7 @@ import re
 
 
 from core import getLogger
-from utils import Human, NumericStringParser
+from utils import Human, calc
 
 log = getLogger(__name__)
 
@@ -44,28 +44,31 @@ async def on_message(message: hikari.PartialMessage):
     elif "arthur ist dumm" in str(message.content).lower():
         return await message.respond("Artur wird ohne h geschrieben")
     elif text.startswith("="):
-        return await calc(message)
+        return await calc_msg(message)
 
 async def artur_ist_dumm(message: hikari.PartialMessage):
     with open("inu//data/other/users/ar_is_stupid.txt", "r", encoding="utf-8") as file_:
         txt = file_.read()
         await message.respond(f"Ich weiß\n{txt}")
 
-async def calc(message: hikari.PartialMessage):
-    text = str(message.content)
+async def calc_msg(message: hikari.PartialMessage):
+    # text = str(message.content)
+    # try:
+    #     text = (
+    #         text
+    #         .lower()
+    #         .replace("x", "*")
+    #         .replace(" ", "")
+    #         .replace(":", "/")
+    #         .replace(",", ".")
+    #     )
+    #     if text.startswith("="):
+    #         text = text[1:]
+    #     calculator = NumericStringParser()
+    #     result = Human.number(str(calculator.eval(text)))
+    #     result = result[:-2] if result.endswith(".0") and not "," in result else result
     try:
-        text = (
-            text
-            .lower()
-            .replace("x", "*")
-            .replace(" ", "")
-            .replace(":", "/")
-            .replace("=", "")
-            .replace(",", ".")
-        )
-        calculator = NumericStringParser()
-        result = Human.number(str(calculator.eval(text)))
-        result = result[:-2] if result.endswith(".0") and not "," in result else result
+        result = await calc(message.content)
         await message.respond(
             hikari.Embed(title=result)
         )
