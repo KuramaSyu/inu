@@ -98,11 +98,31 @@ class PrefixView(SettingsMenuView):
     name = "Prefixes"
     @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_add(self, button: miru.Button, ctx: miru.Context) -> None:
-        await add.callback(ctx)
+        new_prefix, interaction, event = await bot.shortcuts.ask_with_modal(
+            self.total_name, 
+            "What should be the new prefix?", 
+            ctx.interaction,
+            max_length_s=15,
+            input_style_s=hikari.TextInputStyle.SHORT
+        )
+        self.lightbulb_ctx._options["new_prefix"] = new_prefix
+        self.lightbulb_ctx._interaction = interaction
+        self._responded = False
+        await add.callback(self.lightbulb_ctx)
 
     @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
-        await remove.callback(ctx)
+        old_prefix, interaction, event = await bot.shortcuts.ask_with_modal(
+            self.total_name, 
+            "Which prefix should I remove?", 
+            ctx.interaction,
+            max_length_s=15,
+            input_style_s=hikari.TextInputStyle.SHORT
+        )
+        self.lightbulb_ctx._options["prefix"] = old_prefix
+        self.lightbulb_ctx._interaction = interaction
+        self._responded = False
+        await remove.callback(self.lightbulb_ctx)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -126,11 +146,11 @@ class RedditTopChannelView(SettingsMenuView):
     name = "Top Channels"
     @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def channels(self, button: miru.Button, ctx: miru.Context) -> None:
-        await add.callback(ctx)
+        await add.callback(self.lightbulb_ctx)
 
     @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
-        await remove.callback(ctx)
+        await remove.callback(self.lightbulb_ctx)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -143,11 +163,11 @@ class RedditChannelView(SettingsMenuView):
     name = "Channels"
     @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def channels(self, button: miru.Button, ctx: miru.Context) -> None:
-        await add.callback(ctx)
+        await add.callback(self.lightbulb_ctx)
 
     @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
-        await remove.callback(ctx)
+        await remove.callback(self.lightbulb_ctx)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -161,7 +181,7 @@ class RedditView(SettingsMenuView):
     name = "Reddit"
     @miru.button(label="manage channels", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def channels(self, button: miru.Button, ctx: miru.Context) -> None:
-        await RedditChannelView(old_view=self, ctx=self.lightbulb_ctx).async_start(self.message)
+        await timez_set.callback(self.lightbulb_ctx)
 
     @miru.button(label="manage top channels", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
@@ -232,9 +252,20 @@ async def on_ready(_: hikari.ShardReadyEvent):
 @lightbulb.command("settings", "Settings to chagne how cretain things are handled")
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def settings(ctx: Context):
+    pass
+    # main_view = MainView(old_view=None, ctx=ctx)
+    # message = await ctx.respond("settings")
+    # await main_view.async_start(await message.message())
+
+@settings.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("menu", "Interacive menu for all settings")
+@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
+async def settings_menu(ctx: Context):
     main_view = MainView(old_view=None, ctx=ctx)
     message = await ctx.respond("settings")
     await main_view.async_start(await message.message())
+
 
 @settings.child
 @lightbulb.command("daily_pictures", "Settings to the daily pictures I send. By default I don't send pics", aliases=["dp"])
