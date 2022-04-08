@@ -5,7 +5,7 @@ RUN apt upgrade -y
 RUN apt-get install -y rustc
 RUN apt-get install -y qalc
 ADD requirements.txt requirements.txt
-RUN pip install asyncpg
+RUN pip install asyncpg matplotlib
 RUN pip install -r requirements.txt
 COPY . .
 RUN mkdir .config
