@@ -1,23 +1,23 @@
 ---
 title:
-  - en: Picture guessing
-  - de: Bilder raten
+  en: Picture guessing
+  de: Bilder raten
 footer:
-  - en: from {user}
-  - de: von {user}
+  en: from {user}
+  de: von {user}
 wrong-answer:
-  - de:
+  de:
     - FALSCH!
     - Deine Antwort ist leider nicht richtig
     - ❌
-  - en:
+  en:
     - WRONG!
     - Your answer is unfortunately wrong
     - ❌
 right-answer:
   title:
-    - en: "{user} has guessed the picture."
-    - de: {user} hat das Bild erraten
+    en: "{user} has guessed the picture."
+    de: "{user} hat das Bild erraten"
   footer: 
-    - en: `{picture_name}` was the right answer
-    - en: `{picture_name}` war die richtige Antwort
+    en: "`{picture_name}` was the right answer"
+    de: "`{picture_name}` war die richtige Antwort"
