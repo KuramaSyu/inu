@@ -70,7 +70,7 @@ class Urban:
 
         headers = {
             'x-rapidapi-host': "mashape-community-urban-dictionary.p.rapidapi.com",
-            'x-rapidapi-key': cls.bot.conf.KEYS.RAPID
+            'x-rapidapi-key': cls.bot.conf.rapid.secret
             }
         r = None
         async with aiohttp.ClientSession() as session:
