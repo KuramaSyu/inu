@@ -12,7 +12,7 @@ logging.setLoggerClass(LoggingHandler)
 import hikari
 import lightbulb
 from core import Inu, Table
-from utils import InvokationStats, Reminders, TagManager, MyAnimeList, PollManager, Urban
+from utils import InvokationStats, Reminders, TagManager, PollManager, Urban, MyAnimeListAIOClient
 from core import getLogger
 
 
@@ -23,6 +23,7 @@ log.info(f"lightbulb version:{lightbulb.__version__}")
 def main():
     log.info("Create Inu")
     inu = Inu()
+    log.info(inu.conf)
 
     @inu.listen(lightbulb.LightbulbStartedEvent)
     async def sync_prefixes(event: hikari.ShardReadyEvent):
@@ -50,6 +51,8 @@ def main():
             TagManager.init_db(inu)
             await PollManager.init_bot(inu)
             Urban.init_bot(inu)
+            MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
+
 
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
