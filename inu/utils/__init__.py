@@ -6,14 +6,15 @@ from .string_calculator import NumericStringParser, calc
 
 from .grid import Grid
 from .vote import *
+from .rest import *
 from .db import *
 from .logger import *
 
 from .emojis import Emoji
-from .jikanv4 import AioJikanv4
+
 from .paginators import *
 from .reddit import Reddit
-from .rest import *
+
 
 
 import logging
