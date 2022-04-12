@@ -5,12 +5,13 @@ from shutil import which
 from typing import *
 from datetime import datetime, timedelta
 import time
+import traceback
 
 import aiohttp
 from jikanpy import AioJikan
 
 from core import Database, Table, getLogger
-from utils import Multiple, MyAnimeListAIOClient
+from utils import Multiple, MyAnimeListAIOClient, MALRatings
 
 log = getLogger(__name__)
 
@@ -26,7 +27,7 @@ class Anime:
         title_synonyms: List[str],
         synopsis: str,
         background: str,
-        related: Dict[str, Dict[str, Union[str, int]]],
+        related: Dict[str, List[Dict[str, Union[Any]]]],
         genres: List[Dict[str, str]],
         type_: str,
         episodes: Optional[int],
@@ -37,7 +38,7 @@ class Anime:
         rank: Optional[int],
         score: Optional[float],
         popularity: Optional[int],
-        source: str,
+        source: Optional[str],
         status: str,
         airing_start: Optional[datetime],
         airing_stop: Optional[datetime],
@@ -46,6 +47,8 @@ class Anime:
         cached_for: Optional[int] = None,
         cached_until: Optional[datetime] = None,
         response: Dict[str, Any] = None,
+        statistics: Dict[str, Union[Dict[str, str], str, int]] = None,
+        recommendations: Optional[List[Dict[str, Dict[str, str]]]] = None
 
     ):
         self.client = MyAnimeListAIOClient()
@@ -59,23 +62,29 @@ class Anime:
         self.title_synonyms: List[str] = title_synonyms
         self.synopsis: str = synopsis
         self.background: str = background
-        self.related: Dict[str, Dict[str, Union[str, int]]] = related
+        self.related: Dict[str, List[Dict[str, Union[Any]]]] = related
         self.genres: List[Dict[str, str]] = genres
         self.type_: str = type_
         self.episodes: Optional[int] = episodes
         self.ending_themes: List[str] = ending_themes
         self.opening_themes: List[str] = opening_themes
         self.duration: int = duration  # average seconds
-        self.rating: str = rating
+        self._rating: str = rating
         self.rank: Optional[int] = rank
         self.score: Optional[float] = score
         self.popularity: Optional[int] = popularity
-        self.source: str = source
+        self._source: Optional[str] = source
         self.status: str = status
         self.airing_start: Optional[datetime] = airing_start
         self.airing_stop: Optional[datetime] = airing_stop
         self.image_url: str = image_url
         self.studios: List[Dict[str, str]] = studios
+        self._statistics: Dict[str, Union[Dict[str, str], str, int]] = statistics
+        self._recommendations: List[Dict[str, Dict[str, str]]]
+        if not recommendations:
+            self._recommendations = []
+        else:
+            self._recommendations = recommendations
         if cached_for:
             self._cached_for: int = cached_for
         else:
@@ -83,63 +92,110 @@ class Anime:
 
     async def fetch_details(self) -> "Anime":
         """fetches anime details"""
+        if self.details_loaded:
+            return self
         new_anime = await self.client.fetch_anime(self.id)
         self.__dict__.update(new_anime.__dict__)
         self._details_loaded = True
         return self
     
-    def _load_detail_response(self, response: Dict[str, Any]) -> "Anime":
-        """deserielizes response into self"""
-        self.resp = response
-        self._details_loaded = True
-        self._title = self.resp.get('title')
-        self._id = self.resp.get('id')
-        self.alternative_titles = self.resp.get('alternative_titles')
-        if self.alternative_titles:
-            self.title_synonyms = self.alternative_titles.get('synonyms')
-        self.average_episode_duration = self.resp.get('average_episode_duration')
-        self.background = self.resp.get('background', "")
-        self.broadcast = self.resp.get('broadcast')
-        self._created_at = self.resp.get('created_at')
-        self._end_date = self.resp.get('end_date')
-        self.ending_themes = self.resp.get('ending_themes', [])
-        self.genres = self.resp.get('genres', [])
-        self._id = self.resp.get('id')
-        self.main_picture = self.resp.get('main_picture')
-        self.mean_score = self.resp.get('mean')
-        self.media_type = self.resp.get('media_type')
-        self.nsfw= self.resp.get('nsfw')
-        self.num_episodes= self.resp.get('num_episodes')
-        self.num_list_users = self.resp.get('num_list_users')
-        self.num_scoring_users = self.resp.get('num_scoring_users')
-        self.opening_themes = self.resp.get('opening_themes', [])
-        self.pictures = self.resp.get('pictures')
-        self.popularity = self.resp.get('popularity')
-        self.rank = self.resp.get('rank')
-        self.rating = self.resp.get('rating', "")
-        self.recommendations = self.resp.get('recommendations')
-        self.related_anime = self.resp.get('related_anime')
-        self.related_manga = self.resp.get('related_manga')
-        self.source = self.resp['source']
-        self.start_date = self.resp.get('start_date')
-        self.start_season = self.resp.get('start_season')
-        self.statistics = self.resp.get('statistics')
-        self.status = self.resp['status']
-        self.studios = self.resp.get('studios', [])
-        self.synopsis = self.resp.get('synopsis', "")
-        self._updated_at = self.resp.get('updated_at')
-        return self
+    # def _load_detail_response(self, response: Dict[str, Any]) -> "Anime":
+    #     """deserielizes response into self"""
+    #     self.resp = response
+    #     self._details_loaded = True
+    #     self._title = self.resp.get('title')
+    #     self._id = self.resp.get('id')
+    #     self.alternative_titles = self.resp.get('alternative_titles')
+    #     if self.alternative_titles:
+    #         self.title_synonyms = self.alternative_titles.get('synonyms')
+    #     self.average_episode_duration = self.resp.get('average_episode_duration')
+    #     self.background = self.resp.get('background', "")
+    #     self.broadcast = self.resp.get('broadcast')
+    #     self._created_at = self.resp.get('created_at')
+    #     self._end_date = self.resp.get('end_date')
+    #     self.ending_themes = self.resp.get('ending_themes', [])
+    #     self.genres = self.resp.get('genres', [])
+    #     self._id = self.resp.get('id')
+    #     self.main_picture = self.resp.get('main_picture')
+    #     self.mean_score = self.resp.get('mean')
+    #     self.media_type = self.resp.get('media_type')
+    #     self.nsfw= self.resp.get('nsfw')
+    #     self.num_episodes= self.resp.get('num_episodes')
+    #     self.num_list_users = self.resp.get('num_list_users')
+    #     self.num_scoring_users = self.resp.get('num_scoring_users')
+    #     self.opening_themes = self.resp.get('opening_themes', [])
+    #     self.pictures = self.resp.get('pictures')
+    #     self.popularity = self.resp.get('popularity')
+    #     self.rank = self.resp.get('rank')
+    #     self._rating = self.resp.get('rating', "")
+    #     self.recommendations = self.resp.get('recommendations')
+    #     self.related_anime = self.resp.get('related_anime')
+    #     self.related_manga = self.resp.get('related_manga')
+    #     self._source = self.resp['source']
+    #     self.start_date = self.resp.get('start_date')
+    #     self.start_season = self.resp.get('start_season')
+    #     self._statistics = self.resp.get('statistics')
+    #     self.status = self.resp['status']
+    #     self.studios = self.resp.get('studios', [])
+    #     self.synopsis = self.resp.get('synopsis', "")
+    #     self._updated_at = self.resp.get('updated_at')
+    #     return self
+
 
     @property
     def origin_title(self) -> str:
         """returns the original title of the anime"""
         return self._title
 
+    @property
+    def completion_rate(self) -> str:
+        """returns the completition rate from users watching it of the anime"""
+        try:
+            ammount = int(self._statistics["status"]["completed"]) + int(self._statistics["status"]["dropped"])
+            rate = f"{float(int(self._statistics['status']['completed']) / ammount * 100):.1f}%"
+        except (TypeError, ZeroDivisionError):
+            log.warning(traceback.format_exc())
+            rate = "Unknown"
+        return rate
+
+    @property
+    def recommendations(self) -> List[Dict[str, Union[str, int]]]:
+        """
+        Returns:
+        --------
+        List[Dict[str, Union[str, int]]]:
+            List with dicts with keys mal_id and title
+        """
+        result: List[Dict[str, Union[str, int]]] = []
+        for d in self._recommendations:
+            node = d["node"]
+            result.append(
+                {   "mal_id": int(node["id"]),
+                    "url": f'https://myanimelist.net/anime/{int(node["id"])}',
+                    "title": str(node["title"])
+                }
+            )
+        return result
+
 
     @property
     def mal_url(self) -> str:
         """returns the url to the anime on myanimelist"""
         return f"https://myanimelist.net/anime/{self.mal_id}"
+
+    @property
+    def rating(self) -> str:
+        try:
+            r = self._rating.replace("+", "_plus")
+            return MALRatings[r].value
+        except KeyError:
+            return self._rating
+
+    @property
+    def source(self):
+        if self._source is None:
+            return "Unknown"
+        return self._source.replace("_", " ")
 
     @property
     def id(self) -> int:
@@ -180,7 +236,7 @@ class Anime:
         return f"[{self.mal_id}] {self.title}"
 
     @staticmethod
-    def markup_link_list(list_: List[Dict[str, str]]):
+    def markup_link_list(list_: List[Dict[str, str]], title_key_name:str = "title"):
         """
         Args:
         -----
@@ -195,10 +251,10 @@ class Anime:
         -----
             - this function is meant for `self.`|`genres`|`explicit_genres`|`themes`|`studios`|`licensors`|`producers`
         """
-        return [f"[{x['name']}]({x['url']})" for x in list_]
+        return [f"[{x[title_key_name]}]({x['url']})" for x in list_]
 
     @staticmethod
-    def markup_link_str(list_: List[Dict[str, str]]):
+    def markup_link_str(list_: List[Dict[str, str]], title_key_name: str = "title"):
         """
         Args:
         -----
@@ -213,10 +269,10 @@ class Anime:
         -----
             - this function is meant for `self.`|`genres`|`explicit_genres`|`themes`|`studios`|`licensors`|`producers`
         """
-        return ", ".join([f"[{x['name']}]({x['url']})" for x in list_])
+        return ", ".join([f"[{x[title_key_name]}]({x['url']})" for x in list_])
 
     @staticmethod
-    def markup_link_str_by_name_id(list_: List[Dict[str, str]], base_url: str):
+    def markup_link_str_by_name_id(list_: List[Dict[str, str]], base_url: str, title_key_name: str = "title"):
         """
         Args:
         -----
@@ -231,7 +287,7 @@ class Anime:
         -----
             - this function is meant for `self.`|`genres`|`explicit_genres`|`themes`|`studios`|`licensors`|`producers`
         """
-        return ", ".join([f"[{x['name']}]({x['url']})" for x in list_]) 
+        return ", ".join([f"[{x[title_key_name]}]({x['url']})" for x in list_]) 
 
     @property
     def airing_str(self) -> str:
@@ -271,38 +327,35 @@ class Anime:
             pass
         
         # recreate related
-        related: Dict[str, Dict[str, Union[str, int]]] = {}
-
-        related.update(
-            {
-                a["relation_type"]: {
+        related: Dict[str, List[Dict[str, Any]]] = {}
+        relations = set([r["relation_type"] for r in [*resp["related_anime"], *resp["related_manga"]]])
+        for relation in relations:
+            related[relation] = []
+        for a in resp["related_anime"]:
+            related[a["relation_type"]].append(
+                {   
                     "title": a["node"]["title"],
                     "url": f"https://myanimelist.net/anime/{a['node']['id']}",
-                    "id": a["node"]["id"],
                     "type": "Anime",
-                    "relation_type": a["relation"],
+                    "mal_id": a["node"]["id"],
+                    "relation_type": a["relation_type"],
                     "relation_type_formatted": a["relation_type_formatted"],
                     "picture": a["node"]["main_picture"]["large"],
-                } 
-                for a in resp["related_manga"]
-            }
-        )
-        related.update(
-            {
-                m["relation_type"]: {
+                }
+            )
+        for m in resp["related_manga"]:
+            related[m["relation_type"]].append(
+                {
                     "title": m["node"]["title"],
                     "url": f"https://myanimelist.net/manga/{m['node']['id']}",
-                    "id": m["node"]["id"],
                     "type": "Manga",
-                    "relation_type": m["relation"],
+                    "relation_type": m["relation_type"],
                     "relation_type_formatted": m["relation_type_formatted"],
                     "picture": m["node"]["main_picture"]["large"],
-                }
-                for m in resp["related_manga"]
-            }
-        )
-        log.debug("building class")
-        return cls(
+                } 
+            )
+
+        anime = cls(
             mal_id=resp["id"],
             title=resp["title"],
             title_english=resp["alternative_titles"].get("en"),
@@ -321,78 +374,22 @@ class Anime:
             rank=resp.get("rank", None),
             score=resp.get("mean", None),
             popularity=resp.get("popularity"),
-            source=resp["source"],
+            source=resp.get("source"),
             status=resp["status"],
             airing_start=airing_start,
             airing_stop=airing_stop,
             image_url=resp["main_picture"]["large"],
             studios=[s["name"] for s in resp["studios"]],
+            statistics=resp["statistics"],
+            recommendations=resp["recommendations"],
         )
-
-    # @classmethod
-    # def from_mal_json(cls, resp: Dict[str, Any]) -> "Anime":
-    #     """
-    #     ### build an Anime with the jikan v3 json response
-    #     Returns:
-    #     --------
-    #         - (`~.Anime`) The coresponding Anime to the json
-    #     """
-    #     airing_start = None
-    #     airing_stop = None
-    #     try:
-    #         if (date := resp["aired"]["prop"]["from"]):
-    #             airing_start = datetime(
-    #                 year=date["year"],
-    #                 month=date["month"],
-    #                 day=date["day"]
-    #             )
-    #     except Exception:
-    #         airing_start = None
-    #     try:
-    #         if (date := resp["aired"]["prop"]["to"]):
-    #             airing_stop = datetime(
-    #                 year=date["year"],
-    #                 month=date["month"],
-    #                 day=date["day"]
-    #             )
-    #     except Exception:
-    #         airing_stop = None
-    #     return cls(
-    #         mal_id=resp["id"],
-    #         title=resp["title"],
-    #         title_english=resp["alternative_titles"].get("en"),
-    #         title_japanese=resp["alternative_titles"].get("ja"),
-    #         title_synonyms=resp["alternative_titles"].get("synonyms", []),
-    #         synopsis=resp["synopsis"],
-    #         background=resp["background"],
-    #         related=resp["related"],
-    #         themes=resp["themes"],
-    #         explicit_genres=resp["explicit_genres"],
-    #         genres=resp["genres"],
-    #         type_=resp["type"],
-    #         episodes=resp["episodes"],
-    #         ending_themes=resp["ending_themes"],
-    #         opening_themes=resp["opening_themes"],
-    #         duration=resp["duration"],
-    #         rating=resp["rating"],
-    #         rank=resp["rank"],
-    #         score=resp["score"],
-    #         popularity=resp["popularity"],
-    #         favorites=resp["favorites"],
-    #         source=resp["source"],
-    #         status=resp["status"],
-    #         airing=resp["airing"],
-    #         airing_start=airing_start,
-    #         airing_stop=airing_stop,
-    #         image_url=resp["image_url"],
-    #         mal_url=resp["url"],
-    #         trailer_url=resp["trailer_url"],
-    #         licensors=resp["licensors"],
-    #         producers=resp["producers"],
-    #         studios=resp["studios"],
-    #         cached_for=resp["request_cache_expiry"],
-    #     )
+        anime._details_loaded = True
+        return anime
     
+    @property
+    def details_loaded(self) -> bool:
+        return self._details_loaded
+
     @property
     def links(self) -> Dict[str, str]:
         """
@@ -435,7 +432,7 @@ class Anime:
         -----
             - for more information to the db record look: `{cwd}/inu/data/bot/sql/script.sql (table: myanimelist)` 
         """ 
-        return cls(
+        anime = cls(
             mal_id=resp["mal_id"],
             title=resp["title"],
             title_english=resp["title_english"],
@@ -444,8 +441,6 @@ class Anime:
             synopsis=resp["synopsis"],
             background=resp["background"],
             related=json.loads(resp["related"]),
-            # themes=[json.loads(x) for x in resp["themes"]],
-            # explicit_genres=[json.loads(x) for x in resp["explicit_genres"]],
             genres=[json.loads(x) for x in resp["genres"]],
             type_=resp["type"],
             episodes=resp["episodes"],
@@ -456,20 +451,18 @@ class Anime:
             rank=resp["rank"],
             score=resp["score"],
             popularity=resp["popularity"],
-            # favorites=resp["favorites"],
             source=resp["source"],
             status=resp["status"],
-            # airing=resp["airing"],
             airing_start=resp["airing_start"],
             airing_stop=resp["airing_stop"],
             image_url=resp["image_url"],
-            # mal_url=resp["mal_url"],
-            # trailer_url=resp["trailer_url"],
-            # licensors=[json.loads(x) for x in resp["licensors"]],
-            # producers=[json.loads(x) for x in resp["producers"]],
             studios=[json.loads(x) for x in resp["studios"]],
             cached_until=resp["cached_until"],
+            statistics=json.loads(resp["statistics"]),
+            recommendations=[json.loads(x) for x in resp["recommendations"]]
         )
+        anime._details_loaded = True
+        return anime
     
     @property
     def needs_update(self) -> bool:
@@ -479,6 +472,7 @@ class Anime:
         if self.cached_until < datetime.now():
             return True
         return False
+
 
 
 class MyAnimeList:
@@ -511,7 +505,6 @@ class MyAnimeList:
                 anime = await cls._fetch_anime_by_id_rest(mal_id)
                 await cls._cache_anime(anime)
         else:
-            log.debug(f"fetch new anime form REST: {mal_id}")
             anime = await cls._fetch_anime_by_id_rest(mal_id)
             await cls._cache_anime(anime)
         return anime
@@ -571,25 +564,20 @@ class MyAnimeList:
                 "opening_themes", "duration", "rating", "rank", 
                 "score", "popularity", "source", 
                 "status", "airing_start", "airing_stop", 
-                "image_url", "studios", "cached_until"
+                "image_url", "studios", "cached_until", "statistics", "recommendations"
             ],
             values=[
                 anime.mal_id, anime.origin_title, anime.title_english, anime.title_japanese,
                 anime.title_synonyms, anime.synopsis, anime.background,
                 json.dumps(anime.related),
-                # [json.dumps(x) for x in anime.themes], 
-                # [json.dumps(x) for x in anime.explicit_genres], 
                 [json.dumps(x) for x in anime.genres], anime.type_, 
                 anime.episodes, anime.ending_themes, anime.opening_themes, anime.duration, 
-                anime.rating, anime.rank, anime.score, anime.popularity, anime.source,
+                anime._rating, anime.rank, anime.score, anime.popularity, anime._source,
                 anime.status,
-                # anime.favorites, anime.source, anime.status, anime.airing, 
                 anime.airing_start, anime.airing_stop, anime.image_url,
-                # anime.trailer_url,
-                # [json.dumps(x) for x in anime.licensors], 
-                # [json.dumps(x) for x in anime.producers], 
                 [json.dumps(x) for x in anime.studios], 
-                anime.cached_until
+                anime.cached_until, json.dumps(anime._statistics), 
+                [json.dumps(r) for r in anime._recommendations]
             ]
         )
         log.debug(f"cached anime: {anime}")
