@@ -11,15 +11,19 @@ from enum import Enum
 import aiohttp
 import dotenv
 import asyncio
+from fuzzywuzzy import fuzz
 
-# from core import ConfigProxy
+from core import getLogger
 
-# conf = ConfigProxy(config_type="yaml")
+log = getLogger(__name__)
 
-
-
-
-
+class MALRatings(Enum):
+    g = "G - All Ages"
+    pg = "PG - Children"
+    pg_13 = "PG-13 - Teens 13 or older"
+    r = "R - 17+ (violence & profanity)"
+    r_plus = "R+ - Mild Nudity"
+    rx = "Rx - Hentai"
 
 
 
@@ -115,7 +119,7 @@ class MyAnimeListAIOClient:
     async def _search(self):
         pass
 
-    async def search_anime(self, query: str) -> Dict[str, Any]:
+    async def search_anime(self, query: str, include_nsfw=True) -> Dict[str, Any]:
         fields = (
             "id,title,main_picture,alternative_titles,"
             "start_date,end_date,synopsis,mean,rank,popularity,"
@@ -126,49 +130,12 @@ class MyAnimeListAIOClient:
             "related_anime,related_manga,recommendations,studios,statistics,"
             "average_episode_duration,opening_themes,ending_themes"
         )
-        return await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields})
+        a = datetime.now()
+        kwargs = {"nsfw": "true" if include_nsfw else "false"}
+        resp = await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields, "limit":"50", **kwargs})
+        log.info(f"fetched {len(resp['data'])} anime in {(datetime.now() - a).total_seconds():.2f}s")
+        return resp
 
-
-# class LazyAnimeIterator():
-#     """
-#     An iterator for the `Anime` class which takes in a List of Anime where Anime.id is needed.
-#     All details will be fetched by id when iterated over.
-#     """
-
-#     def __init__(self, animes: List[Anime]):
-#         """
-#         Parameters
-#         ----------
-#         animes: `List[Anime]`
-#             the list of animes
-#         """
-#         self._animes: List[Anime] = animes
-#         self._index = 0
-
-#     def __aiter__(self):
-#         return self
-        
-#     async def __anext__(self):
-#         if self._index >= len(self._animes)-1:
-#             raise StopAsyncIteration
-#         self._index += 1
-#         return await self._animes[self._index].fetch_details()
-
-#     async def __aexit__(self):
-#         raise StopAsyncIteration
-
-
-
-# if __name__ == "__main__":
-#     async def main():
-
-#         client = MyAnimeListAIOClient(client_id="3203ce3277af7e71ca5eabb7e8298c7b")
-#         animes = await client.search_anime("naruto")
-#         i = LazyAnimeIterator(animes)
-#         async for a in i:
-#             print(a.title)
-
-#     asyncio.run(main())
 
 
 
