@@ -73,7 +73,9 @@ CREATE TABLE IF NOT EXISTS myanimelist (
     airing_stop TIMESTAMP,
     image_url VARCHAR(2048),
     studios JSONB [],
-    cached_until TIMESTAMP
+    cached_until TIMESTAMP,
+    statistics JSONB,
+    recommendations JSONB []
 );
 CREATE TABLE IF NOT EXISTS math_scores (
     guild_id BIGINT NOT NULL,
