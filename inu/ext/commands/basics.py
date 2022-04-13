@@ -21,7 +21,7 @@ from lightbulb.context import Context
 from matplotlib.style import available
 from numpy import full, isin
 from typing_extensions import Self
-from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI
+from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP
 
 log = getLogger(__name__)
 
@@ -60,7 +60,7 @@ class RestDelay:
             if self.coro:
                 start = datetime.now()
                 await self.coro(*self.coro_args, **self.coro_kwargs)
-                self.delay = (datetime.now() - start).microseconds / 1000
+                self.delay = (datetime.now() - start).total_seconds() * 1000
                 self.status = 200
             else:
                 async with aiohttp.ClientSession() as session:
@@ -103,36 +103,60 @@ if basics.d is None:
 
 bot: Inu
 
+def ping_to_color(ping: float) -> str:
+    if ping >= 500:
+        return "🔴"
+    elif ping >= 340:
+        return "🟠"
+    elif ping >= 150:
+        return "🟡"
+    else:
+        return "🟢"
+
+def ping_to_color_rest(ping: float) -> str:
+    if ping >= 1150:
+        return "🔴"
+    elif ping >= 800:
+        return "🟠"
+    elif ping >= 450:
+        return "🟡"
+    else:
+        return "🟢"
 
 @basics.command
 @lightbulb.command("ping", "is the bot alive?")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
-    def ping_to_color(ping: float) -> str:
-        if ping >= 500:
-            return "🔴"
-        elif ping >= 340:
-            return "🟠"
-        elif ping >= 150:
-            return "🟡"
-        else:
-            return "🟢"
-
-    def ping_to_color_rest(ping: float) -> str:
-        if ping >= 1150:
-            return "🔴"
-        elif ping >= 800:
-            return "🟠"
-        elif ping >= 450:
-            return "🟡"
-        else:
-            return "🟢"
-
     request_start = datetime.now()
     embed = Embed(
             title="Pong",
             description=(
                 f"Bot is alive\n\n"
+                f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+                f"⚫ REST: .... ms\n\n"
+                # f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
+            ),
+    )
+    msg = await ctx.respond(embed=embed)
+    rest_delay = datetime.now() - request_start
+    embed.description = (
+        f"Bot is alive\n\n"
+        f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+        f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
+    )
+    embed.add_field("Public IP", await IP.fetch_public_ip(), inline=True)
+    await msg.edit(embed=embed)
+
+
+@basics.command
+@lightbulb.add_checks(lightbulb.owner_only)
+@lightbulb.command("status", "get information to the current status of the bot")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def status(ctx: context.Context):
+    request_start = datetime.now()
+    embed = Embed(
+            title="Status",
+            description=(
                 f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
                 f"⚫ REST: .... ms\n\n"
                 # f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
@@ -152,14 +176,21 @@ async def ping(ctx: context.Context):
     await asyncio.wait(tasks, timeout=8, return_when=asyncio.ALL_COMPLETED)
 
     embed.description = (
-        f"Bot is alive\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
         f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
     )
     embed.description += "\n\n".join(str(api) for api in apis)
+    embed.add_field(
+        "IPs",
+        (        
+            "```"
+            f"{'Public IP:':<15}{await IP.fetch_public_ip()}\n"
+            f"{'Private IP:':<15}{IP.get_private_ip()}\n"
+            "```"
+        )
+    )
     await msg.edit(embed=embed)
 
-    
 @basics.command
 @lightbulb.add_cooldown(60*60*10, 15, lightbulb.UserBucket)
 @lightbulb.add_checks(
