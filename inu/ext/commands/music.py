@@ -996,7 +996,7 @@ async def music_search(ctx: context.Context):
         new_queue = [node.queue[0], *tracks, *node_queue]
         node.queue = new_queue
         await music.bot.data.lavalink.set_guild_node(ctx.guild_id, node)
-        resp = "Titles added:```py\n" + '\n'.join([f'{i}. | {resp}' for i, resp in enumerate(response)]) + "```"
+        resp = "Titles added:```py\n" + '\n'.join([f'{i+1}. | {resp}' for i, resp in enumerate(response)]) + "```"
         await ctx.respond(resp) 
         return await queue(ctx)
     else:
