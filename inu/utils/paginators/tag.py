@@ -487,62 +487,31 @@ class TagHandler(Paginator):
         await self.tag.update()
 
     async def set_name(self, interaction: ComponentInteraction):
-        embed = Embed(title="Enter a name for your tag:", description=f"You have {self.timeout}s")
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE, 
-            embed=embed
+        new_name, interaction, event = await self.bot.shortcuts.ask_with_modal(
+            "Tag",
+            "New name:",
+            min_length_s=1,
+            max_length_s=256,
+            interaction=interaction,
         )
-        bot_message = await interaction.fetch_initial_response()
-        try:
-            event = await self.bot.wait_for(
-                events.MessageCreateEvent, 
-                self.timeout,
-                lambda m: m.author_id == interaction.user.id and m.channel_id == interaction.channel_id
-            )
-        except asyncio.TimeoutError:
-            return
-
-        if event.message.content is None:
-            return
-
-        if (l := len(event.message.content)) > 256:
-            return await event.message.respond(
-                f"Your name is {l - 256} letters too long"
-            )
-        self.tag.name = event.message.content
-        # await self.update_page()
-        if (channel := self.ctx.get_channel()):
-            await channel.delete_messages(bot_message, event.message)
+        self.tag.name = new_name
+        await interaction.create_initial_response(
+            ResponseType.DEFERRED_MESSAGE_UPDATE
+        )
 
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
-        embed = Embed(title="Enter the value for your tag:", description=f"You have {self.timeout}s")
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE, 
-            embed=embed
+        value, interaction, event = self.bot.shortcuts.ask_with_modal(
+            "Add to value:" if append else "Value:",
+            interaction=interaction,
         )
-        bot_message = await interaction.fetch_initial_response()
-        try:
-            event = await self.bot.wait_for(
-                events.MessageCreateEvent, 
-                self.timeout,
-                lambda m: m.author_id == interaction.user.id and m.channel_id == interaction.channel_id
-            )
-        except asyncio.TimeoutError:
-            await interaction.delete_initial_response()
-            return
-
-        if not event.message.content:
-            await interaction.delete_initial_response()
-            return
-
-        
+        await interaction.create_initial_response(
+            ResponseType.DEFERRED_MESSAGE_UPDATE
+        )
         if append and self.tag.value:
             self.tag.value += event.message.content
         else:
             self.tag.value = event.message.content
-        if (channel := self.ctx.get_channel()):
-            await channel.delete_messages(bot_message, event.message)
 
     async def extend_value(self, interaction: ComponentInteraction):
         await self.set_value(interaction, append=True)
