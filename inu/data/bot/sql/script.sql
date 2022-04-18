@@ -97,4 +97,18 @@ CREATE TABLE IF NOT EXISTS polls (
     polls JSONB,
     active_until TIMESTAMP NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS game_categories (
+    guild_id BIGINT NOT NULL,
+    category_id BIGINT NOT NULL,
+    PRIMARY KEY (guild_id)
+);
+
+CREATE TABLE IF NOT EXISTS recent_games (
+    guild_id BIGINT NOT NULL,
+    game VARCHAR(100),
+    timestamp TIMESTAMP,
+    PRIMARY KEY (guild_id, game, timestamp)
+);
+
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
