@@ -587,6 +587,8 @@ class TagManager():
             sql = f"{sql} WHERE $1 = ANY(author_ids)"
             return await cls.db.fetch(sql, author_id)
         elif type == TagType.SCOPE:
+            if guild_id is None:
+                raise RuntimeError("Can't fetch tags of a guild without an id (id is None)")
             sql = f"{sql} WHERE $1 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
             return await cls.db.fetch(sql, guild_id)
         raise RuntimeError(f"TagType unmatched - {type}")
