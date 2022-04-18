@@ -360,7 +360,7 @@ async def tag_name_auto_complete(
         if option.value and len(str(option.value)) > 2:
             tags = await TagManager.find_similar(option.value, guild_id=guild_or_channel)
             return [tag['tag_key'] for tag in tags]
-        else:
+        elif option.value and len(str(option.value)) in [1, 2]:
             tags = await TagManager.startswith(option.value, guild_id=guild_or_channel)
             return [
                 name for name in 
@@ -369,6 +369,12 @@ async def tag_name_auto_complete(
                     *[tag['tag_key'] for tag in tags]
                 ] 
                 if name.startswith(option.value) ]
+        else:
+            tags = await TagManager.get_tags(
+                type=TagType.SCOPE,
+                guild_id=guild_or_channel,
+            )
+            return [tag["tag_key"] for tag in tags]
 
     except:
         log.error(traceback.format_exc())
