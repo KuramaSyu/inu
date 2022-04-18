@@ -11,6 +11,8 @@ import yaml
 import builtins
 from enum import Enum
 
+from . import Singleton
+
 class SectionProxy:
     def __init__(
         self,
@@ -49,33 +51,12 @@ class SectionProxy:
     def get(self, item, default=None):
         return self.options.get(item, default)
 
-    @staticmethod
-    def _attribute_converter(attr: str):
-        # to bool
-        if attr == "True":
-            return True
-        elif attr == "False":
-            return False
-        # to float if `.` in attr
-        elif attr.isdigit() and "." in attr:
-            try:
-                return float(attr)
-            except Exception:
-                pass
-        # to int
-        elif attr.isdigit and not "." in attr:
-            try:
-                return int(attr)
-            except Exception:
-                pass      
-        # str as default
-        return attr
 
     @classmethod
     def _dict_to_section_proxy(cls, key: str, d: dict):
         return cls(key, d)
 
-class ConfigProxy():
+class ConfigProxy(metaclass=Singleton):
     """
     Proxy for the `config.ini` and `.env` file
 
@@ -85,10 +66,12 @@ class ConfigProxy():
     """
     def __init__(
         self,
-        config_type: Callable[[Optional[str]], Self],
+        config_type: Union[Callable[[Optional[str]], "ConfigProxy"], "ConfigType", None],
         path: Optional[str] = None,
     ):
-        self.sections = config_type(path)
+        if config_type is None:
+            raise RuntimeError("config_type cannot be None when initialized first time")
+        self.sections = config_type(path)  #type: ignore
 
     def __getattr__(self, name: str) -> str:
         name = name.lower()

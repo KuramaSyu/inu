@@ -21,7 +21,7 @@ from lightbulb.context import Context
 from matplotlib.style import available
 from numpy import full, isin
 from typing_extensions import Self
-from utils import Colors, Human, Paginator, Reddit, Urban, crumble
+from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP
 
 log = getLogger(__name__)
 
@@ -36,38 +36,42 @@ class RestDelay:
         self.params: Optional[Dict[str, str]] = {}
         self.delay: Optional[float] = -1
         self.status: Optional[int] = 400
-        self.coro: Optional[Coroutine] = None
+        self.coro: Optional[Callable[[Any], Awaitable]] = None
         self.coro_args = None
         self.coro_kwargs = None
         self.name = name
     
-    def with_headers(self, **headers) -> Self:
+    def with_headers(self, **headers) -> "RestDelay":
         self.headers = headers
         return self
 
-    def with_params(self, **params) -> Self:
+    def with_params(self, **params) -> "RestDelay":
         self.params = params
         return self
 
-    def with_coro(self, coro: Coroutine, args: List[Any] = None, kwargs: Dict[str, Any] = None) -> Self:
+    def with_coro(self, coro: Callable[[Any], Awaitable], args: Optional[List[Any]] = None, kwargs: Optional[Dict[str, Any]] = None) -> "RestDelay":
         self.coro = coro
-        self.coro_args = args or []
-        self.coro_kwargs = kwargs or {}
+        self.coro_args = args or []  # type: ignore
+        self.coro_kwargs = kwargs or {}  # type: ignore
         return self
 
-    async def do_request(self) -> Self:
-        if self.coro:
-            start = datetime.now()
-            await self.coro(*self.coro_args, **self.coro_kwargs)
-            self.delay = (datetime.now() - start).microseconds / 1000
-            self.status = 200
-        else:
-            async with aiohttp.ClientSession() as session:
+    async def do_request(self) -> "RestDelay":
+        try:
+            if self.coro:
                 start = datetime.now()
-                async with session.get(self.url, params=self.params, headers=self.headers) as resp:
-                    self.delay = (datetime.now() - start).seconds * 1000
-                    self.status = resp.status
-                await session.close()
+                await self.coro(*self.coro_args, **self.coro_kwargs)
+                self.delay = (datetime.now() - start).total_seconds() * 1000
+                self.status = 200
+            else:
+                async with aiohttp.ClientSession() as session:
+                    start = datetime.now()
+                    async with session.get(self.url, params=self.params, headers=self.headers) as resp:
+                        self.delay = (datetime.now() - start).seconds * 1000
+                        self.status = resp.status
+                    await session.close()
+        except Exception:
+            self.delay = -1
+            self.status = 400
         return self
 
     def __str__(self) -> str:
@@ -99,45 +103,30 @@ if basics.d is None:
 
 bot: Inu
 
+def ping_to_color(ping: float) -> str:
+    if ping >= 500:
+        return "🔴"
+    elif ping >= 340:
+        return "🟠"
+    elif ping >= 150:
+        return "🟡"
+    else:
+        return "🟢"
+
+def ping_to_color_rest(ping: float) -> str:
+    if ping >= 1150:
+        return "🔴"
+    elif ping >= 800:
+        return "🟠"
+    elif ping >= 450:
+        return "🟡"
+    else:
+        return "🟢"
 
 @basics.command
 @lightbulb.command("ping", "is the bot alive?")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
-    def ping_to_color(ping: float) -> str:
-        if ping >= 500:
-            return "🔴"
-        elif ping >= 340:
-            return "🟠"
-        elif ping >= 150:
-            return "🟡"
-        else:
-            return "🟢"
-
-    def ping_to_color_rest(ping: float) -> str:
-        if ping >= 1150:
-            return "🔴"
-        elif ping >= 800:
-            return "🟠"
-        elif ping >= 450:
-            return "🟡"
-        else:
-            return "🟢"
-
-    def ping_to_color_db(ping: float) -> str:
-        if ping >= 80:
-            return "🔴"
-        elif ping >= 40:
-            return "🟠"
-        elif ping >= 15:
-            return "🟡"
-        else:
-            return "🟢"
-
-    db_request_start = datetime.now()
-    table = Table("bot")
-    record = await table.select_row(["key"], ["restart_count"])
-    db_delay = datetime.now() - db_request_start
     request_start = datetime.now()
     embed = Embed(
             title="Pong",
@@ -145,29 +134,63 @@ async def ping(ctx: context.Context):
                 f"Bot is alive\n\n"
                 f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
                 f"⚫ REST: .... ms\n\n"
-                f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
+                # f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
             ),
     )
     msg = await ctx.respond(embed=embed)
     rest_delay = datetime.now() - request_start
-    apis = [
-        RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":3, "top":True}),
-        # RestDelay("My Anime List API (unofficial)").with_coro(AioJikan().anime, [1]), # unclosed client session
-        RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"])
-    ]
-    tasks = [asyncio.create_task(api.do_request()) for api in apis]
-    await asyncio.wait(tasks, timeout=5, return_when=asyncio.ALL_COMPLETED)
-
     embed.description = (
         f"Bot is alive\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
         f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
-        f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms\n\n"
     )
-    embed.description += "\n\n".join(str(api) for api in apis)
+    embed.add_field("Public IP", await IP.fetch_public_ip(), inline=True)
     await msg.edit(embed=embed)
 
-    
+
+@basics.command
+@lightbulb.add_checks(lightbulb.owner_only)
+@lightbulb.command("status", "get information to the current status of the bot")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def status(ctx: context.Context):
+    request_start = datetime.now()
+    embed = Embed(
+            title="Status",
+            description=(
+                f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+                f"⚫ REST: .... ms\n\n"
+                # f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
+            ),
+    )
+    msg = await ctx.respond(embed=embed)
+    rest_delay = datetime.now() - request_start
+
+    apis = [
+        RestDelay("Database").with_coro(Table("bot").select_row, [["key"], ["restart_count"]]),
+        RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":3, "top":True}),
+        RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"]),
+        RestDelay("MyAnimeList API").with_coro(MyAnimeList.search_anime, ["naruto"]),
+        RestDelay("Bored API").with_coro(BoredAPI.fetch_idea),
+    ]
+    tasks = [asyncio.create_task(api.do_request()) for api in apis]
+    await asyncio.wait(tasks, timeout=8, return_when=asyncio.ALL_COMPLETED)
+
+    embed.description = (
+        f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+        f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
+    )
+    embed.description += "\n\n".join(str(api) for api in apis)
+    embed.add_field(
+        "IPs",
+        (        
+            "```"
+            f"{'Public IP:':<15}{await IP.fetch_public_ip()}\n"
+            f"{'Private IP:':<15}{IP.get_private_ip()}\n"
+            "```"
+        )
+    )
+    await msg.edit(embed=embed)
+
 @basics.command
 @lightbulb.add_cooldown(60*60*10, 15, lightbulb.UserBucket)
 @lightbulb.add_checks(

@@ -13,7 +13,6 @@ from matplotlib.pyplot import title
 from utils import (
     Human, 
     Paginator,
-    AioJikanv4, 
     AnimePaginator, 
     AnimeCharacterPaginator,
     MangaPaginator,

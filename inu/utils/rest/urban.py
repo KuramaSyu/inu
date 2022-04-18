@@ -1,7 +1,6 @@
 from typing_extensions import Self
 from urllib import response
 from xml.dom import InuseAttributeErr
-import requests
 import aiohttp
 from typing import *
 import asyncio
@@ -70,12 +69,13 @@ class Urban:
 
         headers = {
             'x-rapidapi-host': "mashape-community-urban-dictionary.p.rapidapi.com",
-            'x-rapidapi-key': cls.bot.conf.KEYS.RAPID
+            'x-rapidapi-key': str(cls.bot.conf.rapid.SECRET)
             }
+
         r = None
         async with aiohttp.ClientSession() as session:
             async with session.get(url, headers=headers, params=querystring) as resp:
-                r = await resp.json()
+                r = await resp.json(encoding="utf-8")
         if not r:
             raise RuntimeError(f"no response received from {headers['x-rapidapi-host']}")
         if not r['list']:

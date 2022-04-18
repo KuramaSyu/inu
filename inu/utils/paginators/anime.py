@@ -124,8 +124,8 @@ class AnimePaginator(Paginator):
         """fuzzy sort the anime result titles of  `self._results` by given name"""
         close_matches = []
         for anime in self._results.copy():
-            anime["fuzz_ratio"] = fuzz.ratio(anime["title"].lower(), compare_name.lower())
-            if anime["fuzz_ratio"] >= 90:
+            anime["fuzz_ratio"] = fuzz.ratio(anime["node"]["title"].lower(), compare_name.lower())
+            if anime["fuzz_ratio"] >= 80:
                 self._results.remove(anime)
                 close_matches.append(anime)
         close_matches.sort(key=lambda anime: anime["fuzz_ratio"], reverse=True)
@@ -134,9 +134,16 @@ class AnimePaginator(Paginator):
     async def _search_anime(self, search: str) -> List[hikari.Embed]:
         """Search <`search`> anime, and set results to `self._results`. These have less information"""
         def build_embeds(search_title: str, results: Dict):
-            animes = []
+            animes: List[Dict[str, Any]] = []
+
+            # sort by name
             for anime in results:
-                if search_title.lower() in anime["title"].lower():
+                if (
+                    (name := search_title.lower()) in anime["node"]["title"].lower()
+                    or name in anime["node"]["alternative_titles"].get("en", "").lower()
+                    or name in anime["node"]["alternative_titles"].get("ja", "").lower()
+                    or [title for title in anime["node"]["alternative_titles"].get("synonyms", []) if name in title.lower()]
+                ):
                     animes.append(anime)
 
             if animes == []:
@@ -148,37 +155,16 @@ class AnimePaginator(Paginator):
                 embeds.append(
                     (
                         hikari.Embed(
-                            title=anime["title"],
-                            description=f"more information on [MyAnimeList]({anime['url']})"
+                            title=anime["node"]["title"],
                         )
-                        .add_field("Type", anime["type"], inline=True)
-                        .add_field("Score", f"{anime['score']}/10", inline=True)
-                        .add_field("Episodes", f"{anime['episodes']} {Human.plural_('episode', anime['episodes'])[0]}", inline=True)
-                        .add_field("Description", anime['synopsis'] or "No description", inline=False)
-                        .add_field(
-                            "Other",
-                            (
-                                f"finished: {Human.bool_('airing')}\n"
-                                f"Members: {anime['members']}\n"
-                                f"MyAnimeList ID: {anime['mal_id']}\n"
-                                f"rated: {anime['rated']}\n"
-                                f"start date: {anime['start_date'][:10] if anime['start_date'] else 'unknown'}\n"
-                                f"end date: {anime['end_date'][:10] if anime['end_date'] else 'unknown'}\n"
-
-                            )
-                        )
-                        .set_image(anime["image_url"])
                         .set_footer(text=f"page {i+1}/{total}")
                     )
                 )
             return embeds
 
-        results = None
-
-        async with AioJikan() as aio_jikan:
-            results = await aio_jikan.search(search_type='anime', query=search)
+        results = await MyAnimeList.search_anime(query=search)
         # store result list
-        self._results = results["results"]
+        self._results = results["data"]
         # sort the list by comparing with given name
         self._fuzzy_sort_results(search)
         # build embeds out of 
@@ -191,19 +177,20 @@ class AnimePaginator(Paginator):
         """Fetch a detailed anime dict by mal_id"""
         return await MyAnimeList.fetch_anime_by_id(mal_id)
     
-    async def _load_details(self, detailed=False) -> List[hikari.Embed]:
+    async def _load_details(self, detailed=False) -> None:
         """
         updates the embed `self._pages[self._position]` to a more detailed version of the anime
         """
-        mal_id = self._results[self._position]["mal_id"]
-        if mal_id in self._updated_mal_ids and not detailed:
-            return
-        self._updated_mal_ids.add(mal_id)
+        # fetch anime if not done yet
+        mal_id = self._results[self._position]["node"]["id"]
+        anime: Anime
         if not (anime := self._results[self._position].get("anime")):
-            anime = await self._fetch_anime_by_id(mal_id)
+            anime = await MyAnimeList.fetch_anime_by_id(mal_id)
             self._results[self._position]["anime"] = anime
+
         old_embed = self._pages[self._position]
         
+        # build detailed embed
         popularity = ""
         if anime.popularity <= 100:
             popularity = f"very popular | {anime.popularity}"
@@ -223,41 +210,19 @@ class AnimePaginator(Paginator):
             .add_field("Rank", f"{anime.rank}", inline=True)
             .add_field("Popularity", popularity, inline=True)
             .add_field("Rating", f"{anime.rating}", inline=True)
-            .add_field("Duration", f"{anime.duration}", inline=True)
-
-
+            .add_field("Duration", f"{anime.duration / 60:.1f} min per episode", inline=True)
             .set_image(anime.image_url)
         )
         if anime.genres:
             embed.add_field(
                 "Genres",
-                anime.markup_link_str(anime.all_genres),
+                ", ".join(anime.genres),
                 inline=True,
             )
-        if anime.themes:
-            embed.add_field(
-                "Themes",
-                anime.markup_link_str(anime.themes),
-                inline=True,
-            )
-        # if anime.trailer_url:
-        #     embed.add_field("Trailer", f"[click here]({anime.trailer_url})", inline=True)
         if anime.studios:
             embed.add_field(
                 "Studios", 
-                anime.markup_link_str(anime.studios),
-                inline=True
-            )
-        # if anime.producers:
-        #     embed.add_field(
-        #         "Producers", 
-        #         anime.markup_link_str(anime.producers),
-        #         inline=True
-        #     )
-        if anime.licensors:
-            embed.add_field(
-                "Licensors", 
-                anime.markup_link_str(anime.licensors),
+                ", ".join(anime.studios),
                 inline=True
             )
         if anime.title_synonyms:
@@ -267,57 +232,58 @@ class AnimePaginator(Paginator):
                 synonyms,
                 inline=len(synonyms) < 80,
             )
-        embed.add_field("finished", f"{Human.bool_(anime.is_finished)}\n{anime.airing_str}", inline=True)
+        embed.add_field(
+            "Info",
+            anime.airing_str,
+            inline=True
+        )
+        if detailed:
+            embed.add_field(
+                "Recommendations",
+                f"{anime.markup_link_str(anime.recommendations)}",
+                inline=True,
+            )
+
         embed.description = ""
         embed.title = anime.title
 
         if anime.title != anime.origin_title:
             embed.description += f"original name: {anime.origin_title}"
         embed.description += f"\nmore information on [MyAnimeList]({anime.mal_url})"
-        media = (
-            f"Watch: "
-            f"[sub]({anime.links.get('animeheaven-sub')}) "
-            f"| [dub]({anime.links.get('animeheaven-dub')})"
-        )
-        if anime.trailer_url:
-            media += f" | [trailer]({anime.trailer_url})"
-        embed.description += f"\n{media}"
         embed.description += f"\n\n{Human.short_text(anime.synopsis, 1980)}"
 
         related_str = ""
-        always_used = ["Prequel", "Sequel", "Adaption"]
-        log.debug(f"{detailed=}")
-        for name, info in anime.related.items():
-            # related contains a dict, with sequel, prequel, adaption and sidestory. 
-            # Every entry of the dict has as value a list, which contains dicts. 
-            # Every dict in there represents one of wahtever the name of the value is
-            if not name in always_used and not detailed:
-                continue
-
+        always_used = ["prequel", "sequel", "full_story"]
+        for relation_type, relations in anime.related.items():
+            # related contains dict with mapping from relation_type to list of relations
+            # one relation is a node with keys "mal_id", "title", "type", "mal_url"..
             related_str =""
-            if name == "Sequel":
-                name = "Sequel (watch after)"
-            elif name == "Prequel":
-                name = "Prequel (watch before)"
-            for i in info:
-                # check if i (dict) contains name and url as keys
-                if set(["name", "url"]) <= (keys := set([*i.keys()])):
+            fmt_relation = ""
+            if relation_type == "sequel":
+                fmt_relation = "Sequel (watch after)"
+            elif relation_type == "prequel":
+                fmt_relation = "Prequel (watch before)"
+            elif relation_type == "full_story":
+                fmt_relation = "Full story"
+            else:
+                fmt_relation = relations[0].get(
+                    "relation_type_formatted", relation_type.replace("_", " ")
+                )
 
-                    if "type" in keys:
-                        related_str += f"{i['type']}: "
-                    related_str += f"{anime.markup_link_str([i])}\n"
-            embed.add_field(name, related_str, inline=len(related_str) < 180)
+            for node in relations:
+                relation = node["relation_type"]
+                if not relation in always_used and not detailed:
+                    continue
+                related_str += f"{node['type']}: [{node['title']}]({node['url']})\n"
+            if related_str and fmt_relation:
+                embed.add_field(
+                    fmt_relation, 
+                    related_str, 
+                    inline=len(related_str) < 180
+                )
         
-        # watch_here_str = "\n".join([f"[{s}]({l})" for s, l in anime.links.items()])
-        # embed.add_field("Watch here", watch_here_str, inline=True)
         if anime.background and detailed:
             embed.add_field("Background", Human.short_text(anime.background, 200))
-
-        # add openings if not too much
-        # TODO: remove redundant code in this function
-        # TODO: add mal database table to don't spam requests
-        # TODO: if no anime was found (404), send message and stop paginating
-
 
         if (len_openings := len(anime.opening_themes)) > 5:
             embed.add_field("Opening themes", f"Too many to show here ({len_openings})")
@@ -325,6 +291,8 @@ class AnimePaginator(Paginator):
             pass
         else:
             embed.add_field("Opening themes", "\n".join(anime.opening_themes))
+
+        embed.add_field("Completion rate", f"{anime.completion_rate}", inline=True)
 
         # add endings if not too much
         if (len_endings := len(anime.ending_themes)) > 5:
@@ -339,6 +307,7 @@ class AnimePaginator(Paginator):
             if not field.value:
                 embed.remove_field(i)
             field.value = Human.short_text(field.value, 1024)
+
         # optimizing space
         inline_fields = []
         outline_fields = []

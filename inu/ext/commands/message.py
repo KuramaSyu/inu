@@ -69,9 +69,14 @@ async def calc_msg(message: hikari.PartialMessage):
     #     result = result[:-2] if result.endswith(".0") and not "," in result else result
     try:
         result = await calc(message.content)
-        await message.respond(
-            hikari.Embed(title=result)
-        )
+        if len(result) > 100:
+            await message.respond(
+                hikari.Embed(description=result)
+            )
+        else:
+            await message.respond(
+                hikari.Embed(title=result)
+            )
     except:
         return
         
