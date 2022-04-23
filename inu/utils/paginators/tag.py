@@ -501,7 +501,7 @@ class TagHandler(Paginator):
 
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
-        value, interaction, event = self.bot.shortcuts.ask_with_modal(
+        value, interaction, event = await self.bot.shortcuts.ask_with_modal(
             self.tag.name or "Tag",
             "Add to value:" if append else "Value:",
             interaction=interaction,
@@ -510,9 +510,9 @@ class TagHandler(Paginator):
             ResponseType.DEFERRED_MESSAGE_UPDATE
         )
         if append and self.tag.value:
-            self.tag.value += event.message.content
+            self.tag.value += value
         else:
-            self.tag.value = event.message.content
+            self.tag.value = value
 
     async def extend_value(self, interaction: ComponentInteraction):
         await self.set_value(interaction, append=True)
