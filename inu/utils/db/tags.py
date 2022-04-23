@@ -571,8 +571,8 @@ class TagManager():
     async def get_tags(
         cls, 
         type: TagType, 
-        guild_id: Optional[int], 
-        author_id: Optional[int]
+        guild_id: Optional[int] = None, 
+        author_id: Optional[int] = None,
     ) -> Optional[List[Dict[str, Any]]]:
         sql = """
             SELECT * FROM tags
