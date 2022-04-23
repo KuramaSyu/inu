@@ -19,6 +19,8 @@ import hikari
 from hikari import Embed
 from hikari import Snowflake, User, Member
 from numpy import column_stack
+from asyncache import cached
+from cachetools import TTLCache
 
 from ..language import Human, Multiple
 from core.db import Database, Table
@@ -264,6 +266,8 @@ class TagType(Enum):
     GUILD = 2
     GLOBAL = 3
     SCOPE = 4
+
+
 
 class TagManager():
     db: Database
@@ -694,6 +698,163 @@ class TagManager():
             return [r for r in records if creator_id in r["author_ids"]]
         return records
 
+class TagManagerCached():
+    db: Database
+    
+    def __init__(self, tag_manager: TagManager):
+        self.tag_manager = tag_manager
+
+    @classmethod
+    def init_db(cls, bot: Inu):
+        cls.db = bot.db
+        cls.bot = bot
+
+    async def update_cache(self, guild_id: int, tag_key: str):
+        pass
+
+
+    @classmethod
+    @cached(TTLCache(3000, float(5*60)))
+    async def get(
+        cls,
+        key: str,
+        guild_id: Optional[int] = 0,
+        author_id: Optional[int] = 0,
+        only_accessable: bool = True
+    ) -> List[Mapping[str, Any]]:
+        """
+        Returns the tag of the key, or multiple, if overridden in guild.
+        This function is a corotine.
+
+        Args:
+        -----
+        key: (str) the key to search
+        - guild_id: (int) [default None] the guild_id the tag should have
+            - Note: 0 is equivilant with `global` tag
+        - only_accessable: (bool) wehter or not the function should return only 
+            the gobal and/or local one instead of every tag with matching `key`
+        """
+        sql = f"""
+            SELECT * FROM tags
+            WHERE (tag_key = $1 OR $1 = ANY(aliases)) 
+            AND (
+                ($2::BIGINT = ANY(guild_ids) OR 0 = ANY(guild_ids)) 
+                OR $3 = ANY(author_ids)
+                )
+            """
+        records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id, author_id)
+        return records
+
+    
+    @classmethod
+    async def get_tags(
+        cls, 
+        type: TagType, 
+        guild_id: Optional[int], 
+        author_id: Optional[int]
+    ) -> Optional[List[Dict[str, Any]]]:
+        pass
+    
+    @classmethod
+    async def find_similar(
+        cls,
+        tag_name: str, 
+        guild_id: Optional[int], 
+        creator_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        ### searches similar tags to <`tag_name`> in every reachable scope
+
+        Args:
+        -----
+            - tag_name (`str`) the name of the tag, to search
+            - guild_id (`int`) the guild_id, which the returning tags should have
+            - creator_id (`int` | None) the creator_id, which the returning tags should have
+
+        Note:
+        -----
+            - global tags will shown always (guild_id is 0)
+            - if creator_id is None, the creator will be ignored
+        """
+        cols = ["guild_ids"]
+        vals = [guild_id]
+        if creator_id:
+            cols.append("author_ids")
+            vals.append(creator_id)
+        records = await cls.bot.db.fetch(
+            f"""
+            SELECT *
+            FROM tags
+            WHERE (($1 = ANY(guild_ids)) or 0 = ANY(guild_ids)) AND similarity(tag_key, $2) > {cls.bot.conf.tags.prediction_accuracy} 
+            ORDER BY similarity(tag_key, $2) DESC
+            LIMIT 20;
+            """,
+            # tag_key % $2
+            # > 
+            guild_id, 
+            tag_name
+
+        )
+        if creator_id:
+            return [r for r in records if creator_id in r["author_ids"]]
+        return records
+
+    @classmethod
+    async def startswith(
+        cls,
+        starts_with: str, 
+        guild_id: Optional[int], 
+        creator_id: Optional[int] = None
+    ) -> List[Dict[str, Any]]:
+        """
+        ### searches similar tags to <`tag_name`> in every reachable scope
+
+        Args:
+        -----
+            - tag_name (`str`) the name of the tag, to search
+            - guild_id (`int`) the guild_id, which the returning tags should have
+            - creator_id (`int` | None) the creator_id, which the returning tags should have
+
+        Note:
+        -----
+            - global tags will shown always (guild_id is 0)
+            - if creator_id is None, the creator will be ignored
+        """
+        cols = ["guild_ids"]
+        vals = [guild_id]
+        if creator_id:
+            cols.append("author_ids")
+            vals.append(creator_id)
+        table = Table("tags")
+        records = await table.fetch(
+            f"""
+            SELECT *
+            FROM tags
+            WHERE 
+                (
+                    ($1 = ANY(guild_ids) or 0 = ANY(guild_ids)) 
+                    AND 
+                    (
+                        starts_with(tag_key, $2) 
+                        or EXISTS 
+                        (
+                            SELECT alias 
+                            FROM unnest(aliases) 
+                            AS alias 
+                            WHERE starts_with(alias, $2)
+                        )
+                    )
+                )
+            """,
+            #(
+            # > {cls.bot.conf.tags.prediction_accuracy} 
+            #             LIMIT 20;
+            guild_id, 
+            starts_with,
+        )
+        if creator_id:
+            return [r for r in records if creator_id in r["author_ids"]]
+        return records
         
 
 class Tag():
