@@ -106,6 +106,7 @@ class PrefixView(SettingsMenuView):
             input_style_s=hikari.TextInputStyle.SHORT
         )
         self.lightbulb_ctx._options["new_prefix"] = new_prefix
+        self.lightbulb_ctx._responded = False
         self.lightbulb_ctx._interaction = interaction
         self._responded = False
         await add.callback(self.lightbulb_ctx)
@@ -120,6 +121,7 @@ class PrefixView(SettingsMenuView):
             input_style_s=hikari.TextInputStyle.SHORT
         )
         self.lightbulb_ctx._options["prefix"] = old_prefix
+        self.lightbulb_ctx._responded = False
         self.lightbulb_ctx._interaction = interaction
         self._responded = False
         await remove.callback(self.lightbulb_ctx)
