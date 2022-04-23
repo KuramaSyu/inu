@@ -33,17 +33,17 @@ async def update_qalc_currency():
     await Bash.execute(["qalc", "-e", "1+1"])
     #log.debug(f"{s=};{e=}")
 
-@plugin.listener(ShardReadyEvent)
-async def load_tasks(event: ShardReadyEvent):
-    try:
-        log.debug("add scheduler job to update currency")
-        trigger = IntervalTrigger(days=1)
-        bot: Inu = plugin.bot
-        bot.scheduler.add_job(update_qalc_currency, trigger)
-        log.debug("update qalc currency")
-        await update_qalc_currency()
-    except:
-        log.error(traceback.format_exc())
+# @plugin.listener(ShardReadyEvent)
+# async def load_tasks(event: ShardReadyEvent):
+#     try:
+#         log.debug("add scheduler job to update currency")
+#         trigger = IntervalTrigger(days=1)
+#         bot: Inu = plugin.bot
+#         bot.scheduler.add_job(update_qalc_currency, trigger)
+#         log.debug("update qalc currency")
+#         await update_qalc_currency()
+#     except:
+#         log.error(traceback.format_exc())
 
 def load(bot: Inu):
     bot.add_plugin(plugin)
