@@ -488,7 +488,7 @@ class TagHandler(Paginator):
 
     async def set_name(self, interaction: ComponentInteraction):
         new_name, interaction, event = await self.bot.shortcuts.ask_with_modal(
-            "Tag",
+            "Rename Tag",
             "New name:",
             min_length_s=1,
             max_length_s=256,
@@ -502,6 +502,7 @@ class TagHandler(Paginator):
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
         value, interaction, event = self.bot.shortcuts.ask_with_modal(
+            self.tag.name or "Tag",
             "Add to value:" if append else "Value:",
             interaction=interaction,
         )
