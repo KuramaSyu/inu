@@ -309,7 +309,7 @@ class MusicLog:
         self.music_log = deque()
 
     def add(self, log_entry: str):
-        self.music_log.appendleft(f"{self.format_time_now()}: {log_entry}")
+        self.music_log.appendleft(f"`{self.format_time_now():<10}:` {log_entry}")
 
     def format_time_now(self):
         """
@@ -886,7 +886,7 @@ async def m(ctx: Context):
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("log", "get the log for invoked music commands")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def events(ctx: Context):
+async def music_log(ctx: Context):
     """Sends the music log"""
     if not ctx.guild_id or not ctx.member:
         return
