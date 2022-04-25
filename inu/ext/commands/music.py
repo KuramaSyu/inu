@@ -488,6 +488,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
 async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
     if not (guild := ctx.get_guild()) or not ctx.guild_id:
         return
+    connection_info = None
     states = music.bot.cache.get_voice_states_view_for_guild(guild)
     voice_state = [state async for state in states.iterator().filter(lambda i: i.user_id == ctx.author.id)]
 
