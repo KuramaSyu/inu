@@ -76,8 +76,6 @@ class Inu(lightbulb.BotApp):
             "incremental": True,
             "loggers": loggers 
         }
-        for log_name in ["hikari.rest", "hikari.ratelimits", "hikari.models"]:
-            pass
 
         def get_prefix(bot: Inu, message: hikari.Message):
             return bot.prefixes_from(message.guild_id)
@@ -90,6 +88,7 @@ class Inu(lightbulb.BotApp):
             case_insensitive_prefix_commands=True,
             banner=None,
             logs=logs,
+            intents=hikari.Intents.ALL
             # default_enabled_guilds=[538398443006066728]
         )
         self.mrest = MaybeRest(self)
