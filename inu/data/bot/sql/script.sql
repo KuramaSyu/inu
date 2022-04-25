@@ -104,9 +104,10 @@ CREATE TABLE IF NOT EXISTS game_categories (
     PRIMARY KEY (guild_id)
 );
 
-CREATE TABLE IF NOT EXISTS recent_games (
+CREATE TABLE IF NOT EXISTS current_games (
     guild_id BIGINT NOT NULL,
     game VARCHAR(100),
+    user_amount BIGINT NOT NULL,
     timestamp TIMESTAMP,
     PRIMARY KEY (guild_id, game, timestamp)
 );
