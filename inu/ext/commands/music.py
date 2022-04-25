@@ -117,6 +117,7 @@ class Interactive:
             ActionRowBuilder()
             .add_select_menu("query_menu")
         )
+        embeds: List[Embed] = []
         # building selection menu
         for x in range(displayed_song_count):
             try:
@@ -127,6 +128,11 @@ class Interactive:
             if len(query_print) > 100:
                 query_print = query_print[:100]
             menu.add_option(query_print, str(x)).add_to_menu()
+            embeds.append(
+                Embed(
+                    title=f"{x+1} | {track.info.title}"[:100],
+                ).set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri))
+            )
         menu = menu.add_to_container()
         msg_proxy = await ctx.respond(f"Choose the song which should be added", component=menu)
         menu_msg = await msg_proxy.message()
