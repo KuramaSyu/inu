@@ -330,7 +330,7 @@ class Table():
         """
         Execute custom SQL with return
         """
-        self._create_sql_log_message(sql, args)
+        self._create_sql_log_message(sql, [*args])
         return await self.db.fetch(sql, *args)
 
     @staticmethod
