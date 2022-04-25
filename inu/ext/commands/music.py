@@ -318,7 +318,7 @@ class MusicLog:
             - (str) `hour`:`minute`:`second` - `month_day_num`. `month`
         """
         time = datetime.datetime.now()
-        return f'{time.hour}:{time.minute}:{time.second} - {time.day}. {time.month}'
+        return f'{time.hour:02d}:{time.minute:02d}:{time.second:02d} - {time.day:02d}. {time.month:02d}'
 
     def to_string_list(self, max_str_len: int = 1980) -> List[str]:
         """
