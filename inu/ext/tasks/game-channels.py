@@ -70,16 +70,14 @@ async def log_current_activity(bot: Inu):
 async def load_tasks(event: ShardReadyEvent):
     try:
         await asyncio.sleep(10)
-        log.debug("fetching current games")
         await fetch_current_games(plugin.bot)
-        res = await CurrentGamesManager.fetch_games(
-            538398443006066728, 
-            datetime.now() - timedelta(days=30)
-        )
-        log.debug(res)
         trigger = IntervalTrigger(minutes=10)
         plugin.bot.scheduler.add_job(fetch_current_games, trigger, args=[plugin.bot])
-        log.debug(plugin.bot.scheduler.running)
+        # plugin.bot.scheduler.add_job(
+        #     log_current_activity,
+        #     IntervalTrigger(), 
+        #     args=[plugin.bot]
+        # )
     except Exception:
         log.critical(traceback.format_exc())
 
