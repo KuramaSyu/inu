@@ -113,3 +113,7 @@ CREATE TABLE IF NOT EXISTS current_games (
 );
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
+CREATE OR REPLACE FUNCTION ts_round( timestamptz, INT4 ) RETURNS TIMESTAMPTZ AS $$
+    SELECT 'epoch'::timestamptz + '1 second'::INTERVAL * ( $2 * ( extract( epoch FROM $1 )::INT4 / $2 ) );
+$$ LANGUAGE SQL;
