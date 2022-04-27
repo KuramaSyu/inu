@@ -10,6 +10,9 @@ import lightbulb
 import lightbulb.context as context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
+import pandas as pd
+import seaborn as sns
+from matplotlib import pyplot as plt
 
 from utils.games.connect_four_handler import Connect4Handler
 from utils.games import HikariOnu
@@ -124,35 +127,113 @@ async def akinator(ctx: Context):
 @lightbulb.command("current-games", "Shows, which games are played in which guild", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def current_games(ctx: Context):
-    def dict_to_sorted_dict_by_value(d: Dict[Any, Any]) -> Dict[Any, Any]:
-        return {k: v for k, v in sorted(d.items(), key=lambda x: x[1], reverse=True)}
+    # constants
+    coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode"]
+    music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
+    max_ranking_num: int = 20
 
     bot: Inu = plugin.bot
     embeds: List[hikari.Embed] = []
 
     for _, guild in bot.cache.get_guilds_view().items():
-        games = await CurrentGamesManager.fetch_games(
+        activity_records = await CurrentGamesManager.fetch_games(
             guild.id, 
             datetime.now() - timedelta(days=30)
         )
-        games.sort(key=lambda g: g['amount'], reverse=True)
+        activity_records.sort(key=lambda g: g['amount'], reverse=True)
+        log.debug(pformat(activity_records))
 
-        log.debug(pformat(games))
-        
-        embeds.append(
+        # get smallest first_occurrence
+        first_occurrence = datetime.now()
+        for record in activity_records:
+            if record['first_occurrence'] < first_occurrence:
+                first_occurrence = record['first_occurrence']
+
+        embed = (
             hikari.Embed(
                 title=f"{guild.name}",
-                description="\n".join(
-                    f"{game['game']}: {str(timedelta(minutes=int(game['amount']*10)))}" for game in games
-                )
             )
-            .set_footer("Records form last 30 days")
-            .add_field("Total played games", str(len(games)), inline=True)
-            .add_field("Total played time", str(timedelta(minutes=sum(int(game['amount']) for game in games)*10)) , inline=True)
+            .set_footer(f"all records I've taken since {first_occurrence.strftime('%d. %B')}")
         )
+
+        field_value = ""
+
+        # enuerate all games
+        game_records = [g for g in activity_records if g['game'] not in [*coding_apps, *music_apps]]
+        for i, game in enumerate(game_records):
+            if i > 150:
+                break
+            field_value += (
+                f"{f'{i+1}. ' if i <= max_ranking_num else '':<4}"
+                f"{game['game']:<40} {str(timedelta(minutes=int(game['amount']*10)))}"
+                "\n"
+            )
+            if i % 10 == 9 and i:
+                embed.add_field(
+                    f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}", 
+                    f"```{field_value[:1010]}```", 
+                    inline=False
+                )
+                field_value = ""
+        
+        # add last remaining games
+        if field_value:
+            embed.add_field(
+                f"Less played games", 
+                f"```{field_value[:1010]}```", 
+                inline=False
+            )
+        
+        # add total played games/time
+        embed = (
+            embed
+            .add_field("Total played games", str(len(game_records)), inline=False)
+            .add_field("Total gaming time", str(timedelta(minutes=sum(int(game['amount']) for game in activity_records)*10)) , inline=True)
+        )
+
+        # add total coding time
+        coding_time = sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
+        if coding_time:
+            embed = embed.add_field(
+                "Total coding time", 
+                str(timedelta(minutes=int(coding_time))), 
+                inline=True
+            )
+
+        # add total music time
+        music_time = sum([g["amount"]*10 for g in activity_records if g['game'] in music_apps])
+        if music_time:
+            embed = embed.add_field(
+                "Total music time", 
+                str(timedelta(minutes=int(music_time))), 
+                inline=True
+            )
+
+        embeds.append(embed)
+
     pag = Paginator(page_s=embeds)
     await pag.start(ctx)
 
+
+# @plugin.command
+# @lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+# @lightbulb.command("guild-activity", "Shows, which games are played in which guild", auto_defer=True)
+# @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
+# async def guild_activity(ctx: Context):
+#     # List with Mappings with keys timestamp and user_amount
+#     activity_records = await CurrentGamesManager.fetch_total_activity_by_timestamp(
+#         ctx.guild_id, datetime.now() - timedelta(days=30)
+#     )
+#     log.debug(pformat(activity_records))
+#     df = pd.DataFrame(   
+#         {
+#             "Minutes": [int(a['total_user_amount']*10) for a in activity_records],
+#             "timestamp": [a['round_timestamp'] for a in activity_records]
+#         }
+#     )
+#     plt = sns.displot(data=df)
+#     plt
+#     log.debug(df)
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
