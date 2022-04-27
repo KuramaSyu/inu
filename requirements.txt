@@ -19,3 +19,5 @@ akinator.py[fast_async]
 hikari-miru
 python-Levenshtein
 types-PyYAML
+pandas
+seaborn
