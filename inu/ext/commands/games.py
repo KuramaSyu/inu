@@ -163,11 +163,10 @@ async def current_games(ctx: Context):
         for i, game in enumerate(game_records):
             if i > 150:
                 break
-            field_value += (
-                f"{f'{i+1}. ' if i <= max_ranking_num else '':<4}"
-                f"{game['game']:<40} {str(timedelta(minutes=int(game['amount']*10)))}"
-                "\n"
-            )
+            if i < max_ranking_num:
+                field_value += f"{i+1}. {game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
+            else:
+                field_value += f"{game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
             if i % 10 == 9 and i:
                 embed.add_field(
                     f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}", 
