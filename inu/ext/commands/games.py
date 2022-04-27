@@ -1,11 +1,9 @@
-import random
-from fractions import Fraction
-import os
+from pprint import pformat
 import traceback
 from typing import *
 from typing import Union
-import logging
 import asyncio
+from datetime import datetime, timedelta
 
 import hikari
 import lightbulb
@@ -15,9 +13,9 @@ from lightbulb.commands import OptionModifier as OM
 
 from utils.games.connect_four_handler import Connect4Handler
 from utils.games import HikariOnu
-from utils import AkinatorSI
-
-from core import getLogger
+from utils.db import CurrentGamesManager
+from utils import AkinatorSI, Paginator
+from core import getLogger, Inu
 
 log = getLogger(__name__)
 
@@ -119,6 +117,39 @@ async def onu(ctx: Context):
 async def akinator(ctx: Context):
     aki = AkinatorSI("en")
     await aki.start(ctx)
+
+
+@plugin.command
+@lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+@lightbulb.command("current-games", "Shows, which games are played in which guild", auto_defer=True)
+@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
+async def current_games(ctx: Context):
+    def dict_to_sorted_dict_by_value(d: Dict[Any, Any]) -> Dict[Any, Any]:
+        return {k: v for k, v in sorted(d.items(), key=lambda x: x[1], reverse=True)}
+
+    bot: Inu = plugin.bot
+    embeds: List[hikari.Embed] = []
+
+    for _, guild in bot.cache.get_guilds_view().items():
+        games = await CurrentGamesManager.fetch_games(
+            guild.id, 
+            datetime.now() - timedelta(days=30)
+        )
+        games.sort(key=lambda g: g['amount'], reverse=True)
+
+        log.debug(pformat(games))
+        
+        embeds.append(
+            hikari.Embed(
+                title=f"{guild.name}",
+                description="\n".join(
+                    f"{game['game']}: {game['amount']}" for game in games
+                )
+            ).set_footer("Records form last 30 days")
+        )
+    pag = Paginator(page_s=embeds)
+    await pag.start(ctx)
+
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
