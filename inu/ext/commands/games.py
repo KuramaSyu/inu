@@ -143,9 +143,12 @@ async def current_games(ctx: Context):
             hikari.Embed(
                 title=f"{guild.name}",
                 description="\n".join(
-                    f"{game['game']}: {game['amount']}" for game in games
+                    f"{game['game']}: {str(timedelta(minutes=int(game['amount']*10)))}" for game in games
                 )
-            ).set_footer("Records form last 30 days")
+            )
+            .set_footer("Records form last 30 days")
+            .add_field("Total played games", str(len(games)), inline=True)
+            .add_field("Total played time", str(timedelta(minutes=sum(int(game['amount']) for game in games)*10)) , inline=True)
         )
     pag = Paginator(page_s=embeds)
     await pag.start(ctx)
