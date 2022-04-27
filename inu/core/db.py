@@ -188,7 +188,6 @@ class Table():
             f"VALUES ({', '.join(values_chain)})"
             f"RETURNING {returning}"
         )
-        log.debug(sql)
         return_values = await self.db.execute(sql, *values)
         return return_values
 
