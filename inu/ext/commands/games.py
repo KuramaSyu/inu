@@ -128,8 +128,10 @@ async def akinator(ctx: Context):
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def current_games(ctx: Context):
     # constants
+
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
+    double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
     max_ranking_num: int = 20
 
     bot: Inu = plugin.bot
@@ -159,7 +161,7 @@ async def current_games(ctx: Context):
         field_value = ""
 
         # enuerate all games
-        game_records = [g for g in activity_records if g['game'] not in [*coding_apps, *music_apps]]
+        game_records = [g for g in activity_records if g['game'] not in [*coding_apps, *music_apps, *double_games]]
         for i, game in enumerate(game_records):
             if i > 150:
                 break
@@ -187,7 +189,7 @@ async def current_games(ctx: Context):
         embed = (
             embed
             .add_field("Total played games", str(len(game_records)), inline=False)
-            .add_field("Total gaming time", str(timedelta(minutes=sum(int(game['amount']) for game in activity_records)*10)) , inline=True)
+            .add_field("Total gaming time", str(timedelta(minutes=sum(int(game['amount']) for game in game_records)*10)) , inline=True)
         )
 
         # add total coding time
