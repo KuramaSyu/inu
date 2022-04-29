@@ -15,8 +15,10 @@ services:
       - lava
       - db
     build: .
+    restart: always
   lava:
     build: ./dependencies/fredboat/
+    restart: always
     # image: fredboat/lavalink:master
     # configs:
     # - source: my_config
