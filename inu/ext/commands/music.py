@@ -864,7 +864,7 @@ if HIKARI_VOICE:
     @music.listener(hikari.VoiceStateUpdateEvent)
     async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
         try:
-            await music.bot.data.lavalink.raw_handle_event_voice_state_update(
+            await music.d.lavalink.raw_handle_event_voice_state_update(
                 event.state.guild_id,
                 event.state.user_id,
                 event.state.session_id,
@@ -876,7 +876,7 @@ if HIKARI_VOICE:
     @music.listener(hikari.VoiceServerUpdateEvent)
     async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
         try:
-            await music.bot.data.lavalink.raw_handle_event_voice_server_update(
+            await music.d.lavalink.raw_handle_event_voice_server_update(
                 event.guild_id, event.endpoint, event.token
             )
         except Exception:
