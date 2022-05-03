@@ -859,22 +859,25 @@ async def resume(ctx: Context) -> None:
 async def _resume(guild_id: int):
     await music.bot.data.lavalink.resume(guild_id)
 
-if HIKARI_VOICE:
+# if HIKARI_VOICE:
 
-    @music.listener(hikari.VoiceStateUpdateEvent)
-    async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
-        await music.bot.data.lavalink.raw_handle_event_voice_state_update(
-            event.state.guild_id,
-            event.state.user_id,
-            event.state.session_id,
-            event.state.channel_id,
-        )
+#     @music.listener(hikari.VoiceStateUpdateEvent)
+#     async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
+#         try:
+#             await music.bot.data.lavalink.raw_handle_event_voice_state_update(
+#                 event.state.guild_id,
+#                 event.state.user_id,
+#                 event.state.session_id,
+#                 event.state.channel_id,
+#             )
+#         except Exception:
+#             log.error(traceback.format_exc())
 
-    @music.listener(hikari.VoiceServerUpdateEvent)
-    async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
-        await music.bot.data.lavalink.raw_handle_event_voice_server_update(
-            event.guild_id, event.endpoint, event.token
-        )
+#     @music.listener(hikari.VoiceServerUpdateEvent)
+#     async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
+#         await music.bot.data.lavalink.raw_handle_event_voice_server_update(
+#             event.guild_id, event.endpoint, event.token
+#         )
 
 @music.command
 @lightbulb.add_cooldown(20, 1, lightbulb.UserBucket)
