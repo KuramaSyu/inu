@@ -547,7 +547,7 @@ async def start_lavalink() -> None:
             else:
                 log.info("retrying lavalink connection in 10 seconds")
                 await asyncio.sleep(10)
-    log.info("lavalink is connected")
+    music.d.log.info("lavalink is connected")
 
         
 
