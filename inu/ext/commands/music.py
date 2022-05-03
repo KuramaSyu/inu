@@ -374,14 +374,17 @@ async def on_ready(event: hikari.ShardReadyEvent):
 
 @music.listener(hikari.VoiceStateUpdateEvent)
 async def on_voice_state_update(event: VoiceStateUpdateEvent):
-    # check if the user is the bot
-    if not event.state.user_id == music.bot.get_me().id: # type: ignore
-        return
-    # bot connected (No channel -> channel)
-    if event.old_state is None and event.state.channel_id:
-        pass
-    elif event.state.channel_id is None and not event.old_state is None:
-        await _leave(event.guild_id)
+    try:
+        # check if the user is the bot
+        if not event.state.user_id == music.bot.get_me().id: # type: ignore
+            return
+        # bot connected (No channel -> channel)
+        if event.old_state is None and event.state.channel_id:
+            pass
+        elif event.state.channel_id is None and not event.old_state is None:
+            await _leave(event.guild_id)
+    except Exception:
+        log.error(traceback.format_exc())
 
 @music.listener(hikari.ReactionAddEvent)
 async def on_reaction_add(event: hikari.ReactionAddEvent):
