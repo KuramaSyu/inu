@@ -358,6 +358,7 @@ class MusicLog:
 
 
 music = lightbulb.Plugin(name="Music", include_datastore=True)
+lavalink = None
 
 
 @music.listener(hikari.ShardReadyEvent)
@@ -539,6 +540,8 @@ async def start_lavalink() -> None:
             music.bot.data.lavalink = lava_client
             music.d.lavalink = lava_client
             music.d.interactive.lavalink = lava_client
+            global lavalink
+            lavalink = lava_client
             break
         except Exception:
             if x == 2:
@@ -876,6 +879,8 @@ if HIKARI_VOICE:
     @music.listener(hikari.VoiceServerUpdateEvent)
     async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
         try:
+            log.debug(music)
+            log.debug(lavalink)
             await music.d.lavalink.raw_handle_event_voice_server_update(
                 event.guild_id, event.endpoint, event.token
             )
