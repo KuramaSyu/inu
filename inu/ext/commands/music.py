@@ -49,7 +49,7 @@ log = getLogger(__name__)
 HIKARI_VOICE = True
 
 # to fix bug, when join first time, no music
-first_join = False
+first_join = True
 
 class EventHandler:
     """Events from the Lavalink server"""
