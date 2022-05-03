@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import *
 
 from core import Database, Table
@@ -33,10 +33,13 @@ class GameCategories:
     async def fetch_games(cls, guild_id: int, since: datetime) -> Dict[str, int]:
         """
         Args:
-            guild_id (int): /
+        -----
+        guild_id: int
 
         Returns:
-            Dict[str, int]: Mapping from game name to the time in minutes played it
+        --------
+        Dict[str, int]: 
+            Mapping from game name to the time in minutes played it
         """
         ...
 
@@ -82,10 +85,14 @@ class CurrentGamesManager:
     ) ->Optional[List[Mapping[str, Any]]]:
         """
         Args:
-            guild_id (int): /
+        -----
+        guild_id: int
+        
 
         Returns:
-            Dict[str, int]: Mapping from game name to the time in minutes played it
+        --------
+        Dict[str, int]: 
+            Mapping from game name to the time in minutes played it
         """
         table = Table("current_games")
         sql = (
@@ -104,10 +111,13 @@ class CurrentGamesManager:
     ) -> Optional[List[Mapping[str, Any]]]:
         """
         Args:
-            guild_id (int): /
+        -----
+        guild_id: int
 
         Returns:
-            Dict[str, int]: Mapping from game name to the time in minutes/10 played it
+        --------
+        Dict[str, int]: 
+            Mapping from game name to the time in minutes/10 played it
         """
         table = Table("current_games")
         sql = (
@@ -125,10 +135,13 @@ class CurrentGamesManager:
     ) -> List[Mapping[str, Any]]:
         """
         Args:
-            guild_id (int): /
+        -----
+        guild_id: int
 
         Returns:
-            Dict[datetime, int]: Mapping from timestamp to amount of users playing the game
+        --------
+        Dict[datetime, int]: 
+            Mapping from timestamp to amount of users total application activity
         """
         table = Table("current_games")
         sql = (
@@ -139,3 +152,47 @@ class CurrentGamesManager:
             f"ORDER BY round_timestamp"
         )
         return await table.fetch(sql, guild_id, since)
+
+    @classmethod
+    async def fetch_activity_from_application(
+        cls,
+        guild_id: int,
+        application_name: str,
+        since: datetime,
+    ):
+        """
+
+        Parameters
+        ----------
+        guild_id : int
+            the id of the guild
+        application_name : str
+            the name of the applicaiton
+        since : datetime
+            the time since which the activity should be fetched
+
+        Returns:
+        --------
+        Dict[datetime, int]:
+            Mapping from timestamp to amount of users total application activity
+        """
+        table = Table("current_games")
+        sql = (
+            f"SELECT ts_round(timestamp, 300) AS round_timestamp, SUM(user_amount) AS total_user_amount\n"
+            f"FROM {table.name}\n"
+            f"WHERE guild_id = $1 AND timestamp > $2 AND game = $3\n"
+            f"GROUP BY round_timestamp\n"
+            f"ORDER BY round_timestamp"
+        )
+        orig_data = await table.fetch(sql, guild_id, since, application_name)
+        now = datetime.now()
+        fake_data = {
+            now - timedelta(minutes=10): 10,
+            now - timedelta(minutes=20): 20,
+            now - timedelta(minutes=30): 5,
+            now - timedelta(minutes=40): 15,
+        }
+        return fake_data
+
+
+
