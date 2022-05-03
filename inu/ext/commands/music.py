@@ -867,7 +867,9 @@ if HIKARI_VOICE:
     @music.listener(hikari.VoiceStateUpdateEvent)
     async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
         try:
-            await music.d.lavalink.raw_handle_event_voice_state_update(
+            log.debug(music)
+            log.debug(lavalink)
+            await lavalink.raw_handle_event_voice_state_update(
                 event.state.guild_id,
                 event.state.user_id,
                 event.state.session_id,
