@@ -8,6 +8,7 @@ import traceback
 
 import aiofiles
 import asyncpg
+import pandas as pd
 
 from core import Inu
 from . import Singleton
@@ -156,11 +157,13 @@ class Table():
         self.db = Database()
         self.do_log = debug_log
         self._executed_sql = ""
+        self._as_dataframe: bool = False
 
+    def return_as_dataframe(self, b: bool) -> None:
+        self._as_dataframe = b
 
     def logging(reraise_exc: bool = True):
-        def decorator(func: "function"):
-            
+        def decorator(func: Callable):
             @wraps(func)
             async def wrapper(*args, **kwargs):
                 self = args[0]
@@ -179,8 +182,29 @@ class Table():
             return wrapper
         return decorator
 
+    def formatter(func: Callable) -> Callable[["Table", Any], Callable[[Any], Awaitable]]:
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            self = args[0]
+            return_value = await func(*args, **kwargs)
+            if self._as_dataframe:
+                columns = []
+                if isinstance(return_value, list):
+                    if len(return_value) > 0:
+                        columns = [k for k in return_value[0].keys()]
+                    else:
+                        columns = []
+                elif isinstance(return_value, dict):
+                    columns = [k for k in return_value.keys()]
+                else:
+                    raise TypeError(f"{type(return_value)} is not supported. Only list and dict can be converted to dataframe.")
+                return_value = pd.DataFrame(data=return_value, columns=columns)
+            return return_value
+        return wrapper
+
 
     @logging()
+    @formatter
     async def insert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
@@ -192,6 +216,7 @@ class Table():
         return return_values
 
     @logging()
+    @formatter
     async def upsert(
         self, 
         which_columns: List[str], 
@@ -230,6 +255,7 @@ class Table():
         return return_values   
 
     @logging()
+    @formatter
     async def delete(
         self, 
         columns: List[str], 
@@ -253,10 +279,12 @@ class Table():
         return records
 
     @logging()
+    @formatter
     async def alter(self):
         pass
 
     @logging()
+    @formatter
     async def select(
         self, 
         columns: List[str], 
@@ -292,6 +320,7 @@ class Table():
         return records[0]
 
     @logging()
+    @formatter
     async def update(self):
         pass
 
@@ -305,6 +334,7 @@ class Table():
         )
 
     @logging()
+    @formatter
     async def update(self):
         pass
 
@@ -321,10 +351,12 @@ class Table():
         return rec[0]
 
     @logging()
+    @formatter
     async def update(self):
         pass
 
     @logging()
+    @formatter
     async def fetch(self, sql: str, *args) -> Optional[List[asyncpg.Record]]:
         """
         Execute custom SQL with return
