@@ -64,42 +64,55 @@ bot: Inu
 @lightbulb.command("app", "Shows, which games are played in which guild", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def application(ctx: Context):
+    # fetch data
     data = await CurrentGamesManager.fetch_activity_from_application(
         ctx.guild_id, 
-        ctx.options.app, 
+        "League of Legends", 
         datetime.now() - timedelta(days=30),
     )
+    log.debug(f"{data=}")
     now = datetime.now()
     fake_data = []
     for i in range(1, 10): #
         fake_data.append(
             [now + timedelta(days=i), random.randint(0, 100), i-1] #
         )
+    fake_data_2 = []
+    for i in range(1, 40): #
+        fake_data_2.append(
+            [random.randint(0, 100), i-1] #
+        )
+
     plt.style.use("dark_background")
     picture_in_bytes = BytesIO()
     df = pd.DataFrame(
         fake_data,
         columns=["date", "amount", "count"]
     )
+    df2 = pd.DataFrame(
+        fake_data_2,
+        columns=["amount", "count"]
+    )
 
 
     log.debug(f"\n{df}")
     # #Create combo chart
-    fig, ax1 = plt.subplots()#figsize=(10,6)
+    fig, ax1 = plt.subplots(figsize=(20,6))#
     color = 'tab:green'
     # #bar plot creation
     # ax1.set_title('Avg Playtime in Minutes', fontsize=16)
     # ax1.set_xlabel('date', fontsize=16)
     # ax1.set_ylabel('minutes', fontsize=16)
-    ax1 = sn.barplot(x='date', y='amount', data = df, palette='summer')
-    ax1.set_xticklabels([f"{d.day}.{d.month}" for d in df["date"]], rotation=45, horizontalalignment='right')
+    p1 = sn.barplot(x='date', y='amount', data = df, palette='summer')
+    p1.set_xticklabels([f"{d.day}.{d.month}" for d in df["date"]], rotation=45, horizontalalignment='right')
     # # ax1.tick_params(axis='y')
     # #specify we want to share the same x-axis
-    ax2 = ax1.twinx()
+    ax2 = p1.twinx()
     # color = 'tab:red'
     # #line plot creation
     # #ax2.set_ylabel('Avg playtime', fontsize=16)
-    ax2 = sn.lineplot(x='count', y='amount', data = df, color=color, sort=True)
+
+    ax2 = sn.lineplot(x='amount', y='amount', data = df2, color=color, ax=ax2)
     # ax2.tick_params(axis='y', color=color)
 
 
