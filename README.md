@@ -1,87 +1,26 @@
-# inu
-A Discord bot with many commands written with hikari-py
+# Setup
+1. copy the repo
+2. copy the `config_template.yaml` file and rename it to `config.yaml`
+3. Fill in all your credentials where you see a `X`
+4. Download the Lavalink.jar file and put it into `dependencies/fred_boat/`
 
-# Preparations
-## 1
-Create a ".env" file in the root dir and copy the text below in there:
-```
-DISCORD_TOKEN=x
-DEFAULT_PREFIX=x
+# Commands
+to start after making changes to config:
 
-REDDIT_APP_ID=x
-REDDIT_APP_SECRET=x
+`docker-compose up --build`
 
-SPOTIFY_CLIENT_ID=x
-SPOTIFY_CLIENT_SECRET=x
+to start without making changes:
 
-DSN=postgresql://linux_profile_name:password@ip_address/inu_db
+`docker-compose up`
 
-LAVALINK_IP=0.0.0.0  # change if needed
-LAVALINK_PASSWORD=x  # needs to be the same like in the application.yml file
+to move docker-compose into the background:
 
-```
-## 2
-fill out every value with a `x` and correct `DSN_LINUX` and `DSN`
-## 3
-copy your `application.yml` file (for lavalink) into
+`ctrl + z`
 
-root/dependencies/music
+to backup the database:
 
-and
+`docker exec -t <postgres-container-id> pg_dumpall -c > dump_file.sql`
 
-root/dependencies/fredboat
+to restore the dump:
 
-## 4
-install java jdk and python
-
-# Boot the bot with docker
-## 1
-install docker and docker-compose
-
-go into the projects root directory (the dir with the `docker-compose.yml` file)
-
-## 2
-change the `LAVALINK_IP` in the `.env` file to `LAVALINK_IP=inu-lava-1`
-
-## 3
-start with:
-
-> cd path/to/the/root/dir/with/docker-compose.yml
-
-> docker-compose up --build
-
-end with:
-
-> docker-compose down inu
-
-or
-
-> `ctrl + c`  to interupt the process 
-### NOTE:
-docker was tested on arch linux and windows 10. Windows 10 wont work! So be sure to only use docker when you are in a linux enviroment
-
-# Boot the bot on your machine
-
-## 1
-Install postgresql and create a database with name "inu_db"
-
-## 2
-Copy the `Lavalink.jar` file into `root/dependencies/music` folder
-
-## 3
-Run the prepare.py file in the root directory
-
-## 4
-make sure postgresql is running
-## 5
-Run
-> python3 inu/main.py & java -jar dependencies/music/Lavalink.jar
-
-to start the bot and the Lavalink server
-
-End it with `ctrl + c` to interupt it
-
-### NOTE:
-The Database will be stored in the toplevel directory of this project (inside the folder where this project will be in)
-
-
+`cat dump_file.sql | docker exec -i <postgres-container-id> psql -U inu`
