@@ -177,6 +177,7 @@ class CurrentGamesManager:
             Mapping from timestamp to amount of users total application activity
         """
         table = Table("current_games")
+        table.return_as_dataframe(True)
         sql = (
             f"SELECT ts_round(timestamp, 300) AS round_timestamp, SUM(user_amount) AS total_user_amount\n"
             f"FROM {table.name}\n"
@@ -184,15 +185,7 @@ class CurrentGamesManager:
             f"GROUP BY round_timestamp\n"
             f"ORDER BY round_timestamp"
         )
-        orig_data = await table.fetch(sql, guild_id, since, application_name)
-        now = datetime.now()
-        fake_data = {
-            now - timedelta(minutes=10): 10,
-            now - timedelta(minutes=20): 20,
-            now - timedelta(minutes=30): 5,
-            now - timedelta(minutes=40): 15,
-        }
-        return fake_data
+        return await table.fetch(sql, guild_id, since, application_name)
 
 
 
