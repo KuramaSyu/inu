@@ -5,12 +5,13 @@ from datetime import datetime, timedelta
 from typing import *
 from numpy import full, isin
 import random
+from io import BytesIO
 
 import aiohttp
 import hikari
 import lightbulb
 import lightbulb.utils as lightbulb_utils
-from io import BytesIO
+from dataenforce import Dataset
 
 from fuzzywuzzy import fuzz
 from hikari import (
@@ -33,6 +34,8 @@ import matplotlib.pyplot as plt
 from typing_extensions import Self
 import pandas as pd
 import seaborn as sn
+import mplcyberpunk
+
 
 
 from utils import (
@@ -65,6 +68,7 @@ bot: Inu
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def application(ctx: Context):
     # fetch data
+    await CurrentGamesManager.fetch_activities_from_guild(ctx.guild_id, datetime.now() - timedelta(days=30))
     data = await CurrentGamesManager.fetch_activity_from_application(
         ctx.guild_id, 
         "League of Legends", 
@@ -140,87 +144,159 @@ async def current_games(ctx: Context):
     double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
     max_ranking_num: int = 20
 
-    bot: Inu = plugin.bot
-    embeds: List[hikari.Embed] = []
-
-    # build embed for current guild
-    guild: hikari.Guild = ctx.get_guild()  # type: ignore
-    activity_records = await CurrentGamesManager.fetch_games(
-        guild.id, 
-        datetime.now() - timedelta(days=30)
-    )
-    activity_records.sort(key=lambda g: g['amount'], reverse=True)
-
-    # get smallest first_occurrence
-    first_occurrence = datetime.now()
-    for record in activity_records:
-        if record['first_occurrence'] < first_occurrence:
-            first_occurrence = record['first_occurrence']
-
-    embed = (
-        hikari.Embed(
-            title=f"{guild.name}",
+    async def build_embeds() -> List[Embed]:
+        bot: Inu = plugin.bot
+        embeds: List[hikari.Embed] = []
+        # build embed for current guild
+        guild: hikari.Guild = ctx.get_guild()  # type: ignore
+        activity_records = await CurrentGamesManager.fetch_games(
+            guild.id, 
+            datetime.now() - timedelta(days=30)
         )
-        .set_footer(f"all records I've taken since {first_occurrence.strftime('%d. %B')}")
-    )
+        activity_records.sort(key=lambda g: g['amount'], reverse=True)
 
-    field_value = ""
+        # get smallest first_occurrence
+        first_occurrence = datetime.now()
+        for record in activity_records:
+            if record['first_occurrence'] < first_occurrence:
+                first_occurrence = record['first_occurrence']
 
-    # enuerate all games
-    game_records = [g for g in activity_records if g['game'] not in [*coding_apps, *music_apps, *double_games]]
-    for i, game in enumerate(game_records):
-        if i > 150:
-            break
-        if i < max_ranking_num:
-            field_value += f"{i+1}. {game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
-        else:
-            field_value += f"{game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
-        if i % 10 == 9 and i:
-            embed.add_field(
-                f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}", 
-                f"```{field_value[:1010]}```", 
-                inline=False
+        embed = (
+            hikari.Embed(
+                title=f"{guild.name}",
             )
-            field_value = ""
-    
-    # add last remaining games
-    if field_value:
-        embed.add_field(
-            f"Less played games", 
-            f"```{field_value[:1010]}```", 
-            inline=False
+            .set_footer(f"all records I've taken since {first_occurrence.strftime('%d. %B')}")
         )
-    
-    # add total played games/time
-    embed = (
-        embed
-        .add_field("Total played games", str(len(game_records)), inline=False)
-        .add_field("Total gaming time", str(timedelta(minutes=sum(int(game['amount']) for game in game_records)*10)) , inline=True)
+
+        field_value = ""
+        embeds.append(embed)
+
+        # enuerate all games
+        game_records = [g for g in activity_records if g['game'] not in [*coding_apps, *music_apps, *double_games]]
+        for i, game in enumerate(game_records):
+            if i > 150:
+                break
+            if i < max_ranking_num:
+                field_value += f"{i+1}. {game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
+            else:
+                field_value += f"{game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
+            if i % 10 == 9 and i:
+                embeds[-1].description = (
+                    f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}"
+                    f"```{field_value[:2000]}```"
+                )
+                embeds.append(hikari.Embed())
+                field_value = ""
+        
+        # add last remaining games
+        if field_value:
+            embeds[-1].description = (
+                f"Less played games"
+                f"```{field_value[:2000]}```"
+            )
+        else:
+            embeds.pop()
+        
+        # add total played games/time
+        embeds[0] = (
+            embeds[0]
+            .add_field("Total played games", str(len(game_records)), inline=False)
+            .add_field("Total gaming time", str(timedelta(minutes=sum(int(game['amount']) for game in game_records)*10)) , inline=True)
+        )
+
+        # add total coding time
+        coding_time = sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
+        if coding_time:
+             embeds[0].add_field(
+                "Total coding time", 
+                str(timedelta(minutes=int(coding_time))), 
+                inline=True
+            )
+
+        # add total music time
+        music_time = sum([g["amount"]*10 for g in activity_records if g['game'] in music_apps])
+        if music_time:
+            embeds[0].add_field(
+                "Total music time", 
+                str(timedelta(minutes=int(music_time))), 
+                inline=True
+            )
+
+        return embeds
+
+    last_month: datetime = datetime.now() - timedelta(days=30)
+    picture_buffer, _ = await build_activity_graph(
+        ctx.guild_id, 
+        since=last_month,
+        activities=[
+            list(d.keys())[0]
+            for d in
+            await CurrentGamesManager.fetch_top_games(
+                guild_id=ctx.guild_id, 
+                since=last_month,
+                limit=8,
+                remove_activities=[*coding_apps, *music_apps, *double_games]
+            )
+        ],
     )
-
-    # add total coding time
-    coding_time = sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
-    if coding_time:
-        embed = embed.add_field(
-            "Total coding time", 
-            str(timedelta(minutes=int(coding_time))), 
-            inline=True
-        )
-
-    # add total music time
-    music_time = sum([g["amount"]*10 for g in activity_records if g['game'] in music_apps])
-    if music_time:
-        embed = embed.add_field(
-            "Total music time", 
-            str(timedelta(minutes=int(music_time))), 
-            inline=True
-        )
-
-    embeds.append(embed)
-
-    pag = Paginator(page_s=embeds)
+    await ctx.respond(attachment=picture_buffer)
+    pag = Paginator(
+        page_s=await build_embeds(),
+        download=picture_buffer,
+        download_name="current-games.png",
+    )
     await pag.start(ctx)
 
+
+async def build_activity_graph(
+    guild_id: int,
+    since: datetime,
+    activities: List[str],
+) -> Tuple[BytesIO, Dataset]:
+    picture_buffer = BytesIO()
+
+    df = await CurrentGamesManager.fetch_activities(
+        guild_id=guild_id, 
+        since=since,
+        activity_filter=activities,
+    )
+
+    # optimizing dataframe
+    df.set_index(keys="r_timestamp", inplace=True)
+    activity_series = df.groupby("game")["hours"].resample("1d").sum()
+    df_summarized = activity_series.to_frame().reset_index()
+
+    # style preparations
+    color_paletes = ["magma_r", "rocket_r", "mako_r"]
+    plt.style.use("cyberpunk")
+    sn.set_palette("bright")
+    sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
+    log.debug(f"\n{df_summarized}")
+    
+    #Create graph
+    fig, ax1 = plt.subplots(figsize=(25,8))
+    sn.despine(offset=20)
+    ax: matplotlib.axes.Axes = sn.lineplot(
+        x='r_timestamp', 
+        y='hours', 
+        data = df_summarized,
+        hue="game", 
+        legend="full", 
+        markers=False,
+        palette=random.choice(color_paletes),
+    )
+
+    # style graph
+    mplcyberpunk.add_glow_effects(ax=ax)
+    ax.set_xticklabels([f"{d.day}/{d.month}" for d in df_summarized["r_timestamp"]], rotation=45, horizontalalignment='right')
+    ax.set_ylabel("Hours")
+    ax.set_xlabel("")
+
+    # save graph
+    figure = fig.get_figure()    
+    figure.savefig(picture_buffer, dpi=100)
+    picture_buffer.seek(0)
+    return picture_buffer, df_summarized
 
 
 
