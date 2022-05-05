@@ -74,7 +74,6 @@ async def application(ctx: Context):
         "League of Legends", 
         datetime.now() - timedelta(days=30),
     )
-    log.debug(f"{data=}")
     now = datetime.now()
     fake_data = []
     for i in range(1, 10): #
@@ -99,7 +98,6 @@ async def application(ctx: Context):
     )
 
 
-    log.debug(f"\n{df}")
     # #Create combo chart
     fig, ax1 = plt.subplots(figsize=(20,6))#
     color = 'tab:green'
@@ -271,7 +269,7 @@ async def build_activity_graph(
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
     sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
-    log.debug(f"\n{df_summarized}")
+
     
     #Create graph
     fig, ax1 = plt.subplots(figsize=(25,8))
