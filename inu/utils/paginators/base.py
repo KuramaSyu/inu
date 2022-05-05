@@ -146,6 +146,7 @@ class Paginator():
         compact: Optional[bool] = None,
         default_site: Optional[int] = 0,
         download: Union[Callable[["Paginator"], str], str, bool] = False,
+        download_name: str = "content.txt",
         first_message_kwargs: Dict[str, Any] = {},
     ):
         """
@@ -199,6 +200,7 @@ class Paginator():
         self._components_factory = components_factory
         self._default_site = default_site
         self._download: Union[Callable[[Paginator], str], str, None] = download
+        self._download_name = download_name
         self._first_message_kwargs = first_message_kwargs or {}
         self.bot: lightbulb.BotApp
         self.ctx: Context
@@ -478,7 +480,7 @@ class Paginator():
         elif not self._disable_components:
             kwargs["components"] = self.components
         if (download := self.download):
-            kwargs["attachment"] = hikari.Bytes(download, "content.md")
+            kwargs["attachment"] = hikari.Bytes(download, self._download_name)
         if isinstance(self.pages[self._default_site], Embed):
             msg_proxy = await ctx.respond(
                 embed=self.pages[0],
@@ -492,7 +494,6 @@ class Paginator():
         self._message = await msg_proxy.message()
         if len(self.pages) == 1 and self._exit_when_one_site:
             return self._message
-        self.log.debug("enter loop")
         self._position = 0
         await self.post_start(ctx)
         return self._message
@@ -503,7 +504,6 @@ class Paginator():
             await self.pagination_loop()
         except Exception:
             self.log.error(traceback.format_exc())
-        self.log.debug("end of pagination")
 
     async def pagination_loop(self):
         try:
