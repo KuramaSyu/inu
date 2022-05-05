@@ -272,7 +272,7 @@ async def build_activity_graph(
 
     
     #Create graph
-    fig, ax1 = plt.subplots(figsize=(25,8))
+    fig, ax1 = plt.subplots(figsize=(20,7))
     sn.despine(offset=20)
     ax: matplotlib.axes.Axes = sn.lineplot(
         x='r_timestamp', 
@@ -286,9 +286,12 @@ async def build_activity_graph(
 
     # style graph
     mplcyberpunk.add_glow_effects(ax=ax)
-    ax.set_xticklabels([f"{d.day}/{d.month}" for d in df_summarized["r_timestamp"]], rotation=45, horizontalalignment='right')
+    log.debug(ax.xaxis.get_label())
+    #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
+    
+    
 
     # save graph
     figure = fig.get_figure()    
