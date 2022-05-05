@@ -21,3 +21,5 @@ python-Levenshtein
 types-PyYAML
 pandas
 seaborn
+dataenforce
+mplcyberpunk==0.5.1
