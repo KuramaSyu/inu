@@ -12,7 +12,15 @@ logging.setLoggerClass(LoggingHandler)
 import hikari
 import lightbulb
 from core import Inu, Table
-from utils import InvokationStats, Reminders, TagManager, PollManager, Urban, MyAnimeListAIOClient
+from utils import (
+    InvokationStats, 
+    Reminders, 
+    TagManager, 
+    PollManager, 
+    Urban, 
+    MyAnimeListAIOClient,
+    CurrentGamesManager,
+)
 from core import getLogger
 
 
