@@ -1,7 +1,15 @@
 from datetime import datetime, timedelta
 from typing import *
+import pickle
+
+from dataenforce import Dataset
 
 from core import Database, Table
+
+
+# how many minutes does python takes the records?
+# which is the value in minutes for user_amount = 1?
+USER_AMOUNT_TO_MINUTES = 10
 
 
 class GameCategories:
@@ -187,5 +195,81 @@ class CurrentGamesManager:
         )
         return await table.fetch(sql, guild_id, since, application_name)
 
+    @classmethod
+    async def fetch_activities(
+        cls,
+        guild_id: int,
+        since: datetime,
+        activity_filter: List[str] = [],
+    ) -> Dataset["index": int, "r_timestamp": datetime, "game": str, "hours": int]:
+        """
+        fetches activies from a guild
+
+        Args:
+        -----
+        guild_id: int
+        since: datetime
+            timepoint where return data starts
+        activity_filter: List[str]
+            list of activities to filter by (only list element will be returned)
+
+        Returns:
+        --------
+        List[Mapping[str, Any]]:
+            List with all reocrds from a guild.
+            These records will have a timestamp, game and hours.
+            The records are taken every 10 minutes.
+
+        """
+        table = Table("current_games")
+        table.return_as_dataframe(True)
+        additional_activity_filter = f"AND game = ANY($3)" if activity_filter else ""
+        optional_arg = [activity_filter] or []
+        sql = ( 
+            f"SELECT ts_round(timestamp, 300) AS r_timestamp, game, CAST(user_amount AS FLOAT)*{USER_AMOUNT_TO_MINUTES}/60 AS hours\n"
+            f"FROM {table.name}\n"
+            f"WHERE guild_id = $1 AND timestamp > $2 {additional_activity_filter}\n"
+        )
+        return await table.fetch(sql, guild_id, since, *optional_arg)
+
+    @classmethod
+    async def fetch_top_games(
+        cls,
+        guild_id: int,
+        since: datetime,    
+        limit: int = 15,
+        remove_activities: List[str] = [],
+    ) -> List[Dict[str, int]]:
+        """
+        Args:
+        -----
+        guild_id: int
+        since: datetime
+            timepoint where return data starts
+        limit: int
+            the amount of games to return
+
+        Returns:
+        --------
+        List[Dict[str, int]]:
+            List with Mappings from game name to the time in minutes/10 played it
+
+        Note:
+        -----
+        The games are sorted by the amount (minutes/10) played.
+        """
+        table = Table("current_games")
+        additional_filter = f"AND game != ALL($4)" if remove_activities else ""
+        optional_arg = [remove_activities] or []
+        sql = (
+            f"SELECT game, SUM(user_amount) AS amount\n"
+            f"FROM {table.name}\n"
+            f"WHERE guild_id = $1 AND timestamp > $2 {additional_filter}\n"
+            f"GROUP BY game\n"
+            f"ORDER BY amount DESC\n"
+            f"LIMIT $3"
+        )
+        records = await table.fetch(sql, guild_id, since, limit, *optional_arg)
+        return [{r["game"]: r["amount"]} for r in records]
 
 
