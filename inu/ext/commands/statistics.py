@@ -7,11 +7,13 @@ from numpy import full, isin
 import random
 from io import BytesIO
 
+
 import aiohttp
 import hikari
 import lightbulb
 import lightbulb.utils as lightbulb_utils
 from dataenforce import Dataset
+from pytimeparse.timeparse import timeparse
 
 from fuzzywuzzy import fuzz
 from hikari import (
@@ -31,11 +33,12 @@ from lightbulb import commands, context
 from lightbulb.context import Context
 import matplotlib
 import matplotlib.pyplot as plt
+from matplotlib.dates import DateFormatter
 from typing_extensions import Self
 import pandas as pd
 import seaborn as sn
 import mplcyberpunk
-
+from pandas.plotting import register_matplotlib_converters
 
 
 from utils import (
@@ -55,7 +58,7 @@ from core import (
 )
 
 log = getLogger(__name__)
-
+register_matplotlib_converters()
 plugin = lightbulb.Plugin("Statistics", "Shows statistics about the server")
 bot: Inu
 
@@ -132,11 +135,28 @@ async def application(ctx: Context):
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
 @lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+@lightbulb.option(
+    "time", 
+    "The time you want to get stats for - e.g. 30 days, 3 hours",
+    default="30 days"
+)
+@lightbulb.option(
+    "apps", 
+    "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
+    default=None,
+    modifier=OM.CONSUME_REST,
+)
 @lightbulb.command("current-games", "Shows, which games are played in which guild", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def current_games(ctx: Context):
     # constants
-
+    seconds = timeparse(ctx.options.time)
+    if not seconds:
+        return await ctx.respond(
+            f"Well - I've no idea what you mean with `{ctx.options.time}`"
+            f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+        )
+    timedelta_ = timedelta(seconds=seconds)
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
     double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
@@ -149,7 +169,7 @@ async def current_games(ctx: Context):
         guild: hikari.Guild = ctx.get_guild()  # type: ignore
         activity_records = await CurrentGamesManager.fetch_games(
             guild.id, 
-            datetime.now() - timedelta(days=30)
+            datetime.now() - timedelta_
         )
         activity_records.sort(key=lambda g: g['amount'], reverse=True)
 
@@ -221,21 +241,25 @@ async def current_games(ctx: Context):
             )
 
         return embeds
-
-    last_month: datetime = datetime.now() - timedelta(days=30)
-    picture_buffer, _ = await build_activity_graph(
-        ctx.guild_id, 
-        since=last_month,
-        activities=[
+    # prepare apps to fetch
+    if ctx.options.apps:
+        apps = ctx.options.apps.split(",")
+    else:
+        apps = [
             list(d.keys())[0]
             for d in
             await CurrentGamesManager.fetch_top_games(
                 guild_id=ctx.guild_id, 
-                since=last_month,
-                limit=8,
+                since=custom_time,
+                limit=6,
                 remove_activities=[*coding_apps, *music_apps, *double_games]
             )
-        ],
+        ]
+    custom_time: datetime = datetime.now() - timedelta_
+    picture_buffer, _ = await build_activity_graph(
+        ctx.guild_id, 
+        since=timedelta_,
+        activities=apps,
     )
     await ctx.respond(attachment=picture_buffer)
     pag = Paginator(
@@ -248,20 +272,21 @@ async def current_games(ctx: Context):
 
 async def build_activity_graph(
     guild_id: int,
-    since: datetime,
+    since: timedelta,
     activities: List[str],
 ) -> Tuple[BytesIO, Dataset]:
     picture_buffer = BytesIO()
 
     df = await CurrentGamesManager.fetch_activities(
         guild_id=guild_id, 
-        since=since,
+        since=datetime.now() - since,
         activity_filter=activities,
     )
-
+    log.debug(df)
     # optimizing dataframe
+    since_part = since / 8
     df.set_index(keys="r_timestamp", inplace=True)
-    activity_series = df.groupby("game")["hours"].resample("1d").sum()
+    activity_series = df.groupby("game")["hours"].resample(since_part).sum()
     df_summarized = activity_series.to_frame().reset_index()
 
     # style preparations
@@ -272,24 +297,28 @@ async def build_activity_graph(
 
     
     #Create graph
-    fig, ax1 = plt.subplots(figsize=(20,7))
+    fig, ax1 = plt.subplots(figsize=(20,9))
     sn.despine(offset=20)
     ax: matplotlib.axes.Axes = sn.lineplot(
         x='r_timestamp', 
         y='hours', 
-        data = df_summarized,
+        data=df_summarized,
         hue="game", 
-        legend="full", 
+        legend="brief", 
         markers=False,
         palette=random.choice(color_paletes),
+        ax=ax1,
     )
 
     # style graph
     mplcyberpunk.add_glow_effects(ax=ax)
-    log.debug(ax.xaxis.get_label())
     #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
+    date_format = "%a %H:00" if since < timedelta(days=5) else "%a %d.%m"
+
+    date_form = DateFormatter(date_format)
+    ax.xaxis.set_major_formatter(date_form)
     
     
 
