@@ -5,6 +5,8 @@
 4. Download the Lavalink.jar file and put it into `dependencies/fred_boat/`
 
 # Commands
+
+## Docker and docker-compose
 to start after making changes to config:
 
 `docker-compose up --build`
@@ -13,14 +15,19 @@ to start without making changes:
 
 `docker-compose up`
 
+## Keyboard shortcuts
+
 to move docker-compose into the background:
 
 `ctrl + z`
 
+## Database
+
 to backup the database:
 
-`docker exec -t <postgres-container-id> pg_dumpall -c > dump_file.sql`
+`docker exec -t <postgres-container-id> pg_dumpall -c -U inu > dump_file.sql`
 
 to restore the dump:
 
-`cat dump_file.sql | docker exec -i <postgres-container-id> psql -U inu`
+`cat dump_file.sql | docker exec -i <postgres-container-id> psql -U inu inu_db`
+
