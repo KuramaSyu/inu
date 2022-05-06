@@ -284,7 +284,7 @@ async def build_activity_graph(
     )
     log.debug(df)
     # optimizing dataframe
-    since_part = since / 8
+    since_part = since / 20
     one_day_interval = timedelta(days=1)
     if since_part > one_day_interval:
         since_part = one_day_interval
@@ -318,7 +318,7 @@ async def build_activity_graph(
     #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
-    date_format = "%a %H:00" if since < timedelta(days=5) else "%a %d.%m"
+    date_format = "%a %H:%M" if since < timedelta(days=5) else "%a %d.%m"
 
     date_form = DateFormatter(date_format)
     ax.xaxis.set_major_formatter(date_form)
