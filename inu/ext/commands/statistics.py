@@ -242,6 +242,7 @@ async def current_games(ctx: Context):
 
         return embeds
     # prepare apps to fetch
+    custom_time: datetime = datetime.now() - timedelta_
     if ctx.options.apps:
         apps = [app.strip() for app in ctx.options.apps.split(",")]
     else:
@@ -255,7 +256,6 @@ async def current_games(ctx: Context):
                 remove_activities=[*coding_apps, *music_apps, *double_games]
             )
         ]
-    custom_time: datetime = datetime.now() - timedelta_
     picture_buffer, _ = await build_activity_graph(
         ctx.guild_id, 
         since=timedelta_,
