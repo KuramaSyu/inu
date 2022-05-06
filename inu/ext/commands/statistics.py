@@ -243,7 +243,7 @@ async def current_games(ctx: Context):
         return embeds
     # prepare apps to fetch
     if ctx.options.apps:
-        apps = ctx.options.apps.split(",")
+        apps = [app.strip() for app in ctx.options.apps.split(",")]
     else:
         apps = [
             list(d.keys())[0]
