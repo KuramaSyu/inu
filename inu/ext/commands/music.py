@@ -525,6 +525,9 @@ async def start_lavalink() -> None:
     if not music.bot.conf.lavalink.connect:
         music.d.log.warning(f"Lavalink connection won't be established")
         return
+    sleep_time = 10
+    log.debug("Sleep for {sleep_time} seconds before connecting to Lavalink") 
+    await asyncio.sleep(sleep_time)
     for x in range(3):
         try:
             builder = (
