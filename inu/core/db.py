@@ -11,7 +11,7 @@ import asyncpg
 import pandas as pd
 
 from core import Inu
-from . import Singleton
+from . import Singleton, ConfigProxy, ConfigType
 if TYPE_CHECKING:
 
     from lightbulb import Bot
@@ -21,6 +21,8 @@ __all__: Final[Sequence[str]] = ["Database"]
 from core import getLogger
 
 log = getLogger(__name__)
+conf = ConfigProxy(ConfigType.YAML)
+table_logging = conf.db.SQL_logging
 
 def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
@@ -152,7 +154,7 @@ class KeyValueDB:
 
 
 class Table():
-    def __init__(self, table_name: str, debug_log: bool = False):
+    def __init__(self, table_name: str, debug_log: bool = table_logging):
         self.name = table_name
         self.db = Database()
         self.do_log = debug_log
