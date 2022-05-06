@@ -23,3 +23,4 @@ pandas
 seaborn
 dataenforce
 mplcyberpunk==0.5.1
+pytimeparse
