@@ -1,7 +1,7 @@
 version: "3.8"
 services:
   db:
-    container_name: pg_container
+    container_name: postgresql
     image: postgres
     restart: always
     environment:
@@ -11,12 +11,14 @@ services:
     volumes:
       - ./../postgres-data:/var/lib/postgresql/data
   app:
+    container_name: inu
     depends_on:
       - lava
       - db
     build: .
     restart: always
   lava:
+    container_name: lavalink
     build: ./dependencies/fredboat/
     restart: always
     # image: fredboat/lavalink:master
