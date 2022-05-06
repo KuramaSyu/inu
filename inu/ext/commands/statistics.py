@@ -285,6 +285,9 @@ async def build_activity_graph(
     log.debug(df)
     # optimizing dataframe
     since_part = since / 8
+    one_day_interval = timedelta(days=1)
+    if since_part > one_day_interval:
+        since_part = one_day_interval
     df.set_index(keys="r_timestamp", inplace=True)
     activity_series = df.groupby("game")["hours"].resample(since_part).sum()
     df_summarized = activity_series.to_frame().reset_index()
@@ -297,7 +300,7 @@ async def build_activity_graph(
 
     
     #Create graph
-    fig, ax1 = plt.subplots(figsize=(20,9))
+    fig, ax1 = plt.subplots(figsize=(21,9))
     sn.despine(offset=20)
     ax: matplotlib.axes.Axes = sn.lineplot(
         x='r_timestamp', 
