@@ -366,7 +366,7 @@ class Anime:
             related=related,
             genres=[g["name"] for g in resp.get("genres", [])],
             type_=resp.get("media_type", None),
-            episodes=resp.get("episodes", None),
+            episodes=resp.get("num_episodes", None),
             ending_themes=[item["text"] for item in resp.get("ending_themes", [])],
             opening_themes=[item["text"] for item in resp.get("opening_themes", [])],
             duration=resp.get("average_episode_duration", None),
