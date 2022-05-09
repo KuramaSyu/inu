@@ -12,6 +12,7 @@ import aiohttp
 import hikari
 import lightbulb
 import lightbulb.utils as lightbulb_utils
+from pytz import timezone
 from dataenforce import Dataset
 from pytimeparse.timeparse import timeparse
 
@@ -33,12 +34,13 @@ from lightbulb import commands, context
 from lightbulb.context import Context
 import matplotlib
 import matplotlib.pyplot as plt
-from matplotlib.dates import DateFormatter
+#from matplotlib.dates import DateFormatter
 from typing_extensions import Self
 import pandas as pd
 import seaborn as sn
 import mplcyberpunk
 from pandas.plotting import register_matplotlib_converters
+from matplotlib.dates import DateFormatter
 
 
 from utils import (
@@ -49,6 +51,7 @@ from utils import (
     Urban, 
     crumble,
     CurrentGamesManager,
+    TimezoneManager,
 )
 from core import (
     BotResponseError, 
@@ -275,6 +278,7 @@ async def build_activity_graph(
     since: timedelta,
     activities: List[str],
 ) -> Tuple[BytesIO, Dataset]:
+
     picture_buffer = BytesIO()
 
     df = await CurrentGamesManager.fetch_activities(
@@ -282,8 +286,6 @@ async def build_activity_graph(
         since=datetime.now() - since,
         activity_filter=activities,
     )
-    log.debug(df)
-    
     # resampeling dataframe
     since = df.index[0]
     until = df.index[-1]
@@ -323,8 +325,8 @@ async def build_activity_graph(
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
     date_format = "%a %H:%M" if df_timedelta < timedelta(days=5) else "%a %d.%m"
-
-    date_form = DateFormatter(date_format, tz=tz) # TODO tz is not assigned
+    tz = await TimezoneManager.fetch_timezone(guild_or_author_id=guild_id)
+    date_form = DateFormatter(date_format, tz=tz)
     ax.xaxis.set_major_formatter(date_form)
     
     
