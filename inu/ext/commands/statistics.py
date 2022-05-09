@@ -283,13 +283,17 @@ async def build_activity_graph(
         activity_filter=activities,
     )
     log.debug(df)
-    # optimizing dataframe
-    since_part = since / 20
-    one_day_interval = timedelta(days=1)
-    if since_part > one_day_interval:
-        since_part = one_day_interval
+    
+    # resampeling dataframe
+    since = df.index[0]
+    until = df.index[-1]
+    df_timedelta: timedelta = until - since
+    if df_timedelta.days > 5:
+        resample_delta = timedelta(days=1)
+    else:
+        resample_delta = (until - since) / 20 
     df.set_index(keys="r_timestamp", inplace=True)
-    activity_series = df.groupby("game")["hours"].resample(since_part).sum()
+    activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
 
     # style preparations
@@ -307,7 +311,7 @@ async def build_activity_graph(
         y='hours', 
         data=df_summarized,
         hue="game", 
-        legend="brief", 
+        legend="full", 
         markers=False,
         palette=random.choice(color_paletes),
         ax=ax1,
@@ -318,9 +322,9 @@ async def build_activity_graph(
     #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
-    date_format = "%a %H:%M" if since < timedelta(days=5) else "%a %d.%m"
+    date_format = "%a %H:%M" if df_timedelta < timedelta(days=5) else "%a %d.%m"
 
-    date_form = DateFormatter(date_format)
+    date_form = DateFormatter(date_format, tz=tz) # TODO tz is not assigned
     ax.xaxis.set_major_formatter(date_form)
     
     
