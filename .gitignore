@@ -150,3 +150,5 @@ config.yaml
 dependencies/fredboat/Lavalink.jar
 models/temp_stuff/backup.py
 models/dataframe_tests.py
+inu/utils/db/df.pickle
+models/df.pickle
