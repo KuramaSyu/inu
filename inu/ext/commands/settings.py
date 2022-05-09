@@ -23,7 +23,7 @@ from lightbulb.context import Context
 from lightbulb import commands
 import miru
 
-from utils import DailyContentChannels, PrefixManager
+from utils import DailyContentChannels, PrefixManager, TimezoneManager
 from core import Inu, Table
 from utils.db.r_channel_manager import Columns as Col
 
@@ -418,7 +418,7 @@ async def timez_set(ctx: Context):
         update_author = True
         table = Table("guild_timezones")
         if ctx.guild_id:
-            await table.upsert(["guild_or_author_id", "offset_hours"], [ctx.guild_id, int(event.interaction.values[0])])
+            await TimezoneManager.set_timezone(ctx.guild_id, int(event.interaction.values[0]))
             try:
                 btns = (
                     ActionRowBuilder()
@@ -448,7 +448,7 @@ async def timez_set(ctx: Context):
             except Exception:
                 log.error(f"settings timezone set: {traceback.format_exc()}")
         if update_author:
-            await table.upsert(["guild_or_author_id", "offset_hours"], [ctx.author.id, int(event.interaction.values[0])])
+            await TimezoneManager.set_timezone(ctx.guild_id, int(event.interaction.values[0]))
         
     except asyncio.TimeoutError:
         pass
