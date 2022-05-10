@@ -9,11 +9,11 @@ from core import Table
 class TimezoneManager:
 
     @staticmethod
-    def dst(dt: Optional[datetime] = None, tz: str = "Europe/Berlin") -> int:
+    def dst(dt: Optional[datetime] = None, tz: Union[str, timezone] = "Europe/Berlin") -> int:
         """Returns the DST offset in seconds"""
         timezone = pytz.timezone(tz)
         if dt is None:
-            dt = datetime.now(timezone.utc)
+            dt = datetime.now(tz=timezone)
         if dt.tzinfo is None:
             tz_aware_dt = timezone.localize(dt, is_dst=None)
         else:
@@ -23,7 +23,7 @@ class TimezoneManager:
     @classmethod
     def is_dst(cls, dt=None, timezone='Europe/Berlin'):
         """Whether the given datetime is in DST"""
-        return (dst(dt, timezone) != 0)
+        return (cls.dst(dt, timezone) != 0)
 
     @classmethod
     async def fetch_timezone(cls, guild_or_author_id: int) -> timezone:
