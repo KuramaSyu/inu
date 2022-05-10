@@ -15,6 +15,10 @@ to start without making changes:
 
 `docker-compose up`
 
+to enter the terminal and use psql:
+
+`docker exec -it postgresql psql -U inu inu_db`
+
 ## Keyboard shortcuts
 
 to move docker-compose into the background:
