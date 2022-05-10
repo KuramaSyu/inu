@@ -1,4 +1,6 @@
 from datetime import datetime
+from typing import Dict, List
+
 from core import Table, Database, getLogger
 
 log = getLogger(__name__)
@@ -19,7 +21,8 @@ class MathScoreManager:
 
         Returns:
         -------
-            - (bool) wehter or not highscore was updated
+        `bool` : 
+            wehter or not highscore was updated
         """
         table = Table("math_scores", debug_log=True)
         user_stage = await table.select_row(["guild_id", "user_id", "stage"], [guild_id, user_id, stage])
@@ -46,12 +49,15 @@ class MathScoreManager:
         """
         Args:
         -----
-            - type_ (`str`) the type [user, guild]
-            - guild_id
-            - user_id
+        type_ : `str` 
+            the type [user|guild] (all from user or only user from guild)
+        guild_id : `int`
+        user_id : `int`
+
+
         Returns:
         --------
-            - (`Dict[str, List[Dict[int, int]]]`) Mapping form stage to highscore list with
+            - (`Dict[str, List[Dict[int, int]]]`) Mapping form stage to highscore list containing
               Dict mapping from user_id to highscore
               -> Dict[stage, ListSortedDown[Dict[user_id, highscore]]]
         """
@@ -70,7 +76,7 @@ class MathScoreManager:
             )
         else:
             raise RuntimeError(f"{type_=} is unvalid")
-        stages = {}
+        stages: Dict[str, List[Dict[int, int]]] = {}
         for r in records:
             stage = r["stage"]
             stage_list = stages.get(stage, [])
