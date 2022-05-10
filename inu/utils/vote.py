@@ -2,43 +2,126 @@ from enum import Enum
 from abc import ABC, abstractmethod
 from typing import *
 import random
+from datetime import datetime, timedelta
 
 
 import hikari
 
+class DisplayType(Enum):
+    USERS_LIST = 1
+    USERS_AMOUNT = 2
+    USER_TO_AMOUNT_LIST = 3
 
-class Vote(ABC):
-    storage: dict
-    options: Dict[str, Any]
+
+class Voting(ABC):
+    # Dict[option, List[Dict[user_id, vote_amount]]]
+    _result: Dict[str, List[Dict[int, int]]] = {}
+
+    def __init__(
+        self,
+        options: List[str],
+    ):
+        self._result: Dict[str, Dict[int, int]] = {o: [] for o in options}
+        self._start: datetime = datetime.now()
+        self._end: datetime = self._start + timedelta(hours=3)
+        self._anomymous: bool = True
+        self._hide_until_end: bool = False
+        self._display_type: DisplayType = DisplayType.USERS_AMOUNT
+
+    @abstractmethod
+    def start(self):
+        ...
+
+    @abstractmethod
+    def with_privacy(self, annonymous: bool, hide_until_end: bool) -> "Voting":
+        self._anomymous = annonymous
+        self._hide_until_end = hide_until_end
+        return self
+
+    def with_timeframe(self, from_: datetime, to: datetime) -> "Voting":
+        self._start = from_
+        self._end = to
+        return self
+
+    def with_duration(self, duration: timedelta) -> "Voting":
+        self._start = datetime.now()
+        self._end = self._start + duration
+        return self
+
+    def set_display_type(self, user_list: bool, user_amount: bool, user_to_amount_list: bool) -> "Voting":
+        if user_list:
+            self._display_type = DisplayType.USERS_LIST
+        elif user_amount:
+            self._display_type = DisplayType.USERS_AMOUNT
+        elif user_to_amount_list:
+            self._display_type = DisplayType.USER_TO_AMOUNT_LIST
+        return self
+
+    def set_button_labal(self, option: str, labal: str) -> "Voting":
+        ...
+
+    
 
     @property
     @abstractmethod
     def embed(self):
         ...
+
+    @property
+    @abstractmethod
+    def user_ids(self):
+        ...
+
+    @property
+    @abstractmethod
+    def votes(self):
+        ...
+
+    @property
+    @abstractmethod
+    def options(self):
+        ...
+
+    @property
+    @abstractmethod
+    def result(self) -> Dict[str, Dict[int, int]]:
+        ...
     
     @abstractmethod
     def add_vote(
         self,
-        number: int,
-        name: str,
-        add: int,
+        user_id: int,
+        amount: int,
+        option: str,
     ):
         """
         Args:
         ----
-        number: `int` 
+        user_id: `int` 
             the number, to identify the name (name will be mapped to number)
-        name : `str` 
-            the name, which will be mapped to the given number
-        add : (`int`) 
-            the amount of votes to add to this number. Typically -1 or 1 
+        amount: `int`
+            the amount of votes. typically 1 or -1
+        option : `str`
+            the option where to enter under
         """
         ...
 
-    
+    @classmethod
+    def from_record(cls, record: Dict[str, Any]):
+        ...
+
+    @classmethod
+    async def to_record(cls, record: Dict[str, Any]):
+        ...
 
 
-class ScaleVote(Vote):
+class BaseVote(Voting):
+    ...
+
+
+
+class ScaleVote():
+
     __slots__ = [
         'title', 'description', 'votes', 'author', 'message_id', 'len_scale',
         'channel_id', 'guild_id', 'person_vote'
