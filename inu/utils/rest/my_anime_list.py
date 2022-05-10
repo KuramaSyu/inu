@@ -21,9 +21,9 @@ class MALRatings(Enum):
     g = "G - All Ages"
     pg = "PG - Children"
     pg_13 = "PG-13 - Teens 13 or older"
-    r = "R - 17+ (violence & profanity)"
-    r_plus = "R+ - Mild Nudity"
-    rx = "Rx - Hentai"
+    r = "R - 17+ (violence & profanity) "
+    r_plus = "R+ - Mild Nudity 17+"
+    rx = "Rx - Hentai 18+"
 
 
 
@@ -33,6 +33,7 @@ class MALTypes(Enum):
     MANGA = 2
 
 class MyAnimeListAIOClient:
+    """Wrapper for MyAnimeList API Endpoint"""
     client_id: str = ""
 
 
@@ -53,7 +54,9 @@ class MyAnimeListAIOClient:
 
     @classmethod
     def set_credentials(cls, client_id: str):
+        """"set the client id"""
         cls.client_id = client_id
+
     @property
     def session(self) -> aiohttp.ClientSession:
         """Get AioHTTP session by creating it if it doesn't already exist"""
@@ -120,6 +123,20 @@ class MyAnimeListAIOClient:
         pass
 
     async def search_anime(self, query: str, include_nsfw=True) -> Dict[str, Any]:
+        """search for anime by name
+
+        Args:
+        -----
+        query : str
+            the query to search for
+        include_nsfw : bool
+            whether to include nsfw results
+        
+        Returns:
+        --------
+        Dict[str, Any]
+            the response json
+        """
         fields = (
             "id,title,main_picture,alternative_titles,"
             "start_date,end_date,synopsis,mean,rank,popularity,"
