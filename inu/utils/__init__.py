@@ -13,7 +13,6 @@ from .logger import *
 from .emojis import Emoji
 
 from .paginators import *
-from .reddit import Reddit
 
 
 
