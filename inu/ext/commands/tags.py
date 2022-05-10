@@ -251,11 +251,6 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         name = ctx.options.name.strip()
         value = ctx.options.value.strip()
     except:
-    # ctx.raw_options["name"] = ctx.options.name.strip()
-    # if ctx.options.value is None or ctx.options.name is None:
-    #     taghandler = TagHandler()
-    #     return await taghandler.start(ctx)
-    # typing.cast(str, ctx.options.value)
         answers, interaction, _ = await bot.shortcuts.ask_with_modal(
             "Tag", 
             ["Name:", "Value:"], 
