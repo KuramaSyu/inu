@@ -13,7 +13,8 @@ T = t.TypeVar("T")
 
 class InvokationStats:
     db: Database
-    
+    bot: Inu
+
     def __init__(self, key: Optional[str] = None):
         self.key = key
 
