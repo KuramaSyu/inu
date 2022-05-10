@@ -134,6 +134,26 @@ async def application(ctx: Context):
         attachment=picture_in_bytes
     )
 
+@plugin.command
+@lightbulb.add_checks(lightbulb.checks.guild_only)
+@lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+@lightbulb.option(
+    "time", 
+    "The time you want to get stats for - e.g. 30 days, 3 hours",
+    default="30 days"
+)
+@lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
+@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
+async def week_activity(ctx: Context):
+    seconds = timeparse(ctx.options.time)
+    buffer, _ = await build_week_activity_chart(
+        ctx.guild_id, 
+        timedelta(seconds=seconds)
+    )
+    await ctx.respond(
+        f"{ctx.get_guild().name}'s daily activity",  # type: ignore
+        attachment=buffer,
+    )
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
@@ -286,7 +306,8 @@ async def build_activity_graph(
         since=datetime.now() - since,
         activity_filter=activities,
     )
-    # resampeling dataframe
+    df.set_index(keys="r_timestamp", inplace=True)
+
     since = df.index[0]
     until = df.index[-1]
     df_timedelta: timedelta = until - since
@@ -294,7 +315,8 @@ async def build_activity_graph(
         resample_delta = timedelta(days=1)
     else:
         resample_delta = (until - since) / 20 
-    df.set_index(keys="r_timestamp", inplace=True)
+
+    # resampeling dataframe
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
 
@@ -305,8 +327,9 @@ async def build_activity_graph(
     sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
 
     
-    #Create graph
+    #Create chart
     fig, ax1 = plt.subplots(figsize=(21,9))
+    fig.set_tight_layout(True)
     sn.despine(offset=20)
     ax: matplotlib.axes.Axes = sn.lineplot(
         x='r_timestamp', 
@@ -319,7 +342,7 @@ async def build_activity_graph(
         ax=ax1,
     )
 
-    # style graph
+    # style chart
     mplcyberpunk.add_glow_effects(ax=ax)
     #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
     ax.set_ylabel("Hours")
@@ -331,11 +354,51 @@ async def build_activity_graph(
     
     
 
-    # save graph
+    # save chart
     figure = fig.get_figure()    
     figure.savefig(picture_buffer, dpi=100)
     picture_buffer.seek(0)
     return picture_buffer, df_summarized
+
+
+async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[BytesIO, Dataset]:
+    df = await CurrentGamesManager.fetch_total_activity_per_day(
+        guild_id,
+        datetime.now() - since
+    )
+    color_paletes = ["magma_r", "rocket_r", "mako_r"]
+    plt.style.use("cyberpunk")
+    sn.set_palette("bright")
+    sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
+
+    #Create graph
+    fig, ax1 = plt.subplots(figsize=(21,9))
+    fig.set_tight_layout(True)
+    sn.despine(offset=20)
+    picture_buffer = BytesIO()
+    ax = sn.barplot(
+        x = 'date', 
+        y = 'hours', 
+        data = df,
+        palette = random.choice(color_paletes),
+        ci = 'sd',   
+        ax=ax1,
+    )
+
+    ax.set_xticklabels(ax.get_xticklabels(),rotation = 45)
+    mplcyberpunk.add_glow_effects(ax=ax)
+    ax.set_ylabel("Hours")
+    ax.set_xlabel("")
+    date_format = "%a %d.%m"
+    tz = await TimezoneManager.fetch_timezone(guild_or_author_id=guild_id)
+    date_form = DateFormatter(date_format, tz=tz)
+    ax.xaxis.set_major_formatter(date_form)
+    
+    # save graph
+    figure = fig.get_figure()    
+    figure.savefig(picture_buffer, dpi=100)
+    picture_buffer.seek(0)
+    return picture_buffer, df
 
 
 
