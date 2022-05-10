@@ -1,11 +1,11 @@
 import random
-from typing import Optional
+from typing import Optional, List
 
 import hikari
 from matplotlib.colors import cnames
 
 
-embeds = []
+embeds: List[hikari.Embed] = []
 colors = [  "orange", "darkorange", "firebrick", "yellowgreen", "limegreen", "mediumturquoise",
             "teal", "deepskyblue", "steelblue", "royalblue", "midnightblue",
             "slateblue", "blueviolet", "darkviolet", "purple", "crimson"
