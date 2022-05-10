@@ -16,7 +16,7 @@ import hikari
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
-from utils.reddit import Reddit
+from utils.rest import Reddit
 
 from core import getLogger
 
