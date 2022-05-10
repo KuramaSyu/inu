@@ -11,6 +11,7 @@ from core import Inu, BotResponseError, getLogger
 log = getLogger(__name__)
 
 class UrbanIterator(Iterable):
+    """Iterator for the returned answers fetched from `Urban` wrapper"""
     def __init__(
         self,
         orig: str,
@@ -25,11 +26,15 @@ class UrbanIterator(Iterable):
     def __iter__(self) -> Generator[Dict[str, str], None, None]:
         return (d for d in self.json['list'])
 
+
+
 class Urban:
+    """API wrapper for Urban Dictionary"""
     bot: Inu = None
 
-    def inu(func: "function"):
-        '''asserts, that bot is instance of Inu'''
+    @staticmethod
+    def inu(func: Callable):
+        '''asserts, that `cls.bot` is instance of Inu'''
         async def wrapper(*args, **kwargs):
             cls = args[0]
             assert(isinstance(cls.bot, Inu))
@@ -80,18 +85,17 @@ class Urban:
             raise RuntimeError(f"no response received from {headers['x-rapidapi-host']}")
         if not r['list']:
             raise BotResponseError(f"Well -- I never heard `{word}`")
-        # log.debug(r)
         return UrbanIterator(word, r)
 
 
+# EXAMPLE
+# if __name__ == "__main__":
+#     async def main(w="stfu"):
+#         urban_resp =  await Urban.fetch(w)
+#         for a in urban_resp:
+#             print(a["definition"])
+#             print("~~~~~~")
+#             print(a["example"] + "\n\n\n\n")
+#         pprint(urban_resp.json)
 
-if __name__ == "__main__":
-    async def main(w="stfu"):
-        urban_resp =  await Urban.fetch(w)
-        for a in urban_resp:
-            print(a["definition"])
-            print("~~~~~~")
-            print(a["example"] + "\n\n\n\n")
-        pprint(urban_resp.json)
-
-    asyncio.run(main())
+#     asyncio.run(main())
