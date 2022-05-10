@@ -27,8 +27,8 @@ from core.db import Database, Table
 from core import Inu
 
 
-class TagProxy():
-    def __init__(self, owner: hikari.User, channel_id: Optional[hikari.Snowflakeish] = None):
+class Tag():
+    def __init__(self, owner: Optional[hikari.User] = None, channel_id: Optional[hikari.Snowflakeish] = None):
         """
         Members:
         --------
@@ -43,7 +43,7 @@ class TagProxy():
             - the owner should be an instace of `Member`, to be able, to store an tag locally
             otherwise the tag have to be stored globally
         """
-        self.owners: List[hikari.Snowflake] = [owner.id]
+        self.owners: List[hikari.Snowflake] = [owner.id] if owner else []
         self._name: Optional[str] = None
         self.value: Optional[str] = None
         self.is_local_available: bool
@@ -69,17 +69,11 @@ class TagProxy():
         return self._name
     
     @name.setter
-    def name(self, key):
+    def name(self, value):
         
-        if len(key) > 255:
-            raise RuntimeError(f"`{Human.short_text(key, 255)}` is longer than 255 characters")
-        elif (char := Multiple.startswith_(" ")):
-            raise RuntimeError(f"`{key}` mustn't start with `{char}`")
-        elif (char := Multiple.endswith_(" ")):
-            raise RuntimeError(f"`{key}` mustn't end with `{char}`")
-        elif " " in key:
-            raise RuntimeError(f"`{key}` mustn't contain a space")
-        self._name = key
+        if len(str(value)) > 256:
+            raise RuntimeError("Can't store a tag with a name bigger than 256 chars")
+        self._name = value
 
     @property
     def is_local(self) -> bool:
@@ -91,6 +85,10 @@ class TagProxy():
         if not self._id:
             raise RuntimeError("Can't store an ID without a number")
         return self._id
+    
+    @id.setter
+    def id(self, value):
+        self._id = value
 
     @property
     def to_do(self) -> Optional[str]:
@@ -147,22 +145,6 @@ class TagProxy():
 
     @classmethod
     async def from_record(cls, record: Mapping[str, Any], author: hikari.User) -> "Tag":
-        # """
-        # loads an existing tag in form of a dict like object into self.tag (`Tag`)
-        # Args:
-        # -----
-        #     - tag: (Mapping[str, Any]) the tag which should be loaded
-        #     - author: (Member, User) the user which stored the tag
-        # """
-        # guild_id = self.owner.guild_id if isinstance(self.owner, hikari.Member) else 0
-        # local_taken, global_taken = await TagManager.is_taken(key=self.tag.name, guild_id = guild_id or 0)
-        # self.name = tag["tag_key"]
-        # self.value = tag["key_value"]
-        # self.is_stored = True
-        # self.id = tag["tag_id"]
-        # self.is_global_available = not global_taken
-        # self.is_local_available = not local_taken
-
         """
         loads an existing tag in form of a dict like object into self.tag (`Tag`)
         Args:
@@ -171,7 +153,7 @@ class TagProxy():
             - author: (Member, User) the user which stored the tag
         """
         local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_ids=record["guild_ids"])
-        new_tag: cls = cls(author)
+        new_tag = cls(author)
         new_tag.name = record["tag_key"]
         new_tag.value = record["tag_value"]
         new_tag.is_stored = True
@@ -205,7 +187,8 @@ class TagProxy():
         -----
             - author: (Member, User) the user which stored the tag
         """
-        tag = Tag(self.owner)
+        tag = Tag()
+        tag.owners = self.owners
         tag.name = None
         tag.value = None
         tag.is_stored = False
@@ -243,7 +226,11 @@ class TagProxy():
     async def update(self) -> None:
         """
         Updates self.is_global_available and self.is_local_available
-        - is a coroutine
+
+        Note:
+        -----
+            - is a coroutine
+            - can be expensive
         """
         self.is_global_available = True
         self.is_local_available = True
@@ -261,6 +248,7 @@ class TagProxy():
         self.is_stored = False
         return
 
+
 class TagType(Enum):
     YOUR = 1
     GUILD = 2
@@ -271,12 +259,13 @@ class TagType(Enum):
 
 class TagManager():
     db: Database
-    
+    bot: Inu
+
     def __init__(self, key: Optional[str] = None):
         self.key = key
 
     @classmethod
-    def _key_raise_if_not_allowed(key: str) -> None:
+    def _key_raise_if_not_allowed(cls, key: str) -> None:
         """
         Raises RuntimeError if not allowed
         """
@@ -418,22 +407,29 @@ class TagManager():
 
         Args:
         -----
-        key: (str) the key to search
-        - guild_id: (int) [default None] the guild_id the tag should have
-            - Note: 0 is equivilant with `global` tag
-        - only_accessable: (bool) wehter or not the function should return only 
+        key: (str) 
+            the key to search
+        - guild_id: (int) [default None] 
+            the guild_id the tag should have
+        - only_accessable: (bool) 
+            wehter or not the function should return only 
             the gobal and/or local one instead of every tag with matching `key`
+
+        Note:
+        -----
+            - 0 is equivilant with `global` tag
         """
         sql = f"""
             SELECT * FROM tags
             WHERE (tag_key = $1 OR $1 = ANY(aliases)) 
             AND (
-                ($2::BIGINT = ANY(guild_ids) OR 0 = ANY(guild_ids)) 
-                OR $3 = ANY(author_ids)
+                    ($2::BIGINT = ANY(guild_ids) 
+                    OR 0 = ANY(guild_ids)) 
+                    OR $3 = ANY(author_ids)
                 )
             """
         records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id, author_id)
-        return records
+        return records or []
         # if not records:
         #     return []
         # if not only_accessable:
@@ -476,12 +472,20 @@ class TagManager():
         )
 
     @classmethod
-    async def is_global_taken(cls, key, tags: Optional[List[str]] = None):
+    async def is_global_taken(cls, key: str, tags: Optional[List[str]] = None):
         """
+        checks if the key is in tag_key column
+
         Args:
-            key: the key to search
-            tags: an already fetched column (list) of all tags
+        -----
+        key: str
+            the key to search
+        tags: List[str]
+            an already fetched column (list) of all tags
+
+
         Raises:
+        -------
             utils.tag_manager.TagIsTakenError
         """
         sql = """
@@ -550,12 +554,20 @@ class TagManager():
         """
         Tests if a tag is taken by key.
         Args:
-            key: the key to match for#
-            guild_id: the guild if to check for.
+        -----
+        key: str
+            the key to match for#
+        guild_id: int
+            the guild if to check for.
             NOTE: if its 0 it will only check global, otherwise only local
-            check: wether the check should be executed or not
+        check: bool
+            wether the check should be executed or not
+            (wether to raise TagIsTakenError)
+
         Raises:
-            utils.tag_manager.TagIsTakenError: if Tag is taken (wether gobal or local see guild_id)
+        -------
+        utils.tag_manager.TagIsTakenError: 
+            if Tag is taken (wether gobal or local see guild_id)
         """
         if not check:
             return
@@ -574,6 +586,22 @@ class TagManager():
         guild_id: Optional[int] = None, 
         author_id: Optional[int] = None,
     ) -> Optional[List[Dict[str, Any]]]:
+        """
+        Get all tags of a specific type (you, guild, in scope..)
+
+        Args:
+        -----
+        type: TagType
+            the type of tags to get
+        guild_id: int
+            the guild id to get tags for
+        author_id: int
+            the author id to get tags for
+        
+        Note:
+        -----
+            - depending on type, guild_id and/or author_id is used
+        """
         sql = """
             SELECT * FROM tags
             """
@@ -609,9 +637,12 @@ class TagManager():
 
         Args:
         -----
-            - tag_name (`str`) the name of the tag, to search
-            - guild_id (`int`) the guild_id, which the returning tags should have
-            - creator_id (`int` | None) the creator_id, which the returning tags should have
+        tag_name : `str` 
+            the name of the tag, to search
+        guild_id : `int` 
+            the guild_id, which the returning tags should have
+        creator_id : `int` | None
+            the creator_id, which the returning tags should have
 
         Note:
         -----
@@ -627,15 +658,27 @@ class TagManager():
             f"""
             SELECT *
             FROM tags
-            WHERE (($1 = ANY(guild_ids)) or 0 = ANY(guild_ids)) AND similarity(tag_key, $2) > {cls.bot.conf.tags.prediction_accuracy} 
+            WHERE 
+                (
+                    ($1 = ANY(guild_ids)) 
+                    OR 0 = ANY(guild_ids)
+                ) 
+                    AND
+                (
+                    similarity(tag_key, $2) > {cls.bot.conf.tags.prediction_accuracy} 
+                    OR EXISTS 
+                    (
+                        SELECT alias 
+                        FROM unnest(aliases) 
+                        AS alias 
+                        WHERE similarity(alias, $2) > {cls.bot.conf.tags.prediction_accuracy} 
+                    )
+                )
             ORDER BY similarity(tag_key, $2) DESC
             LIMIT 20;
             """,
-            # tag_key % $2
-            # > 
             guild_id, 
             tag_name
-
         )
         if creator_id:
             return [r for r in records if creator_id in r["author_ids"]]
@@ -649,13 +692,16 @@ class TagManager():
         creator_id: Optional[int] = None
     ) -> List[Dict[str, Any]]:
         """
-        ### searches similar tags to <`tag_name`> in every reachable scope
+        ### searches tags which start with <`start_with`> in every reachable scope
 
         Args:
         -----
-            - tag_name (`str`) the name of the tag, to search
-            - guild_id (`int`) the guild_id, which the returning tags should have
-            - creator_id (`int` | None) the creator_id, which the returning tags should have
+        tag_name : `str`
+            the name of the tag, to search
+        guild_id : `int`
+            the guild_id, which the returning tags should have
+        creator_id : `int` | None)
+            the creator_id, which the returning tags should have
 
         Note:
         -----
@@ -678,7 +724,7 @@ class TagManager():
                     AND 
                     (
                         starts_with(tag_key, $2) 
-                        or EXISTS 
+                        OR EXISTS 
                         (
                             SELECT alias 
                             FROM unnest(aliases) 
@@ -688,9 +734,6 @@ class TagManager():
                     )
                 )
             """,
-            #(
-            # > {cls.bot.conf.tags.prediction_accuracy} 
-            #             LIMIT 20;
             guild_id, 
             starts_with,
         )
@@ -698,174 +741,9 @@ class TagManager():
             return [r for r in records if creator_id in r["author_ids"]]
         return records
 
-class TagManagerCached():
-    db: Database
-    
-    def __init__(self, tag_manager: TagManager):
-        self.tag_manager = tag_manager
-
-    @classmethod
-    def init_db(cls, bot: Inu):
-        cls.db = bot.db
-        cls.bot = bot
-
-    async def update_cache(self, guild_id: int, tag_key: str):
-        pass
-
-
-    @classmethod
-    @cached(TTLCache(3000, float(5*60)))
-    async def get(
-        cls,
-        key: str,
-        guild_id: Optional[int] = 0,
-        author_id: Optional[int] = 0,
-        only_accessable: bool = True
-    ) -> List[Mapping[str, Any]]:
-        """
-        Returns the tag of the key, or multiple, if overridden in guild.
-        This function is a corotine.
-
-        Args:
-        -----
-        key: (str) the key to search
-        - guild_id: (int) [default None] the guild_id the tag should have
-            - Note: 0 is equivilant with `global` tag
-        - only_accessable: (bool) wehter or not the function should return only 
-            the gobal and/or local one instead of every tag with matching `key`
-        """
-        sql = f"""
-            SELECT * FROM tags
-            WHERE (tag_key = $1 OR $1 = ANY(aliases)) 
-            AND (
-                ($2::BIGINT = ANY(guild_ids) OR 0 = ANY(guild_ids)) 
-                OR $3 = ANY(author_ids)
-                )
-            """
-        records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id, author_id)
-        return records
-
-    
-    @classmethod
-    async def get_tags(
-        cls, 
-        type: TagType, 
-        guild_id: Optional[int], 
-        author_id: Optional[int]
-    ) -> Optional[List[Dict[str, Any]]]:
-        pass
-    
-    @classmethod
-    async def find_similar(
-        cls,
-        tag_name: str, 
-        guild_id: Optional[int], 
-        creator_id: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        ### searches similar tags to <`tag_name`> in every reachable scope
-
-        Args:
-        -----
-            - tag_name (`str`) the name of the tag, to search
-            - guild_id (`int`) the guild_id, which the returning tags should have
-            - creator_id (`int` | None) the creator_id, which the returning tags should have
-
-        Note:
-        -----
-            - global tags will shown always (guild_id is 0)
-            - if creator_id is None, the creator will be ignored
-        """
-        cols = ["guild_ids"]
-        vals = [guild_id]
-        if creator_id:
-            cols.append("author_ids")
-            vals.append(creator_id)
-        records = await cls.bot.db.fetch(
-            f"""
-            SELECT *
-            FROM tags
-            WHERE (($1 = ANY(guild_ids)) or 0 = ANY(guild_ids)) AND similarity(tag_key, $2) > {cls.bot.conf.tags.prediction_accuracy} 
-            ORDER BY similarity(tag_key, $2) DESC
-            LIMIT 20;
-            """,
-            # tag_key % $2
-            # > 
-            guild_id, 
-            tag_name
-
-        )
-        if creator_id:
-            return [r for r in records if creator_id in r["author_ids"]]
-        return records
-
-    @classmethod
-    async def startswith(
-        cls,
-        starts_with: str, 
-        guild_id: Optional[int], 
-        creator_id: Optional[int] = None
-    ) -> List[Dict[str, Any]]:
-        """
-        ### searches similar tags to <`tag_name`> in every reachable scope
-
-        Args:
-        -----
-            - tag_name (`str`) the name of the tag, to search
-            - guild_id (`int`) the guild_id, which the returning tags should have
-            - creator_id (`int` | None) the creator_id, which the returning tags should have
-
-        Note:
-        -----
-            - global tags will shown always (guild_id is 0)
-            - if creator_id is None, the creator will be ignored
-        """
-        cols = ["guild_ids"]
-        vals = [guild_id]
-        if creator_id:
-            cols.append("author_ids")
-            vals.append(creator_id)
-        table = Table("tags")
-        records = await table.fetch(
-            f"""
-            SELECT *
-            FROM tags
-            WHERE 
-                (
-                    ($1 = ANY(guild_ids) or 0 = ANY(guild_ids)) 
-                    AND 
-                    (
-                        starts_with(tag_key, $2) 
-                        or EXISTS 
-                        (
-                            SELECT alias 
-                            FROM unnest(aliases) 
-                            AS alias 
-                            WHERE starts_with(alias, $2)
-                        )
-                    )
-                )
-            """,
-            #(
-            # > {cls.bot.conf.tags.prediction_accuracy} 
-            #             LIMIT 20;
-            guild_id, 
-            starts_with,
-        )
-        if creator_id:
-            return [r for r in records if creator_id in r["author_ids"]]
-        return records
-        
-
-class Tag():
-    def __init__(self, key: Optional[str] = None):
-        self.key = key
-
-    @cached(TTLCache, 1024, 120)
-    async def is_taken(self) -> bool:
-        return True
 
 class TagIsTakenError(Exception):
-    def __init__(self, *args: object) -> None:
-        super().__init__(*args)
+    def __init__(self, message):
+        self.message = message
+        super().__init__(message)
 
