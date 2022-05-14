@@ -190,6 +190,8 @@ class Anime:
             return MALRatings[r].value
         except KeyError:
             return self._rating
+        except Exception:
+            return "Unknown"
 
     @property
     def source(self):
