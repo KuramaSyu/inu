@@ -95,7 +95,7 @@ async def connect4_8by8(ctx: Context):
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def onu(ctx: Context):
     players: Dict[int, hikari.Member] = {p.id: p for p in ctx._options.values() if not p is None}
-    if not ctx.author.id not in players.keys():
+    if not ctx.author.id in players.keys():
         return await ctx.respond("You can't start a game without you")
     for p_id, p in players.items():
         if p_id in onu_sessions:
