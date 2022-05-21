@@ -94,12 +94,14 @@ class ConfigProxy(metaclass=Singleton):
         return (s for s in self.sections)
 
     @staticmethod
-    def create(config_type: Callable, path: Optional[str] = None) -> "ConfigProxy":
+    def create(config_type: Optional[Callable] = None, path: Optional[str] = None) -> "ConfigProxy":
         """
         Returns:
         --------
             - (~.ConfigProxy) configproxy of cwd (config.ini and .env)
         """
+        if config_type is None:
+            config_type = ConfigAlgorithms.yaml_config
         return config_type(path)
 
 
