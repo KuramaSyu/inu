@@ -24,6 +24,8 @@ import lightbulb
 import lightbulb.utils as lightbulb_utils
 from lightbulb import commands, context
 import hikari
+import apscheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 from utils import Colors
 from utils import Paginator
@@ -163,9 +165,20 @@ plugin.d.docs = {
 
 @plugin.listener(lightbulb.LightbulbStartedEvent)
 async def on_ready(event: lightbulb.LightbulbStartedEvent):
-    bot: Inu = event.bot
-    bot.add_task(_update_rtfm_cache, hours=8)
-    asyncio.create_task(_update_rtfm_cache)
+    # return if it's already scheduled
+    try:
+        if [True for job in plugin.bot.scheduler.get_jobs() if job.name == _update_rtfm_cache.__name__ ]:
+            log.info(f"{_update_rtfm_cache.__name__} already scheduled - skipping")
+            return
+    except Exception:
+        log.error(traceback.format_exc())
+    try:
+        await asyncio.sleep(10)
+        trigger = IntervalTrigger(hours=8)
+        plugin.bot.scheduler.add_job(_update_rtfm_cache, trigger)
+        log.info(f"scheduled {_update_rtfm_cache.__name__} every 8 hours")
+    except Exception:
+        log.critical(traceback.format_exc())
 
 def get_docs_url_from(key):
     return plugin.d.docs.get(key)
