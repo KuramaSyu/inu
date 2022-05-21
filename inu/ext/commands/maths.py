@@ -128,7 +128,7 @@ class CalculationBlueprint:
         for item in tokens:
             if isinstance(item, float):
                 # number
-                result_str += Human.number(item, with_inteligent_zero=False)[:-2] # remove .0
+                result_str += Human.number(item)#[:-2] # remove .0
             else:
                 # operation
                 result_str += f" {item.replace('*', 'x').replace('/', ':')} "
