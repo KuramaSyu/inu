@@ -22,6 +22,17 @@ log = getLogger(__name__)
 
 pl = lightbulb.Plugin("Error Handler")
 
+@pl.listener(hikari.ExceptionEvent)
+async def on_exception(event: hikari.ExceptionEvent):
+    # not user related error
+    try:
+
+        if isinstance(event.exception, events.CommandErrorEvent):
+            return
+        log.error(f"{''.join(traceback.format_exception(event.exception))}")
+    except Exception:
+        log.critical(traceback.format_exc())
+
 
 @pl.listener(events.CommandErrorEvent)
 async def on_error(event: events.CommandErrorEvent):
@@ -38,16 +49,7 @@ async def on_error(event: events.CommandErrorEvent):
         if ctx is None:
             log.debug(f"Exception uncaught: {event.__class__}")
             return
-
-
-
         error = event.exception
-        
-        # channel_id = event.context.get_channel()
-        # rest = pl.bot.rest
-        # if isinstance(event, events.PrefixCommandErrorEvent):
-        #     message_id = event.context.event.message_id
-
 
         async def message_dialog(error_embed: hikari.Embed):
             message = await (await ctx.respond(embed = error_embed)).message()
@@ -142,6 +144,7 @@ async def on_error(event: events.CommandErrorEvent):
                 return await ctx.respond(fails.pop())
         elif isinstance(error, errors.CommandInvocationError) and isinstance(error.original, BotResponseError):
             return await ctx.respond(error.original.bot_message)
+
         # errors which will only be handled, if the command was invoked with a prefix
         if not ctx.prefix:
             return # log.debug(f"Suppress error of type: {error.__class__.__name__}")
@@ -158,7 +161,7 @@ async def on_error(event: events.CommandErrorEvent):
             with suppress(hikari.ForbiddenError):
                 await message_dialog(error_embed)
     except Exception:
-        log.error(traceback.format_exc())
+        log.critical(traceback.format_exc())
 
 def load(bot: Inu):
     bot.add_plugin(pl)
