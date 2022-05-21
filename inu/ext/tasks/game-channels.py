@@ -69,14 +69,18 @@ async def log_current_activity(bot: Inu):
 @plugin.listener(ShardReadyEvent)
 async def load_tasks(event: ShardReadyEvent):
     # return if it's already scheduled
-    if [True for job in event.bot.scheduler.get_jobs() if job.name == fetch_current_games.__name__ ]:
-        return
+    try:
+        if [True for job in plugin.bot.scheduler.get_jobs() if job.name == fetch_current_games.__name__ ]:
+            log.info("fetch_current_games already scheduled - skipping")
+            return
+    except Exception:
+        log.error(traceback.format_exc())
     try:
         await asyncio.sleep(10)
         await fetch_current_games(plugin.bot)
         trigger = IntervalTrigger(minutes=10)
         plugin.bot.scheduler.add_job(fetch_current_games, trigger, args=[plugin.bot])
-        log.debug("scheduled fetch_current_games every ten minutes")
+        log.info("scheduled fetch_current_games every ten minutes")
         # plugin.bot.scheduler.add_job(
         #     log_current_activity,
         #     IntervalTrigger(), 
