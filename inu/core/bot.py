@@ -337,7 +337,7 @@ class Configuration():
 
 
 class MaybeRest:
-    def __init__(self, bot: lightbulb.BotApp):
+    def __init__(self, bot: Inu):
         self.bot = bot
 
     async def fetch_T(self, cache_method: Callable, rest_coro: Callable[[Any], Awaitable[Any]], t_ids: List[Snowflakeish]):
@@ -360,6 +360,15 @@ class MaybeRest:
             t_ids=[guild_id, member_id],
         )
 
+    async def fetch_guilds(self) -> List[hikari.Guild]:
+        
+        return await self.fetch_T(
+            cache_method=self.bot.cache.,
+            rest_coro= self.bot.rest.fetch_guilds,
+            t_ids=[],
+        )
+
+
 class Search:
     bot: Inu
 
@@ -368,7 +377,7 @@ class Search:
 
     async def member(cls, guild_id: int, member_query: str) -> List[hikari.Member]:
         member_query = member_query.strip().lower()
-        members = await cls.bot.rest.fetch_members(guild_id)
+        members = await cls.bot.mrest.fetch_members(guild_id)
         return [
             m for m in members 
             if (
