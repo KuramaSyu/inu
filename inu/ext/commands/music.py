@@ -8,7 +8,8 @@ from typing import (
     List,
     Dict,
     Any,
-    Tuple
+    Tuple,
+    cast
 )
 from xml.etree.ElementInclude import include
 
@@ -34,6 +35,7 @@ from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
 from matplotlib.pyplot import hist
+import yt_dlp
 
 from core import Inu, getLevel
 from utils import Paginator, Colors
@@ -759,7 +761,33 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     """
     searches the query and returns the Track or None
     """
+    ytdl_query = {}
+    is_ytdl = False
     query_information = await music.bot.data.lavalink.auto_search_tracks(query)
+
+    if not query_information.tracks:
+        is_ytdl = True
+
+        def extract() -> Dict[str, Any]:
+            info = ytdl.extract_info(query, download=False)
+            cast(Dict[str, Any], info)
+            return info  # type: ignore
+        loop = asyncio.get_event_loop()
+        ytdl_query = await loop.run_in_executor(None, extract)
+
+        # logging.warning(ytdl_query)
+
+        query_information = await ctx.bot.lavalink.auto_search_tracks(ytdl_query["url"])
+
+    if not query_information.tracks:  # tracks is empty
+        valid = []
+        for i in ytdl_query["formats"]:
+            if not i.get("filesize_approx"):
+                valid.append(i["url"])
+
+        query_information = await ctx.bot.lavalink.auto_search_tracks(valid[-1])
+
+
     track = None
     if not query_information.tracks and not be_quiet:  # tracks is empty
         await ctx.respond("Could not find any video of the search query.")
