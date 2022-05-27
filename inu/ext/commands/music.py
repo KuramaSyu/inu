@@ -1211,7 +1211,7 @@ async def queue(
     
     # music_embed.set_thumbnail(url=f'{video_thumbnail}')
     music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
-    kwarg = {"text": f"{queue or '/'}\n{info}"}
+    kwarg = {"text": f"{queue or '/'}"}
     if create_footer_info:
         last_track: lavasnek_rs.TrackQueue = node.queue[-1]
         requester = music.bot.cache.get_member(ctx.guild_id, last_track.requester)
