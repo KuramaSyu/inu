@@ -361,10 +361,10 @@ class MaybeRest:
         )
 
     async def fetch_guilds(self) -> List[hikari.Guild]:
-        
+
         return await self.fetch_T(
-            cache_method=self.bot.cache.,
-            rest_coro= self.bot.rest.fetch_guilds,
+            cache_method=self.bot.cache.get_available_guilds_view,
+            rest_coro= self.bot.rest.fetch_my_guilds,
             t_ids=[],
         )
 
@@ -389,7 +389,7 @@ class Search:
 
     async def guild(cls, guild_query: str) -> List[hikari.Guild]:
         guild_query = guild_query.lower().strip()
-        guilds = await cls.bot.rest.fetch_my_guilds()
+        guilds = await self.m
         return [
             g for g in guilds 
             if guild_query in str(g.id).lower() or guild_query in str(g.name).lower()
