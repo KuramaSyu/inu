@@ -612,14 +612,14 @@ async def _leave(guild_id: int):
     music.d.music_message[guild_id] = None
 
     
-# @lightbulb.check(lightbulb.guild_only)
+
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("play", "play a matching song to your query", aliases=["pl"])
+@lightbulb.command("pl", "Advanced play features", aliases=["pl"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
-async def play(ctx: context.Context) -> None:
+async def pl(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
     log.debug(music.bot.data.lavalink)
     global first_join
@@ -660,7 +660,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
         await queue(ctx, ctx.guild_id)
 
 
-@play.child
+@pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
@@ -671,7 +671,7 @@ async def now(ctx: Context) -> None:
     await play_at_pos(ctx, 1, ctx.options.query)
     await queue(ctx)
 
-@play.child
+@pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
@@ -681,7 +681,7 @@ async def second(ctx: Context) -> None:
     """Adds a song at the second position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, 2, ctx.options.query)
 
-@play.child
+@pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
@@ -697,6 +697,7 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
+    # move the track to the position and rebind node
     track = node.queue.pop()
     queue = node.queue
     queue.insert(pos, track)
@@ -778,6 +779,15 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     if track is None:
         return None
     return track
+
+@music.command
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.option("query", "the title of the track", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.command("play", "play a song", aliases=["pl"])
+@lightbulb.implements(commands.SlashCommand)
+async def play_normal(ctx: context.Context) -> None:
+    await _play(ctx, ctx.options.query)
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
