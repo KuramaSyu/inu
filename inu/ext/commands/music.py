@@ -48,7 +48,7 @@ log = getLogger(__name__)
 
 
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
-HIKARI_VOICE = False
+HIKARI_VOICE = True
 
 # to fix bug, when join first time, no music
 first_join = True
@@ -641,9 +641,9 @@ async def pl(ctx: context.Context) -> None:
     try:
         music.d.last_context[ctx.guild_id] = ctx
         await _play(ctx, ctx.options.query)
-        #if first_join:
-        #await _fix(ctx)
-        #first_join = False
+        if first_join:
+            await _fix(ctx)
+            first_join = False
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
 
