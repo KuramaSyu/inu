@@ -1,5 +1,6 @@
 import os
 from pickle import HIGHEST_PROTOCOL
+import re
 import traceback
 import typing
 from typing import (
@@ -679,8 +680,8 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True) -> None:
             ctx, 
             ctx.guild_id, 
             force_resend=True,
-            info=f'"{track.info.title}" added from {ctx.author.display_name}'
-            footer_icon=ctx.author.avatar_url
+            create_footer_info=True,
+
         )
 
 
@@ -693,7 +694,6 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True) -> None:
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
     await play_at_pos(ctx, 1, ctx.options.query)
-    await queue(ctx)
 
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
@@ -783,7 +783,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     """
     searches the query and returns the Track or None
     """
-    ytdl_query = {}
+
     query_information = await music.bot.data.lavalink.auto_search_tracks(query)
 
     if not query_information.tracks:
@@ -842,7 +842,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("play", "play a song", aliases=["pl"])
+@lightbulb.command("play", "play a song", aliases=["pl"], auto_defer=True)
 @lightbulb.implements(commands.SlashCommand)
 async def play_normal(ctx: context.Context) -> None:
     await _play(ctx, ctx.options.query)
@@ -1094,7 +1094,7 @@ async def music_search(ctx: context.Context):
     else:
         return await ctx.respond("No matches found")
 
-async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = False, info: str = "", footer_icon: str = ""):
+async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = False, create_footer_info: bool = True, info: str = ""):
     '''
     refreshes the queue of the player
     uses ctx if not None, otherwise it will fetch the last context with the guild_id
@@ -1164,10 +1164,17 @@ async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = 
     
     # music_embed.set_thumbnail(url=f'{video_thumbnail}')
     music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
-    kwarg = {}
-    if footer_icon:
-        kwarg["icon"] = footer_icon
-    music_embed.set_footer(text = f'{queue or "/"}\n{info}', **kwarg)
+    kwarg = {"text": f"{queue or '/'}\n{info}"}
+    if create_footer_info:
+        last_track: lavasnek_rs.TrackQueue = node.queue[-1]
+        requester = music.bot.cache.get_member(ctx.guild_id, last_track.requester)
+        if requester:
+            kwarg["icon"] = f'{requester.avatar_url}'
+            requester_str = f'{requester.display_name}'
+        else:
+            requester_str = last_track.requester
+        kwarg["text"] += f'\n{last_track.track.info.title} added by {requester_str}'
+    music_embed.set_footer(**kwarg)
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
     # send new message and override
