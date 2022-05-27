@@ -756,10 +756,17 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
         return
     # move the track to the position and rebind node
     track = node.queue.pop()
-    queue = node.queue
-    queue.insert(pos, track)
-    node.queue = queue
+    node_queue = node.queue
+    node_queue.insert(pos, track)
+    node.queue = node_queue
     await music.d.lavalink.set_guild_node(ctx.guild_id, node)
+    await queue(
+        ctx, 
+        ctx.guild_id, 
+        force_resend=True, 
+        create_footer_info=True,
+        custom_info=f"{track.track.info.title} added from {ctx.author.display_name}"
+    )
 
 async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
     guild_id = ctx.guild_id
@@ -1127,7 +1134,13 @@ async def music_search(ctx: context.Context):
     else:
         return await ctx.respond("No matches found")
 
-async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = False, create_footer_info: bool = True, info: str = ""):
+async def queue(
+    ctx: Context = None, 
+    guild_id: int = None, 
+    force_resend: bool = False, 
+    create_footer_info: bool = True, 
+    custom_info: str = ""
+):
     '''
     refreshes the queue of the player
     uses ctx if not None, otherwise it will fetch the last context with the guild_id
@@ -1206,7 +1219,10 @@ async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = 
             requester_str = f'{requester.display_name}'
         else:
             requester_str = last_track.requester
-        kwarg["text"] += f'\n{last_track.track.info.title} added by {requester_str}'
+        if custom_info:
+            kwarg["text"] += f"\n{custom_info}"
+        else:
+            kwarg["text"] += f'\n{last_track.track.info.title} added by {requester_str}'
     music_embed.set_footer(**kwarg)
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
