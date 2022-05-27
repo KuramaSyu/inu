@@ -48,7 +48,7 @@ log = getLogger(__name__)
 
 
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
-HIKARI_VOICE = True
+HIKARI_VOICE = False
 
 # to fix bug, when join first time, no music
 first_join = True
