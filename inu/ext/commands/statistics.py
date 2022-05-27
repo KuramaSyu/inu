@@ -314,7 +314,9 @@ async def build_activity_graph(
     if df_timedelta.days > 5:
         resample_delta = timedelta(days=1)
     else:
-        resample_delta = (until - since) / 20 
+        resample_delta: timedelta = (until - since) / 20 
+        if resample_delta.total_seconds() < 60*10:
+            resample_delta = timedelta(minutes=10)
 
     # resampeling dataframe
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
