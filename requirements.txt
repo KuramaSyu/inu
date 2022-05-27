@@ -27,3 +27,4 @@ pytimeparse
 types-pytz
 colormap
 easydev
+youtube-search-python
