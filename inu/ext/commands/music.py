@@ -688,6 +688,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 
     # check for youtube playlist
     if 'youtube' in query and 'playlist?list=' in query:
+        node = await music.d.lavalink.get_guild_node(ctx.guild_id)
         if len(node.queue) < 1:
             prevent_to_queue = True
         await load_yt_playlist(ctx, query, be_quiet)
