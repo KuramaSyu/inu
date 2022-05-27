@@ -74,7 +74,7 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
-        asyncio.create_task(queue(guild_id=event.guild_id))
+        asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None:
             return
@@ -643,13 +643,41 @@ async def pl(ctx: context.Context) -> None:
     try:
         
         await _play(ctx, ctx.options.query)
-        if first_join:
-            await _fix(ctx)
-            first_join = False
+        # if first_join:
+        #     await _fix(ctx)
+        #     first_join = False
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
 
-async def _play(ctx: Context, query: str, be_quiet: bool = True) -> None:
+async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queue: bool = False) -> None:
+    """
+    - Will search the query
+    - if more than one track found, ask which track to use
+    - queue the track(s)
+    - if no track found, tell the user
+    - send queue if not prevented
+
+    Args:
+    -----
+    ctx: lightbulb.Context
+        the context of the command
+    query: str
+        the query to search for
+    be_quiet: bool
+        whether to send messages else than queue or not
+    prevent_to_queue: bool
+        whether to prevent sending the queue
+        - needed when queue have to be called afterwards
+
+    Note
+    ----
+    sending the queue will be automatically prevented, 
+    when only one song is in the node, hence the 
+    track start event will trigger the queue.
+    sending the queue will be also prevented, when a 
+    playlist is added and the playlist is the 
+    first element in the queue.
+    """
     if not ctx.guild_id or not ctx.member:
         return  # just for pylance
     music.d.last_context[ctx.guild_id] = ctx
@@ -660,6 +688,8 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True) -> None:
 
     # check for youtube playlist
     if 'youtube' in query and 'playlist?list=' in query:
+        if len(node.queue) < 1:
+            prevent_to_queue = True
         await load_yt_playlist(ctx, query, be_quiet)
     else:
         if (
@@ -675,7 +705,10 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True) -> None:
     await asyncio.sleep(0.2)
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
 
-    if len(node.queue) > 1:
+    if len(node.queue) in [1, 0]:
+        prevent_to_queue = True
+    
+    if not prevent_to_queue:
         await queue(
             ctx, 
             ctx.guild_id, 
@@ -717,7 +750,7 @@ async def position(ctx: Context) -> None:
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
-    await _play(ctx, query)
+    await _play(ctx, query, prevent_queue=True)
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
