@@ -345,7 +345,7 @@ async def testmodal(ctx: context.Context):
         "Tag", 
         ["Name:", "Value:"], 
         interaction=ctx.interaction,
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],p
+        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
         placeholder_s=[None, "What you will see, when you do /tag get <name>"],
         is_required_s=[True, None],
         pre_value_s=[None, "Well idc"]
