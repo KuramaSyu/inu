@@ -639,7 +639,7 @@ async def pl(ctx: context.Context) -> None:
     log.debug(music.bot.data.lavalink)
     global first_join
     try:
-        music.d.last_context[ctx.guild_id] = ctx
+        
         await _play(ctx, ctx.options.query)
         if first_join:
             await _fix(ctx)
@@ -650,6 +650,7 @@ async def pl(ctx: context.Context) -> None:
 async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
     if not ctx.guild_id or not ctx.member:
         return  # just for pylance
+    music.d.last_context[ctx.guild_id] = ctx
     con = music.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id)
     # Join the user's voice channel if the bot is not in one.
     if not con:
@@ -792,7 +793,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
         #     f.write(f"ytdl_query = {pformat(ytdl_query)}")
         # # logging.warning(ytdl_query)
         log.debug(f"using fallback youtbue search")
-        v = VideosSearch('Final Boss Nitro Fun"', limit = 1)
+        v = VideosSearch(query, limit = 1)
         result = await v.next()
         query_information = await ctx.bot.data.lavalink.auto_search_tracks(
             result["result"][0]["link"]
