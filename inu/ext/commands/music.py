@@ -8,7 +8,8 @@ from typing import (
     List,
     Dict,
     Any,
-    Tuple
+    Tuple,
+    cast
 )
 from xml.etree.ElementInclude import include
 
@@ -34,6 +35,7 @@ from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
 from matplotlib.pyplot import hist
+from youtubesearchpython.__future__ import VideosSearch  # async variant
 
 from core import Inu, getLevel
 from utils import Paginator, Colors
@@ -50,6 +52,19 @@ HIKARI_VOICE = True
 
 # to fix bug, when join first time, no music
 first_join = True
+
+# ytdl_format_options = {
+#     "format": "bestaudio/best",
+#     "restrictfilenames": True,
+#     "noplaylist": True,
+#     "nocheckcertificate": True,
+#     "ignoreerrors": False,
+#     "logtostderr": False,
+#     "quiet": True,
+#     "no_warnings": True,
+#     "default_search": "auto",
+# }
+# ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 class EventHandler:
     """Events from the Lavalink server"""
@@ -612,14 +627,14 @@ async def _leave(guild_id: int):
     music.d.music_message[guild_id] = None
 
     
-# @lightbulb.check(lightbulb.guild_only)
+
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("play", "play a matching song to your query", aliases=["pl"])
+@lightbulb.command("pl", "Advanced play features", aliases=["pl"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
-async def play(ctx: context.Context) -> None:
+async def pl(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
     log.debug(music.bot.data.lavalink)
     global first_join
@@ -660,7 +675,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
         await queue(ctx, ctx.guild_id)
 
 
-@play.child
+@pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
@@ -671,7 +686,7 @@ async def now(ctx: Context) -> None:
     await play_at_pos(ctx, 1, ctx.options.query)
     await queue(ctx)
 
-@play.child
+@pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
@@ -681,7 +696,7 @@ async def second(ctx: Context) -> None:
     """Adds a song at the second position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, 2, ctx.options.query)
 
-@play.child
+@pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
@@ -697,6 +712,7 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
+    # move the track to the position and rebind node
     track = node.queue.pop()
     queue = node.queue
     queue.insert(pos, track)
@@ -758,7 +774,41 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     """
     searches the query and returns the Track or None
     """
+    ytdl_query = {}
     query_information = await music.bot.data.lavalink.auto_search_tracks(query)
+
+    if not query_information.tracks:
+        # is_ytdl = True
+        # def extract() -> Dict[str, Any]:
+        #     log.debug(f"fallback search: {query}")
+        #     info = ytdl.extract_info(query, download=False)
+        #     cast(Dict[str, Any], info)
+        #     log.debug(f"fallback results: {info}")
+        #     return info  # type: ignore
+
+        # loop = asyncio.get_event_loop()
+        # ytdl_query = await loop.run_in_executor(None, extract)
+        # with open("ytdl_query.py", "w") as f:
+        #     f.write(f"ytdl_query = {pformat(ytdl_query)}")
+        # # logging.warning(ytdl_query)
+        log.debug(f"using fallback youtbue search")
+        v = VideosSearch('Final Boss Nitro Fun"', limit = 1)
+        result = await v.next()
+        query_information = await ctx.bot.data.lavalink.auto_search_tracks(
+            result["result"][0]["link"]
+        )
+        
+
+
+    # if not query_information.tracks:  # tracks is empty
+    #     valid = []
+    #     for i in ytdl_query["formats"]:
+    #         if not i.get("filesize_approx"):
+    #             valid.append(i["url"])
+
+    #     query_information = await ctx.bot.data.lavalink.auto_search_tracks(valid[-1])
+
+
     track = None
     if not query_information.tracks and not be_quiet:  # tracks is empty
         await ctx.respond("Could not find any video of the search query.")
@@ -778,6 +828,15 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     if track is None:
         return None
     return track
+
+@music.command
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.option("query", "the title of the track", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.command("play", "play a song", aliases=["pl"])
+@lightbulb.implements(commands.SlashCommand)
+async def play_normal(ctx: context.Context) -> None:
+    await _play(ctx, ctx.options.query)
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
