@@ -27,7 +27,8 @@ import colorlog
 
 
 init()
-
+main_log = logging.getLogger(__name__)
+main_log.setLevel(logging.DEBUG)
 config = ConfigProxy(ConfigType.YAML)
 #print(config.sections)
 
@@ -130,7 +131,7 @@ def getLogger(*names):
     log = logging.getLogger(name)
     level = getLevel(list(name.split(".")))
     log.setLevel(level)
-    #print(log.name, log.level)
+    main_log.debug(f"set level for {name} to {level}")
     return log
 
 def getLevel(name_s: Union[List, str], log4file: bool = False):
