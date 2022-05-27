@@ -345,7 +345,7 @@ async def testmodal(ctx: context.Context):
         "Tag", 
         ["Name:", "Value:"], 
         interaction=ctx.interaction,
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
+        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],p
         placeholder_s=[None, "What you will see, when you do /tag get <name>"],
         is_required_s=[True, None],
         pre_value_s=[None, "Well idc"]
@@ -353,8 +353,19 @@ async def testmodal(ctx: context.Context):
     )
     await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
 
-
-
+@basics.command
+@lightbulb.command("info", "Get information about the user")
+@lightbulb.implements(commands.UserCommand)
+async def user_info(ctx: context.UserContext):
+    embed = hikari.Embed(title=f"About {ctx.author.display_name}", color=Colors.default_color())
+    if ctx.author.username != ctx.author.display_name:
+        embed.add_field(name="Username", value=ctx.author.username)
+    embed.add_field(name="ID", value=str(ctx.author.id))
+    embed.add_field(name="Created at", value=ctx.author.created_at.strftime("%Y-%m-%d %H:%M:%S"))
+    embed.add_field(name="Flags", value=f"{ctx.author.flags}")
+    await ctx.respond(embed=embed)
+    
+    
 
 def load(inu: lightbulb.BotApp):
     global bot
