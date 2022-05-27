@@ -21,7 +21,7 @@ services:
     container_name: lavalink
     build: ./dependencies/fredboat/
     restart: always
-    # image: fredboat/lavalink:master
+    # image: fredboat/lavalink:dev
     # configs:
     # - source: my_config
     #   target: /opt/Lavalink/application.yml
