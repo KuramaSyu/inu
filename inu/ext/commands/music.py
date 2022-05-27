@@ -501,7 +501,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
             music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
             await _leave(guild_id)
             return
-        if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
+        if emoji in ['🔀','🛑','🗑','⏸','▶'] and ctx:
             await queue(ctx)
     except Exception:
         log.error(f"Error reaction_add music:\n{traceback.print_exc()}")
@@ -715,7 +715,6 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             ctx.guild_id, 
             force_resend=True,
             create_footer_info=True,
-
         )
 
 
