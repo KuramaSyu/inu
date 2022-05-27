@@ -12,6 +12,7 @@ from typing import (
     cast
 )
 from xml.etree.ElementInclude import include
+from xxlimited import foo
 
 from lightbulb.commands.slash import SlashCommand
 typing.TYPE_CHECKING
@@ -647,7 +648,7 @@ async def pl(ctx: context.Context) -> None:
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
 
-async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
+async def _play(ctx: Context, query: str, be_quiet: bool = True) -> None:
     if not ctx.guild_id or not ctx.member:
         return  # just for pylance
     music.d.last_context[ctx.guild_id] = ctx
@@ -672,8 +673,15 @@ async def _play(ctx: Context, query: str, be_quiet: bool = False) -> None:
         await load_track(ctx, track, be_quiet)
     await asyncio.sleep(0.2)
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
+
     if len(node.queue) > 1:
-        await queue(ctx, ctx.guild_id)
+        await queue(
+            ctx, 
+            ctx.guild_id, 
+            force_resend=True,
+            info=f'"{track.info.title}" added from {ctx.author.display_name}'
+            footer_icon=ctx.author.avatar_url
+        )
 
 
 @pl.child
@@ -1086,7 +1094,7 @@ async def music_search(ctx: context.Context):
     else:
         return await ctx.respond("No matches found")
 
-async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = False):
+async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = False, info: str = "", footer_icon: str = ""):
     '''
     refreshes the queue of the player
     uses ctx if not None, otherwise it will fetch the last context with the guild_id
@@ -1156,12 +1164,16 @@ async def queue(ctx: Context = None, guild_id: int = None, force_resend: bool = 
     
     # music_embed.set_thumbnail(url=f'{video_thumbnail}')
     music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
-    music_embed.set_footer(text = f'{queue or "/"}')
+    kwarg = {}
+    if footer_icon:
+        kwarg["icon"] = footer_icon
+    music_embed.set_footer(text = f'{queue or "/"}\n{info}', **kwarg)
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
     # send new message and override
     music_msg = music.d.music_message.get(guild_id, None)
     if music_msg is None or force_resend:
+        #await ctx.interaction.execute(embed=music_embed)
         msg_proxy = await ctx.respond(embed=music_embed)
         music.d.music_message[ctx.guild_id] = await msg_proxy.message()
         asyncio.create_task(add_music_reactions(music.d.music_message[guild_id]))
