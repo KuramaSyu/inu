@@ -1137,7 +1137,7 @@ async def music_search(ctx: context.Context):
 async def queue(
     ctx: Context = None, 
     guild_id: int = None, 
-    force_resend: bool = False, 
+    force_resend: bool = False,
     create_footer_info: bool = True, 
     custom_info: str = ""
 ):
@@ -1246,8 +1246,8 @@ async def queue(
             timeout -= 1
             # resend message
             if timeout == 0:
-                msg_proxy = await ctx.respond(embed=music_embed)
-                music.d.music_message[ctx.guild_id] = await msg_proxy.message()
+                msg = await ctx.bot.rest.create_message(ctx.get_channel(), embed=music_embed)
+                music.d.music_message[ctx.guild_id] = msg
                 asyncio.create_task(add_music_reactions(music.d.music_message[ctx.guild_id]))
                 return
     except Exception as e:
