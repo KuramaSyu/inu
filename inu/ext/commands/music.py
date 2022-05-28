@@ -741,7 +741,7 @@ async def second(ctx: Context) -> None:
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.option("at-position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
 @lightbulb.command("pos", "enqueue a title at the beginning of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
@@ -750,7 +750,7 @@ async def position(ctx: Context) -> None:
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
-    await _play(ctx, query, prevent_queue=True)
+    await _play(ctx, query, prevent_to_queue=True)
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
