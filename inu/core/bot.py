@@ -368,6 +368,14 @@ class MaybeRest:
             t_ids=[],
         )
 
+    async def fetch_roles(self, member: hikari.Member) -> List[hikari.Role]:
+
+        return await self.fetch_T(
+            cache_method=member.get_roles,
+            rest_coro= member.fetch_roles,
+            t_ids=[],
+        )
+
 
 class Search:
     bot: Inu
