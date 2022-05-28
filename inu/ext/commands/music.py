@@ -732,7 +732,7 @@ async def now(ctx: Context) -> None:
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("second", "enqueue a title at the beginning of the queue", aliases=["2nd"])
+@lightbulb.command("second", "enqueue a title as the second in the queue", aliases=["2nd"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def second(ctx: Context) -> None:
     """Adds a song at the second position of the queue. So the track will be played soon"""
@@ -743,7 +743,7 @@ async def second(ctx: Context) -> None:
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
-@lightbulb.command("pos", "enqueue a title at the beginning of the queue", aliases=[])
+@lightbulb.command("position", "enqueue a title at a custom position of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def position(ctx: Context) -> None:
     """Adds a song at the <position> position of the queue. So the track will be played soon"""
