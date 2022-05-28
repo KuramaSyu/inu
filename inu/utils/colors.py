@@ -123,7 +123,7 @@ class Colors():
 
 
     @classmethod
-    def default_color(cls, darken_factor: float, as_hex: bool = False):
+    def default_color(cls, darken_factor: float = 0, as_hex: bool = False):
         """
         Args:
         -----
