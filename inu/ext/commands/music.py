@@ -634,7 +634,7 @@ async def _leave(guild_id: int):
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("pl", "Advanced play features", aliases=["pl"])
+@lightbulb.command("play-at-position", "Advanced play features", aliases=["pl"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def pl(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
@@ -722,7 +722,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("now", "enqueue a title at the beginning of the queue", aliases=["1st"])
+@lightbulb.command("next", "enqueue a title at the beginning of the queue", aliases=["1st"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
@@ -741,7 +741,7 @@ async def second(ctx: Context) -> None:
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("at-position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
 @lightbulb.command("pos", "enqueue a title at the beginning of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
