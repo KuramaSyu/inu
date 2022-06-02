@@ -501,7 +501,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
             music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
             await _leave(guild_id)
             return
-        if emoji in ['🔀','🛑','🗑','⏸','▶','4️⃣','3️⃣','2️⃣','1️⃣'] and ctx:
+        if emoji in ['🔀','🛑','🗑','⏸','▶'] and ctx:
             await queue(ctx)
     except Exception:
         log.error(f"Error reaction_add music:\n{traceback.print_exc()}")
@@ -634,7 +634,7 @@ async def _leave(guild_id: int):
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("pl", "Advanced play features", aliases=["pl"])
+@lightbulb.command("play-at-position", "Advanced play features", aliases=["pl"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def pl(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
@@ -688,6 +688,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 
     # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
+        node = await music.d.lavalink.get_guild_node(ctx.guild_id)
         if len(node.queue) < 1:
             prevent_to_queue = True
         await load_yt_playlist(ctx, query, be_quiet)
@@ -716,7 +717,6 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             ctx.guild_id, 
             force_resend=True,
             create_footer_info=True,
-
         )
 
 
@@ -724,7 +724,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("now", "enqueue a title at the beginning of the queue", aliases=["1st"])
+@lightbulb.command("next", "enqueue a title at the beginning of the queue", aliases=["1st"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
@@ -734,7 +734,7 @@ async def now(ctx: Context) -> None:
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.command("second", "enqueue a title at the beginning of the queue", aliases=["2nd"])
+@lightbulb.command("second", "enqueue a title as the second in the queue", aliases=["2nd"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def second(ctx: Context) -> None:
     """Adds a song at the second position of the queue. So the track will be played soon"""
@@ -745,14 +745,14 @@ async def second(ctx: Context) -> None:
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
-@lightbulb.command("pos", "enqueue a title at the beginning of the queue", aliases=[])
+@lightbulb.command("position", "enqueue a title at a custom position of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def position(ctx: Context) -> None:
     """Adds a song at the <position> position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
-    await _play(ctx, query, prevent_queue=True)
+    await _play(ctx, query, prevent_to_queue=True)
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
@@ -1136,7 +1136,7 @@ async def music_search(ctx: context.Context):
 async def queue(
     ctx: Context = None, 
     guild_id: int = None, 
-    force_resend: bool = False, 
+    force_resend: bool = False,
     create_footer_info: bool = True, 
     custom_info: str = ""
 ):
@@ -1209,7 +1209,7 @@ async def queue(
     
     # music_embed.set_thumbnail(url=f'{video_thumbnail}')
     music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
-    kwarg = {"text": f"{queue or '/'}\n{info}"}
+    kwarg = {"text": f"{queue or '/'}"}
     if create_footer_info:
         last_track: lavasnek_rs.TrackQueue = node.queue[-1]
         requester = music.bot.cache.get_member(ctx.guild_id, last_track.requester)
@@ -1245,8 +1245,8 @@ async def queue(
             timeout -= 1
             # resend message
             if timeout == 0:
-                msg_proxy = await ctx.respond(embed=music_embed)
-                music.d.music_message[ctx.guild_id] = await msg_proxy.message()
+                msg = await ctx.bot.rest.create_message(ctx.get_channel(), embed=music_embed)
+                music.d.music_message[ctx.guild_id] = msg
                 asyncio.create_task(add_music_reactions(music.d.music_message[ctx.guild_id]))
                 return
     except Exception as e:

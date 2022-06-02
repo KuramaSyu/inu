@@ -136,11 +136,11 @@ async def application(ctx: Context):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+@lightbulb.add_cooldown(3*60, 5, lightbulb.UserBucket)
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="30 days"
+    default="10 days"
 )
 @lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
@@ -308,17 +308,20 @@ async def build_activity_graph(
     )
     df.set_index(keys="r_timestamp", inplace=True)
 
-    since = df.index[0]
-    until = df.index[-1]
+    since: datetime = df.index[0]
+    until: datetime = df.index[-1]
     df_timedelta: timedelta = until - since
-    if df_timedelta.days > 5:
+    log.debug(f"timedelta for graph: {timedelta}; sicne: {since}; until: {until}")
+    if df_timedelta >= timedelta(days=5):
         resample_delta = timedelta(days=1)
     else:
-        resample_delta: timedelta = (until - since) / 20 
+        resample_delta = df_timedelta / 20 
         if resample_delta.total_seconds() < 60*10:
             resample_delta = timedelta(minutes=10)
 
     # resampeling dataframe
+    # group by game 
+    # and resample hours to `resample_delta` and sum them up
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
 

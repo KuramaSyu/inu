@@ -357,12 +357,30 @@ async def testmodal(ctx: context.Context):
 @lightbulb.command("info", "Get information about the user")
 @lightbulb.implements(commands.UserCommand)
 async def user_info(ctx: context.UserContext):
-    embed = hikari.Embed(title=f"About {ctx.author.display_name}", color=Colors.default_color())
-    if ctx.author.username != ctx.author.display_name:
-        embed.add_field(name="Username", value=ctx.author.username)
-    embed.add_field(name="ID", value=str(ctx.author.id))
-    embed.add_field(name="Created at", value=ctx.author.created_at.strftime("%Y-%m-%d %H:%M:%S"))
-    embed.add_field(name="Flags", value=f"{ctx.author.flags}")
+    bot: Inu = ctx.bot
+    author: hikari.Member = ctx.options.target
+    embed = hikari.Embed(title=f"About {author.display_name}", color=Colors.default_color())
+    embed.add_field(name="Full name", value=str(author), inline=True)
+    embed.add_field(name="ID", value=f"`{author.id}`")
+    embed.add_field(name="Created at", value=f"<t:{author.created_at.timestamp():.0f}:F>", inline=True)
+    embed.add_field(name="Flags", value=f"{author.flags}", inline=True)
+    embed.add_field(name="Joined here", value=f"<t:{author.joined_at.timestamp():.0f}:F>", inline=True)
+    embed.add_field(name="Roles", value=f"{', '.join([r.mention for r in await bot.mrest.fetch_roles(author)])}", inline=True)
+    embed.add_field(
+        name=f"About {author.get_guild().name}", 
+        value=(
+            f"**ID**: `{author.get_guild().id}`\n"
+            f"**Owner**: {(await ctx.bot.mrest.fetch_member(author.guild_id, author.get_guild().owner_id)).display_name}\n"
+            f"**Created at**: <t:{author.get_guild().created_at.timestamp():.0f}:F>\n"
+            f"**Members**: {len(author.get_guild().get_members())}\n"
+            f"**Channels**: {len(author.get_guild().get_channels())}\n"
+            f"**Roles**: {len(author.get_guild().get_roles())}\n"
+            f"**Emojis**: {len(author.get_guild().get_emojis())}\n"
+        ),
+        inline=True
+    )
+    embed.set_thumbnail(author.avatar_url)
+
     await ctx.respond(embed=embed)
     
     
