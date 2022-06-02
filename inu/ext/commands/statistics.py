@@ -136,7 +136,7 @@ async def application(ctx: Context):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+@lightbulb.add_cooldown(3*60, 5, lightbulb.UserBucket)
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
