@@ -140,7 +140,7 @@ async def application(ctx: Context):
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="30 days"
+    default="10 days"
 )
 @lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
