@@ -18,7 +18,7 @@ import asyncpg
 
 from core.bot import Inu
 from core import Database, Table
-from ..vote import PollVote
+from ..poll import Poll
 
 from core import getLogger, Table
 
@@ -31,16 +31,16 @@ POLL_SYNC_TIME = 5*60
 class PollManager:
     bot: Inu
     db: Database
-    active_polls: Set[PollVote]
+    active_polls: Set[Poll]
     polls: Table
 
     @classmethod
-    async def remove_poll(cls, poll: PollVote):
+    async def remove_poll(cls, poll: Poll):
         """remove poll from db"""
         ...
     
     @classmethod
-    async def add_poll(cls, poll: PollVote):
+    async def add_poll(cls, poll: Poll):
         """add poll to db"""
         #cls.polls.upsert(which_columns, values)
         ...

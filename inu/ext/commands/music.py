@@ -13,7 +13,6 @@ from typing import (
     cast
 )
 from xml.etree.ElementInclude import include
-from xxlimited import foo
 
 from lightbulb.commands.slash import SlashCommand
 typing.TYPE_CHECKING
