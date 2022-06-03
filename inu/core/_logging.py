@@ -27,7 +27,7 @@ import colorlog
 
 
 init()
-main_log = logging.getLogger(__name__)
+main_log = logging.getLogger("core.logging")
 main_log.setLevel(logging.DEBUG)
 config = ConfigProxy(ConfigType.YAML)
 #print(config.sections)
@@ -116,6 +116,7 @@ class LoggingHandler(logging.Logger):
                 return color
         return color_patterns[""]
 
+logs = set()
 def getLogger(*names):
     """
     returns the logger and the level from the corresponding config.ini file
@@ -131,7 +132,9 @@ def getLogger(*names):
     log = logging.getLogger(name)
     level = getLevel(list(name.split(".")))
     log.setLevel(level)
-    main_log.debug(f"set level for {name} to {level}")
+    if name not in logs:
+        logs.add(name)
+        main_log.debug(f"set level for {name} to {level}")
     return log
 
 def getLevel(name_s: Union[List, str], log4file: bool = False):
@@ -160,5 +163,7 @@ colorlog.getLogger = getLogger
 log = colorlog.getLogger("colorlog")
 log.setLevel("INFO")
 log.info("changed colorlog getLogger method")
+main_log = colorlog.getLogger("colorlog")
+main_log.setLevel("DEBUG")
 # logging.getLogger = getLogger
 # log.info("changed logging.getLogger method")

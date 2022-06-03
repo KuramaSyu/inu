@@ -23,6 +23,7 @@ from core import getLogger
 log = getLogger(__name__)
 conf = ConfigProxy(ConfigType.YAML)
 table_logging = conf.db.SQL_logging
+log.info(f"DB table DEBUG logging: {table_logging}")
 
 def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
@@ -154,10 +155,12 @@ class KeyValueDB:
 
 
 class Table():
+    do_log = None
     def __init__(self, table_name: str, debug_log: bool = table_logging):
         self.name = table_name
         self.db = Database()
-        self.do_log = debug_log
+        if not self.do_log:
+            self.__class__.do_log = self.db.bot.conf.db.SQL_logging
         self._executed_sql = ""
         self._as_dataframe: bool = False
 

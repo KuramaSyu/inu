@@ -686,13 +686,15 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     if not con:
         await _join(ctx)
 
-    # check for youtube playlist
+    # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
         node = await music.d.lavalink.get_guild_node(ctx.guild_id)
         if len(node.queue) < 1:
             prevent_to_queue = True
         await load_yt_playlist(ctx, query, be_quiet)
+    # not a youtube playlist -> something else
     else:
+        # -> track from a playlist was added -> remove playlist info
         if (
             "watch?v=" in query
             and "youtube" in query
@@ -701,7 +703,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             query = YouTubeHelper.remove_playlist_info(query)
         track = await search_track(ctx, query, be_quiet)
         if track is None:
-            return
+            return await ctx.respond(f"I only found a lot of empty space for `{query}`")
         await load_track(ctx, track, be_quiet)
     await asyncio.sleep(0.2)
     node = await music.d.lavalink.get_guild_node(ctx.guild_id)
@@ -843,9 +845,12 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
         log.debug(f"using fallback youtbue search")
         v = VideosSearch(query, limit = 1)
         result = await v.next()
-        query_information = await ctx.bot.data.lavalink.auto_search_tracks(
-            result["result"][0]["link"]
-        )
+        try:
+            query_information = await ctx.bot.data.lavalink.auto_search_tracks(
+                result["result"][0]["link"]
+            )
+        except IndexError:
+            return None
         
 
 
@@ -857,17 +862,11 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
 
     #     query_information = await ctx.bot.data.lavalink.auto_search_tracks(valid[-1])
 
-
-    track = None
-    if not query_information.tracks and not be_quiet:  # tracks is empty
-        await ctx.respond("Could not find any video of the search query.")
-        return None
-
     if len(query_information.tracks) > 1:
         try:
             track = await music.d.interactive.ask_for_song(ctx, query, query_information=query_information)
             if track is None:
-                return
+                return None
         except Exception:
             music.d.log.error(traceback.print_exc())
 
