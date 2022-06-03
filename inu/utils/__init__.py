@@ -5,7 +5,7 @@ from .language import Human, Multiple
 from .string_calculator import NumericStringParser, calc
 
 from .grid import Grid
-from .vote import *
+from .poll import *
 from .rest import *
 from .db import *
 from .logger import *
