@@ -40,7 +40,7 @@ import pandas as pd
 import seaborn as sn
 import mplcyberpunk
 from pandas.plotting import register_matplotlib_converters
-from matplotlib.dates import DateFormatter
+from matplotlib.dates import DateFormatter, ConciseDateFormatter
 
 
 from utils import (
@@ -140,7 +140,7 @@ async def application(ctx: Context):
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="10 days"
+    default="30 days"
 )
 @lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
@@ -157,17 +157,17 @@ async def week_activity(ctx: Context):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
-@lightbulb.option(
-    "time", 
-    "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="30 days"
-)
+@lightbulb.add_cooldown(3*60, 5, lightbulb.UserBucket)
 @lightbulb.option(
     "apps", 
     "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
     default=None,
     modifier=OM.CONSUME_REST,
+)
+@lightbulb.option(
+    "time", 
+    "The time you want to get stats for - e.g. 30 days, 3 hours",
+    default="9 days"
 )
 @lightbulb.command("current-games", "Shows, which games are played in which guild", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
@@ -324,6 +324,8 @@ async def build_activity_graph(
     # and resample hours to `resample_delta` and sum them up
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
+    log.debug(df_summarized.head())
+    log.debug(df_summarized.dtypes)
 
     # style preparations
     color_paletes = ["magma_r", "rocket_r", "mako_r"]
@@ -367,10 +369,30 @@ async def build_activity_graph(
 
 
 async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[BytesIO, Dataset]:
-    df = await CurrentGamesManager.fetch_total_activity_per_day(
+    df: pd.DataFrame = await CurrentGamesManager.fetch_total_activity_per_day(
         guild_id,
         datetime.now() - since
     )
+
+    rolling_mean_days = 3
+    mean_hours = df["hours"].median()
+    
+    # mean hours total
+    df['hours_mean'] = mean_hours
+
+    # mean hours per <rolling_mean_days>
+    df['rolling mean hours'] = df['hours'].rolling(rolling_mean_days).mean()
+
+    # fill in NaN values with total mean
+    df['rolling mean hours'] = df['rolling mean hours'].fillna(mean_hours)
+
+    # melt dataframe, that seaplot can plot all lines together
+    df = df.melt(id_vars =['datetime'], value_vars =['hours_mean', 'hours', 'rolling mean hours'], var_name ='line_kind')
+
+    # sort by datetime column
+    df.sort_values(by='datetime', inplace=True)
+
+    # style preparations
     color_paletes = ["magma_r", "rocket_r", "mako_r"]
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
@@ -381,22 +403,25 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
     fig.set_tight_layout(True)
     sn.despine(offset=20)
     picture_buffer = BytesIO()
-    ax = sn.barplot(
-        x = 'date', 
-        y = 'hours', 
+
+    ax = sn.lineplot(
+        x = "datetime", 
+        y = 'value', 
         data = df,
         palette = random.choice(color_paletes),
-        ci = 'sd',   
+        # ci = 'sd',   
         ax=ax1,
+        hue="line_kind",
+        legend=["total mean", "hours", f"mean per {rolling_mean_days} days"]
     )
 
+    # set X labels and titles and apply effects
     ax.set_xticklabels(ax.get_xticklabels(),rotation = 45)
     mplcyberpunk.add_glow_effects(ax=ax)
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
     date_format = "%a %d.%m"
-    tz = await TimezoneManager.fetch_timezone(guild_or_author_id=guild_id)
-    date_form = DateFormatter(date_format, tz=tz)
+    date_form = DateFormatter(date_format)
     ax.xaxis.set_major_formatter(date_form)
     
     # save graph
