@@ -288,11 +288,11 @@ class CurrentGamesManager:
         """
 
         sql = """
-        SELECT date_trunc('day', timestamp) AS date, SUM(user_amount)/6 AS hours\n
+        SELECT date_trunc('day', timestamp)::TIMESTAMP WITH TIME ZONE AS datetime, SUM(user_amount)/6 AS hours\n
         FROM current_games\n
         WHERE guild_id = $1 AND timestamp > $2\n
-        GROUP BY date \n
-        ORDER BY date ASC
+        GROUP BY datetime \n
+        ORDER BY datetime ASC
         """
         table = Table("current_games")
         table.return_as_dataframe(True)
