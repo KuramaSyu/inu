@@ -76,16 +76,14 @@ async def load_tasks(event: ShardReadyEvent):
     except Exception:
         log.error(traceback.format_exc())
     try:
-        await asyncio.sleep(10)
+        # sleep until its XX:X5
+        now = datetime.now()
+        seconds_until_min_is_5 = (5 - now.minute % 5) * 60 - now.second
+        await asyncio.sleep(seconds_until_min_is_5)
         await fetch_current_games(plugin.bot)
         trigger = IntervalTrigger(minutes=10)
         plugin.bot.scheduler.add_job(fetch_current_games, trigger, args=[plugin.bot])
         log.info("scheduled fetch_current_games every ten minutes")
-        # plugin.bot.scheduler.add_job(
-        #     log_current_activity,
-        #     IntervalTrigger(), 
-        #     args=[plugin.bot]
-        # )
     except Exception:
         log.critical(traceback.format_exc())
 
