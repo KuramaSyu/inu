@@ -371,26 +371,26 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
         datetime.now() - since
     )
 
-    rolling_mean_days = 3
+    #rolling_mean_days = 3
     mean_hours = df["hours"].median()
     
     # mean hours total
-    df['hours_mean'] = mean_hours
+    df['mean'] = mean_hours
 
-    # mean hours per <rolling_mean_days>
-    df['rolling mean hours'] = df['hours'].rolling(rolling_mean_days).mean()
+    # # mean hours per <rolling_mean_days>
+    # df['rolling mean hours'] = df['hours'].rolling(rolling_mean_days).mean()
 
-    # fill in NaN values with total mean
-    df['rolling mean hours'] = df['rolling mean hours'].fillna(mean_hours)
+    # # fill in NaN values with total mean
+    # df['rolling mean hours'] = df['rolling mean hours'].fillna(mean_hours)
 
     # melt dataframe, that seaplot can plot all lines together
-    df = df.melt(id_vars =['datetime'], value_vars =['hours_mean', 'hours', 'rolling mean hours'], var_name ='line_kind')
+    df = df.melt(id_vars =['datetime'], value_vars =['mean', 'hours'], var_name ='line kind')
 
     # sort by datetime column
     df.sort_values(by='datetime', inplace=True)
 
     # style preparations
-    color_paletes = ["magma_r", "rocket_r", "mako_r"]
+    color_paletes = ["magma", "rocket", "mako"]
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
     sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
@@ -408,8 +408,8 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
         palette = random.choice(color_paletes),
         # ci = 'sd',   
         ax=ax1,
-        hue="line_kind",
-        legend=["total mean", "hours", f"mean per {rolling_mean_days} days"]
+        hue="line kind",
+        legend="brief",
     )
 
     # set X labels and titles and apply effects
