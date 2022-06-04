@@ -311,7 +311,6 @@ async def build_activity_graph(
     since: datetime = df.index[0]
     until: datetime = df.index[-1]
     df_timedelta: timedelta = until - since
-    log.debug(f"timedelta for graph: {timedelta}; sicne: {since}; until: {until}")
     if df_timedelta >= timedelta(days=5):
         resample_delta = timedelta(days=1)
     else:
@@ -324,8 +323,6 @@ async def build_activity_graph(
     # and resample hours to `resample_delta` and sum them up
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
-    log.debug(df_summarized.head())
-    log.debug(df_summarized.dtypes)
 
     # style preparations
     color_paletes = ["magma_r", "rocket_r", "mako_r"]

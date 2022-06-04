@@ -204,7 +204,6 @@ class Table():
                     columns = [k for k in return_value.keys()]
                 else:
                     raise TypeError(f"{type(return_value)} is not supported. Only list and dict can be converted to dataframe.")
-                log.debug(return_value)
                 return_value = pd.DataFrame(data=return_value, columns=columns)
             return return_value
         return wrapper
