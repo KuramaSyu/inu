@@ -159,8 +159,9 @@ class Table():
     def __init__(self, table_name: str, debug_log: bool = table_logging):
         self.name = table_name
         self.db = Database()
-        if not self.do_log:
+        if self.do_log is None:
             self.__class__.do_log = self.db.bot.conf.db.SQL_logging
+            log.info(f"set debug table logging to: {self.do_log}")
         self._executed_sql = ""
         self._as_dataframe: bool = False
 
@@ -203,6 +204,7 @@ class Table():
                     columns = [k for k in return_value.keys()]
                 else:
                     raise TypeError(f"{type(return_value)} is not supported. Only list and dict can be converted to dataframe.")
+                log.debug(return_value)
                 return_value = pd.DataFrame(data=return_value, columns=columns)
             return return_value
         return wrapper
