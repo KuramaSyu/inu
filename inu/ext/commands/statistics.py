@@ -310,6 +310,7 @@ async def build_activity_graph(
 
     since: datetime = df.index[0]
     until: datetime = df.index[-1]
+    log.debug(f"since: {str(since)}, until: {str(until)}")
     df_timedelta: timedelta = until - since
     if df_timedelta >= timedelta(days=5):
         resample_delta = timedelta(days=1)
