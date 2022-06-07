@@ -53,15 +53,15 @@ class BaseListener(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def subscribe():
+    def subscribe(self):
         pass
     
     @abstractmethod
-    def unsubscribe():
+    def unsubscribe(self):
         pass
 
     @abstractmethod
-    async def notify():
+    async def notify(self):
         pass
 
 
@@ -120,7 +120,7 @@ class EventListener(BaseListener):
             return
         for observer in self._observers[str(type(event))]:
             log.debug(f"listener pag: {self._pag.count} | notify observer with id {observer.paginator.count} | {observer.paginator._message.id} | {observer.paginator}")
-            await observer.on_event(event)
+            asyncio.create_task(observer.on_event(event)) 
 
 def listener(event: Any):
     """A decorator to add listeners to a paginator"""
