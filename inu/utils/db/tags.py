@@ -365,6 +365,7 @@ class TagManager():
             WHERE tag_id = $1
             """
         # guild_id = author.guild_id if isinstance(author, hikari.Member) else None
+        guild_ids = guild_ids or [0]
         for guild_id in guild_ids:
             await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(sql, tag_id)
