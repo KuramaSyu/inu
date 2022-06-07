@@ -127,8 +127,8 @@ class Poll(AbstractPoll):
     
     Members:
     -------
-    self._poll : Dict[str, List[int]]
-        Mapping from option identifier to a List with every user voted for that point
+    self._poll : Dict[str, Set[int]]
+        Mapping from option identifier to a Set with every user id voted for that point
     """
     storage: dict
     options: Dict[str, Any]
@@ -163,7 +163,6 @@ class Poll(AbstractPoll):
         self._anomymous = anonymous
         self._active_until = active_until
         self._custom_id = custom_id
-        self._polls
         # f"{int(time.time)}{ctx.author.id}{ctx.guild_id}"
 
     @property
