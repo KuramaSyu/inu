@@ -41,7 +41,7 @@ import seaborn as sn
 import mplcyberpunk
 from pandas.plotting import register_matplotlib_converters
 from matplotlib.dates import DateFormatter, ConciseDateFormatter
-
+import matplotlib.ticker as plticker 
 
 from utils import (
     Colors, 
@@ -136,11 +136,11 @@ async def application(ctx: Context):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(3*60, 5, lightbulb.UserBucket)
+@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket)
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="30 days"
+    default="10 days"
 )
 @lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
@@ -157,7 +157,7 @@ async def week_activity(ctx: Context):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(3*60, 5, lightbulb.UserBucket)
+@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket)
 @lightbulb.option(
     "apps", 
     "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
@@ -308,10 +308,11 @@ async def build_activity_graph(
     )
     df.set_index(keys="r_timestamp", inplace=True)
 
-    since: datetime = df.index[0]
-    until: datetime = df.index[-1]
-    log.debug(f"since: {str(since)}, until: {str(until)}")
+    since: datetime = df.index.min()
+    until: datetime = df.index.max()
+    # log.debug(f"since: {str(since)}, until: {str(until)}\n{df.head(10)}\n{df.tail(10)}")
     df_timedelta: timedelta = until - since
+    # log.debug(f"{df_timedelta=}")
     if df_timedelta >= timedelta(days=5):
         resample_delta = timedelta(days=1)
     else:
@@ -326,7 +327,7 @@ async def build_activity_graph(
     df_summarized = activity_series.to_frame().reset_index()
 
     # style preparations
-    color_paletes = ["magma_r", "rocket_r", "mako_r"]
+    color_paletes = ["magma_r", "rocket_r", "mako_r"] #  , None, "Pastel1", "Spectral", "Set3", "Set2", "Paired", 
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
     sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
@@ -389,6 +390,7 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
 
     # sort by datetime column
     df.sort_values(by='datetime', inplace=True)
+    df_dt_range = df['datetime'].max() - df['datetime'].min()
 
     # style preparations
     color_paletes = ["magma", "rocket", "mako"]
@@ -414,6 +416,14 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
     )
 
     # set X labels and titles and apply effects
+    if df_dt_range <= timedelta(days=20):
+        loc = plticker.MultipleLocator(base=1.0) # this locator puts ticks at regular intervals
+    elif df_dt_range <= timedelta(days=40):
+        loc = plticker.MultipleLocator(base=2.0)
+    else:
+        loc = None
+    if loc:
+        ax.xaxis.set_major_locator(loc)
     ax.set_xticklabels(ax.get_xticklabels(),rotation = 45)
     mplcyberpunk.add_glow_effects(ax=ax)
     ax.set_ylabel("Hours")
