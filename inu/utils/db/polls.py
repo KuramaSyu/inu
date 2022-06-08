@@ -31,14 +31,12 @@ class PollManager:
     bot: Inu
     db: Database
     active_polls: Set["Poll"]
-    table: Table
 
     @classmethod
     async def init_bot(cls, bot: Inu):
         cls.bot = bot
         cls.db = bot.db
         cls.active_polls = set()
-        cls.table = cls.db.table("polls")
         
         # sync polls from db
 
