@@ -200,7 +200,7 @@ class CurrentGamesManager:
         cls,
         guild_id: int,
         since: datetime,
-        activity_filter: List[str] = [],
+        activity_filter: Optional[List[str]] = None,
     ) -> Dataset["index": int, "r_timestamp": datetime, "game": str, "hours": int]:
         """
         fetches activies from a guild
