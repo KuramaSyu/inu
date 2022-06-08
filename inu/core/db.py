@@ -210,8 +210,13 @@ class Table():
 
 
     @logging()
-    @formatter
-    async def insert(self, which_columns: List[str], values: List, returning: str = "*") -> Optional[asyncpg.Record]:
+    async def insert(
+        self, 
+        which_columns: List[str], 
+        values: List, 
+        returning: str = "*"
+    ) -> Optional[asyncpg.Record]:
+        """insert <`values`> into <`wihich columns`> """
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
             f"INSERT INTO {self.name} ({', '.join(which_columns)})"
