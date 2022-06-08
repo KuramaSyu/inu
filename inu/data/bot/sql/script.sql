@@ -108,7 +108,9 @@ CREATE TABLE IF NOT EXISTS polls (
     creator_id BIGINT NOT NULL,
     title VARCHAR(255),
     "description" VARCHAR(2048),
+    starts TIMESTAMP,
     expires TIMESTAMP NOT NULL,
+    "anonymous" BOOLEAN NOT NULL,
     "type" VARCHAR(20) NOT NULL
 );
 
