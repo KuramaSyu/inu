@@ -9,8 +9,10 @@ import asyncio
 import hikari
 import lightbulb
 
-from .db.polls import PollManager
+from utils.db import PollManager
 from core import Table
+
+
 
 
 
@@ -133,9 +135,10 @@ class Poll(AbstractPoll):
     -------
     self._poll : Dict[str, Set[int]]
         Mapping from option identifier to a Set with every user id voted for that point
+    self._options : Dict[str, str]
+        Mapping from name (...letter_x) to description what the user has entered
     """
-    storage: dict
-    options: Dict[str, Any]
+    _options: Dict[str, str]
     _guild_id: int
     _message_id: int
     _channel_id: int
@@ -143,8 +146,8 @@ class Poll(AbstractPoll):
 
     def __init__(
         self, 
-        options: Dict[str, str],
-        active_until: datetime,
+        options: List[str],
+        active_until: timedelta,
         anonymous: bool = True,
         title: str = "",
         description: str = "",
@@ -163,16 +166,20 @@ class Poll(AbstractPoll):
             Per default empty
         
         """
-        self._poll: Dict[str, List[int]] = {k: [] for k in options.keys()}
-        self._options = options
+        letter_emojis = [f':regional_indicator_{l}:' for l in 'abcdefghijklmnop']
+        self._poll: Dict[str, List[int]] = {letter_emojis[k]: [] for k in range(len(options))}
+        self._options = {letter_emojis[i]: v for i, v in enumerate(options)}
         self._title = title
         self._description = description
-        self._anomymous = anonymous
-        self._active_until = active_until
+        self._anonymous = anonymous
+        self._active_until: datetime = active_until + datetime.now()
         self._id = None
         self._type = "poll"
         self._option_ids: List[int] = []
         # f"{int(time.time)}{ctx.author.id}{ctx.guild_id}"
+    @property
+    def anonymous(self) -> bool:
+        return self._anonymous
 
     @property
     def channel_id(self) -> int:
@@ -220,9 +227,10 @@ class Poll(AbstractPoll):
         embed = hikari.Embed(title=self._title)
         if self._description:
             embed.description = self._description
-        description += "\n"
+        embed.description += "\n"
         for o, d in self._options.items():
-            description += f"**{o}** = {d}\n"   
+            if d:
+                embed.description += f"**{o}** = {d}\n"   
         if self.anonymous:
             vote_result = ""
             for o, o_votes in self._poll.items():
@@ -250,7 +258,10 @@ class Poll(AbstractPoll):
         returns a string with len <str_len> which displays the poll percentage with terminal symbols
         """
         # █ ░
-        option_perc = float(len(self._poll[option_key]) / self.total_votes)
+        try:
+            option_perc = float(len(self._poll[option_key]) / self.total_votes)
+        except ZeroDivisionError:
+            option_perc = 0
         option_filled_blocks = int(round(option_perc * str_len, 0))
         print(option_perc)
         return f"{option_filled_blocks * '█'}{int(str_len - option_filled_blocks) * '░'}"
@@ -300,13 +311,13 @@ class Poll(AbstractPoll):
     async def from_record(cls, poll_record: Dict[str, Any]) -> "Poll":
         
         self = cls(
-            options={},
+            options=[],
             active_until=poll_record["active_until"],
         )
 
         option_table = Table("poll_options")
         vote_table = Table("poll_votes")
-        options = {}
+        options = []
         option_ids = []
         polls: Dict[str, List[int]] = {}
         poll_id = poll_record['poll_id']
@@ -322,7 +333,7 @@ class Poll(AbstractPoll):
             WHERE poll_id = {poll_id}
             """
         ):
-            options[option_record['name']] = option_record['description']
+            options.append(option_record['description'])
             option_ids.append(option_record['option_id'])
         
         # fetch votes
@@ -338,6 +349,7 @@ class Poll(AbstractPoll):
             else:
                 polls[vote_record['option_id']] = [vote_record['user_id']]
 
+        # create class
         self = cls(
             options=options,
             active_until=poll_record["active_until"],
@@ -363,6 +375,7 @@ class Poll(AbstractPoll):
         amount: int,
         option: str,
     ):
+        """Adds a vote, syncs it to db and updates the poll message"""
         old_vote = self.add_vote(user_id, amount, option)
         if old_vote and self.needs_to_sync:
             await self._sync_vote_to_db(user_id=user_id, option_id=old_vote[1], remove=True)
@@ -387,7 +400,17 @@ class Poll(AbstractPoll):
 
 
     async def start(self, ctx: lightbulb.Context):
+        letter_emojis = [l for l in 
+            [
+                "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", 
+                "🇭", "", "🇯", "🇰", "🇱", "🇲", "🇳", 
+                "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", 
+                "🇻", "🇼", "🇽", "🇾", "🇿"
+            ]
+        ]
         self._message = await (await ctx.respond(embed=self.embed)).message()
+        for i in range(len(self._options)):
+            await self._message.add_reaction(letter_emojis[i])
         self._channel_id = ctx.channel_id
         self._guild_id = ctx.guild_id  # type: ignore
         self._creator_id = ctx.author.id
@@ -495,20 +518,20 @@ class Poll(AbstractPoll):
   
         
 
-if __name__ == "__main__":
-    poll = Poll(
-        options={"A": "yes", "B": "no", "C": "maybe"},
-        active_until=datetime.now() + timedelta(days=1),
-        title="Do you smoke?",
-    )
-    poll.add_vote(2, 1, "A")
-    poll.add_vote(3, 1, "A")
-    poll.add_vote(5, 1, "A")
-    poll.add_vote(7, 1, "B")
-    poll.add_vote(6, 1, "B")
-    poll.add_vote(4, 1, "C")
-    poll.add_vote(5, 1, "B")
-    print(poll)
+# if __name__ == "__main__":
+#     poll = Poll(
+#         options={"A": "yes", "B": "no", "C": "maybe"},
+#         active_until=datetime.now() + timedelta(days=1),
+#         title="Do you smoke?",
+#     )
+#     poll.add_vote(2, 1, "A")
+#     poll.add_vote(3, 1, "A")
+#     poll.add_vote(5, 1, "A")
+#     poll.add_vote(7, 1, "B")
+#     poll.add_vote(6, 1, "B")
+#     poll.add_vote(4, 1, "C")
+#     poll.add_vote(5, 1, "B")
+#     print(poll)
 
 
 
