@@ -1,3 +1,4 @@
+from __future__ import annotations
 import traceback
 from typing import *
 import json
@@ -17,9 +18,10 @@ import asyncpg
 
 from core.bot import Inu
 from core import Database, Table
-#from ..poll import Poll
-
 from core import getLogger, Table
+
+if TYPE_CHECKING:
+    from utils import Poll
 
 log = getLogger(__name__)
 
@@ -30,38 +32,40 @@ POLL_SYNC_TIME = 5*60
 class PollManager:
     bot: Inu
     db: Database
-    active_polls: Set["Poll"]
+    active_polls: Set[Poll] = set()
 
     @classmethod
     async def init_bot(cls, bot: Inu):
         cls.bot = bot
         cls.db = bot.db
-        cls.active_polls = set()
+        #cls.active_polls = set()
         
         # sync polls from db
 
     @classmethod
-    def get_poll(cls, message_id: int, channel_id: int) -> Optional["Poll"]:
+    def get_poll(cls, message_id: int, channel_id: int) -> Optional[Poll]:
         for poll in cls.active_polls:
             if poll.message_id == message_id and poll.channel_id == channel_id:
                 return poll
         return None
 
     @classmethod
-    async def add_poll(cls, poll: "Poll") -> Optional[int]:
+    async def add_poll(cls, poll: Poll) -> Optional[int]:
         cls.active_polls.add(poll)
         if datetime.now() + timedelta(minutes=10) > poll._active_until:
             # run local without db
             # call Poll.finish()
-            pass
+            await poll.finish(in_seconds=poll._active_until - datetime.now())
+            return None
         else:
             # add to db
-            pass
-        return None
+            return await cls._db_add_poll(poll)
+
+        
 
     
     @classmethod
-    async def _db_add_poll(cls, poll: "Poll") -> int:
+    async def _db_add_poll(cls, poll: Poll) -> int:
         """add poll to db. returns poll id"""
         table = Table("polls")
         return await table.insert(
@@ -79,13 +83,14 @@ class PollManager:
         )
 
     @classmethod
-    async def remove_poll(cls, poll: "Poll"):
+    async def remove_poll(cls, poll: Poll):
         """remove poll from db"""
         table = Table("polls")
         await table.delete(
             columns=["poll_id"],
             matching_values=[poll.id]
         )
+        cls.active_polls.remove(poll)
 
     @classmethod
     async def add_vote(cls, poll_id: int, user_id: int, option_id: str):
@@ -113,12 +118,5 @@ class PollManager:
         await table.delete(columns=["option_id"], matching_values=option_ids)
 
     @classmethod
-    async def add_polls_to_set(cls, records: List[Mapping[str, Any]]):
-        from utils import Poll
-        for record in records:
-            try:
-                poll = Poll.from_record(record)
-                cls.active_polls.add(poll)
-            except Exception as e:
-                log.error(f"could not load poll: {e}")
-                log.error(traceback.format_exc())
+    async def register_poll(cls, poll: Poll):
+        cls.active_polls.add(poll)
