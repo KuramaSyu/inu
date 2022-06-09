@@ -238,7 +238,6 @@ class BaseConnect4:
         self.player2: Player = player2
         self.player_turn: Player
         self.game_winner: Optional[Player] = None
-        self.game_winner: Optional[Player] = None
         self.game_over = True
         self.surrendered: bool = False
         self.status = GameStatus.RUNNING
