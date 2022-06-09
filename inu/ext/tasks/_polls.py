@@ -24,13 +24,14 @@ plugin = lightbulb.Plugin("poll loader", "loads polls from database")
 @plugin.listener(hikari.ShardReadyEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
     await asyncio.sleep(3)
-    await load_upcoming_reminders()
+    await load_active_polls()
 
     trigger = IntervalTrigger(seconds=POLL_SYNC_TIME)
-    plugin.bot.scheduler.add_job(load_upcoming_reminders, trigger)
+    plugin.bot.scheduler.add_job(load_active_polls, trigger)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
-async def load_upcoming_reminders():
+
+async def load_active_polls():
     sql = """
     SELECT * FROM polls 
     WHERE expires < $1
@@ -43,37 +44,7 @@ async def load_upcoming_reminders():
 
     #load
     for poll_record in records_polls:
-
-        options = {}
-        option_ids = []
-        polls = {}
-        poll_id = poll_record['poll_id']
-        option_sql = f"""
-        SELECT * FROM poll_options 
-        WHERE poll_id = {poll_id}
-        """
-        option_records = await option_table.fetch(
-            f"""
-            SELECT * FROM poll_options 
-            WHERE poll_id = {poll_id}
-            """
-        )
-        for option_record in option_records:
-            options[option_record['name']] = option_record['description']
-            option_ids.append(option_record['option_id'])
-        
-        for vote_record in await vote_table.fetch(
-            f"""
-            SELECT * FROM poll_votes 
-            WHERE poll_id = {poll_id}
-            """
-        ):
-            if vote_record['option_id'] in polls.keys():
-                polls[vote_record['option_id']].append(vote_record['user_id'])
-            else:
-                polls[vote_record['option_id']] = [vote_record['user_id']]
-
-    PollManager.add_polls_to_set(records)
+        PollManager.add_poll_to_set(Poll.from_record(poll_record))
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
