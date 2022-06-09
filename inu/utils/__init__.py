@@ -8,7 +8,7 @@ from .grid import Grid
 from .rest import *
 from .db import *
 from .logger import *
-from .poll import *
+from .poll import Poll
 
 from .emojis import Emoji
 
