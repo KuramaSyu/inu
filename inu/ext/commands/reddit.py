@@ -123,7 +123,10 @@ async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: in
         hot=True,
         minimum=amount,
     )
-    post = random.choice(posts)
+    try:
+        post = random.choice(posts)
+    except IndexError:
+        return await ctx.respond(f"`{subreddit}` is currently not reachable or has too less pictures")
     embed = hikari.Embed()
     embed.title = post.title
     embed.set_image(post.url)
