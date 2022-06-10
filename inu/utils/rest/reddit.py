@@ -60,9 +60,9 @@ class Reddit():
         try:
             subreddit = await cls.reddit_client.subreddit(subreddit)
             if hot:
-                posts = subreddit.hot(limit=50)
+                posts = subreddit.hot()
             elif top:
-                posts = subreddit.top(limit=50, time_filter=time_filter)
+                posts = subreddit.top(time_filter=time_filter)
 
             async for submission in posts:
                 if submission.stickied:
@@ -70,7 +70,7 @@ class Reddit():
                 if (
                     (
                         str(submission.url).endswith('png')
-                        or str(submission.url).endswith('.jpg')
+                        or str(submission.url).endswith('jpg')
                     )
                     and submission not in post_list
                 ):
