@@ -34,8 +34,15 @@ class BoredIdea:
 class BoredAPI:
     Endpoint = "https://www.boredapi.com/api/activity/"
     @classmethod
-    async def fetch_idea(cls) -> BoredIdea:
-        async with aiohttp.ClientSession() as session:
-            async with session.get(cls.Endpoint) as resp:
-                json_resp = await resp.json()
-        return BoredIdea(json_resp)
+    async def fetch_idea(cls, ssl: bool = True) -> BoredIdea:
+        try:
+            async with aiohttp.ClientSession() as session:
+                async with session.get(cls.Endpoint, ssl=ssl) as resp:
+                    json_resp = await resp.json()
+            return BoredIdea(json_resp)
+        except aiohttp.ClientConnectorCertificateError as e:
+            if not ssl:
+                raise e
+            else:
+                return await cls.fetch_idea(ssl=False)
+
