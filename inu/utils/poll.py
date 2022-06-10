@@ -10,7 +10,7 @@ import hikari
 import lightbulb
 
 from utils.db import PollManager
-from core import Table
+from core import Table, Inu
 
 
 
@@ -127,6 +127,11 @@ class AbstractPoll(ABC):
     # @classmethod
     # async def to_record(cls, record: Dict[str, Any]):
     #     ...
+class PollTypes(Enum):
+    STANDARD_POLL = 1
+    SCALE_POLL = 2
+    BOOL_POLL = 3
+
 
 class Poll(AbstractPoll):
     """A class for making polls
@@ -138,6 +143,7 @@ class Poll(AbstractPoll):
     self._options : Dict[str, str]
         Mapping from name (...letter_x) to description what the user has entered
     """
+    _type: PollTypes = PollTypes.STANDARD_POLL
     _options: Dict[str, str]
     _guild_id: int
     _message_id: int
@@ -148,6 +154,7 @@ class Poll(AbstractPoll):
         self, 
         options: List[str],
         active_until: timedelta,
+        starts: Optional[datetime] = None,
         anonymous: bool = True,
         title: str = "",
         description: str = "",
@@ -166,7 +173,12 @@ class Poll(AbstractPoll):
             Per default empty
         
         """
-        letter_emojis = [f':regional_indicator_{l}:' for l in 'abcdefghijklmnop']
+        letter_emojis = [
+            "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", 
+            "🇭", "", "🇯", "🇰", "🇱", "🇲", "🇳", 
+            "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", 
+            "🇻", "🇼", "🇽", "🇾", "🇿"
+        ]
         self._poll: Dict[str, List[int]] = {letter_emojis[k]: [] for k in range(len(options))}
         self._options = {letter_emojis[i]: v for i, v in enumerate(options)}
         self._title = title
@@ -174,24 +186,71 @@ class Poll(AbstractPoll):
         self._anonymous = anonymous
         self._active_until: datetime = active_until + datetime.now()
         self._id = None
-        self._type = "poll"
         self._option_ids: List[int] = []
+        self._starts = starts
         # f"{int(time.time)}{ctx.author.id}{ctx.guild_id}"
+
+    @property
+    def expires(self) -> datetime:
+        """when the poll will expire"""
+        if not self._active_until:
+            raise ValueError("Poll has no expire datetime")
+        return self._active_until
+
+    @property
+    def title(self) -> str:
+        if not self._title:
+            if not self._description:
+                raise ValueError("Neither title nor description was set")
+            return "Poll"
+        return self._title
+
+    @property
+    def description(self) -> str:
+        if not self._description:
+            if not self._title:
+                raise ValueError("Neither title nor description was set")
+            return ""
+        return self._description
+
+    @property
+    def poll_type(self) -> int:
+        if self._type is None:
+            raise AttributeError("Poll type is not set")
+        return self._type.value
+
+    @property
+    def starts(self) -> datetime:
+        """when does the poll starts"""
+        return self._starts or datetime.now()
+
     @property
     def anonymous(self) -> bool:
         return self._anonymous
 
     @property
     def channel_id(self) -> int:
+        if not self._channel_id:
+            raise AttributeError("Channel id is not set")
         return self._channel_id
 
     @property
     def message_id(self) -> int:
+        if not self._message_id:
+            raise AttributeError("Message id is not set")
         return self._message_id
 
     @property
     def guild_id(self) -> int:
+        if not self._guild_id:
+            raise AttributeError("Guild id is not set")
         return self._guild_id
+
+    @property
+    def creator_id(self) -> int:
+        if not self._creator_id:
+            raise AttributeError("Creator id is not set")
+        return self._creator_id
 
     @property
     def needs_to_sync(self) -> bool:
@@ -202,16 +261,6 @@ class Poll(AbstractPoll):
         if self._id:
             return self._id
         raise ValueError("Poll is to short and was not added to the database")
-
-    @property
-    def kind(self):
-        if self._type is None:
-            raise ValueError("Poll type not set")
-
-    @kind.setter
-    def kind(self, value: Literal["poll", "vote"]):
-        """can be poll or vote"""
-        self._type = value
 
     def __str__(self):
         text = f"{self._title}\n{self._description}\n{self._options}"
@@ -238,7 +287,10 @@ class Poll(AbstractPoll):
             embed.add_field("Results", value)
         else:
             for o, o_votes in self._poll.items():
-                value = ">>>".join(m.display_name for m in o_votes) if len(o_votes) > 0 else r"¯\_(ツ)_/¯"
+                value = ">>>".join(
+                    self.bot.cache.get_member(self.guild_id, m).display_name 
+                    for m in o_votes
+                ) if len(o_votes) > 0 else r"¯\_(ツ)_/¯"
                 embed.add_field(
                     f"**{o}** | {self._amount_to_str(o)}",
                     value,
@@ -308,12 +360,7 @@ class Poll(AbstractPoll):
         await PollManager.remove_poll(self.id)
 
     @classmethod
-    async def from_record(cls, poll_record: Dict[str, Any]) -> "Poll":
-        
-        self = cls(
-            options=[],
-            active_until=poll_record["active_until"],
-        )
+    async def from_record(cls, poll_record: Dict[str, Any], bot: Inu) -> "Poll":
 
         option_table = Table("poll_options")
         vote_table = Table("poll_votes")
@@ -352,11 +399,18 @@ class Poll(AbstractPoll):
         # create class
         self = cls(
             options=options,
-            active_until=poll_record["active_until"],
+            active_until=poll_record["expires"] - datetime.now(),
             anonymous=poll_record["anonymous"],
             title=poll_record["title"],
             description=poll_record["description"],
         )
+        self._creator_id = poll_record["creator_id"]
+        self._channel_id = poll_record["channel_id"]
+        self._id = poll_record["poll_id"]
+        self._guild_id = poll_record["guild_id"]
+        self._message_id = poll_record["message_id"]
+        self._message  = await bot.rest.fetch_message(self._channel_id, self._message_id)
+        self.bot = bot
         self._poll = polls
         return self
 
@@ -366,7 +420,7 @@ class Poll(AbstractPoll):
         if self._id:
             for name, description in self._options.items():
                 self._option_ids.append(
-                    await PollManager.add_option(self._id, name, description)
+                    await PollManager.add_poll_option(self._id, name, description)
                 )
 
     async def add_vote_and_update(
@@ -411,6 +465,7 @@ class Poll(AbstractPoll):
         self._message = await (await ctx.respond(embed=self.embed)).message()
         for i in range(len(self._options)):
             await self._message.add_reaction(letter_emojis[i])
+        self._message_id = self._message.id
         self._channel_id = ctx.channel_id
         self._guild_id = ctx.guild_id  # type: ignore
         self._creator_id = ctx.author.id
