@@ -52,6 +52,12 @@ class PollManager:
     @classmethod
     async def add_poll(cls, poll: Poll) -> Optional[int]:
         cls.active_polls.add(poll)
+
+        # check if poll comes from db
+        if poll._id:
+            return None
+
+        # add new poll to db
         if datetime.now() + timedelta(minutes=10) > poll._active_until:
             # run local without db
             # call Poll.finish()
@@ -59,7 +65,9 @@ class PollManager:
             return None
         else:
             # add to db
-            return await cls._db_add_poll(poll)
+            poll_id = await cls._db_add_poll(poll)
+            log.debug(f"Added new poll | retrieved id: {poll_id} | type: {type(poll_id)}")
+            return poll_id
 
         
 
@@ -67,20 +75,37 @@ class PollManager:
     @classmethod
     async def _db_add_poll(cls, poll: Poll) -> int:
         """add poll to db. returns poll id"""
+
         table = Table("polls")
-        return await table.insert(
-            which_columns=[
-                "guild_id", "message_id", "channel_id", 
-                "creator_id", "title", "description", 
-                "expires", "type"
-            ],
-            values=[
-                poll._guild_id, poll._message_id, poll._channel_id,
-                poll._creator_id, poll._title, poll._description,
-                poll._active_until, poll.kind
-            ],
-            returning="poll_id"
-        )
+        # return await table.insert(
+        #     which_columns=[
+        #         "guild_id", "message_id", "channel_id", 
+        #         "creator_id", "starts", "title", "description", 
+        #         "expires", "type", "anonymous"
+        #     ],
+        #     values=[
+        #         poll.guild_id, poll.message_id, poll.channel_id,
+        #         poll.creator_id, poll.starts, poll.title, poll.description,
+        #         poll.expires, poll.poll_type, poll.anonymous
+        #     ],
+        #     returning="poll_id"
+        # )
+        sql = """
+            INSERT INTO polls ( 
+                guild_id, message_id, channel_id, creator_id, 
+                starts, title, description, expires, type, anonymous 
+            )
+            VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10 )
+            RETURNING poll_id
+        """
+        # return values -> List[Dataset["poll_id"]]
+        return (await table.fetch(
+            sql, 
+            poll.guild_id, poll.message_id, poll.channel_id, 
+            poll.creator_id, poll.starts, poll.title, 
+            poll.description, poll.expires, 
+            poll.poll_type, poll.anonymous
+        ))[0]["poll_id"]
 
     @classmethod
     async def remove_poll(cls, poll: Poll):
