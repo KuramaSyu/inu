@@ -111,7 +111,7 @@ CREATE TABLE IF NOT EXISTS polls (
     starts TIMESTAMP,
     expires TIMESTAMP NOT NULL,
     "anonymous" BOOLEAN NOT NULL,
-    "type" VARCHAR(20) NOT NULL
+    "type" INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS poll_votes (
