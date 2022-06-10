@@ -219,10 +219,11 @@ class Table():
         """insert <`values`> into <`wihich columns`> """
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
-            f"INSERT INTO {self.name} ({', '.join(which_columns)})"
-            f"VALUES ({', '.join(values_chain)})"
-            f"RETURNING {returning}"
+            f"INSERT INTO {self.name} ({', '.join(which_columns)})\n"
+            f"VALUES ({', '.join(values_chain)})\n"
+            f"RETURNING {returning}\n"
         )
+        self._create_sql_log_message(sql, values)
         return_values = await self.db.execute(sql, *values)
         return return_values
 
