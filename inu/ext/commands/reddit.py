@@ -91,9 +91,9 @@ async def hentai(ctx: Context):
             (subreddits := [
                 'animearmpits', 'AnimeBooty',
                 'animelegs', 'Atago', 'bluehairhentai', 'chiisaihentai', 'ecchi',
-                'hentai', 'HentaiBlowjob', 'HentaiCumsluts', 'HentaiSchoolGirls',
+                'hentai', 'HentaiBlowjob', 'HentaiSchoolGirls',
                 'MasturbationHentai', 'Nekomimi', 'Sukebei', 'thighdeology', 'WaifusOnCouch',
-            ])
+            ]) #'HentaiCumsluts',
         )
     await send_pic(ctx, subreddit, footer=False, amount=amount)
     if plugin.d.last_update + float(3*60*60) < tm.time() and subreddits:
