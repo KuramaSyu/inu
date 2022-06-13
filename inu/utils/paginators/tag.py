@@ -153,17 +153,17 @@ class TagHandler(Paginator):
             elif custom_id == "remove_tag":
                 await self.delete(event.interaction)
             elif custom_id == "add_author_id":
-                await self.change_creators(i, List.append)
+                await self.change_creators(i, set.add)
             elif custom_id == "add_alias":
-                await self.change_aliases(i, List.append)
+                await self.change_aliases(i, set.add)
             elif custom_id == "add_guild_id":
-                await self.change_guild_ids(i, List.append)
+                await self.change_guild_ids(i, set.add)
             elif custom_id == "remove_author_id":
-                await self.change_creators(i, List.remove)
+                await self.change_creators(i, set.remove)
             elif custom_id == "remove_alias":
-                await self.change_aliases(i, List.remove)
+                await self.change_aliases(i, set.remove)
             elif custom_id == "remove_guild_id":
-                await self.change_guild_ids(i, List.remove)
+                await self.change_guild_ids(i, set.remove)
             else:
                 log.warning(f"Unknown custom_id: {custom_id} - in {self.__class__.__name__}")
             if self.tag.name and self.tag.value:
@@ -176,7 +176,7 @@ class TagHandler(Paginator):
         except Exception:
             self.log.error(traceback.format_exc())
 
-    async def change_creators(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
+    async def change_creators(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
         """
         Args:
         -----
@@ -198,10 +198,13 @@ class TagHandler(Paginator):
         except ValueError:
             await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
             return
+        except KeyError:
+            await self.bot.rest.create_message(interaction.channel_id, "This user never actually had the rights")
+            return
         
         #await self.bot.rest.create_message(interaction.channel_id, f"`{user_id}` added to authors of this tag")
 
-    async def change_guild_ids(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
+    async def change_guild_ids(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
         """
         Args:
         -----
@@ -212,7 +215,7 @@ class TagHandler(Paginator):
         guild_id, interaction, event = await self.bot.shortcuts.ask_with_modal(
             "Edit Tag",
             "Enter the guild ID you want to add",
-            placeholder="something like 1234567890123456789",
+            placeholder_s="something like 1234567890123456789",
             interaction=interaction,
         )
 
@@ -222,9 +225,12 @@ class TagHandler(Paginator):
         except ValueError:
             await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
             return
+        except KeyError:
+            await self.bot.rest.create_message(interaction.channel_id, "In this guild your tag was never actually available")
+            return
         #await interaction.create_initial_response(f"You can use this tag now in `{guild_id}`")
 
-    async def change_aliases(self, interaction: ComponentInteraction, op: Union[List.append, List.remove]):
+    async def change_aliases(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
         """
         Args:
         -----
@@ -237,7 +243,14 @@ class TagHandler(Paginator):
             interaction=interaction,
         )
         await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
-        op(self.tag.aliases, alias)
+        try:
+            op(self.tag.aliases, alias)
+        except KeyError:
+            await self.bot.rest.create_message(interaction.channel_id, "Your tag has no such alias")
+            return
+        except ValueError:
+            await self.bot.rest.create_message(interaction.channel_id, "Alias's are supposed to be strings")
+            return
         #await interaction.create_initial_response(f"`{alias}` is now an alternative name of this tag")
         
         
