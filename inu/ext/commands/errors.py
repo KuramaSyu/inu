@@ -37,11 +37,6 @@ async def on_exception(event: hikari.ExceptionEvent):
 @pl.listener(events.CommandErrorEvent)
 async def on_error(event: events.CommandErrorEvent):
     """
-    The event triggered when an error is raised while invoking a command.
-    Parameters
-    ------------
-    error: commands.CommandError
-        The Exception raised.
     """
     try:
         ctx: Optional[Context] = event.context
@@ -124,7 +119,8 @@ async def on_error(event: events.CommandErrorEvent):
             )
         elif isinstance(error, errors.MissingRequiredPermission):
             return await ctx.respond(
-                f"You need the `{error.missing_perms.name}` permission, to use `{ctx.invoked_with}`"
+                f"You need the `{error.missing_perms.name}` permission, to use `{ctx.invoked_with}`",
+                flags=hikari.MessageFlag.EPHEMERAL,
             )
         elif isinstance(error, errors.CheckFailure):
             fails = set(
