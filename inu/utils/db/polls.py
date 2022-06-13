@@ -38,9 +38,41 @@ class PollManager:
     async def init_bot(cls, bot: Inu):
         cls.bot = bot
         cls.db = bot.db
-        #cls.active_polls = set()
+        loaded_poll_count = 0
+        global POLL_SYNC_TIME
+        POLL_SYNC_TIME = bot.conf.commands.poll_sync_time
+        await cls.delete_old_polls()
         
-        # sync polls from db
+    @classmethod
+    async def delete_old_polls(cls):
+        sql = (
+            "DELETE FROM polls "
+            "WHERE expires < $1"
+        )
+        table = Table("polls")
+        records = await table.fetch(sql, datetime.now())
+        log.info(f"Deleted {len(records)} old polls")
+
+    # @classmethod
+    # async def load_upcoming_polls(cls):
+    #     sql = """
+    #     SELECT * FROM polls 
+    #     WHERE expires < $1
+    #     """
+    #     loaded_poll_count = 0
+    #     poll_table = Table("polls")
+    #     records_polls = await poll_table.fetch(sql, datetime.now() + timedelta(seconds=POLL_SYNC_TIME))
+
+    #     #load polls and fetch further information
+    #     start = datetime.now()
+    #     tasks = []
+    #     for poll_record in records_polls:
+    #         task = asyncio.create_task(cls.add_poll(await Poll.from_record(poll_record, cls.bot)))
+    #         tasks.append(task)
+    #         loaded_poll_count += 1
+    #     await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+    #     log.debug(f"Loaded {loaded_poll_count} polls in {datetime.now() - start}")
+        
 
     @classmethod
     def get_poll(cls, message_id: int, channel_id: int) -> Optional[Poll]:
