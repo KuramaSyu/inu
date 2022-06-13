@@ -3,6 +3,7 @@ import logging
 import typing
 from datetime import datetime
 from typing import *
+import traceback
 
 import aiohttp
 import hikari
@@ -372,20 +373,24 @@ async def user_info(ctx: context.UserContext):
 @lightbulb.command("purge until here", "Delete all messages until the message (including)")
 @lightbulb.implements(commands.MessageCommand)
 async def purge_until_this_message(ctx: context.MessageContext):
-    bot: Inu = ctx.bot
-    message_id: int = ctx.options.target.id
-    messages = []
-    amount = 50
-    async for m in ctx.get_channel().fetch_history():
-        messages.append(m)
-        amount -= 1
+    await ctx.respond(f"Let me get the trash bin ready...\nY'know, this thing is pretty heavy")
+    try:
+        bot: Inu = ctx.bot
+        message_id: int = ctx.options.target.id
+        messages = []
+        amount = 50
+        async for m in ctx.get_channel().fetch_history():
+            messages.append(m)
+            amount -= 1
+            if amount <= 0:
+                break
+            elif m.id == message_id:
+                break
         if amount <= 0:
-            break
-        elif m.id == message_id:
-            break
-    if amount <= 0:
-        raise BotResponseError(f"Your linked message is not under the last 50 messages")
-    await ctx.get_channel().delete_messages(messages)
+            raise BotResponseError(f"Your linked message is not under the last 50 messages")
+        await ctx.get_channel().delete_messages(messages)
+    except:
+        log.error(traceback.format_exc())
 
 def load(inu: lightbulb.BotApp):
     global bot
