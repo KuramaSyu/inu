@@ -192,7 +192,7 @@ async def status(ctx: context.Context):
     await msg.edit(embed=embed)
 
 @basics.command
-@lightbulb.add_cooldown(60*60*10, 15, lightbulb.UserBucket)
+@lightbulb.add_cooldown(3, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(
     lightbulb.guild_only, 
     # lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
@@ -336,22 +336,6 @@ async def search_member(ctx: Context):
 #     )
 #     await i.create_initial_response(ResponseType.MESSAGE_CREATE, f"{d}")
 
-@basics.command
-@lightbulb.command("testmodal", "test command for modal interactions", hidden=True)
-@lightbulb.implements(commands.SlashCommand)
-async def testmodal(ctx: context.Context):
-    bot: Inu = ctx.bot
-    answers, interaction, _ = await bot.shortcuts.ask_with_modal(
-        "Tag", 
-        ["Name:", "Value:"], 
-        interaction=ctx.interaction,
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
-        placeholder_s=[None, "What you will see, when you do /tag get <name>"],
-        is_required_s=[True, None],
-        pre_value_s=[None, "Well idc"]
-
-    )
-    await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
 
 @basics.command
 @lightbulb.command("info", "Get information about the user")
@@ -382,8 +366,26 @@ async def user_info(ctx: context.UserContext):
     embed.set_thumbnail(author.avatar_url)
 
     await ctx.respond(embed=embed)
-    
-    
+
+
+@basics.command
+@lightbulb.command("purge until here", "Delete all messages until the message (including)")
+@lightbulb.implements(commands.MessageCommand)
+async def purge_until_this_message(ctx: context.MessageContext):
+    bot: Inu = ctx.bot
+    message_id: int = ctx.options.target.id
+    messages = []
+    amount = 50
+    async for m in ctx.get_channel().fetch_history():
+        messages.append(m)
+        amount -= 1
+        if amount <= 0:
+            break
+        elif m.id == message_id:
+            break
+    if amount <= 0:
+        raise BotResponseError(f"Your linked message is not under the last 50 messages")
+    await ctx.get_channel().delete_messages(messages)
 
 def load(inu: lightbulb.BotApp):
     global bot
