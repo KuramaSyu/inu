@@ -409,7 +409,6 @@ class Poll(AbstractPoll):
         self._id = poll_record["poll_id"]
         self._guild_id = poll_record["guild_id"]
         self._message_id = poll_record["message_id"]
-        self._message  = await bot.rest.fetch_message(self._channel_id, self._message_id)
         self.bot = bot
         self._poll = polls
         return self
@@ -441,7 +440,7 @@ class Poll(AbstractPoll):
     async def update_poll(self):
         await self.bot.rest.edit_message(
             channel=self._channel_id,
-            message_id=self._message_id,
+            message=self._message_id,
             embed=self.embed,
         )
     
@@ -462,10 +461,10 @@ class Poll(AbstractPoll):
                 "🇻", "🇼", "🇽", "🇾", "🇿"
             ]
         ]
-        self._message = await (await ctx.respond(embed=self.embed)).message()
+        message = await (await ctx.respond(embed=self.embed)).message()
         for i in range(len(self._options)):
-            await self._message.add_reaction(letter_emojis[i])
-        self._message_id = self._message.id
+            await message.add_reaction(letter_emojis[i])
+        self._message_id = message.id
         self._channel_id = ctx.channel_id
         self._guild_id = ctx.guild_id  # type: ignore
         self._creator_id = ctx.author.id
