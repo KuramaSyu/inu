@@ -6,7 +6,8 @@ from typing import (
     Tuple,
     Union,
     Mapping,
-    Any
+    Any,
+    Set
 )
 import typing
 from copy import deepcopy
@@ -43,7 +44,7 @@ class Tag():
             - the owner should be an instace of `Member`, to be able, to store an tag locally
             otherwise the tag have to be stored globally
         """
-        self.owners: List[hikari.Snowflake] = [owner.id] if owner else []
+        self.owners: Set[hikari.Snowflake] = set([owner.id]) if owner else set()
         self._name: Optional[str] = None
         self.value: Optional[str] = None
         self.is_local_available: bool
@@ -51,17 +52,17 @@ class Tag():
         self._is_local: bool = True
         self.is_stored: bool
         self._id: Optional[int] = None
-        self.aliases: List[str] = []
-        self.guild_ids: List[int] = []
+        self.aliases: Set[str] = set()
+        self.guild_ids: Set[int] = set()
         if isinstance(owner, hikari.Member):
-            self.guild_ids.append(owner.guild_id)
+            self.guild_ids.add(owner.guild_id)
             self._is_local = True
         else:
             if channel_id:
-                self.guild_ids.append(channel_id)
+                self.guild_ids.add(channel_id)
                 self._is_local = True
             else:
-                self.guild_ids.append(0)
+                self.guild_ids.add(0)
                 self._is_local = False
 
     @property
@@ -127,18 +128,18 @@ class Tag():
             await TagManager.edit(
                 key=self.name,
                 value=self.value,
-                author_ids=self.owners,
+                author_ids=list(self.owners),
                 tag_id=self.id,
-                guild_ids=self.guild_ids,
-                aliases=self.aliases,
+                guild_ids=list(self.guild_ids),
+                aliases=list(self.aliases),
             )
         else:
             tag_id = await TagManager.set(
                 key=self.name,
                 value=self.value,
-                author_ids=self.owners,
-                guild_ids=self.guild_ids,
-                aliases=self.aliases,
+                author_ids=list(self.owners),
+                guild_ids=list(self.guild_ids),
+                aliases=list(self.aliases),
             )
             self.id = tag_id
         self.is_stored = True
@@ -158,9 +159,9 @@ class Tag():
         new_tag.value = record["tag_value"]
         new_tag.is_stored = True
         new_tag.id = record["tag_id"]
-        new_tag.guild_ids = record["guild_ids"]
-        new_tag.aliases = record["aliases"]
-        new_tag.owners = record["author_ids"]
+        new_tag.guild_ids = set(record["guild_ids"])
+        new_tag.aliases = set(record["aliases"])
+        new_tag.owners = set(record["author_ids"])
         if (
             isinstance(author, hikari.Member)
             and not 0 in record["guild_ids"]
@@ -466,9 +467,9 @@ class TagManager():
             sql,
             record["tag_value"],
             record["tag_key"],
-            record["author_ids"],
-            record["guild_ids"],
-            record["aliases"],
+            list(record["author_ids"]),
+            list(record["guild_ids"]),
+            list(record["aliases"]),
             record["tag_id"],
         )
 
