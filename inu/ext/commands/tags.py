@@ -26,6 +26,7 @@ from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import asyncpg
+from fuzzywuzzy import fuzz
 
 from core import Inu, Table, BotResponseError
 from utils import TagIsTakenError, TagManager, TagType, Human
@@ -274,10 +275,14 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
     return await ctx.respond(f"Your tag `{name}` has been added to my storage")
 
 @tag.child
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word",
+    autocomplete=True,
+) 
 @lightbulb.command("edit", "edit a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def edit(ctx: Context):
+async def tag_edit(ctx: Context):
     """Add a tag to my storage
     
     Args:
@@ -305,7 +310,7 @@ async def edit(ctx: Context):
 @lightbulb.option("name", "the name of your tag. Only one word") 
 @lightbulb.command("remove", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def remove(ctx: Context):
+async def tag_remove(ctx: Context):
     """Remove a tag to my storage
     
     Args:
@@ -346,35 +351,7 @@ async def tag_get(ctx: Context):
 
 
 
-@tag_get.autocomplete("name")
-async def tag_name_auto_complete(
-    option: hikari.AutocompleteInteractionOption, 
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
-    guild_or_channel = interaction.guild_id or interaction.channel_id
-    try:
-        if option.value and len(str(option.value)) > 2:
-            tags = await TagManager.find_similar(option.value, guild_id=guild_or_channel)
-            return [tag['tag_key'] for tag in tags][:24]
-        elif option.value and len(str(option.value)) in [1, 2]:
-            tags = await TagManager.startswith(option.value, guild_id=guild_or_channel)
-            return [
-                name for name in 
-                [
-                    *[name for tag in tags for name in tag["aliases"]], 
-                    *[tag['tag_key'] for tag in tags]
-                ] 
-                if name.startswith(option.value) ][:24]
-        else:
-            tags = await TagManager.get_tags(
-                type=TagType.SCOPE,
-                guild_id=guild_or_channel,
-            )
-            return [tag["tag_key"] for tag in tags][:24]
 
-    except:
-        log.error(traceback.format_exc())
-        return []
     
     
 @tag.child
@@ -431,7 +408,13 @@ async def overview(ctx: Context):
 
 @tag.child
 @lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("name", "the name of your tag. Only one word", modifier=commands.OptionModifier.CONSUME_REST, required=True) 
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    modifier=commands.OptionModifier.CONSUME_REST, 
+    required=True, 
+    autocomplete=True
+) 
 @lightbulb.command("execute", "executes a tag with Python\nNOTE: owner only", aliases=["run", "exec"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_execute(ctx: Context):
@@ -446,7 +429,9 @@ async def tag_execute(ctx: Context):
 
 @tag.child
 @lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option("name", "the name of your tag. Only one word", 
+    autocomplete=True
+)  
 @lightbulb.command("append", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_append(ctx: Context):
@@ -470,10 +455,14 @@ async def tag_append(ctx: Context):
 
 @tag.child
 @lightbulb.option("new_name", "The new name for the tag", modifier=OM.CONSUME_REST)
-@lightbulb.option("old_name", "The old name from the tag") 
+@lightbulb.option(
+    "old_name", 
+    "The old name from the tag",
+    autocomplete=True
+) 
 @lightbulb.command("change-name", "Change the key (name) of a tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_change_key(ctx: Context):
+async def tag_change_name(ctx: Context):
     """Remove a tag to my storage
     
     Args:
@@ -491,8 +480,13 @@ async def tag_change_key(ctx: Context):
         f"Done."
     )
 
+
 @tag.child
-@lightbulb.option("name", "the name of your tag. Only one word", type=str)
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    autocomplete=True
+)
 @lightbulb.command("info", "get info to a tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_info(ctx: Context):
@@ -513,7 +507,11 @@ async def tag_info(ctx: Context):
 
 @tag.child
 @lightbulb.option("alias", "The optional name you want to add", modifier=OM.CONSUME_REST)
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    autocomplete=True
+) 
 @lightbulb.command("add-alias", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_add_alias(ctx: Context):
@@ -535,7 +533,11 @@ async def tag_add_alias(ctx: Context):
 
 @tag.child
 @lightbulb.option("alias", "The optional name you want to remove", modifier=OM.CONSUME_REST)
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    autocomplete=True
+) 
 @lightbulb.command("remove-alias", "remove a tag you own", aliases=["rm-alias"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_remove_alias(ctx: Context):
@@ -560,7 +562,11 @@ async def tag_remove_alias(ctx: Context):
 
 @tag.child
 @lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    autocomplete=True
+)  
 @lightbulb.command("add-author", "add an author to your tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_add_author(ctx: Context):
@@ -580,9 +586,14 @@ async def tag_add_author(ctx: Context):
         f"Added {ctx.options.author.username} as an author of `{tag.name}`"
     )
 
+
 @tag.child
 @lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    autocomplete=True
+) 
 @lightbulb.command("remove-author", "add an author to your tag", aliases=["rm-author"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_remove_author(ctx: Context):
@@ -605,9 +616,18 @@ async def tag_remove_author(ctx: Context):
         f"Removed {ctx.options.author.username} from the author of `{tag.name}`"
     )
 
+
 @tag.child
-@lightbulb.option("guild", "The guild/server ID you want to add", type=hikari.Snowflake)
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "guild", 
+    "The guild/server ID you want to add", 
+    autocomplete=True
+)
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    autocomplete=True
+)  
 @lightbulb.command("add-guild", "add a guild to your tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_add_guild(ctx: Context):
@@ -617,19 +637,28 @@ async def tag_add_guild(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
+    guild_id = guild_autocomplete_get_id(value=ctx.options.guild)
     record = await get_tag_interactive(ctx)
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.guild_ids.append(int(ctx.options.guild))
+    tag.guild_ids.add(guild_id)
     await tag.save()
     await ctx.respond(
-        f"You will now be able to see `{tag.name}` in the guild with id `{ctx.options.guild}`"
+        f"You will now be able to see `{tag.name}` in the guild `{ctx.options.guild}`"
     )
 
 @tag.child
-@lightbulb.option("guild", "The guild/server ID you want to add", type=hikari.Snowflake)
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "guild", 
+    "The guild/server ID you want to add", 
+    autocomplete=True
+)
+@lightbulb.option(
+    "name", 
+    "the name of your tag. Only one word", 
+    autocomplete=True
+) 
 @lightbulb.command("remove-guild", "remove a guild/server to your tag", aliases=["rm-guild"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_remove_guild(ctx: Context):
@@ -639,20 +668,22 @@ async def tag_remove_guild(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
+    guild_id = guild_autocomplete_get_id(value=ctx.options.guild)
     record = await get_tag_interactive(ctx)
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
-        tag.guild_ids.remove(int(ctx.options.guild))
-    except ValueError:
+        tag.guild_ids.remove(guild_id)
+    except KeyError:
         return await ctx.respond(
-            f"There was never a guild with id `{ctx.options.guild}` in your tag"
+            f"Your tag was never actually available in `{ctx.options.guild}`"
         )
     await tag.save()
     await ctx.respond(
-        f"You won't see `{tag.name}` in the guild with id `{ctx.options.guild}` anymore"
+        f"You won't see `{tag.name}` in the guild `{ctx.options.guild}` anymore"
     )
+
 
 @tag.child
 @lightbulb.command("random", "Get a random tag from all tags available")
@@ -668,6 +699,79 @@ async def tag_random(ctx: Context):
     random_tag = random.choice(available_tags)
     await show_record(random_tag, ctx, force_show_name=True)
 
+
+@tag_change_name.autocomplete("old_name")
+@tag_append.autocomplete("name")
+@tag_info.autocomplete("name")
+@tag_edit.autocomplete("name")
+@tag_remove_alias.autocomplete("name")
+@tag_add_alias.autocomplete("name")
+@tag_remove_guild.autocomplete("name")
+@tag_remove_author.autocomplete("name")
+@tag_add_author.autocomplete("name")
+@tag_add_guild.autocomplete("name")
+@tag_remove.autocomplete("name")
+@tag_get.autocomplete("name")
+async def tag_name_auto_complete(
+    option: hikari.AutocompleteInteractionOption, 
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    guild_or_channel = interaction.guild_id or interaction.channel_id
+    try:
+        if option.value and len(str(option.value)) > 2:
+            tags = await TagManager.find_similar(option.value, guild_id=guild_or_channel)
+            return [tag['tag_key'] for tag in tags][:24]
+        elif option.value and len(str(option.value)) in [1, 2]:
+            tags = await TagManager.startswith(option.value, guild_id=guild_or_channel)
+            return [
+                name for name in 
+                [
+                    *[name for tag in tags for name in tag["aliases"]], 
+                    *[tag['tag_key'] for tag in tags]
+                ] 
+                if name.startswith(option.value) ][:24]
+        else:
+            tags = await TagManager.get_tags(
+                type=TagType.SCOPE,
+                guild_id=guild_or_channel,
+            )
+            return [tag["tag_key"] for tag in tags][:24]
+
+    except:
+        log.error(traceback.format_exc())
+        return []
+
+
+@tag_remove_guild.autocomplete("guild")
+@tag_add_guild.autocomplete("guild")
+async def guild_auto_complete(
+    option: hikari.AutocompleteInteractionOption,
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    log.debug("autocompleteing guild")
+    value = option.value or ""
+    value = str(value)
+    guilds = []
+    for gid, name in bot.cache.get_available_guilds_view().items():
+        log.debug(name)
+        if value.lower() in str(name).lower():
+            guilds.append({'id': gid, 'name': name})
+
+    if len(guilds) > 25:
+        if len(value) <= 25:
+            guilds = guilds[:24]
+        else:
+            guilds_sorted: List[Dict[str, Union[int, str]]] = []
+            for guild in guilds:
+                guild["ratio"] = fuzz.ratio(value, guild["name"])
+                guilds_sorted.append(guild)
+            guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
+            guilds = guilds_sorted[:24]
+    guilds.insert(0, {'id': 000000000000000000, 'name': "All guilds", 'ratio': 100})
+    return [f"{guild['id']} | {guild['name']}" for guild in guilds]
+
+def guild_autocomplete_get_id(value: str) -> int :
+    return int(value[:value.find("|")])
 
 def load(inu: Inu):
     inu.add_plugin(tags)
