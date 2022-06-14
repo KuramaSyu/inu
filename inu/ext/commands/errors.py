@@ -139,7 +139,7 @@ async def on_error(event: events.CommandErrorEvent):
             else:
                 return await ctx.respond(fails.pop())
         elif isinstance(error, errors.CommandInvocationError) and isinstance(error.original, BotResponseError):
-            return await ctx.respond(error.original.bot_message)
+            return await ctx.respond(**error.original.kwargs)
 
         # errors which will only be handled, if the command was invoked with a prefix
         if not ctx.prefix:
