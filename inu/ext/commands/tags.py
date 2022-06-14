@@ -748,26 +748,27 @@ async def guild_auto_complete(
     option: hikari.AutocompleteInteractionOption,
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
-    log.debug("autocompleteing guild")
     value = option.value or ""
     value = str(value)
-    guilds = []
+    guilds: List[Dict[str, str | int]] = [{'id': 000000000000000000, 'name': "Global - Everywhere where I am"}]
     for gid, name in bot.cache.get_available_guilds_view().items():
-        log.debug(name)
-        if value.lower() in str(name).lower():
-            guilds.append({'id': gid, 'name': name})
+        # if value.lower() in str(name).lower():
+        guilds.append({'id': gid, 'name': str(name)})
+    if len(guilds) >= 1000:
+        log.debug("Too many guilds to autocomplete - optimising guild list fast..")
+        guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
 
     if len(guilds) > 25:
-        if len(value) <= 25:
+        if len(value) <= 2:
             guilds = guilds[:24]
-        else:
-            guilds_sorted: List[Dict[str, Union[int, str]]] = []
-            for guild in guilds:
-                guild["ratio"] = fuzz.ratio(value, guild["name"])
-                guilds_sorted.append(guild)
-            guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
-            guilds = guilds_sorted[:24]
-    guilds.insert(0, {'id': 000000000000000000, 'name': "All guilds", 'ratio': 100})
+    if len(value) > 2:
+        guilds_sorted: List[Dict[str, Union[int, str]]] = []
+        for guild in guilds:
+            guild["ratio"] = fuzz.ratio(value, guild["name"])
+            guilds_sorted.append(guild)
+        guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
+        guilds = guilds_sorted[:24]
+    
     return [f"{guild['id']} | {guild['name']}" for guild in guilds]
 
 def guild_autocomplete_get_id(value: str) -> int :
