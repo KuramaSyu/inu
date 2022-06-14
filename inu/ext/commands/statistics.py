@@ -42,6 +42,7 @@ import mplcyberpunk
 from pandas.plotting import register_matplotlib_converters
 from matplotlib.dates import DateFormatter, ConciseDateFormatter
 import matplotlib.ticker as plticker 
+import humanize
 
 from utils import (
     Colors, 
@@ -146,6 +147,11 @@ async def application(ctx: Context):
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def week_activity(ctx: Context):
     seconds = timeparse(ctx.options.time)
+    if not seconds:
+        return await ctx.respond(
+            f"Well - I've no idea what you mean with `{ctx.options.time}`"
+            f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+        )
     buffer, _ = await build_week_activity_chart(
         ctx.guild_id, 
         timedelta(seconds=seconds)
@@ -169,15 +175,20 @@ async def week_activity(ctx: Context):
     "The time you want to get stats for - e.g. 30 days, 3 hours",
     default="9 days"
 )
-@lightbulb.command("current-games", "Shows, which games are played in which guild", auto_defer=True)
+@lightbulb.command("current-games", "Shows, which games are played in which guild")
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def current_games(ctx: Context):
     # constants
     seconds = timeparse(ctx.options.time)
     if not seconds:
-        return await ctx.respond(
-            f"Well - I've no idea what you mean with `{ctx.options.time}`"
-            f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+        raise BotResponseError(
+            (
+                f"Well - I've no idea what you mean with `{ctx.options.time}`"
+                f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+                f"\nShort forms of time are also supported: `d`, `h`, `m`, `s`"
+                f"\nIf you want to see the activity of the last 10 days, just use `10 days` or `10d`"
+            ),
+            ephemeral=True,
         )
     timedelta_ = timedelta(seconds=seconds)
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode"]
@@ -279,6 +290,10 @@ async def current_games(ctx: Context):
                 remove_activities=[*coding_apps, *music_apps, *double_games]
             )
         ]
+        if not apps:
+            raise BotResponseError(
+                f"There were no games played in the last {humanize.naturaldelta(timedelta_)}."
+            )
     picture_buffer, _ = await build_activity_graph(
         ctx.guild_id, 
         since=timedelta_,
