@@ -389,3 +389,9 @@ class Table():
             f"{sql}\n"
             f"WITH VALUES: {values}"
         )
+
+    async def execute(self, sql: str, *args) -> Optional[List[asyncpg.Record]]:
+        """
+        Execute custom SQL with return
+        """
+        return await self.fetch(sql, *args)
