@@ -52,26 +52,6 @@ class PollManager:
         table = Table("polls")
         records = await table.fetch(sql, datetime.now())
         log.info(f"Deleted {len(records)} old polls")
-
-    # @classmethod
-    # async def load_upcoming_polls(cls):
-    #     sql = """
-    #     SELECT * FROM polls 
-    #     WHERE expires < $1
-    #     """
-    #     loaded_poll_count = 0
-    #     poll_table = Table("polls")
-    #     records_polls = await poll_table.fetch(sql, datetime.now() + timedelta(seconds=POLL_SYNC_TIME))
-
-    #     #load polls and fetch further information
-    #     start = datetime.now()
-    #     tasks = []
-    #     for poll_record in records_polls:
-    #         task = asyncio.create_task(cls.add_poll(await Poll.from_record(poll_record, cls.bot)))
-    #         tasks.append(task)
-    #         loaded_poll_count += 1
-    #     await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
-    #     log.debug(f"Loaded {loaded_poll_count} polls in {datetime.now() - start}")
         
 
     @classmethod
@@ -81,31 +61,32 @@ class PollManager:
                 return poll
         return None
 
-    @classmethod
-    async def add_poll(cls, poll: Poll) -> Optional[int]:
-        cls.active_polls.add(poll)
-
-        # check if poll comes from db
-        if poll._id:
-            return None
-
-        # add new poll to db
-        if datetime.now() + timedelta(minutes=10) > poll._active_until:
-            # run local without db
-            # call Poll.finish()
-            await poll.finish(in_seconds=poll._active_until - datetime.now())
-            return None
-        else:
-            # add to db
-            poll_id = await cls._db_add_poll(poll)
-            log.debug(f"Added new poll | retrieved id: {poll_id} | type: {type(poll_id)}")
-            return poll_id
-
-        
-
+    # poll_id SERIAL PRIMARY KEY,
+    # guild_id BIGINT NOT NULL,
+    # message_id BIGINT NOT NULL,
+    # channel_id BIGINT NOT NULL,
+    # creator_id BIGINT NOT NULL,
+    # title VARCHAR(255),
+    # "description" VARCHAR(2048),
+    # starts TIMESTAMP,
+    # expires TIMESTAMP NOT NULL,
+    # "anonymous" BOOLEAN NOT NULL,
+    # "type" INTEGER NOT NULL
     
     @classmethod
-    async def _db_add_poll(cls, poll: Poll) -> int:
+    async def add_poll(
+        cls,
+        guild_id: int,
+        message_id: int,
+        channel_id: int,
+        creator_id: int,
+        title: str,
+        description: str,
+        poll_type: int,
+        starts: Optional[datetime] = None,
+        expires: Optional[datetime] = None,
+        anonymous: bool = False,
+    ) -> Optional[int]:
         """add poll to db. returns poll id"""
 
         table = Table("polls")
@@ -133,10 +114,10 @@ class PollManager:
         # return values -> List[Dataset["poll_id"]]
         return (await table.fetch(
             sql, 
-            poll.guild_id, poll.message_id, poll.channel_id, 
-            poll.creator_id, poll.starts, poll.title, 
-            poll.description, poll.expires, 
-            poll.poll_type, poll.anonymous
+            guild_id, message_id, channel_id, 
+            creator_id, starts, title, 
+            description, expires, 
+            poll_type, anonymous
         ))[0]["poll_id"]
 
     @classmethod
