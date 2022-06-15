@@ -31,12 +31,12 @@ async def load_tasks(event: hikari.ShardReadyEvent):
         return
     else:
         SYNCING = True
-    await asyncio.sleep(3)
-    await load_active_polls()
+    # await asyncio.sleep(3)
+    # await load_active_polls()
 
-    trigger = IntervalTrigger(seconds=POLL_SYNC_TIME)
-    plugin.bot.scheduler.add_job(load_active_polls, trigger)
-    logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
+    # trigger = IntervalTrigger(seconds=POLL_SYNC_TIME)
+    # plugin.bot.scheduler.add_job(load_active_polls, trigger)
+    # logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
 
 async def load_active_polls():
@@ -62,6 +62,14 @@ async def load_active_polls():
     if tasks:
         await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
     log.info(f"Loaded {loaded_poll_count} polls in {datetime.now() - start}")
+    # TODO: maybe just move poll.finish and embed to external method and get rid of Poll
+
+# async def initialize_all_polls():
+#     sql = """DELETE FROM polls WHERE expires < $1"""
+#     await Table("polls").fetch(sql, datetime.now())
+
+#     sql = """SELECT * FROM polls"""
+#     records = await Table("polls").fetch(sql)
 
 def load(inu: Inu):
     global bot
