@@ -25,6 +25,8 @@ from pytimeparse.timeparse import timeparse
 
 from utils import Colors, Human, Paginator, crumble, Poll, PollManager
 from core import getLogger, Inu
+# import Dataset
+
 
 log = getLogger(__name__)
 
@@ -47,51 +49,69 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     # change letter_emojis to the actual emoji
     if event.emoji_name not in letter_emojis:
         return
+    # look if message id in db
+    # # poll_table = Table("polls")
+    # # sql = """
+    # # SELECT * FROM polls
+    # # WHERE message_id = $1
+    # # RETURNING *
+    # # """
+    # # records = await poll_table.fetch(sql, event.message_id)
+    # # if len(records) == 0:
+    # #     return
+    # check if option in fetched record
+    # if yes update poll and insert to votes
     if not (poll := PollManager.get_poll(event.message_id, event.channel_id)):
         return
     await poll.add_vote_and_update(event.user_id, 1, event.emoji_name)
+
+
+class PollEmbedBuilder:
+    def __init__(self, poll_record: Dict[str, str]):
+        self._message_id = poll_record["message_id"]
+        
     
 
-@plugin.command
-@lightbulb.command("poll", "start a poll")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def make_poll(ctx: context.SlashContext):
-    bot: Inu = plugin.bot
-    if isinstance(ctx, context.PrefixContext):
-        id = str(bot.id_creator.create_id())
-        await ctx.respond(
-            component=ActionRowBuilder().add_button(ButtonStyle.PRIMARY, id).set_label("create").add_to_container()
-        )
-        _, event, interaction = await bot.wait_for_interaction(id)
-        ctx_interaction = interaction
-    else:
-        ctx_interaction = ctx.interaction
-    responses, interaction, event = await bot.shortcuts.ask_with_modal(
-        modal_title="Creating a poll", 
-        question_s=[
-            "Poll Headline:", "Poll Description:", "Poll Options:", 
-            "Poll Duration:", "Anonymous?"
-        ], 
-        placeholder_s=[
-            "How often do you smoke weed?", 
-            "... additional information here if needed ...", 
-            "Yes, every day, sometimes, one time, never had and never will be",
-            "2 days 5 hours",
-            "yes (yes|no|maybe)"
-        ],
-        interaction=ctx_interaction,
-    )
-    ctx._interaction = interaction
-    ctx._responded = False
-    name, description, options, duration, anonymous = responses
-    poll = Poll(
-        options=options.split(','), 
-        active_until=timedelta(seconds=timeparse(duration)),
-        anonymous=anonymous.lower() == "yes",
-        title=name,
-        description=description,
-    )
-    await poll.start(ctx)
+# @plugin.command
+# @lightbulb.command("poll", "start a poll")
+# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+# async def make_poll(ctx: context.SlashContext):
+#     bot: Inu = plugin.bot
+#     if isinstance(ctx, context.PrefixContext):
+#         id = str(bot.id_creator.create_id())
+#         await ctx.respond(
+#             component=ActionRowBuilder().add_button(ButtonStyle.PRIMARY, id).set_label("create").add_to_container()
+#         )
+#         _, event, interaction = await bot.wait_for_interaction(id)
+#         ctx_interaction = interaction
+#     else:
+#         ctx_interaction = ctx.interaction
+#     responses, interaction, event = await bot.shortcuts.ask_with_modal(
+#         modal_title="Creating a poll", 
+#         question_s=[
+#             "Poll Headline:", "Poll Description:", "Poll Options:", 
+#             "Poll Duration:", "Anonymous?"
+#         ], 
+#         placeholder_s=[
+#             "How often do you smoke weed?", 
+#             "... additional information here if needed ...", 
+#             "Yes, every day, sometimes, one time, never had and never will be",
+#             "2 days 5 hours",
+#             "yes (yes|no|maybe)"
+#         ],
+#         interaction=ctx_interaction,
+#     )
+#     ctx._interaction = interaction
+#     ctx._responded = False
+#     name, description, options, duration, anonymous = responses
+#     poll = Poll(
+#         options=options.split(','), 
+#         active_until=timedelta(seconds=timeparse(duration)),
+#         anonymous=anonymous.lower() == "yes",
+#         title=name,
+#         description=description,
+#     )
+#     await poll.start(ctx)
 
 def load(inu: lightbulb.BotApp):
     global bot
