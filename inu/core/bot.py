@@ -38,9 +38,14 @@ T = TypeVar("T")
 
 
 class BotResponseError(Exception):
-    def __init__(self, bot_message: str, *args: object) -> None:
+    def __init__(self, bot_message: str, ephemeral: bool = False) -> None:
+        self.kwargs: Dict[str, Any] = {}
+        if bot_message:
+            self.kwargs["content"] = bot_message
+        if ephemeral:
+            self.kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
         self.bot_message = bot_message
-        super().__init__(*args)
+        super().__init__()
 
 
 class Inu(lightbulb.BotApp):
@@ -88,8 +93,8 @@ class Inu(lightbulb.BotApp):
             case_insensitive_prefix_commands=True,
             banner=None,
             logs=logs,
-            intents=hikari.Intents.ALL
-            # default_enabled_guilds=[538398443006066728]
+            intents=hikari.Intents.ALL,
+            # default_enabled_guilds=[984380094699147294]
         )
         self.mrest = MaybeRest(self)
         self.load("inu/ext/commands/")
