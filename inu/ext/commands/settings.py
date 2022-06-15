@@ -105,6 +105,8 @@ class PrefixView(SettingsMenuView):
             max_length_s=15,
             input_style_s=hikari.TextInputStyle.SHORT
         )
+        if new_prefix is None:
+            return
         self.lightbulb_ctx._options["new_prefix"] = new_prefix
         self.lightbulb_ctx._responded = False
         self.lightbulb_ctx._interaction = interaction
@@ -354,24 +356,24 @@ async def prefix(ctx: Context):
 
 @prefix.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("new_prefix", "The prefix you want to add", type=str, default="")
+@lightbulb.option("new_prefix", "The prefix you want to add | \"<empty>\" for no prefix", type=str, default="")
 @lightbulb.command("add", "Add a prefix")
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def add(ctx: Context):
     prefix = ctx.options.new_prefix
-    if prefix == "empty":
+    if prefix == "<empty>":
         prefix = ""
     prefixes = await PrefixManager.add_prefix(ctx.guild_id, prefix)
     await ctx.respond(f"""I added it. For this guild, the prefixes are now: {', '.join([f'`{p or "<empty>"}`' for p in prefixes])}""")
 
 @prefix.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("prefix", "The prefix you want to add", type=str, default="")
+@lightbulb.option("prefix", "The prefix you want to remove | \"<empty>\" for no prefix", type=str, default="")
 @lightbulb.command("remove", "Remove a prefix")
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def remove(ctx: Context):
     prefix = ctx.options.prefix
-    if prefix == "empty":
+    if prefix == "<empty>":
         prefix = ""
     elif prefix == bot._default_prefix:
         return await ctx.respond(f"I won't do that xD")
