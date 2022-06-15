@@ -18,8 +18,9 @@ class PrefixManager:
         --------
             - (List[str]) prefixes
         """
+        if not isinstance(prefix, str):
+            raise TypeError(f"prefix must be a string, not {type(prefix)}")
         table = Table("guilds")
-        
         rec = await table.fetch_by_id("guild_id", guild_id)
         prefixes = [table.db.bot.conf.bot.DEFAULT_PREFIX]
         if rec:
