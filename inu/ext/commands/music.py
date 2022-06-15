@@ -52,7 +52,7 @@ log = getLogger(__name__)
 HIKARI_VOICE = True
 
 # to fix bug, when join first time, no music
-first_join = True
+first_join = False
 
 # ytdl_format_options = {
 #     "format": "bestaudio/best",
@@ -500,14 +500,14 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
             music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
             await _leave(guild_id)
             return
-        if emoji in ['🔀','🛑','🗑','⏸','▶'] and ctx:
+        if emoji in ['🔀','🗑','⏸','▶'] and ctx:
             await queue(ctx)
     except Exception:
         log.error(f"Error reaction_add music:\n{traceback.print_exc()}")
 
 async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
     if not (guild := ctx.get_guild()) or not ctx.guild_id:
-        return
+        return None
     connection_info = None
     states = music.bot.cache.get_voice_states_view_for_guild(guild)
     voice_state = [state async for state in states.iterator().filter(lambda i: i.user_id == ctx.author.id)]
@@ -680,7 +680,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     if not ctx.guild_id or not ctx.member:
         return  # just for pylance
     music.d.last_context[ctx.guild_id] = ctx
-    con = music.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id)
+    con = music.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
     # Join the user's voice channel if the bot is not in one.
     if not con:
         await _join(ctx)
