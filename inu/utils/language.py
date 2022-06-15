@@ -226,6 +226,8 @@ class Human():
         out = ''.join(r)
         if cents:
             out += '.' + cents
+        if out.endswith(".0"):
+            out = out[:-2]
         return out
 
     @staticmethod
