@@ -106,12 +106,12 @@ CREATE TABLE IF NOT EXISTS polls (
     message_id BIGINT NOT NULL,
     channel_id BIGINT NOT NULL,
     creator_id BIGINT NOT NULL,
-    title VARCHAR(255),
-    "description" VARCHAR(2048),
+    title VARCHAR(255) NOT NULL,
+    description VARCHAR(2048),
     starts TIMESTAMP,
     expires TIMESTAMP NOT NULL,
     "anonymous" BOOLEAN NOT NULL,
-    "type" INTEGER NOT NULL
+    poll_type INTEGER NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS poll_votes (
@@ -128,7 +128,7 @@ CREATE TABLE IF NOT EXISTS poll_options (
     poll_id BIGINT NOT NULL 
         REFERENCES polls (poll_id)
         ON DELETE CASCADE,
-    "name" VARCHAR(50) NOT NULL,
+    "reaction" VARCHAR(50) NOT NULL,
     "description" VARCHAR(2048)
 );
 
