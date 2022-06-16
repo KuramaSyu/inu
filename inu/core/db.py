@@ -177,7 +177,7 @@ class Table():
                 try:
                     return_value = await func(*args, **kwargs)
                     if self.do_log:
-                        log.debug(f"{return_value}")
+                        log.debug(f"{self._executed_sql}\n->{return_value}")
                     return return_value
                 except Exception as e:
                     log.error(f"{self._executed_sql}")
