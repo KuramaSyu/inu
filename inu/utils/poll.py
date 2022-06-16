@@ -4,13 +4,16 @@ from typing import *
 import random
 from datetime import datetime, timedelta
 import asyncio
+import time as tm
 
 
 import hikari
 import lightbulb
 
 from utils.db import PollManager
-from core import Table, Inu
+from core import Table, Inu, getLogger
+
+log = getLogger(__name__)
 
 
 
@@ -133,15 +136,16 @@ class PollTypes(Enum):
     BOOL_POLL = 3
 
 
-class Poll(AbstractPoll):
-    """A class for making polls
+class Poll():
+    """
+    Represents the current state of the poll
     
     Members:
     -------
     self._poll : Dict[str, Set[int]]
         Mapping from option identifier to a Set with every user id voted for that point
-    self._options : Dict[str, str]
-        Mapping from name (...letter_x) to description what the user has entered
+    self._options : Dict[int, str]
+        Mapping from option to description what the user has entered
     """
     _type: PollTypes = PollTypes.STANDARD_POLL
     _options: Dict[str, str]
@@ -149,15 +153,13 @@ class Poll(AbstractPoll):
     _message_id: int
     _channel_id: int
     _creator_id: int
+    # list with poll ids
+    _finalizing: Set[int] = []
 
     def __init__(
         self, 
-        options: List[str],
-        active_until: timedelta,
-        starts: Optional[datetime] = None,
-        anonymous: bool = True,
-        title: str = "",
-        description: str = "",
+        record: Dict[str, Any],
+        bot: Inu,
     ):
         """
         Args:
@@ -173,29 +175,42 @@ class Poll(AbstractPoll):
             Per default empty
         
         """
-        letter_emojis = [
+        self.letter_emojis = [
             "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", 
             "🇭", "", "🇯", "🇰", "🇱", "🇲", "🇳", 
             "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", 
             "🇻", "🇼", "🇽", "🇾", "🇿"
         ]
-        self._poll: Dict[str, List[int]] = {letter_emojis[k]: [] for k in range(len(options))}
-        self._options = {letter_emojis[i]: v for i, v in enumerate(options)}
-        self._title = title
-        self._description = description
-        self._anonymous = anonymous
-        self._active_until: datetime = active_until + datetime.now()
-        self._id = None
-        self._option_ids: List[int] = []
-        self._starts = starts
+        # mapping from option id to a list with user ids
+        # Dict[option_id, List[user_id]]
+        self.bot = bot
+        self._poll: Dict[str, List[int]] = {}
+        # mapping from option id to the option title
+        self._options: Dict[int, str] = {}
+        self._id_reaction: Dict[int, str] = {}
+
+        self._title = record["title"]
+        self._description = record["description"]
+        self._anonymous = record["anonymous"]
+        self._expires = record["expires"]
+        self._starts = record["starts"]
+        self._type = record["poll_type"]
+
+        self._id = record["poll_id"]
+        self._guild_id = record["guild_id"]
+        self._message_id = record["message_id"]
+        self._channel_id = record["channel_id"]
+        self._creator_id = record["creator_id"]
+
+
         # f"{int(time.time)}{ctx.author.id}{ctx.guild_id}"
 
     @property
     def expires(self) -> datetime:
         """when the poll will expire"""
-        if not self._active_until:
+        if not self._expires:
             raise ValueError("Poll has no expire datetime")
-        return self._active_until
+        return self._expires
 
     @property
     def title(self) -> str:
@@ -275,27 +290,29 @@ class Poll(AbstractPoll):
         """
         embed = hikari.Embed(title=self._title)
         if self._description:
-            embed.description = self._description
-        embed.description += "\n"
-        for o, d in self._options.items():
-            if d:
-                embed.description += f"**{o}** = {d}\n"   
+            embed.description = f"**Details**: {self._description}\n\n"
+        embed.description += f"**Ends**: <t:{int(self.expires.timestamp())}:R>\ne.g. <t:{int(self.expires.timestamp())}:F>"
+        
+        # embed.description += "\n"
+        # for option_id, description in self._options.items():
+        #     if description:
+        #         embed.description += f"{description}\n"   #**{self._reaction_by_id(option_id)}** = 
         if self.anonymous:
             vote_result = ""
-            for o, o_votes in self._poll.items():
-                vote_result += f"**{o}** \n{self._amount_to_str(o)}\n\n"
+            for option_id, o_votes in self._poll.items():
+                vote_result += f"**{self._reaction_by_id(option_id)}** \n{self._amount_to_str(option_id)}\n\n"
             embed.add_field("Results", value)
         else:
-            for o, o_votes in self._poll.items():
-                value = ">>>".join(
+            for option_id, o_votes in self._poll.items():
+                value = "\n".join(
                     self.bot.cache.get_member(self.guild_id, m).display_name 
                     for m in o_votes
                 ) if len(o_votes) > 0 else r"¯\_(ツ)_/¯"
                 embed.add_field(
-                    f"**{o}** | {self._amount_to_str(o)}",
-                    value,
+                    f"**{self._reaction_by_id(option_id)}** | {self._amount_to_str(option_id)}",
+                    f"_{self._options[option_id]}_\n>>> {value}",
                 )
-        embed.set_footer(f"Vote ends <t:{self._active_until}:R>")
+        embed.add_field("The poll will end", f"")
         return embed
 
     @property
@@ -304,6 +321,12 @@ class Poll(AbstractPoll):
         for v in self._poll.values():
             count += len(v)
         return count
+
+    def __repr__(self) -> str:
+        return (
+            f"<Poll(id={self.id}, title={self.title}, "
+            f"options={self._options}, poll={self._poll}, "
+        )
 
     def _amount_to_str(self, option_key: str, str_len: int = 40) -> str:
         """
@@ -317,159 +340,91 @@ class Poll(AbstractPoll):
         option_filled_blocks = int(round(option_perc * str_len, 0))
         print(option_perc)
         return f"{option_filled_blocks * '█'}{int(str_len - option_filled_blocks) * '░'}"
-    
-    def add_vote(
-        self,
-        user_id: int,
-        amount: int,
-        option: str,
-    ) -> Optional[Tuple[int, str]]:
+
+    def _reaction_by_id(self, id: int) -> str:
         """
-        Args:
-        ----
-        user_id: `int` 
-            the number, to identify the name (name will be mapped to number)
-        amount: `int`
-            the amount of votes. typically 1 or -1
-        option : `str`
-            the option where to enter under
-
-        Returns:
-        -------
-        `Optional[Tuple[int, str]]` :
-            the old removed vote, if anys
-            Mapping from user_id to option_id
+        returns the emoji for the given id
         """
-        return_value = None
-        for o, members in self._poll.items():
-            if user_id in members:
-                self._poll[o].remove(user_id)
-                return_value = (user_id, o)
-        self._poll[option].append(user_id)
-        return return_value
+        return self._id_reaction[id]
 
-    async def finish(self, in_seconds: int):
-        """ edits the last message to discord with the finished poll
-        """
-        await asyncio.sleep(in_seconds)
-        await self.bot.rest.create_message(channel=self._channel_id, embed=self.embed)
-        if self._id:
-            await self._delete_from_db()
-
-    async def _delete_from_db(self):
-        await PollManager.remove_poll(self.id)
-
-    @classmethod
-    async def from_record(cls, poll_record: Dict[str, Any], bot: Inu) -> "Poll":
+    async def fetch(self) -> None:
 
         option_table = Table("poll_options")
         vote_table = Table("poll_votes")
-        options = []
-        option_ids = []
-        polls: Dict[str, List[int]] = {}
-        poll_id = poll_record['poll_id']
-        option_sql = f"""
-        SELECT * FROM poll_options 
-        WHERE poll_id = {poll_id}
-        """
 
         # fetch options
-        for option_record in await option_table.fetch(
-            f"""
-            SELECT * FROM poll_options 
-            WHERE poll_id = {poll_id}
-            """
-        ):
-            options.append(option_record['description'])
-            option_ids.append(option_record['option_id'])
-        
+        for option_record in await PollManager.fetch_options(self.id):
+            log.debug(f"Fetched option {option_record}")
+            self._options[option_record["option_id"]] = option_record["description"]
+            self._id_reaction[option_record["option_id"]] = option_record["reaction"]
+
+        for k in self._options.keys():
+            self._poll[k] = []
+
         # fetch votes
-        for vote_record in await vote_table.fetch(
-            f"""
-            SELECT * FROM poll_votes 
-            WHERE poll_id = {poll_id}
-            """
-        ):
+        for vote_record in await PollManager.fetch_votes(self.id):
+            log.debug(f"vote_record: {vote_record}")
             # insert votes into polls - mapping from option_id to a list of user_ids
-            if vote_record['option_id'] in polls.keys():
-                polls[vote_record['option_id']].append(vote_record['user_id'])
+            if vote_record['option_id'] in self._poll.keys():
+                self._poll[vote_record['option_id']].append(vote_record['user_id'])
             else:
-                polls[vote_record['option_id']] = [vote_record['user_id']]
+                self._poll[vote_record['option_id']] = [vote_record['user_id']]
 
-        # create class
-        self = cls(
-            options=options,
-            active_until=poll_record["expires"] - datetime.now(),
-            anonymous=poll_record["anonymous"],
-            title=poll_record["title"],
-            description=poll_record["description"],
-        )
-        self._creator_id = poll_record["creator_id"]
-        self._channel_id = poll_record["channel_id"]
-        self._id = poll_record["poll_id"]
-        self._guild_id = poll_record["guild_id"]
-        self._message_id = poll_record["message_id"]
-        self.bot = bot
-        self._poll = polls
-        return self
+    async def dispatch_embed(
+        self, 
+        bot: Inu, 
+        edit: bool = True, 
+        add_reactions: bool = False,
+        content: Optional[str] = None,
+    ) -> hikari.Message:
+        log.debug(repr(self))
 
-    async def _register_in_manager(self):
-        """syncs poll and all options into the database"""
-        self._id = await PollManager.add_poll(self)
-        if self._id:
-            for name, description in self._options.items():
-                self._option_ids.append(
-                    await PollManager.add_poll_option(self._id, name, description)
-                )
-
-    async def add_vote_and_update(
-        self,
-        user_id: int,
-        amount: int,
-        option: str,
-    ):
-        """Adds a vote, syncs it to db and updates the poll message"""
-        old_vote = self.add_vote(user_id, amount, option)
-        if old_vote and self.needs_to_sync:
-            await self._sync_vote_to_db(user_id=user_id, option_id=old_vote[1], remove=True)
-        await self.update_poll()
-        if self.needs_to_sync:
-            await self._sync_vote_to_db(user_id=user_id, option_id=option)
-        
-
-    async def update_poll(self):
-        await self.bot.rest.edit_message(
-            channel=self._channel_id,
-            message=self._message_id,
-            embed=self.embed,
-        )
-    
-    async def _sync_vote_to_db(self, user_id: int, option_id: str, remove: bool = False):
-        """syncs all new votes of this poll into the db"""
-        if remove:
-            await PollManager.remove_vote(self.id, user_id, option_id)
+        if edit:
+            message = await bot.rest.edit_message(
+                channel=self._channel_id,
+                message=self._message_id,
+                embed=self.embed,
+                content=content,
+            )
         else:
-            await PollManager.add_vote(self.id, user_id, option_id)
+            message = await bot.rest.create_message(
+                content=content,
+                channel=self._channel_id,
+                embed=self.embed,
+            )
+            
+        if not add_reactions:
+            return message
 
-
-    async def start(self, ctx: lightbulb.Context):
-        letter_emojis = [l for l in 
-            [
+        letter_emojis = [
                 "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", 
                 "🇭", "", "🇯", "🇰", "🇱", "🇲", "🇳", 
                 "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", 
                 "🇻", "🇼", "🇽", "🇾", "🇿"
             ]
-        ]
-        message = await (await ctx.respond(embed=self.embed)).message()
+
         for i in range(len(self._options)):
             await message.add_reaction(letter_emojis[i])
-        self._message_id = message.id
-        self._channel_id = ctx.channel_id
-        self._guild_id = ctx.guild_id  # type: ignore
-        self._creator_id = ctx.author.id
-        self.bot = ctx.bot
-        await self._register_in_manager()
+        return message
+
+    async def finalize(self) -> None:
+        """
+        Sends result and deletes db entry
+
+        Note:
+        ----
+        Automatically calls self.fetch()
+        """
+        if self.id in self.__class__._finalizing:
+            return
+        self.__class__._finalizing.add(self.id)
+        asyncio.sleep(self.expires.timestamp() - tm.time())
+        await self.fetch()
+        await self.dispatch_embed(self.bot, edit=False, content="Results:")
+        await PollManager.remove_poll(self.id, self.message_id)
+        self.__class__._finalizing.remove(self.id)
+
+
 
       
 
