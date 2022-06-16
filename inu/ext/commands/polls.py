@@ -25,7 +25,7 @@ from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
 
 from utils import Colors, Human, Paginator, crumble, Poll, PollManager
-from core import getLogger, Inu
+from core import getLogger, Inu, Table
 # import Dataset
 
 
@@ -48,23 +48,41 @@ letter_emojis =             [
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     log.debug(f"Reaction added: {event.emoji_name=} {event.emoji_id} {str(event.emoji_name)}")
     # change letter_emojis to the actual emoji
+    if event.user_id == bot.me.id:
+        return
     if event.emoji_name not in letter_emojis:
         return
-    # look if message id in db
-    # # poll_table = Table("polls")
-    # # sql = """
-    # # SELECT * FROM polls
-    # # WHERE message_id = $1
-    # # RETURNING *
-    # # """
-    # # records = await poll_table.fetch(sql, event.message_id)
-    # # if len(records) == 0:
-    # #     return
+    if not event.message_id in PollManager.message_id_cache:
+        return
+
+    record = await PollManager.fetch_poll(message_id=event.message_id)
+    if not record:
+        log.debug(f"no record found")
+        return
+
+    option_id = await PollManager.fetch_option_id(
+        record["poll_id"], 
+        event.emoji_name
+    )
+    if not option_id:
+        log.debug(f"no option_id found for record {record}")
+        return
+    await PollManager.remove_vote(record["poll_id"], event.user_id)
+    await PollManager.add_vote(record["poll_id"], option_id, event.user_id)
+    await bot.rest.delete_reaction(event.channel_id, event.message_id, event.user_id, event.emoji_name)
+
+
     # check if option in fetched record
     # if yes update poll and insert to votes
-    if not (poll := PollManager.get_poll(event.message_id, event.channel_id)):
-        return
-    await poll.add_vote_and_update(event.user_id, 1, event.emoji_name)
+    await PollManager.add_vote(
+        poll_id=record["poll_id"], 
+        user_id=event.user_id, 
+        option_id=option_id,
+    )
+    poll = Poll(record, bot)
+    await poll.fetch()
+    await poll.dispatch_embed(bot)
+    log.debug(f"added vote for {event.user_id} to option {option_id}")
 
 
 class PollEmbedBuilder:
@@ -73,46 +91,65 @@ class PollEmbedBuilder:
         
     
 
-# @plugin.command
-# @lightbulb.command("poll", "start a poll")
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-# async def make_poll(ctx: context.SlashContext):
-#     bot: Inu = plugin.bot
-#     if isinstance(ctx, context.PrefixContext):
-#         id = str(bot.id_creator.create_id())
-#         await ctx.respond(
-#             component=ActionRowBuilder().add_button(ButtonStyle.PRIMARY, id).set_label("create").add_to_container()
-#         )
-#         _, event, interaction = await bot.wait_for_interaction(id)
-#         ctx_interaction = interaction
-#     else:
-#         ctx_interaction = ctx.interaction
-#     responses, interaction, event = await bot.shortcuts.ask_with_modal(
-#         modal_title="Creating a poll", 
-#         question_s=[
-#             "Poll Headline:", "Poll Description:", "Poll Options:", 
-#             "Poll Duration:", "Anonymous?"
-#         ], 
-#         placeholder_s=[
-#             "How often do you smoke weed?", 
-#             "... additional information here if needed ...", 
-#             "Yes, every day, sometimes, one time, never had and never will be",
-#             "2 days 5 hours",
-#             "yes (yes|no|maybe)"
-#         ],
-#         interaction=ctx_interaction,
-#     )
-#     ctx._interaction = interaction
-#     ctx._responded = False
-#     name, description, options, duration, anonymous = responses
-#     poll = Poll(
-#         options=options.split(','), 
-#         active_until=timedelta(seconds=timeparse(duration)),
-#         anonymous=anonymous.lower() == "yes",
-#         title=name,
-#         description=description,
-#     )
-#     await poll.start(ctx)
+@plugin.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("poll", "start a poll")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def make_poll(ctx: context.SlashContext):
+    bot: Inu = plugin.bot
+    if isinstance(ctx, context.PrefixContext):
+        id = str(bot.id_creator.create_id())
+        await ctx.respond(
+            component=ActionRowBuilder().add_button(ButtonStyle.PRIMARY, id).set_label("create").add_to_container()
+        )
+        _, event, interaction = await bot.wait_for_interaction(id)
+        ctx_interaction = interaction
+    else:
+        ctx_interaction = ctx.interaction
+    responses, interaction, event = await bot.shortcuts.ask_with_modal(
+        modal_title="Creating a poll", 
+        question_s=[
+            "Poll Headline:", "Poll Description:", "Poll Options:", 
+            "Poll Duration:", "Anonymous?"
+        ], 
+        placeholder_s=[
+            "How often do you smoke weed?", 
+            "... additional information here if needed ...", 
+            "Yes, every day, sometimes, one time, never had and never will be",
+            "2 days 5 hours",
+            "yes (yes|no|maybe)"
+        ],
+        interaction=ctx_interaction,
+    )
+    ctx._interaction = interaction
+    ctx._responded = False
+    name, description, options, duration, anonymous = responses
+
+
+    message = await (await ctx.respond("Wait...")).message()
+    dummy_record = {
+        "channel_id": ctx.channel_id,
+        "message_id": message.id,
+        "creator_id": ctx.author.id,
+        "guild_id": ctx.guild_id,
+        "title": name,
+        "description": description,
+        "starts": datetime.now(),
+        "expires": datetime.now() + timedelta(seconds=timeparse(duration)),
+        "anonymous": anonymous.lower() == "yes",
+        "poll_type": 1,
+    }
+    options = [o.strip() for o in options.split(",") if o.strip()]
+
+
+    record = await PollManager.add_poll(**dummy_record)
+    for letter, option in zip(letter_emojis, options):
+        await PollManager.add_poll_option(record["poll_id"], letter, option)
+    poll = Poll(record, bot)
+    await poll.fetch()
+    await poll.dispatch_embed(bot, add_reactions=True)
+
+
 
 def load(inu: lightbulb.BotApp):
     global bot
