@@ -32,7 +32,7 @@ POLL_SYNC_TIME = 5*60
 class PollManager:
     bot: Inu
     db: Database
-    active_polls: Set[Poll] = set()
+    message_id_cache: Set[int] = set()
 
     @classmethod
     async def init_bot(cls, bot: Inu):
@@ -51,28 +51,41 @@ class PollManager:
         )
         table = Table("polls")
         records = await table.fetch(sql, datetime.now())
+        for record in records:
+            cls.message_id_cache.remove(record["message_id"])
         log.info(f"Deleted {len(records)} old polls")
         
 
     @classmethod
-    def get_poll(cls, message_id: int, channel_id: int) -> Optional[Poll]:
-        for poll in cls.active_polls:
-            if poll.message_id == message_id and poll.channel_id == channel_id:
-                return poll
-        return None
+    async def fetch_poll(cls, message_id: int) -> Optional[Mapping[str, Any]]:
+        sql = (
+            "SELECT * FROM polls "
+            "WHERE message_id = $1"
+        )
+        try:
+            return (await (Table("polls")).fetch(sql, message_id))[0]
+        except IndexError:
+            return None
 
-    # poll_id SERIAL PRIMARY KEY,
-    # guild_id BIGINT NOT NULL,
-    # message_id BIGINT NOT NULL,
-    # channel_id BIGINT NOT NULL,
-    # creator_id BIGINT NOT NULL,
-    # title VARCHAR(255),
-    # "description" VARCHAR(2048),
-    # starts TIMESTAMP,
-    # expires TIMESTAMP NOT NULL,
-    # "anonymous" BOOLEAN NOT NULL,
-    # "type" INTEGER NOT NULL
-    
+    @classmethod
+    async def fetch_option_id(cls, poll_id: int, reaction_str: str):
+        sql = (
+            "SELECT option_id FROM poll_options\n "
+            "WHERE poll_id = $1 AND reaction = $2"
+        )
+        try:
+            option_id = (await (Table(
+                "poll_options"
+            )).fetch(
+                sql, 
+                poll_id, 
+                reaction_str
+            )
+            )[0]["option_id"]
+        except IndexError:
+            return None
+        return option_id
+
     @classmethod
     async def add_poll(
         cls,
@@ -86,49 +99,40 @@ class PollManager:
         starts: Optional[datetime] = None,
         expires: Optional[datetime] = None,
         anonymous: bool = False,
-    ) -> Optional[int]:
+    ) -> Optional[Mapping[str, Any]]:
         """add poll to db. returns poll id"""
 
         table = Table("polls")
-        # return await table.insert(
-        #     which_columns=[
-        #         "guild_id", "message_id", "channel_id", 
-        #         "creator_id", "starts", "title", "description", 
-        #         "expires", "type", "anonymous"
-        #     ],
-        #     values=[
-        #         poll.guild_id, poll.message_id, poll.channel_id,
-        #         poll.creator_id, poll.starts, poll.title, poll.description,
-        #         poll.expires, poll.poll_type, poll.anonymous
-        #     ],
-        #     returning="poll_id"
-        # )
+
         sql = """
             INSERT INTO polls ( 
                 guild_id, message_id, channel_id, creator_id, 
-                starts, title, description, expires, type, anonymous 
+                starts, title, description, expires, poll_type, anonymous 
             )
             VALUES ( $1, $2, $3, $4, $5, $6, $7, $8, $9, $10 )
-            RETURNING poll_id
+            RETURNING *
         """
         # return values -> List[Dataset["poll_id"]]
-        return (await table.fetch(
+        
+        record = (await table.execute(
             sql, 
             guild_id, message_id, channel_id, 
             creator_id, starts, title, 
             description, expires, 
             poll_type, anonymous
-        ))[0]["poll_id"]
+        ))[0]
+        cls.message_id_cache.add(message_id)
+        return record
 
     @classmethod
-    async def remove_poll(cls, poll: Poll):
+    async def remove_poll(cls, poll_id: int, message_id: int):
         """remove poll from db"""
         table = Table("polls")
         await table.delete(
             columns=["poll_id"],
-            matching_values=[poll.id]
+            matching_values=[poll_id]
         )
-        cls.active_polls.remove(poll)
+        cls.message_id_cache.remove(message_id)
 
     @classmethod
     async def add_vote(cls, poll_id: int, user_id: int, option_id: str):
@@ -136,25 +140,35 @@ class PollManager:
         await table.insert(which_columns=["poll_id", "option_id", "user_id"], values=[poll_id, option_id, user_id])
 
     @classmethod
-    async def remove_vote(cls, poll_id: int, user_id: int, option_id: str):
+    async def remove_vote(cls, poll_id: int, user_id: int):
         table = Table("poll_votes")
-        await table.delete(columns=["poll_id", "user_id", "option_id"], matching_values=[poll_id, user_id, option_id])
+        await table.delete(columns=["poll_id", "user_id"], matching_values=[poll_id, user_id])
 
     @classmethod
-    async def add_poll_option(cls, poll_id: int, option_name: str, description: str) -> int:
+    async def add_poll_option(cls, poll_id: int, reaction: str, description: str) -> int:
         table = Table("poll_options")
         return await table.insert(
-            which_columns=["poll_id", "name", "description"], 
-            values=[poll_id, option_name, description],
+            which_columns=["poll_id", "reaction", "description"], 
+            values=[poll_id, reaction, description],
             returning="option_id"
         )
 
-
     @classmethod
-    async def remove_poll_options(cls, option_ids: List[int]):
+    async def fetch_options(cls, poll_id: int) -> List[Mapping[str, Any]]:
         table = Table("poll_options")
-        await table.delete(columns=["option_id"], matching_values=option_ids)
+        return await table.fetch(
+            (
+                "SELECT * FROM poll_options "
+                "WHERE poll_id = $1"
+            ), poll_id
+        )
 
     @classmethod
-    async def register_poll(cls, poll: Poll):
-        cls.active_polls.add(poll)
+    async def fetch_votes(cls, poll_id: int) -> List[Mapping[str, Any]]:
+        table = Table("poll_votes")
+        return await table.fetch(
+            (
+                "SELECT * FROM poll_votes "
+                "WHERE poll_id = $1"
+            ), poll_id
+        )
