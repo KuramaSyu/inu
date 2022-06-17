@@ -23,9 +23,10 @@ from matplotlib.style import available
 from numpy import full, isin
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
+from hikari import TextInputStyle
 
 from utils import Colors, Human, Paginator, crumble, Poll, PollManager
-from core import getLogger, Inu, Table
+from core import getLogger, Inu, Table, BotResponseError
 # import Dataset
 
 
@@ -33,6 +34,7 @@ log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Polls")
 bot: Inu
+POLL_SYNC_TIME: int
 
 active_polls: List[Poll] = []
 letter_emojis =             [
@@ -46,7 +48,6 @@ letter_emojis =             [
 
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
-    log.debug(f"Reaction added: {event.emoji_name=} {event.emoji_id} {str(event.emoji_name)}")
     # change letter_emojis to the actual emoji
     if event.user_id == bot.me.id:
         return
@@ -57,7 +58,6 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
 
     record = await PollManager.fetch_poll(message_id=event.message_id)
     if not record:
-        log.debug(f"no record found")
         return
 
     option_id = await PollManager.fetch_option_id(
@@ -65,11 +65,9 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
         event.emoji_name
     )
     if not option_id:
-        log.debug(f"no option_id found for record {record}")
         return
     await PollManager.remove_vote(record["poll_id"], event.user_id)
-    await PollManager.add_vote(record["poll_id"], option_id, event.user_id)
-    await bot.rest.delete_reaction(event.channel_id, event.message_id, event.user_id, event.emoji_name)
+    
 
 
     # check if option in fetched record
@@ -82,14 +80,8 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     poll = Poll(record, bot)
     await poll.fetch()
     await poll.dispatch_embed(bot)
-    log.debug(f"added vote for {event.user_id} to option {option_id}")
-
-
-class PollEmbedBuilder:
-    def __init__(self, poll_record: Dict[str, str]):
-        self._message_id = poll_record["message_id"]
+    await bot.rest.delete_reaction(event.channel_id, event.message_id, event.user_id, event.emoji_name)
         
-    
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -109,17 +101,27 @@ async def make_poll(ctx: context.SlashContext):
     responses, interaction, event = await bot.shortcuts.ask_with_modal(
         modal_title="Creating a poll", 
         question_s=[
-            "Poll Headline:", "Poll Description:", "Poll Options:", 
+            "Poll Headline:", "Additional information:", "Poll Options:", 
             "Poll Duration:", "Anonymous?"
         ], 
         placeholder_s=[
             "How often do you smoke weed?", 
             "... additional information here if needed ...", 
             "Yes, every day, sometimes, one time, never had and never will be",
-            "2 days 5 hours",
-            "yes (yes|no|maybe)"
+            "3 hours 30 minutes",
+            "yes [yes|no]"
         ],
         interaction=ctx_interaction,
+        is_required_s=[True, False, True, True, True],
+        input_style_s=[
+            TextInputStyle.SHORT, 
+            TextInputStyle.PARAGRAPH,
+            TextInputStyle.PARAGRAPH,
+            TextInputStyle.SHORT,
+            TextInputStyle.SHORT
+        ],
+        max_length_s=[255, 2048, None, None, None],
+
     )
     ctx._interaction = interaction
     ctx._responded = False
@@ -127,19 +129,50 @@ async def make_poll(ctx: context.SlashContext):
 
 
     message = await (await ctx.respond("Wait...")).message()
-    dummy_record = {
-        "channel_id": ctx.channel_id,
-        "message_id": message.id,
-        "creator_id": ctx.author.id,
-        "guild_id": ctx.guild_id,
-        "title": name,
-        "description": description,
-        "starts": datetime.now(),
-        "expires": datetime.now() + timedelta(seconds=timeparse(duration)),
-        "anonymous": anonymous.lower() == "yes",
-        "poll_type": 1,
-    }
+    try:
+        dummy_record = {
+            "channel_id": ctx.channel_id,
+            "message_id": message.id,
+            "creator_id": ctx.author.id,
+            "guild_id": ctx.guild_id,
+            "title": name,
+            "description": description,
+            "starts": datetime.now(),
+            "expires": datetime.now() + timedelta(seconds=timeparse(duration)),
+            "anonymous": anonymous.lower() == "yes",
+            "poll_type": 1,
+        }
+    except Exception:
+        raise BotResponseError(
+            (
+                "Your given time is not valid.\n"
+                "Maybe you forgot the type? (e.g. hours, minutes, seconds..)\n"
+                f"You have given me this: `{duration}`"
+            ),
+            
+            ephemeral=True,
+        )
     options = [o.strip() for o in options.split(",") if o.strip()]
+    if len(options) <= 1:
+        raise BotResponseError(
+            f"You need to enter at least two options.\nYou have entered {Human.plural_('option', len(options), with_number=True)}.",
+            ephemeral=True,
+        )
+    if len(options) > 15:
+        raise BotResponseError(
+            f"You enter a maximum of 15 options.\nYou have entered {Human.plural_('option', len(options), with_number=True)}.",
+            ephemeral=True,
+        )
+    if dummy_record["expires"] <= datetime.now() + timedelta(seconds=9):  # type: ignore
+        raise BotResponseError(
+            f"You need to enter a duration that is longer than 9 seconds",
+            ephemeral=True,
+        )
+    if dummy_record["expires"] >= datetime.now() + timedelta(days=90):  # type: ignore
+        raise BotResponseError(
+            f"You need to enter a duration that is shorter than 90 days",
+            ephemeral=True,
+        )
 
 
     record = await PollManager.add_poll(**dummy_record)
@@ -147,11 +180,15 @@ async def make_poll(ctx: context.SlashContext):
         await PollManager.add_poll_option(record["poll_id"], letter, option)
     poll = Poll(record, bot)
     await poll.fetch()
-    await poll.dispatch_embed(bot, add_reactions=True)
+    await poll.dispatch_embed(bot, add_reactions=True, content="")
+    if poll.expires < datetime.now() + timedelta(seconds=POLL_SYNC_TIME):
+        await poll.finalize()
 
 
 
 def load(inu: lightbulb.BotApp):
     global bot
+    global POLL_SYNC_TIME
+    POLL_SYNC_TIME = inu.conf.commands.poll_sync_time
     bot = inu
     inu.add_plugin(plugin)
