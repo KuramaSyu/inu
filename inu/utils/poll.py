@@ -5,16 +5,23 @@ import random
 from datetime import datetime, timedelta
 import asyncio
 import time as tm
-
+from io import BytesIO
+import numpy as np
 
 import hikari
 import lightbulb
+import pandas as pd
+import matplotlib.pyplot as plt
+import seaborn as sns
+import mplcyberpunk
 
 from utils.db import PollManager
-from core import Table, Inu, getLogger
+from utils import Colors
+from core import Table, Inu, getLogger, ConfigProxy, ConfigType
 
 log = getLogger(__name__)
-
+conf = ConfigProxy(ConfigType.YAML)
+POLL_SYNC_TIME = conf.commands.poll_sync_time
 
 
 
@@ -154,7 +161,7 @@ class Poll():
     _channel_id: int
     _creator_id: int
     # list with poll ids
-    _finalizing: Set[int] = []
+    _finalizing: Set[int] = set()
 
     def __init__(
         self, 
@@ -177,14 +184,15 @@ class Poll():
         """
         self.letter_emojis = [
             "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", 
-            "🇭", "", "🇯", "🇰", "🇱", "🇲", "🇳", 
+            "🇭", "🇮", "🇯", "🇰", "🇱", "🇲", "🇳", 
             "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", 
             "🇻", "🇼", "🇽", "🇾", "🇿"
         ]
+        self._reaction_letter: Dict[str, str] = {r: l for r, l in zip(self.letter_emojis, "ABCDEFGHIJKLMNOPQRSTUVWXYZ")}
+        self.bot = bot
         # mapping from option id to a list with user ids
         # Dict[option_id, List[user_id]]
-        self.bot = bot
-        self._poll: Dict[str, List[int]] = {}
+        self._poll: Dict[int, List[int]] = {}
         # mapping from option id to the option title
         self._options: Dict[int, str] = {}
         self._id_reaction: Dict[int, str] = {}
@@ -284,35 +292,47 @@ class Poll():
         return text
 
     @property
-    def embed(self):
+    def embed(self) -> hikari.Embed:
         """
         converts `self` to `hikari.Embed`
         """
         embed = hikari.Embed(title=self._title)
+        embed.color = Colors.random_blue()
+        embed.description = ""
         if self._description:
             embed.description = f"**Details**: {self._description}\n\n"
         embed.description += f"**Ends**: <t:{int(self.expires.timestamp())}:R>\ne.g. <t:{int(self.expires.timestamp())}:F>"
         
-        # embed.description += "\n"
-        # for option_id, description in self._options.items():
-        #     if description:
-        #         embed.description += f"{description}\n"   #**{self._reaction_by_id(option_id)}** = 
         if self.anonymous:
             vote_result = ""
             for option_id, o_votes in self._poll.items():
-                vote_result += f"**{self._reaction_by_id(option_id)}** \n{self._amount_to_str(option_id)}\n\n"
-            embed.add_field("Results", value)
+                vote_result += f"**{self._reaction_by_id(option_id)}** _{self._options[option_id]}_\n{self._amount_to_str(option_id)}\n\n"
+            embed.add_field("Results", vote_result)
         else:
             for option_id, o_votes in self._poll.items():
                 value = "\n".join(
                     self.bot.cache.get_member(self.guild_id, m).display_name 
                     for m in o_votes
-                ) if len(o_votes) > 0 else r"¯\_(ツ)_/¯"
+                ) if len(o_votes) > 0 else "/" #r"¯\_(ツ)_/¯"
                 embed.add_field(
                     f"**{self._reaction_by_id(option_id)}** | {self._amount_to_str(option_id)}",
                     f"_{self._options[option_id]}_\n>>> {value}",
                 )
-        embed.add_field("The poll will end", f"")
+        return embed
+
+    @property
+    def final_embed(self):
+        embed = self.embed
+        embed.description = ""
+        if self.description:
+            embed.description = f"**Description**: {self.description}\n\n"
+        embed.description += f"**Ended at**: <t:{int(self.expires.timestamp())}:F>\n\n"
+        embed.description += f"**Total votes**: {self.total_votes}\n"
+        embed.set_footer(
+            text=f"Poll created by {self.bot.cache.get_member(self.guild_id, self.creator_id).display_name}",
+            icon=self.bot.cache.get_member(self.guild_id, self.creator_id).avatar_url,
+        )
+        embed.set_image(self._make_pie_chart())
         return embed
 
     @property
@@ -328,7 +348,7 @@ class Poll():
             f"options={self._options}, poll={self._poll}, "
         )
 
-    def _amount_to_str(self, option_key: str, str_len: int = 40) -> str:
+    def _amount_to_str(self, option_key: int, str_len: int = 44) -> str:
         """
         returns a string with len <str_len> which displays the poll percentage with terminal symbols
         """
@@ -347,6 +367,12 @@ class Poll():
         """
         return self._id_reaction[id]
 
+    def _letter_by_id(self, id: int) -> str:
+        """
+        returns the letter for the given id
+        """
+        return self._reaction_letter.get(self._reaction_by_id(id), "None")
+
     async def fetch(self) -> None:
 
         option_table = Table("poll_options")
@@ -354,7 +380,6 @@ class Poll():
 
         # fetch options
         for option_record in await PollManager.fetch_options(self.id):
-            log.debug(f"Fetched option {option_record}")
             self._options[option_record["option_id"]] = option_record["description"]
             self._id_reaction[option_record["option_id"]] = option_record["reaction"]
 
@@ -363,7 +388,6 @@ class Poll():
 
         # fetch votes
         for vote_record in await PollManager.fetch_votes(self.id):
-            log.debug(f"vote_record: {vote_record}")
             # insert votes into polls - mapping from option_id to a list of user_ids
             if vote_record['option_id'] in self._poll.keys():
                 self._poll[vote_record['option_id']].append(vote_record['user_id'])
@@ -375,22 +399,22 @@ class Poll():
         bot: Inu, 
         edit: bool = True, 
         add_reactions: bool = False,
-        content: Optional[str] = None,
+        embed: Optional[hikari.Embed] = None,
+        **kwargs,
     ) -> hikari.Message:
-        log.debug(repr(self))
 
         if edit:
             message = await bot.rest.edit_message(
                 channel=self._channel_id,
                 message=self._message_id,
-                embed=self.embed,
-                content=content,
+                embed=embed or self.embed,
+                **kwargs,
             )
         else:
             message = await bot.rest.create_message(
-                content=content,
                 channel=self._channel_id,
-                embed=self.embed,
+                embed=embed or self.embed,
+                **kwargs,
             )
             
         if not add_reactions:
@@ -418,11 +442,66 @@ class Poll():
         if self.id in self.__class__._finalizing:
             return
         self.__class__._finalizing.add(self.id)
-        asyncio.sleep(self.expires.timestamp() - tm.time())
+        await asyncio.sleep(self.expires.timestamp() - tm.time())
         await self.fetch()
-        await self.dispatch_embed(self.bot, edit=False, content="Results:")
+        await self.dispatch_embed(
+            self.bot, 
+            edit=False, 
+            content="Results", 
+            embed=self.final_embed
+        )
         await PollManager.remove_poll(self.id, self.message_id)
         self.__class__._finalizing.remove(self.id)
+
+    def _make_pie_chart(self) -> BytesIO:
+        #Using matplotlib
+        plt.style.use("cyberpunk")
+        sns.set_palette("Set2")
+        sns.set_context("notebook", font_scale=4.5, rc={"lines.linewidth": 4.5})
+        chart, ax = plt.subplots(figsize=[7,7])
+        all_labels = [v for v in self._options.values()]
+        all_data = [len(self._poll[k]) for k in self._poll.keys()]
+        labels = []
+        data = []
+        reaction_letters = []
+        for labal, value in zip(all_labels, self._poll.items()):
+            if len(value[1]) > 0:
+                labels.append(labal)
+                data.append(len(value[1]))
+                reaction_letters.append(self._letter_by_id(value[0]))
+        #chart.set_tight_layout(True)
+        wedges, texts = ax.pie(
+            x=data, 
+            # autopct="%.1f%%", 
+            autopct=None,
+            explode=[0.05]*len(labels), 
+            wedgeprops=dict(width=0.4),
+            labels=reaction_letters, 
+            # pctdistance=0.5,
+            labeldistance=0.7,
+            startangle=-40
+        )
+        #form matplotlib - create annotations
+        # bbox_props = dict(boxstyle="square")#, fc="white", ec="white", lw=3,pad=0.3
+        # kw = dict(arrowprops=dict(arrowstyle="-", color='white', linewidth=3,),
+        #         bbox=bbox_props, zorder=0, va="center")
+
+        # for i, p in enumerate(wedges):
+        #     ang = (p.theta2 - p.theta1)/2. + p.theta1
+        #     y = np.sin(np.deg2rad(ang))
+        #     x = np.cos(np.deg2rad(ang))
+        #     horizontalalignment = {-1: "right", 1: "left"}[int(np.sign(x))]
+        #     connectionstyle = "angle,angleA=0,angleB={}".format(ang)
+        #     kw["arrowprops"].update({"connectionstyle": connectionstyle})
+        #     ax.annotate(labels[i], xy=(x, y), xytext=(1.35*np.sign(x), 1.4*y),
+        #                 horizontalalignment=horizontalalignment, **kw)
+        # plt.legend()
+        # mplcyberpunk.add_glow_effects(ax=ax)
+        buffer = BytesIO()
+        # plt.title(f"{self.title}", fontsize=14);
+        chart.savefig(buffer, dpi=40, transparent=True)
+        buffer.seek(0)
+        return buffer
 
 
 
