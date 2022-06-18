@@ -841,7 +841,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
         result = await v.next()
 
         try:
-            query_information = await ctx.bot.data.lavalink.auto_search_tracks(
+            query_information = await lavalink.auto_search_tracks(
                 result["result"][0]["link"]
             )
         except IndexError:
