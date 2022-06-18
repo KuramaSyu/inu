@@ -53,6 +53,7 @@ HIKARI_VOICE = True
 
 # to fix bug, when join first time, no music
 first_join = False
+bot: Inu
 
 # ytdl_format_options = {
 #     "format": "bestaudio/best",
@@ -389,8 +390,10 @@ async def on_ready(event: hikari.ShardReadyEvent):
     music.d.music_helper = MusicHelper()
     await start_lavalink()
 
+
 @music.listener(hikari.VoiceStateUpdateEvent)
 async def on_voice_state_update(event: VoiceStateUpdateEvent):
+    """Clear lavalink after inu leaves a channel"""
     try:
         # check if the user is the bot
         if not event.state.user_id == music.bot.get_me().id: # type: ignore
@@ -399,9 +402,32 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
         if event.old_state is None and event.state.channel_id:
             pass
         elif event.state.channel_id is None and not event.old_state is None:
-            await _leave(event.guild_id)
+            await lavalink.destroy(event.guild_id)
+            await lavalink.wait_for_connection_info_remove(event.guild_id)
+
+            # Destroy nor leave remove the node nor the queue loop, you should do this manually.
+            await lavalink.remove_guild_node(event.guild_id)
+            await lavalink.remove_guild_from_loops(event.guild_id)
+            music.d.music_message[event.guild_id] = None
+            
     except Exception:
         log.error(traceback.format_exc())
+
+
+@music.listener(hikari.VoiceStateUpdateEvent)
+async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
+    lavalink.raw_handle_event_voice_state_update(
+        event.state.guild_id,
+        event.state.user_id,
+        event.state.session_id,
+        event.state.channel_id,
+    )
+
+
+@music.listener(hikari.VoiceServerUpdateEvent)
+async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
+    await lavalink.raw_handle_event_voice_server_update(event.guild_id, event.endpoint, event.token)
+
 
 @music.listener(hikari.ReactionAddEvent)
 async def on_reaction_add(event: hikari.ReactionAddEvent):
@@ -425,7 +451,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
 
         emoji = event.emoji_name
         if emoji == '🔀':
-            node = await music.d.lavalink.get_guild_node(guild_id)
+            node = await lavalink.get_guild_node(guild_id)
             if node is None:
                 return
 
@@ -433,7 +459,7 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
             random.shuffle(nqueue)
             nqueue = [node.queue[0], *nqueue]
             node.queue = nqueue
-            await music.d.lavalink.set_guild_node(guild_id, node)
+            await lavalink.set_guild_node(guild_id, node)
             await message.remove_reaction(emoji, user=event.user_id)
             music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
         elif emoji == '▶':
@@ -505,34 +531,24 @@ async def on_reaction_add(event: hikari.ReactionAddEvent):
     except Exception:
         log.error(f"Error reaction_add music:\n{traceback.print_exc()}")
 
-async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
-    if not (guild := ctx.get_guild()) or not ctx.guild_id:
-        return None
-    connection_info = None
-    states = music.bot.cache.get_voice_states_view_for_guild(guild)
+async def _join(ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
+    assert ctx.guild_id is not None
+
+    states = bot.cache.get_voice_states_view_for_guild(ctx.guild_id)
     voice_state = [state async for state in states.iterator().filter(lambda i: i.user_id == ctx.author.id)]
 
     if not voice_state:
-        await ctx.respond("Connect to a voice channel first")
+        await ctx.respond("Connect to a voice channel first.")
         return None
 
     channel_id = voice_state[0].channel_id
 
-    if HIKARI_VOICE:
-        await music.bot.update_voice_state(ctx.guild_id, channel_id, self_deaf=True)
-        connection_info = await music.bot.data.lavalink.wait_for_full_connection_info_insert(ctx.guild_id)
-    else:
-        try:
-            connection_info = await music.bot.data.lavalink.join(ctx.guild_id, channel_id)
-        except TimeoutError:
-            await ctx.respond(
-                "I was unable to connect to the voice channel, maybe missing permissions? or some internal issue."
-            )
-            return None
-        except Exception:
-            music.d.log.error(f"Exception while joining: {traceback.format_exc()}")
+    assert ctx.guild_id is not None
 
-    await music.bot.data.lavalink.create_session(connection_info)
+    await bot.update_voice_state(ctx.guild_id, channel_id, self_deaf=True)
+    connection_info = await lavalink.wait_for_full_connection_info_insert(ctx.guild_id)
+
+    #await lavalink.create_session(connection_info)
 
     return channel_id
 
@@ -552,12 +568,8 @@ async def start_lavalink() -> None:
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
                 .set_host(music.bot.conf.lavalink.IP).set_password(music.bot.conf.lavalink.PASSWORD)
             )
-
-            if HIKARI_VOICE:
-                builder.set_start_gateway(False)
+            builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
-            music.bot.data.lavalink = lava_client
-            music.d.lavalink = lava_client
             music.d.interactive.lavalink = lava_client
             global lavalink
             lavalink = lava_client
@@ -569,18 +581,17 @@ async def start_lavalink() -> None:
             else:
                 log.info("retrying lavalink connection in 10 seconds")
                 await asyncio.sleep(10)
-    music.d.log.info("lavalink is connected")
-
-        
+    log.info("lavalink is connected")
 
 
-@music.command
-@lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.command("join", "I will join into your channel")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def join(ctx: context.Context) -> None:
-    """Joins the voice channel you are in."""
-    channel_id = await _join(ctx)
+# @music.command
+# @lightbulb.add_checks(lightbulb.guild_only)
+# @lightbulb.command("join", "I will join into your channel")
+# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+# async def join(ctx: context.Context) -> None:
+#     """Joins the voice channel you are in."""
+#     channel_id = await _join(ctx)
+#     await ctx.respond("Radio up and running")
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -614,20 +625,17 @@ async def leave(ctx: context.Context) -> None:
     await _leave(ctx.guild_id)
 
 async def _leave(guild_id: int):
-    await music.bot.data.lavalink.destroy(guild_id)
+    await bot.update_voice_state(guild_id, None)
 
-    if HIKARI_VOICE:
-        await music.bot.update_voice_state(guild_id, None)
-        await music.bot.data.lavalink.wait_for_connection_info_remove(guild_id)
-    else:
-        await music.bot.data.lavalink.leave(guild_id)
+    # this part will be done in the listener
+    # await lavalink.destroy(guild_id)
+    # await lavalink.wait_for_connection_info_remove(guild_id)
 
-    # Destroy nor leave remove the node nor the queue loop, you should do this manually.
-    await music.bot.data.lavalink.remove_guild_node(guild_id)
-    await music.bot.data.lavalink.remove_guild_from_loops(guild_id)
-    music.d.music_message[guild_id] = None
+    # # Destroy nor leave remove the node nor the queue loop, you should do this manually.
+    # await lavalink.remove_guild_node(guild_id)
+    # await lavalink.remove_guild_from_loops(guild_id)
+    # music.d.music_message[guild_id] = None
 
-    
 
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
@@ -637,7 +645,7 @@ async def _leave(guild_id: int):
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def pl(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
-    log.debug(music.bot.data.lavalink)
+    log.debug(lavalink)
     global first_join
     try:
         
@@ -680,14 +688,14 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     if not ctx.guild_id or not ctx.member:
         return  # just for pylance
     music.d.last_context[ctx.guild_id] = ctx
-    con = music.bot.data.lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
+    con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
     # Join the user's voice channel if the bot is not in one.
     if not con:
         await _join(ctx)
 
     # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
-        node = await music.d.lavalink.get_guild_node(ctx.guild_id)
+        node = await lavalink.get_guild_node(ctx.guild_id)
         if len(node.queue) < 1:
             prevent_to_queue = True
         await load_yt_playlist(ctx, query, be_quiet)
@@ -705,7 +713,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             return await ctx.respond(f"I only found a lot of empty space for `{query}`")
         await load_track(ctx, track, be_quiet)
     await asyncio.sleep(0.2)
-    node = await music.d.lavalink.get_guild_node(ctx.guild_id)
+    node = await lavalink.get_guild_node(ctx.guild_id)
 
     if len(node.queue) in [1, 0]:
         prevent_to_queue = True
@@ -752,7 +760,7 @@ async def position(ctx: Context) -> None:
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
     await _play(ctx, query, prevent_to_queue=True)
-    node = await music.d.lavalink.get_guild_node(ctx.guild_id)
+    node = await lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
     # move the track to the position and rebind node
@@ -760,7 +768,7 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
     node_queue = node.queue
     node_queue.insert(pos, track)
     node.queue = node_queue
-    await music.d.lavalink.set_guild_node(ctx.guild_id, node)
+    await lavalink.set_guild_node(ctx.guild_id, node)
     await queue(
         ctx, 
         ctx.guild_id, 
@@ -776,7 +784,7 @@ async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = Fa
         raise Exception("guild_id is missing in `lightbulb.Context`")
     try:
         # `.queue()` To add the track to the queue rather than starting to play the track now.
-        await music.bot.data.lavalink.play(guild_id, track).requester(
+        await lavalink.play(guild_id, track).requester(
             author_id
         ).queue()
     except lavasnek_rs.NoSessionPresent:
@@ -797,9 +805,9 @@ async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> 
     -------
         - (lavasnek_rs.Track) the first track of the playlist
     """
-    tracks = await music.d.lavalink.get_tracks(query)
+    tracks = await lavalink.get_tracks(query)
     for track in tracks.tracks:
-        await music.bot.data.lavalink.play(ctx.guild_id, track).requester(
+        await lavalink.play(ctx.guild_id, track).requester(
             ctx.author.id
         ).queue()
     if tracks.playlist_info:
@@ -825,41 +833,19 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     searches the query and returns the Track or None
     """
 
-    query_information = await music.bot.data.lavalink.auto_search_tracks(query)
+    query_information = await lavalink.auto_search_tracks(query)
 
     if not query_information.tracks:
-        # is_ytdl = True
-        # def extract() -> Dict[str, Any]:
-        #     log.debug(f"fallback search: {query}")
-        #     info = ytdl.extract_info(query, download=False)
-        #     cast(Dict[str, Any], info)
-        #     log.debug(f"fallback results: {info}")
-        #     return info  # type: ignore
-
-        # loop = asyncio.get_event_loop()
-        # ytdl_query = await loop.run_in_executor(None, extract)
-        # with open("ytdl_query.py", "w") as f:
-        #     f.write(f"ytdl_query = {pformat(ytdl_query)}")
-        # # logging.warning(ytdl_query)
         log.debug(f"using fallback youtbue search")
         v = VideosSearch(query, limit = 1)
         result = await v.next()
+
         try:
             query_information = await ctx.bot.data.lavalink.auto_search_tracks(
                 result["result"][0]["link"]
             )
         except IndexError:
             return None
-        
-
-
-    # if not query_information.tracks:  # tracks is empty
-    #     valid = []
-    #     for i in ytdl_query["formats"]:
-    #         if not i.get("filesize_approx"):
-    #             valid.append(i["url"])
-
-    #     query_information = await ctx.bot.data.lavalink.auto_search_tracks(valid[-1])
 
     if len(query_information.tracks) > 1:
         try:
@@ -868,7 +854,6 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
                 return None
         except Exception:
             music.d.log.error(traceback.print_exc())
-
     else:
         track = query_information.tracks[0]
 
@@ -891,9 +876,9 @@ async def play_normal(ctx: context.Context) -> None:
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def stop(ctx: Context) -> None:
     """Stops the current song (skip to continue)."""
-    if not await music.bot.data.lavalink.get_guild_node(ctx.guild_id):
+    if not await lavalink.get_guild_node(ctx.guild_id):
         return
-    await music.bot.data.lavalink.stop(ctx.guild_id)
+    await lavalink.stop(ctx.guild_id)
     await ctx.respond("Stopped playing")
 
 @music.command
@@ -921,9 +906,9 @@ async def _skip(guild_id: int, amount: int) -> bool:
         - (bool) wether the skip(s) was/where successfull
     """
     for _ in range(amount):
-        skip = await music.bot.data.lavalink.skip(guild_id)
+        skip = await lavalink.skip(guild_id)
         
-        if not (node := await music.bot.data.lavalink.get_guild_node(guild_id)):
+        if not (node := await lavalink.get_guild_node(guild_id)):
             return False
 
         if not skip:
@@ -932,7 +917,7 @@ async def _skip(guild_id: int, amount: int) -> bool:
             # If the queue is empty, the next track won't start playing (because there isn't any),
             # so we stop the player.
             if not node.queue and not node.now_playing:
-                await music.bot.data.lavalink.stop(guild_id)
+                await lavalink.stop(guild_id)
     return True
 
 @music.command
@@ -951,7 +936,8 @@ async def pause(ctx) -> None:
     await message.add_reaction(str('⏸'))
 
 async def _pause(guild_id: int):
-    await music.bot.data.lavalink.pause(guild_id)
+    await lavalink.pause(guild_id)
+
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -969,32 +955,8 @@ async def resume(ctx: Context) -> None:
     await message.add_reaction(str('⏸'))
 
 async def _resume(guild_id: int):
-    await music.bot.data.lavalink.resume(guild_id)
+    await lavalink.resume(guild_id)
 
-if HIKARI_VOICE:
-
-    @music.listener(hikari.VoiceStateUpdateEvent)
-    async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
-        try:
-            lavalink.raw_handle_event_voice_state_update(
-                event.state.guild_id,
-                event.state.user_id,
-                event.state.session_id,
-                event.state.channel_id,
-            )
-        except Exception:
-            log.error(traceback.format_exc())
-
-    @music.listener(hikari.VoiceServerUpdateEvent)
-    async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
-        try:
-            log.debug(music)
-            log.debug(lavalink)
-            await music.d.lavalink.raw_handle_event_voice_server_update(
-                event.guild_id, event.endpoint, event.token
-            )
-        except Exception:
-            log.error(traceback.format_exc())
 
 @music.command
 @lightbulb.add_cooldown(20, 1, lightbulb.UserBucket)
@@ -1004,13 +966,14 @@ if HIKARI_VOICE:
 async def _queue(ctx: Context) -> None:
     await queue(ctx, force_resend=True)
 
-#  @lightbulb.check(lightbulb.guild_only)
+
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("music", "music related commands", aliases=["m"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def m(ctx: Context):
     pass
+
 
 @m.child
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -1059,12 +1022,13 @@ async def clear(ctx: Context):
     await music.queue(ctx)
 
 async def _clear(guild_id: int):
-    node = await music.d.lavalink.get_guild_node(guild_id)
+    node = await lavalink.get_guild_node(guild_id)
     if not node:
         return
     queue = [node.queue[0]]
     node.queue = queue
-    await music.d.lavalink.set_guild_node(guild_id, node)
+    await lavalink.set_guild_node(guild_id, node)
+
 
 @m.child
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -1095,7 +1059,9 @@ async def history(ctx: Context):
         items_per_site=20,
     )
     await pag.start(ctx)
-    
+
+
+
 @m.child
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("restart", "reconnects to lavalink", hidden=True)
@@ -1103,13 +1069,14 @@ async def history(ctx: Context):
 async def restart(ctx: context.Context):
     await start_lavalink()
 
+
 @m.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "What do you want to search?", modifier=OM.CONSUME_REST)
 @lightbulb.command("search", "Searches the queue; every match will be added infront of queue", aliases=["s"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def music_search(ctx: context.Context):
-    node = await music.bot.data.lavalink.get_guild_node(ctx.guild_id)
+    node = await lavalink.get_guild_node(ctx.guild_id)
     if not node:
         return await ctx.respond("You have to play music, that I can search for songs")
     query = ctx.options.query
@@ -1125,12 +1092,13 @@ async def music_search(ctx: context.Context):
         node_queue = node.queue[1:]
         new_queue = [node.queue[0], *tracks, *node_queue]
         node.queue = new_queue
-        await music.bot.data.lavalink.set_guild_node(ctx.guild_id, node)
+        await lavalink.set_guild_node(ctx.guild_id, node)
         resp = "Titles added:```py\n" + '\n'.join([f'{i+1}. | {resp}' for i, resp in enumerate(response)]) + "```"
         await ctx.respond(resp) 
         return await queue(ctx)
     else:
         return await ctx.respond("No matches found")
+
 
 async def queue(
     ctx: Context = None, 
@@ -1151,12 +1119,12 @@ async def queue(
         ctx = music.d.last_context[guild_id]
     if not ctx.guild_id:
         return
-    node = await music.bot.data.lavalink.get_guild_node(guild_id)
+    node = await lavalink.get_guild_node(guild_id)
     if not node:
         music.d.log.warning(f"node is None, in queue command; {guild_id=};")
         music.d.log.info("Try to reconnect to websocket")
         await _join(ctx)
-        node = await music.bot.data.lavalink.get_guild_node(guild_id)
+        node = await lavalink.get_guild_node(guild_id)
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
@@ -1203,8 +1171,6 @@ async def queue(
     music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
     music_embed.add_field(name="Added from:", value=f'{requester.display_name}' , inline=True)
     music_embed.add_field(name = "Duration:", value=f'{current_duration}', inline=False)
-    
-    
     
     # music_embed.set_thumbnail(url=f'{video_thumbnail}')
     music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
@@ -1257,20 +1223,14 @@ async def add_music_reactions(message: hikari.Message):
     tasks = []
     for r in reactions:
         await message.add_reaction(str(r))
-    # await asyncio.wait(tasks, asyncio.ALL_COMPLETED)
-    # await message.add_reaction(str('1️⃣'))
-    # await message.add_reaction(str('2️⃣'))
-    # await message.add_reaction(str('3️⃣'))
-    # await message.add_reaction(str('4️⃣'))
-    # await message.add_reaction(str('🔀'))
-    # await message.add_reaction(str('🗑'))
-    # await message.add_reaction(str('🛑'))
-    # await message.add_reaction(str('⏸'))
 
 
-def load(bot: Inu) -> None:
-    bot.add_plugin(music)
+
+def load(inu: Inu) -> None:
+    global bot
+    bot = inu
+    inu.add_plugin(music)
 
 
-def unload(bot: lightbulb.BotApp) -> None:
-    bot.remove_plugin(music)
+def unload(inu: Inu) -> None:
+    inu.remove_plugin(music)
