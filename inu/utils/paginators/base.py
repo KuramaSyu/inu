@@ -303,22 +303,18 @@ class Paginator():
         state: bool = disable_when_index_is(self._position)
         if not custom_id:
             custom_id = label
-        if not emoji:
-            btn = (
-                action_row_builder
-                .add_button(style, custom_id)
-                .set_is_disabled(state)
-                .set_label(label)
-                .add_to_container()
-            )
-        else:
-            btn = (
-                action_row_builder
-                .add_button(style, custom_id)
-                .set_is_disabled(state)
-                .set_emoji(emoji)
-                .add_to_container()
-            )
+    
+        btn = (
+            action_row_builder
+            .add_button(style, custom_id)
+            .set_is_disabled(state)
+        )
+        if emoji:
+            btn = btn.set_emoji(emoji)
+
+        if label:
+            btn = btn.set_label(label)
+        btn = btn.add_to_container()
         return btn
 
     def _navigation_row(self, position = None) -> Optional[ActionRowBuilder]:
@@ -342,6 +338,7 @@ class Paginator():
         self.button_factory(
             custom_id="stop",
             emoji="✖",
+            label=f"{self._position+1}/{len(self._pages)}",
             action_row_builder=action_row,
             style=ButtonStyle.DANGER,
         )
