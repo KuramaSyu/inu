@@ -128,11 +128,11 @@ async def make_poll(ctx: context.SlashContext):
     name, description, options, duration, anonymous = responses
 
 
-    message = await (await ctx.respond("Wait...")).message()
+    
     try:
         dummy_record = {
             "channel_id": ctx.channel_id,
-            "message_id": message.id,
+            "message_id": None,
             "creator_id": ctx.author.id,
             "guild_id": ctx.guild_id,
             "title": name,
@@ -152,10 +152,19 @@ async def make_poll(ctx: context.SlashContext):
             
             ephemeral=True,
         )
+
     options = [o.strip() for o in options.split(",") if o.strip()]
     if len(options) <= 1:
+        if not "," in options[0]:
+            hint = "**HINT:** Seperate your options with `,` like `kiwi, mango, green apple, blue bananna`" 
+        else:
+            hint = ""
         raise BotResponseError(
-            f"You need to enter at least two options.\nYou have entered {Human.plural_('option', len(options), with_number=True)}.",
+            bot_message=(
+                f"You need to enter at least two options.\n"
+                f"You have entered {Human.plural_('option', len(options), with_number=True)}.\n"
+                f"{hint}"
+            ),
             ephemeral=True,
         )
     if len(options) > 15:
@@ -174,6 +183,8 @@ async def make_poll(ctx: context.SlashContext):
             ephemeral=True,
         )
 
+    message = await (await ctx.respond("Wait...")).message()
+    dummy_record["message_id"] = message.id
 
     record = await PollManager.add_poll(**dummy_record)
     for letter, option in zip(letter_emojis, options):
