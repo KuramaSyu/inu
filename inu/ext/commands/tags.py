@@ -142,8 +142,9 @@ async def show_record(
         # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
         return
     messages = []
-    message = ""
+
     for value in crumble(record["tag_value"], 1900):
+        message = ""
         # if tag isn't just a picture and tag was not invoked with original name,
         # then append original name at start of message
         if (
