@@ -164,6 +164,6 @@ log = colorlog.getLogger("colorlog")
 log.setLevel("INFO")
 log.info("changed colorlog getLogger method")
 main_log = colorlog.getLogger("colorlog")
-main_log.setLevel("DEBUG")
+main_log.setLevel("INFO")
 # logging.getLogger = getLogger
 # log.info("changed logging.getLogger method")
