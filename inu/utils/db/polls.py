@@ -15,6 +15,7 @@ from hikari.embeds import Embed
 import lightbulb
 from lightbulb.context import Context
 import asyncpg
+import pandas
 
 from core.bot import Inu
 from core import Database, Table
@@ -172,3 +173,51 @@ class PollManager:
                 "WHERE poll_id = $1"
             ), poll_id
         )
+    # # guild_id BIGINT NOT NULL,
+    # # game VARCHAR(100),
+    # # user_amount BIGINT NOT NULL,
+    # # timestamp TIMESTAMP,
+    # # PRIMARY KEY (guild_id, game, timestamp)
+    @classmethod
+    async def sync_long_time_games(cls, when_older_than: datetime):
+        ...
+        # fetch relevant records form current games
+        table = Table("current_games")
+        sql = (
+            f"SELECT * FROM {table.name}"
+            ""
+        )
+        df = table.execute(sql, when_older_than)
+        table = Table("long_time_games")
+        #values = 
+        sql =(
+            f"INSERT INTO {table.name} (guild_id, game, user_amount, timestamp)"
+            f"VALUES ()()()"
+            f"ON CONFLICT (guild_id, game, timestamp) DO UPDATE"
+            f"SET user_amount = user_amount + $1"
+        )
+
+        # USE MERGE
+        # WITH new_values (guild_id::BIGINT, game::VARCHAR(100), user_amount::INTEGER, timestamp::TIMESTAMP) AS (
+        #   VALUES 
+        #      $1
+        # ),
+        # upsert AS ( 
+        #     UPDATE long_time_games lt_games
+        #         SET user_amount = user_amount + nv.user_amount
+        #     FROM new_values nv
+        #     WHERE lt_games.guild_id = nv.guild_id AND lt_games.game = nv.game AND lt_games.timestamp = nv.timestamp
+        #     RETURNING lt_games.*
+        # )
+        # INSERT INTO long_time_games (guild_id, game, user_amount, timestamp)
+        # SELECT guild_id, game, user_amount, timestamp
+        # FROM new_values
+        # WHERE NOT EXISTS (SELECT 1 
+        #                   FROM upsert up 
+        #                   WHERE up.date = new_values.date
+        #                   AND up.customer_fk = new_values.customer_fk)
+
+
+        # resample to 1d (code from inu/commands/statistics)
+        # upsert with addition in column amount
+
