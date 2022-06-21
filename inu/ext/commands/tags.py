@@ -157,7 +157,10 @@ async def show_record(
             message += f"**{record['tag_key']}**\n\n"
         message += value
         messages.append(message)
-    pag = Paginator(messages)
+    pag = Paginator(
+        page_s=messages,
+        compact=True,
+    )
     await pag.start(ctx)
 
 
@@ -236,7 +239,7 @@ async def tag(ctx: Context):
      modifier=commands.OptionModifier.CONSUME_REST,
      required=False
 )
-@lightbulb.option("name", "the name of your tag. Only one word", required=False) 
+@lightbulb.option("name", "the name of your tag", required=False) 
 @lightbulb.command("add", "add a new tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
@@ -278,7 +281,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
 @tag.child
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word",
+    "the name of your tag",
     autocomplete=True,
 ) 
 @lightbulb.command("edit", "edit a tag you own")
@@ -308,7 +311,11 @@ async def tag_edit(ctx: Context):
         
     
 @tag.child
-@lightbulb.option("name", "the name of your tag. Only one word") 
+@lightbulb.option(
+    "name", 
+    "the name of your tag",
+    autocomplete=True,
+) 
 @lightbulb.command("remove", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_remove(ctx: Context):
@@ -333,7 +340,7 @@ async def tag_remove(ctx: Context):
 @tag.child
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     modifier=commands.OptionModifier.CONSUME_REST, 
     required=True, 
     autocomplete=True
@@ -411,7 +418,7 @@ async def overview(ctx: Context):
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     modifier=commands.OptionModifier.CONSUME_REST, 
     required=True, 
     autocomplete=True
@@ -430,7 +437,7 @@ async def tag_execute(ctx: Context):
 
 @tag.child
 @lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
-@lightbulb.option("name", "the name of your tag. Only one word", 
+@lightbulb.option("name", "the name of your tag", 
     autocomplete=True
 )  
 @lightbulb.command("append", "remove a tag you own")
@@ -485,7 +492,7 @@ async def tag_change_name(ctx: Context):
 @tag.child
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     autocomplete=True
 )
 @lightbulb.command("info", "get info to a tag")
@@ -510,7 +517,7 @@ async def tag_info(ctx: Context):
 @lightbulb.option("alias", "The optional name you want to add", modifier=OM.CONSUME_REST)
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     autocomplete=True
 ) 
 @lightbulb.command("add-alias", "remove a tag you own")
@@ -536,7 +543,7 @@ async def tag_add_alias(ctx: Context):
 @lightbulb.option("alias", "The optional name you want to remove", modifier=OM.CONSUME_REST)
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     autocomplete=True
 ) 
 @lightbulb.command("remove-alias", "remove a tag you own", aliases=["rm-alias"])
@@ -565,7 +572,7 @@ async def tag_remove_alias(ctx: Context):
 @lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     autocomplete=True
 )  
 @lightbulb.command("add-author", "add an author to your tag")
@@ -592,7 +599,7 @@ async def tag_add_author(ctx: Context):
 @lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     autocomplete=True
 ) 
 @lightbulb.command("remove-author", "add an author to your tag", aliases=["rm-author"])
@@ -626,7 +633,7 @@ async def tag_remove_author(ctx: Context):
 )
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     autocomplete=True
 )  
 @lightbulb.command("add-guild", "add a guild to your tag")
@@ -657,7 +664,7 @@ async def tag_add_guild(ctx: Context):
 )
 @lightbulb.option(
     "name", 
-    "the name of your tag. Only one word", 
+    "the name of your tag", 
     autocomplete=True
 ) 
 @lightbulb.command("remove-guild", "remove a guild/server to your tag", aliases=["rm-guild"])
@@ -701,6 +708,7 @@ async def tag_random(ctx: Context):
     await show_record(random_tag, ctx, force_show_name=True)
 
 
+@tag_remove.autocomplete("name")
 @tag_change_name.autocomplete("old_name")
 @tag_append.autocomplete("name")
 @tag_info.autocomplete("name")
