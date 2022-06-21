@@ -153,20 +153,25 @@ class SentenceInterator():
                 while pos + max_size < len(to_iter):
                     subitem = to_iter[pos:pos+max_size]
                     for symbol in symbols:
+                        # nothing found -> look for lower prio symbol
                         if (
                             (occurence := subitem.rfind(symbol)) == -1
                             or occurence < max_size / 3 * 2
                         ):
-                            # nothing found -> look for lower prio symbol
+                            
                             continue 
+                        # smth found -> update pos, go to next substring
                         else:
-                            # smth found -> update pos, go to next substring
+                            # optimise if something paragraph like is detected - not necessary for code
+                            # this will prevent from something like <title>\n\n\n<entry> whill be cutted after title
                             if (
                                 ("\n" in symbol or "\n" == symbol)
+                                # there is another \n in the string
                                 and (sub_occurence := subitem[:occurence-len(symbol)].rfind("\n")) != -1
+                                # other \n under the last 45 chars (these 45 are most likely the next paragraph headline)
                                 and sub_occurence > len(subitem[:occurence-len(symbol)])-45
                             ):
-                                
+                                # the suboccurence is not to short
                                 if sub_occurence < occurence / 4 * 3:
                                     continue
                                 # new phrase detected -> starting next iter with new phrase
@@ -179,7 +184,10 @@ class SentenceInterator():
                                 break
                 yield to_iter[pos:]
 
-            self._gen = generator()
+            self._gen = generator(
+                to_iter=to_iter,
+                max_size=max_size
+            )
             #self._gen = (f"{item}{seperator}" if item and len(item) < 2000 else '' if not item else sub_item if sub_item else '' for sub_item in crumble(item, 1980) for item in to_iter.split(seperator))
         
         self.peek = ''
@@ -488,6 +496,10 @@ Some virtual networks use tunneling protocols without encryption for protecting 
 
 Native plaintext tunneling protocols include Layer 2 Tunneling Protocol (L2TP) when it is set up without IPsec and Point-to-Point Tunneling Protocol (PPTP) or Microsoft Point-to-Point Encryption (MPPE).[31] 
     """
-    for item in SentenceInterator(to_iter = VPN, max_size = 1900):
-        print(item, len(item))
-        x = input()
+    # for item in SentenceInterator(to_iter = VPN, max_size = 1900):
+    #     print(item, len(item))
+    #     x = input()
+
+if __name__ == "__main__":
+    strs = crumble(str("q \n\n\n\n qqqqqqqqqqqq fsldf; " * 10000), 2000)
+    [print(len(s)) for s in strs]
