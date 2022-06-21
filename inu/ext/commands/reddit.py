@@ -79,13 +79,13 @@ async def hentai(ctx: Context):
     [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
     '''
     subreddit = ctx.options.subreddit
-    amount = 5
     subreddits = []
-    if (
-        plugin.d.last_update - float(3*60*60) - 120 < tm.time() 
-        and not plugin.d.updating
-    ):
-        amount = 1
+    #amount = 1
+    # if (
+    #     plugin.d.last_update - float(3*60*60) - 120 < tm.time() 
+    #     and not plugin.d.updating
+    # ):
+    #     amount = 1
     if not subreddit:
         subreddit = random.choice(
             (subreddits := [
@@ -93,21 +93,21 @@ async def hentai(ctx: Context):
                 'animelegs', 'Atago', 'bluehairhentai', 'chiisaihentai', 'ecchi',
                 'hentai', 'HentaiBlowjob', 'HentaiSchoolGirls',
                 'MasturbationHentai', 'Nekomimi', 'Sukebei', 'thighdeology', 'WaifusOnCouch',
-            ]) #'HentaiCumsluts',
+            ])
         )
-    await send_pic(ctx, subreddit, footer=False, amount=amount)
+    await send_pic(ctx, subreddit, footer=False, amount=10)
     if plugin.d.last_update + float(3*60*60) < tm.time() and subreddits:
         plugin.d.last_update = float(tm.time()) + float(3*60*60)
-        await _update_pictures(subreddits=subreddits)
+        await _update_pictures(subreddits=subreddits, minimum=10)
     #await .send_pic(ctx, subreddit, footer=False)
 
-async def _update_pictures(subreddits: List[str]):
+async def _update_pictures(subreddits: List[str], minimum: int = 5):
     plugin.d.updating = False
     async def update(subreddit):
         _ = await Reddit.get_posts(
             subreddit=subreddit,
             hot=True,
-            minimum=5,
+            minimum=minimum,
         )
     tasks: List[asyncio.Task] = []
     for subreddit in subreddits:
@@ -117,7 +117,7 @@ async def _update_pictures(subreddits: List[str]):
     log.debug("cached hentai urls")
     
 
-async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int= 5):
+async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int=5):
     posts = await Reddit.get_posts(
         subreddit=subreddit,
         hot=True,
