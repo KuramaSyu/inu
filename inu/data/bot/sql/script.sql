@@ -129,7 +129,7 @@ CREATE TABLE IF NOT EXISTS poll_options (
         REFERENCES polls (poll_id)
         ON DELETE CASCADE,
     "reaction" VARCHAR(50) NOT NULL,
-    "description" VARCHAR(2048)
+    "description" VARCHAR(255)
 );
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
