@@ -43,7 +43,7 @@ class Reddit():
         )
 
     @classmethod
-    @cached(TTLCache(1024, float(3*60*60)))
+    @cached(TTLCache(int(2 ** 16), float(3*60*60)))
     async def get_posts(
         cls,
         subreddit: str,
