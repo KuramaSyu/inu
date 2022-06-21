@@ -24,7 +24,7 @@ from lightbulb import commands
 import miru
 
 from utils import DailyContentChannels, PrefixManager, TimezoneManager
-from core import Inu, Table
+from core import Inu, Table, BotResponseError
 from utils.db.r_channel_manager import Columns as Col
 
 from core import getLogger, Inu
@@ -361,6 +361,8 @@ async def prefix(ctx: Context):
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def add(ctx: Context):
     prefix = ctx.options.new_prefix
+    if prefix is None:
+        raise BotResponseError("Your prefix can't be None", ephemeral=True)
     if prefix == "<empty>":
         prefix = ""
     prefixes = await PrefixManager.add_prefix(ctx.guild_id, prefix)
