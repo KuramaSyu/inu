@@ -226,10 +226,10 @@ class Anime:
               Otherwise obout 1 month (given from jikan meta data)
          """
         if not self.airing_stop:
-            return datetime.now() + timedelta(days=30)
-        elif self.airing_stop.year - datetime.now().year > 15:
-            return datetime.now() + timedelta(days=180)
-        elif self.airing_stop.year - datetime.now().year > 10:
+            return datetime.now() + timedelta(days=15)
+        elif datetime.now().year - self.airing_stop.year > 15:
+            return datetime.now() + timedelta(days=360)
+        elif datetime.now().year - self.airing_stop.year > 10:
             return datetime.now() + timedelta(days=90)
         else:
             return datetime.now() + timedelta(days=30)
