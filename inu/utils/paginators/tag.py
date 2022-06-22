@@ -125,7 +125,6 @@ class TagHandler(Paginator):
         -----
             - event: (InteractionCreateEvent) the invoked event; passed from the listener
         """
-        self.log.info("on interaction")
         try:
             if not isinstance(event.interaction, ComponentInteraction):
                 return
@@ -138,6 +137,7 @@ class TagHandler(Paginator):
             except IndexError:
                 # interaction was no menu interaction
                 return
+
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
             elif custom_id == "set_value":
@@ -288,6 +288,8 @@ class TagHandler(Paginator):
             "Add to value:" if append else "Value:",
             interaction=interaction,
         )
+        if not value:
+            return
         await interaction.create_initial_response(
             ResponseType.DEFERRED_MESSAGE_UPDATE
         )
