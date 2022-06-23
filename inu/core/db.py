@@ -216,7 +216,19 @@ class Table():
         values: List, 
         returning: str = "*"
     ) -> Optional[asyncpg.Record]:
-        """insert <`values`> into <`wihich columns`> """
+        """
+        insert into table <`wihich_columns`> values <`values`> returning <`returning`>
+
+        Args:
+        -----
+        which_columns: `List[str]`
+            the column names where you want to insert
+        values: `List[Any]`
+            the matching values to which_columns
+        returning: `str`
+            the column(s) which should be returned
+        
+        """
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
             f"INSERT INTO {self.name} ({', '.join(which_columns)})\n"
@@ -345,11 +357,6 @@ class Table():
             matching_values=[id],
         )
 
-    @logging()
-    @formatter
-    async def update(self):
-        pass
-
     async def fetch_by_id(self, column: str, id: Any) -> Optional[Dict]:
         """
         Fetch a record by it's id
@@ -361,11 +368,6 @@ class Table():
         if not rec:
             return None
         return rec[0]
-
-    @logging()
-    @formatter
-    async def update(self):
-        pass
 
     @logging()
     @formatter
