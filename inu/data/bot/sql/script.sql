@@ -86,11 +86,6 @@ CREATE TABLE IF NOT EXISTS math_scores (
     PRIMARY KEY (guild_id, "user_id", stage)
 );
 
-CREATE TABLE IF NOT EXISTS game_categories (
-    guild_id BIGINT NOT NULL,
-    category_id BIGINT NOT NULL,
-    PRIMARY KEY (guild_id)
-);
 
 CREATE TABLE IF NOT EXISTS current_games (
     guild_id BIGINT NOT NULL,
@@ -131,6 +126,43 @@ CREATE TABLE IF NOT EXISTS poll_options (
     "reaction" VARCHAR(50) NOT NULL,
     "description" VARCHAR(255)
 );
+
+
+CREATE SCHEMA IF NOT EXISTS board;
+
+CREATE TABLE IF NOT EXISTS board.boards (
+    guild_id BIGINT,
+    channel_id BIGINT NOT NULL,
+    entry_lifetime INTERVAL,
+    emoji TEXT,
+    "enabled" BOOLEAN DEFAULT 'true'::BOOLEAN,
+    PRIMARY KEY (guild_id, emoji)
+);
+
+CREATE TABLE IF NOT EXISTS board.entries (
+    message_id BIGINT,
+    created_at TIMESTAMP,
+    guild_id BIGINT,
+    emoji TEXT,
+    CONSTRAINT fk_unique_guild_emoji
+        FOREIGN KEY (guild_id, emoji)
+        REFERENCES board.boards(guild_id, emoji)
+        ON DELETE CASCADE,
+    PRIMARY KEY (message_id, guild_id),
+    UNIQUE (message_id, emoji)
+);
+
+CREATE TABLE IF NOT EXISTS board.reactions (
+    message_id BIGINT,
+    reacter_id BIGINT,
+    emoji BIGINT,
+    CONSTRAINT fk_emoji_message
+        FOREIGN KEY (message_id, emoji)
+        REFERENCES board.messages(message_id, emoji)
+        ON DELETE CASCADE,
+    PRIMARY KEY (message_id, reacter_id, emoji)
+);
+
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
