@@ -50,23 +50,6 @@ log = getLogger(__name__)
 plugin = lightbulb.Plugin("Starboard", "/")
 bot: Inu
 
-@plugin.command
-@lightbulb.command("testmodal", "test command for modal interactions")
-@lightbulb.implements(commands.SlashCommand)
-async def testmodal(ctx: context.Context):
-    bot: Inu = ctx.bot
-    answers, interaction, _ = await bot.shortcuts.ask_with_modal(
-        "Tag", 
-        ["Name:", "Value:"], 
-        interaction=ctx.interaction,
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
-        placeholder_s=[None, "What you will see, when you do /tag get <name>"],
-        is_required_s=[True, None],
-        pre_value_s=[None, "Well idc"]
-
-    )
-    await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
-
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     # insert to starboard
@@ -81,6 +64,14 @@ async def on_reaction_remove(event: hikari.GuildReactionDeleteEvent):
 async def on_message_remove(event: hikari.GuildMessageDeleteEvent):
     # delete from starboard
     ...
+
+@plugin.listener(hikari.GuildLeaveEvent)
+async def on_guild_leave(event: hikari.GuildLeaveEvent):
+    # remove all starboards
+    ...
+
+
+
 
 
 
