@@ -8,10 +8,6 @@ asyncpg.UniqueViolationError
 from core import Table, Inu
 
 
-class BoardKind(Enum):
-    STARBOARD = 0
-    TRASHBOARD = 1
-
 class BoardManager:
     bot: Inu
     # Mapping[guild_id, Dict]
