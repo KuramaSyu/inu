@@ -265,7 +265,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         )
         name, value = answers
         ctx._interaction = interaction
-        value = value.strip()
+        name = name.strip()
     try:
         await TagManager.set(
             name, 
