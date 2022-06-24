@@ -38,8 +38,9 @@ T = TypeVar("T")
 
 
 class BotResponseError(Exception):
-    def __init__(self, bot_message: str, ephemeral: bool = False) -> None:
+    def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
         self.kwargs: Dict[str, Any] = {}
+        self.kwargs.update(kwargs)
         if bot_message:
             self.kwargs["content"] = bot_message
         if ephemeral:
