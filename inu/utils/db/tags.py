@@ -266,6 +266,10 @@ class TagManager():
         self.key = key
 
     @classmethod
+    def _strip_key(cls, key: str):
+        return key.strip(" ")
+    
+    @classmethod
     def _key_raise_if_not_allowed(cls, key: str) -> None:
         """
         Raises RuntimeError if not allowed
@@ -314,6 +318,7 @@ class TagManager():
         -------
             - TagIsTakenError if tag is taken
         """
+        key = cls._strip_key(key)
         #guild_id = author.guild_id if isinstance(author, hikari.Member) else None #type: ignore
         if 0 in guild_ids:
             # when a local tag changes scope to global, the guilds wont be deleted
@@ -365,6 +370,7 @@ class TagManager():
             SELECT * FROM tags
             WHERE tag_id = $1
             """
+        key = cls._strip_key(key)
         # guild_id = author.guild_id if isinstance(author, hikari.Member) else None
         guild_ids = guild_ids or [0]
         for guild_id in guild_ids:
