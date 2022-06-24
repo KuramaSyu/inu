@@ -155,10 +155,10 @@ CREATE TABLE IF NOT EXISTS board.entries (
 CREATE TABLE IF NOT EXISTS board.reactions (
     message_id BIGINT,
     reacter_id BIGINT,
-    emoji BIGINT,
+    emoji TEXT,
     CONSTRAINT fk_emoji_message
         FOREIGN KEY (message_id, emoji)
-        REFERENCES board.messages(message_id, emoji)
+        REFERENCES board.entries(message_id, emoji)
         ON DELETE CASCADE,
     PRIMARY KEY (message_id, reacter_id, emoji)
 );
