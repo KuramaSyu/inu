@@ -39,7 +39,7 @@ from matplotlib.pyplot import hist
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 
 from core import Inu, getLevel
-from utils import Paginator, Colors
+from utils import Paginator, Colors, Human
 from utils import method_logger as logger
 from core.db import Database
 from utils.paginators.music_history import MusicHistoryPaginator
@@ -1128,30 +1128,26 @@ async def queue(
         return
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
-    for x in range(1,5,1):
+    for x in range(1,4,1):
         try:
             num = numbers[int(x) - 1]
             upcoming_songs = (
                 f'{upcoming_songs}\n' 
-                f'{num} {str(datetime.timedelta(milliseconds=int(int(node.queue[x].track.info.length))))} '
+                f'{num} {str(datetime.timedelta(milliseconds=node.queue[x].track.info.length))} '
                 f'- {node.queue[x].track.info.title}'
             )
         except:
             break
-    queue = None
     if upcoming_songs == '':
         upcoming_songs = '/'
-    elif int(len(node.queue)) > 4:
-        queue_len = int(len(node.queue))-4
-        if queue_len > 1:
-            queue = f'waiting in Queue: ---{queue_len}--- songs'
-        else:
-            try:
-                queue = f'waiting in Queue: ---{queue_len}--- song'
-            except:
-                queue = f'waiting in Queue: ---N0TH1NG---'
-    if queue is None:
-        queue = f'Queue: ---N0TH1NG---'
+
+    total_playtime = datetime.timedelta(milliseconds=sum(track.track.info.length for track in node.queue)) 
+
+    queue_len = len(node.queue)-3
+    if not queue_len or queue_len < 0:
+        queue_len = 0
+    queue = f"{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
+
     try:
         track = node.queue[0].track
     except Exception as e:
@@ -1159,9 +1155,7 @@ async def queue(
 
     if not node.queue[0].requester:
         music.d.log.warning("no requester of current track - returning")
-    #get thumbnail of the video
 
-    # requester = ctx.get_guild().get_member(int(node.queue[0].requester))
     requester = music.bot.cache.get_member(guild_id, node.queue[0].requester)
     current_duration = str(datetime.timedelta(milliseconds=int(int(track.info.length))))
     music_embed = hikari.Embed(
