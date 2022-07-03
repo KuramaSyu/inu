@@ -20,12 +20,13 @@ from hikari.interactions.component_interactions import ComponentInteraction
 from hikari.messages import ButtonStyle, ComponentType
 import lightbulb
 from lightbulb.context import Context
-from lightbulb import commands
+from lightbulb import SlashContext, commands
 import miru
 
-from utils import DailyContentChannels, PrefixManager, TimezoneManager
 from core import Inu, Table, BotResponseError
+from utils import DailyContentChannels, PrefixManager, TimezoneManager
 from utils.db.r_channel_manager import Columns as Col
+from utils.db import BoardManager
 
 from core import getLogger, Inu
 
@@ -456,6 +457,46 @@ async def timez_set(ctx: Context):
         
     except asyncio.TimeoutError:
         pass
+
+@settings.child
+@lightbulb.command("board")
+@lightbulb.implements(commands.SlashSubGroup)
+async def settings_board(ctx: SlashContext):
+    pass
+
+@settings_board.child
+@lightbulb.option("emoji", "messages with this emoji will be sent here")
+@lightbulb.command("create-here", "make this channel to a board")
+@lightbulb.implements(commands.SlashSubCommand)
+async def settings_board_add(ctx: SlashContext):
+    await BoardManager.add_board(
+        guild_id=ctx.guild_id,
+        channel_id=ctx.channel_id,
+        emoji=ctx.options.emoji,
+    )
+    await ctx.respond(
+        (
+            f"{ctx.get_channel().name} is now a {ctx.options.emoji}-Board.\n"
+            f"Means all messages with a {ctx.options.emoji} will be sent in here."
+        )
+    )
+
+@settings_board.child
+@lightbulb.option("emoji", "the emoji which the board have")
+@lightbulb.command("remove-here", "this channel will no longer be a board")
+@lightbulb.implements(commands.SlashSubCommand)
+async def settings_board_add(ctx: SlashContext):
+    await BoardManager.remove_board(
+        guild_id=ctx.guild_id,
+        channel_id=ctx.channel_id,
+        emoji=ctx.options.emoji,
+    )
+    await ctx.respond(
+        (
+            f"{ctx.get_channel().name} is not a {ctx.options.emoji}-Board anymore.\n"
+            f"Means all messages with a {ctx.options.emoji} will not be sent here any longer."
+        )
+    )
 
 
 def load(inu: Inu):
