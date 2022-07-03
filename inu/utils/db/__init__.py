@@ -9,3 +9,4 @@ from .tags import *
 from .activity_statistics import *
 from .timezone import *
 from .polls import *
+from .boards import *
