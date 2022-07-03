@@ -149,9 +149,10 @@ class BoardManager:
             return None
 
     @classmethod
-    async def remove_starboard(
+    async def remove_board(
         cls,
         guild_id: int,
+        channel_id: int,
         emoji: Optional[str] = None,
     ):
         """
@@ -166,8 +167,8 @@ class BoardManager:
             NOTE: If it's None, all boards of the guild will be removed
         """
         table = Table("board.boards")
-        columns = ["guild_id"]
-        where: List[str | int] = [guild_id]
+        columns = ["guild_id", "channel_id"]
+        where: List[str | int] = [guild_id, channel_id]
         if emoji:
             columns.append("emoji")
             where.append(emoji)
