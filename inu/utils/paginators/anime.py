@@ -7,7 +7,7 @@ from pprint import pformat
 from copy import deepcopy
 
 import hikari
-from hikari import ButtonStyle, ComponentInteraction, Embed
+from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
 from hikari.impl import ActionRowBuilder
 import lightbulb
 from numpy import longdouble, sort
@@ -60,7 +60,7 @@ class AnimePaginator(Paginator):
 
         self._results: List[Dict]
         self._updated_mal_ids = set()
-        super().__init__(page_s=["None"], timeout=10*8)
+        super().__init__(page_s=["None"], timeout=60*2)
         
 
     def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
@@ -72,7 +72,16 @@ class AnimePaginator(Paginator):
             pass
             components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("show more").add_to_container()
         # add more information button
-        components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_more_info").set_label("show more").add_to_container()
+        components[-1] = (
+            components[-1]
+            .add_button(ButtonStyle.SECONDARY, "btn_anime_more_info")
+            .set_label("details").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "btn_anime_openings")
+            .set_label("all openings").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "btn_anime_endings")
+            .set_label("all endings").add_to_container()
+
+        )
         return components
     
     @listener(hikari.InteractionCreateEvent)
@@ -101,6 +110,11 @@ class AnimePaginator(Paginator):
         elif event.interaction.custom_id == "btn_anime_more_info":
             await self._update_position(event.interaction, detailed=True)
             return
+        elif event.interaction.custom_id == "btn_anime_openings":
+            return await self._send_openings(interaction=event.interaction)
+        elif event.interaction.custom_id == "btn_anime_endings":
+            return await self._send_endings(interaction=event.interaction)
+        
 
     def _sort_embeds(self, sort_by: SortTypes):
         self._pages = sort_by(self._pages)
@@ -157,7 +171,7 @@ class AnimePaginator(Paginator):
                         hikari.Embed(
                             title=anime["node"]["title"],
                         )
-                        .set_footer(text=f"page {i+1}/{total}")
+                        .set_footer(text=f"page {i+1}/{total} | {anime['node']['title']}")
                     )
                 )
             return embeds
@@ -173,20 +187,23 @@ class AnimePaginator(Paginator):
             return [hikari.Embed(title="Nothing found")]
         return embeds
 
-    async def _fetch_anime_by_id(self, mal_id: int) -> Anime:
-        """Fetch a detailed anime dict by mal_id"""
-        return await MyAnimeList.fetch_anime_by_id(mal_id)
-    
-    async def _load_details(self, detailed=False) -> None:
-        """
-        updates the embed `self._pages[self._position]` to a more detailed version of the anime
-        """
+    async def _fetch_current_anime(self) -> Anime:
+        """Fetches or returns already fetched anime"""
         # fetch anime if not done yet
         mal_id = self._results[self._position]["node"]["id"]
         anime: Anime
         if not (anime := self._results[self._position].get("anime")):
             anime = await MyAnimeList.fetch_anime_by_id(mal_id)
             self._results[self._position]["anime"] = anime
+        log.debug(f"fetched anime: {anime}")
+        return anime
+
+    async def _load_details(self, detailed=False) -> None:
+        """
+        updates the embed `self._pages[self._position]` to a more detailed version of the anime
+        """
+        # fetch anime if not done yet
+        anime = await self._fetch_current_anime()
 
         old_embed = self._pages[self._position]
         
@@ -219,7 +236,7 @@ class AnimePaginator(Paginator):
                 ", ".join(anime.genres),
                 inline=True,
             )
-        if anime.studios:
+        if anime.studios and detailed:
             embed.add_field(
                 "Studios", 
                 ", ".join(anime.studios),
@@ -250,7 +267,7 @@ class AnimePaginator(Paginator):
         if anime.title != anime.origin_title:
             embed.description += f"original name: {anime.origin_title}"
         embed.description += f"\nmore information on [MyAnimeList]({anime.mal_url})"
-        embed.description += f"\n\n{Human.short_text(anime.synopsis, 1980)}"
+        embed.description += f"\n\n{Human.short_text(anime.synopsis, 1980 if detailed else 150)}"
 
         related_str = ""
         always_used = ["prequel", "sequel", "full_story"]
@@ -285,18 +302,19 @@ class AnimePaginator(Paginator):
         if anime.background and detailed:
             embed.add_field("Background", Human.short_text(anime.background, 200))
 
-        if (len_openings := len(anime.opening_themes)) > 5:
-            embed.add_field("Opening themes", f"Too many to show here ({len_openings})")
+        if (len_openings := len(anime.opening_themes)) > 4:
+            embed.add_field("Opening themes", f"Too many to show here ({len_openings})", inline=True)
         elif len_openings == 0:
             pass
         else:
             embed.add_field("Opening themes", "\n".join(anime.opening_themes))
 
-        embed.add_field("Completion rate", f"{anime.completion_rate}", inline=True)
+        if detailed:
+            embed.add_field("Completion rate", f"{anime.completion_rate}", inline=True)
 
         # add endings if not too much
-        if (len_endings := len(anime.ending_themes)) > 5:
-            embed.add_field("Ending themes", f"Too many to show here ({len_openings})")
+        if (len_endings := len(anime.ending_themes)) > 3:
+            embed.add_field("Ending themes", f"Too many to show here ({len_openings})", inline=True)
         elif len_endings == 0:
             pass
         else:
@@ -320,6 +338,27 @@ class AnimePaginator(Paginator):
         embed._footer = old_embed._footer
 
         self._pages[self._position] = embed
+    
+    async def _send_openings(self, interaction: hikari.ComponentInteraction):
+        # fetch anime if not done yet
+        anime = await self._fetch_current_anime()
+
+        embed = hikari.Embed(
+            title=f"Openings from {anime.title}",
+            description="\n".join(anime.opening_themes),
+        )
+        embed.color = Colors.random_blue()
+        return await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, embed=embed)
+
+    async def _send_endings(self, interaction: hikari.ComponentInteraction):
+        # fetch anime if not done yet
+        anime = await self._fetch_current_anime()
+        embed = hikari.Embed(
+            title=f"Endings from {anime.title}",
+            description="\n".join(anime.ending_themes),
+        )
+        embed.color = Colors.random_blue()
+        return await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, embed=embed)
 
 
 if __name__ == "__main__":
