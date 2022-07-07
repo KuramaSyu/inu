@@ -459,7 +459,7 @@ async def timez_set(ctx: Context):
         pass
 
 @settings.child
-@lightbulb.command("board")
+@lightbulb.command("board", "group for board commands")
 @lightbulb.implements(commands.SlashSubGroup)
 async def settings_board(ctx: SlashContext):
     pass
