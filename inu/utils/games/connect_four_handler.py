@@ -370,7 +370,7 @@ class Connect4Handler(Paginator):
     @listener(PaginatorReadyEvent)
     async def build_up_game(self, _: PaginatorReadyEvent):
         await self._message.edit(content=None, embed=self.build_embed())
-        for emoji in [*self.orientation_number[:self.game.board.columns], "🔁", "🏳"]:
+        for emoji in [*self.orientation_number[:self.game.board.columns], "🏳"]: # "🔁",  can't be used anyway 
             await self._message.add_reaction(emoji)
         log.debug("return from ready")
         
