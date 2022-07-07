@@ -89,11 +89,11 @@ async def hentai(ctx: Context):
     if not subreddit:
         subreddit = random.choice(
             (subreddits := [
-                'animearmpits', 'AnimeBooty',
+                'AnimeBooty',
                 'animelegs', 'Atago', 'bluehairhentai', 'chiisaihentai', 'ecchi',
                 'hentai', 'HentaiBlowjob', 'HentaiSchoolGirls',
                 'MasturbationHentai', 'Nekomimi', 'Sukebei', 'thighdeology', 'WaifusOnCouch',
-            ])
+            ]) #'animearmpits', 
         )
     await send_pic(ctx, subreddit, footer=False, amount=10)
     if plugin.d.last_update + float(3*60*60) < tm.time() and subreddits:
