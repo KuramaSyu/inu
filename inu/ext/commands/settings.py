@@ -465,7 +465,7 @@ async def settings_board(ctx: SlashContext):
     pass
 
 @settings_board.child
-@lightbulb.option("emoji", "messages with this emoji will be sent here")
+@lightbulb.option("emoji", "messages with this emoji will be sent here", autocomplete=True)
 @lightbulb.command("create-here", "make this channel to a board")
 @lightbulb.implements(commands.SlashSubCommand)
 async def settings_board_add(ctx: SlashContext):
@@ -482,10 +482,10 @@ async def settings_board_add(ctx: SlashContext):
     )
 
 @settings_board.child
-@lightbulb.option("emoji", "the emoji which the board have")
+@lightbulb.option("emoji", "the emoji which the board have", autocomplete=True)
 @lightbulb.command("remove-here", "this channel will no longer be a board")
 @lightbulb.implements(commands.SlashSubCommand)
-async def settings_board_add(ctx: SlashContext):
+async def settings_board_remove(ctx: SlashContext):
     await BoardManager.remove_board(
         guild_id=ctx.guild_id,
         channel_id=ctx.channel_id,
@@ -498,6 +498,13 @@ async def settings_board_add(ctx: SlashContext):
         )
     )
 
+@settings_board_add.autocomplete("emoji")
+@settings_board_remove.autocomplete("emoji")
+async def board_emoji_autocomplete(    
+    option: hikari.AutocompleteInteractionOption, 
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    return ["⭐", "🗑️", "👍", "👎", "😂"]
 
 def load(inu: Inu):
     inu.add_plugin(plugin)
