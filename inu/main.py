@@ -20,6 +20,7 @@ from utils import (
     Urban, 
     MyAnimeListAIOClient,
     CurrentGamesManager,
+    BoardManager
 )
 import lavasnek_rs
 from core import getLogger
@@ -61,6 +62,7 @@ def main():
             TagManager.init_db(inu)
             await PollManager.init_bot(inu)
             Urban.init_bot(inu)
+            BoardManager.init_bot(inu)
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
 
 
