@@ -126,7 +126,7 @@ class BoardManager:
             sql, 
             guild_id, 
             channel_id, 
-            timedelta(days=cls.bot.conf.commands.starboard_entry_lifetime)
+            timedelta(days=cls.bot.conf.commands.board_entry_lifetime)
         )
 
     @classmethod
