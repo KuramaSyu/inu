@@ -171,7 +171,7 @@ class AnimePaginator(Paginator):
                         hikari.Embed(
                             title=anime["node"]["title"],
                         )
-                        .set_footer(text=f"page {i+1}/{total} | {anime['node']['title']}")
+                        .set_footer(text=f"page {i+1}/{total}")
                     )
                 )
             return embeds
@@ -224,9 +224,9 @@ class AnimePaginator(Paginator):
             .add_field("Type", anime.type_, inline=True)
             .add_field("Score", f"{anime.score}/10", inline=True)
             .add_field("Episodes", f"{anime.episodes} {Human.plural_('episode', anime.episodes)}", inline=True)
-            .add_field("Rank", f"{anime.rank}", inline=True)
+            .add_field("Rank", f"{anime.rank} ", inline=True)
             .add_field("Popularity", popularity, inline=True)
-            .add_field("Rating", f"{anime.rating}", inline=True)
+            .add_field("Age", f"{anime.rating}", inline=True)
             .add_field("Duration", f"{anime.duration / 60:.1f} min per episode", inline=True)
             .set_image(anime.image_url)
         )
@@ -250,7 +250,7 @@ class AnimePaginator(Paginator):
                 inline=len(synonyms) < 80,
             )
         embed.add_field(
-            "Info",
+            "Airing Time 📅",
             anime.airing_str,
             inline=True
         )
@@ -271,15 +271,17 @@ class AnimePaginator(Paginator):
 
         related_str = ""
         always_used = ["prequel", "sequel", "full_story"]
+        sequel_added = False
         for relation_type, relations in anime.related.items():
             # related contains dict with mapping from relation_type to list of relations
             # one relation is a node with keys "mal_id", "title", "type", "mal_url"..
             related_str =""
             fmt_relation = ""
-            if relation_type == "sequel":
-                fmt_relation = "Sequel (watch after)"
-            elif relation_type == "prequel":
-                fmt_relation = "Prequel (watch before)"
+            if relation_type == "prequel":
+                fmt_relation = "⏪ Prequel"
+            elif relation_type == "sequel":
+                fmt_relation = "Sequel ⏩"
+                sequel_added = True
             elif relation_type == "full_story":
                 fmt_relation = "Full story"
             else:
@@ -298,6 +300,10 @@ class AnimePaginator(Paginator):
                     related_str, 
                     inline=len(related_str) < 180
                 )
+                # make prequel be showen first
+                if sequel_added and relation_type == "prequel":
+                    embed._fields.extend([embed._fields.pop() for _ in range(2)])
+
         
         if anime.background and detailed:
             embed.add_field("Background", Human.short_text(anime.background, 200))
@@ -335,7 +341,7 @@ class AnimePaginator(Paginator):
             else:
                 outline_fields.append(field)
         embed._fields = [*inline_fields, *outline_fields]
-        embed._footer = old_embed._footer
+        embed.set_footer(text=f"page {self._position+1}/{len(self.pages)} | {anime.title}")
 
         self._pages[self._position] = embed
     
