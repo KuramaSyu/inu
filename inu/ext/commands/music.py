@@ -31,7 +31,7 @@ import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
 from hikari.impl import ActionRowBuilder
 import lightbulb
-from lightbulb import commands, context
+from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
@@ -754,7 +754,7 @@ async def second(ctx: Context) -> None:
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
 @lightbulb.command("position", "enqueue a title at a custom position of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def position(ctx: Context) -> None:
+async def position(ctx: SlashContext) -> None:
     """Adds a song at the <position> position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
 
@@ -774,7 +774,7 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
         ctx.guild_id, 
         force_resend=True, 
         create_footer_info=True,
-        custom_info=f"{track.track.info.title} added from {ctx.author.display_name}"
+        custom_info=f"{track.track.info.title} added from {ctx.author.username}"
     )
 
 async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
