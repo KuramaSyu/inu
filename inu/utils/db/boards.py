@@ -13,7 +13,7 @@ class BoardManager:
     # Mapping[guild_id, Dict]
     # Dict has keys emojis (str set) and message_ids (int set)
     # this cache is not aware of, that a message can have multiple reactions
-    _cache: Dict[int, Dict[str, Set[int] | Set[str]]]
+    _cache: Dict[int, Dict[str, Set[int] | Set[str]]] = {}
 
     @classmethod
     def _cache_add_entry(cls, guild_id: int, emoji: str, message_id: int):
@@ -101,11 +101,31 @@ class BoardManager:
             cls._cache_remove_entry(r["guild_id"], r["emoji"], r["message_id"])
 
     @classmethod
-    async def fetch_entry(
+    async def fetch_reactions(
         cls,
         message_id: int
+    ) -> List[Dict[str, Any]]:
+        table = Table("board.reactions")
+        return await table.fetch(
+            f"""
+            SELECT * FROM {table.name}
+            WHERE message_id = $1
+            """,
+            message_id
+        )
+
+    @classmethod
+    async def fetch_entry(
+        cls,
+        message_id: int,
     ):
-        pass
+        table = Table("baord.entries")
+        return await Table.fetch(
+            f"""
+            SELECT * FROM {table.name}
+            WHERE message_id = {message_id}
+            """
+        )[0]
 
     @classmethod
     async def add_board(
@@ -114,19 +134,20 @@ class BoardManager:
         channel_id: int,
         emoji: str,
     ):
-        table = Table("starboard.starboards")
+        table = Table("board.boards")
         sql = (
             f"INSERT INTO {table.name} (guild_id, channel_id, entry_lifetime, emoji)"
             "VALUES ($1, $2, $3, $4)"
-            "ON CONFLICT (guild_id)"
+            "ON CONFLICT (guild_id, emoji)"
             "DO"
             "   UPDATE SET channel_id = $2"
         )
         await table.execute(
             sql, 
             guild_id, 
-            channel_id, 
-            timedelta(days=cls.bot.conf.commands.board_entry_lifetime)
+            channel_id,
+            timedelta(days=cls.bot.conf.commands.board_entry_lifetime),
+            emoji,
         )
 
     @classmethod
@@ -156,7 +177,7 @@ class BoardManager:
         emoji: Optional[str] = None,
     ):
         """
-        Delete starboard(s)
+        Delete board(s)
 
         Args:
         -----
