@@ -20,6 +20,7 @@ import traceback
 import lightbulb
 from lightbulb.commands.base import OptionModifier as OM
 import hikari
+from hikari import Embed
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from utils.db import BoardManager
@@ -63,6 +64,7 @@ async def update_message(
 
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
+    log.debug(f"receiving: {event.emoji_name}")
     # insert to board
 
     # guild has no board with this reaction
@@ -119,6 +121,31 @@ async def on_message_remove(event: hikari.GuildMessageDeleteEvent):
 async def on_guild_leave(event: hikari.GuildLeaveEvent):
     # remove all boards
     ...
+
+async def update_message(
+    message_id: int,
+    channel_id: int,
+    emoji: str,
+    update_message: bool,
+    **kwargs,
+    
+):
+    message_votes = await BoardManager.fetch_entries(message_id)
+    entry = await BoardManager
+    if update_message:
+        embed = Embed()
+        embed.set_author()
+        text = f"{len(message_votes)}x {emoji}"
+    else:
+        message: hikari.Message = await bot.rest.fetch_message(
+            channel=channel_id,
+            message=message_id,
+        )
+        embed = Embed(
+            description=f"{message.content}"
+        )
+                
+    
 
 def load(inu: Inu):
     global bot
