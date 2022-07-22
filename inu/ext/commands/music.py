@@ -774,7 +774,7 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
         ctx.guild_id, 
         force_resend=True, 
         create_footer_info=True,
-        custom_info=f"{track.track.info.title} added from {ctx.author.username}"
+        custom_info=f"{track.track.info.title} added by {ctx.author.username}"
     )
 
 async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
