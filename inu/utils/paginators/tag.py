@@ -283,11 +283,19 @@ class TagHandler(Paginator):
 
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
-        value, interaction, event = await self.bot.shortcuts.ask_with_modal(
-            self.tag.name or "Tag",
-            "Add to value:" if append else "Value:",
-            interaction=interaction,
-        )
+        if append:
+            value, interaction, event = await self.bot.shortcuts.ask_with_modal(
+                modal_title=self.tag.name or "Tag",
+                question_s="Add to value:" if append else "Value:",
+                interaction=interaction,
+            )
+        else:
+            value, interaction, event = await self.bot.shortcuts.ask_with_modal(
+                modal_title=self.tag.name or "Tag",
+                question_s="Edit value:",
+                interaction=interaction,
+                pre_value_s=self.tag.value[:4000] or "",
+            )
         if not value:
             return
         await interaction.create_initial_response(
