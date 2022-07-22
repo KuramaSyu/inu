@@ -588,7 +588,7 @@ async def tag_add_author(ctx: Context):
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.owners.append(int(ctx.options.author.id))
+    tag.owners.add(int(ctx.options.author.id))
     await tag.save()
     await ctx.respond(
         f"Added {ctx.options.author.username} as an author of `{tag.name}`"
