@@ -367,6 +367,10 @@ class Connect4Handler(Paginator):
     def out_put(self):
         pass
     
+    async def stop(self):
+        await super().stop()
+        await self._message.remove_all_reactions()
+
     @listener(PaginatorReadyEvent)
     async def build_up_game(self, _: PaginatorReadyEvent):
         await self._message.edit(content=None, embed=self.build_embed())
