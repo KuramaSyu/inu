@@ -185,7 +185,7 @@ class Paginator():
         global count
         count  += 1
         self.count = count
-        
+        self._stop: asyncio.Event = asyncio.Event()
         self._pages: Union[List[Embed], List[str]] = page_s
         self._component: Optional[ActionRowBuilder] = None
         self._components: Optional[List[ActionRowBuilder]] = None
@@ -213,7 +213,6 @@ class Paginator():
 
         # paginator configuration
         self.pagination = not disable_pagination
-        self._stop = False
         if self.pagination:
             self._position: int = 0
         if compact is None:
@@ -437,7 +436,7 @@ class Paginator():
         await update_message(**kwargs)
 
     async def stop(self):
-        self._stop = True
+        self._stop.set()
         with suppress(NotFoundError, hikari.ForbiddenError):
             if self.components:
                 await self._message.edit(components=[])
@@ -457,7 +456,8 @@ class Paginator():
         self.bot = ctx.bot
         if len(self.pages) < 1:
             raise RuntimeError("<pages> must have minimum 1 item")
-        elif len(self.pages) == 1 and self._exit_when_one_site:
+        elif len(self.pages) == 1 and self._exit_when_one_site and len(self.components) < 2:
+            log.debug("<pages> has only one item, and <components> has only one item, so the paginator will exit")
             if isinstance(self.pages[0], Embed):
                 msg_proxy = await ctx.respond(
                     embed=self.pages[0],
@@ -489,9 +489,11 @@ class Paginator():
                 **kwargs
             )
         self._message = await msg_proxy.message()
-        if len(self.pages) == 1 and self._exit_when_one_site:
+        if len(self.pages) == 1 and self._exit_when_one_site and len(self.components) < 2:
+            self.log.debug("Only one page, exiting")
             return self._message
         self._position = 0
+        self.log.debug("Starting pagination")
         await self.post_start(ctx)
         return self._message
 
@@ -519,12 +521,13 @@ class Paginator():
                         timeout=self.timeout,
                     )
 
-            while not self._stop:
-                self.log.debug("loop")
+            while not self._stop.is_set():
+                self.log.debug("re-enter pagination loop")
                 try:
                     events = [
                         create_event(InteractionCreateEvent, self.interaction_pred),
                         create_event(GuildMessageCreateEvent, self.message_pred),
+                        self._stop.wait()
                     ]
                     # adding user specific events
                     always_true = lambda _ : True
@@ -534,19 +537,19 @@ class Paginator():
                         [asyncio.create_task(task) for task in events],
                         return_when=asyncio.FIRST_COMPLETED,
                         timeout=self.timeout
-                    )
+                                    )
                 except asyncio.TimeoutError:
-                    self._stop = True
+                    self._stop.set()
                     return
                 # maybe called from outside
                 for e in pending:
                     e.cancel()
-                if self._stop:
+                if self._stop.is_set():
                     return
                 try:
                     event = done.pop().result()
                 except Exception:
-                    self._stop = True
+                    self._stop.set()
                     break
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
