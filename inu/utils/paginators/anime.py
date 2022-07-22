@@ -60,7 +60,7 @@ class AnimePaginator(Paginator):
 
         self._results: List[Dict]
         self._updated_mal_ids = set()
-        super().__init__(page_s=["None"], timeout=60*2)
+        super().__init__(page_s=["None"], timeout=60*2, disable_paginator_when_one_site=False)
         
 
     def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
@@ -68,6 +68,10 @@ class AnimePaginator(Paginator):
         if not isinstance(components, list):
             return components
         # components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort by score").add_to_container()
+        components = [*components, ActionRowBuilder()]
+        if len(self._pages) == 1:
+            # remove pagination if there is only one page
+            components.pop(0)
         if self._with_refresh_btn:
             pass
             components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("show more").add_to_container()
@@ -80,7 +84,6 @@ class AnimePaginator(Paginator):
             .set_label("all openings").add_to_container()
             .add_button(ButtonStyle.SECONDARY, "btn_anime_endings")
             .set_label("all endings").add_to_container()
-
         )
         return components
     
@@ -124,7 +127,7 @@ class AnimePaginator(Paginator):
         self._pages = await self._search_anime(anime_name)
         self._position = 0
         await self._load_details()
-        super().__init__(page_s=self._pages, timeout=10*8)
+        super().__init__(page_s=self._pages, timeout=10*8, disable_paginator_when_one_site=False)
         return await super().start(ctx)
 
     async def _update_position(self, interaction: ComponentInteraction, detailed=False):
