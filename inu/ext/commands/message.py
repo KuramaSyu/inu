@@ -75,7 +75,7 @@ async def calc_msg(message: hikari.PartialMessage):
             )
         else:
             await message.respond(
-                hikari.Embed(title=result)
+                hikari.Embed(title=result, description=f"```\n{message.content}```"),
             )
     except:
         return
