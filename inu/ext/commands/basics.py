@@ -25,6 +25,7 @@ from typing_extensions import Self
 from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP
 
 log = getLogger(__name__)
+bot: Inu = None
 
 class RestDelay:
     def __init__(
@@ -102,7 +103,7 @@ if not isinstance(basics.d, lightbulb_utils.DataStore):
 if basics.d is None:
     raise RuntimeError("Plugin don't contain a datastore")
 
-bot: Inu
+
 
 def ping_to_color(ping: float) -> str:
     if ping >= 500:
@@ -397,6 +398,44 @@ async def purge_until_this_message(ctx: context.MessageContext):
         await ctx.get_channel().delete_messages(messages)
     except:
         log.error(traceback.format_exc())
+
+
+
+@basics.command
+@lightbulb.command("add alias / nickname / name", "Get information about the user")
+@lightbulb.implements(commands.UserCommand)
+async def add_alias(ctx: context.UserContext):
+    member: hikari.Member = await bot.mrest.fetch_member(
+        guild_id=ctx.guild_id,
+        member_id=ctx.options.target.id,
+    )
+    answers, interaction, event = await bot.shortcuts.ask_with_modal(
+        modal_title="Add alias",
+        question_s=["Nickname:", "Alias / Name:", "Seperater between name and alias:"],
+        pre_value_s=[member.display_name.split("|")[0], "", "|"],
+        input_style_s=[TextInputStyle.SHORT, TextInputStyle.SHORT, TextInputStyle.SHORT],
+        interaction=ctx.interaction,
+    )
+    nickname, alias, seperator = answers
+    ctx._interaction = interaction
+    try:
+        await member.edit(nickname=f"{nickname} {seperator} {alias}")
+    except hikari.ForbiddenError as e:
+        await ctx.respond(
+            f"I don't have the permissions to edit nicknames. Some permissions are missing.",
+            flags=hikari.MessageFlag.EPHEMERAL,
+        )       
+        raise e
+    await ctx.respond(
+        f"Added alias `{alias}` to {member.display_name}\nNew name: {nickname} {seperator} {alias}",
+        flags=hikari.MessageFlag.EPHEMERAL,
+    )
+
+
+
+
+    
+
 
 def load(inu: lightbulb.BotApp):
     global bot
