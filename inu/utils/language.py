@@ -210,6 +210,7 @@ class Human():
             >>>
 
         """
+        SEPERATOR = "'"
         if isinstance(number, int):
             return f"{number:,d}"
         number = str(number)
@@ -221,7 +222,7 @@ class Human():
         r: List[Any] = []
         for i, c in enumerate(str(dollars)[::-1]):
             if i and (not (i % 3)):
-                r.insert(0, ',')
+                r.insert(0, SEPERATOR)
             r.insert(0, c)
         out = ''.join(r)
         if cents:
@@ -510,6 +511,4 @@ class MultiLang:
         
 
 if __name__ == "__main__":
-    m = MultiLang(000, multilang_folder="picture-guessing", lang=Languages.DE)
-    p = m._proxy
-    print(p.get("right-answer/footer"))
+    print(Human.number("1200000"))
