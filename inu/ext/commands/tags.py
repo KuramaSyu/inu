@@ -36,6 +36,7 @@ class TagPaginator(Paginator):
         self.tag = tag
         super().__init__(
             **kwargs,
+            timeout=15*60,
         )
     async def post_start(self: Paginator, ctx: Context):
         if self.tag.tag_links:
