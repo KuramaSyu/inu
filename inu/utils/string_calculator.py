@@ -144,11 +144,18 @@ async def calc(calculation: str) -> str:
         #return result[:-2] if result.endswith(".0") else result #and not "," in result
     else:
         result = await Bash.qalc(calculation)
+    # simplified_result = ""
+    # for i in result:
+    #     if i in "1234567890.-+=x":
+    #         simplified_result += i
+    # replace periodic symbol
+    #result = result.replace(" ", "¯")
 
     def replace_number(match):
         return Human.number(match.group(0))
    
-    if result.endswith("...") and " " in result:
-        result = result.replace("...", ")...")
-        result = result.replace(" ", "(")
-    return Human.number(result) #re.sub(r'!(\d+[ ])[-]?\d+\.?\d+', replace_number, result) 
+    # if result.endswith("...") and " " in result:
+    #     result = result.replace("...", ")...")
+    #     result = result.replace(" ", "(")
+    return re.sub(r'[+-]?([0-9]+([.][0-9]*)?([ ]\d+)?|[.][0-9]+)', replace_number, result)
+    #return simplified_result
