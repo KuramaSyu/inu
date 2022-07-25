@@ -1,19 +1,10 @@
+from ast import Await
 import random
 import re
 import traceback
 import typing
-from typing import (
-    Dict,
-    Mapping,
-    Optional,
-    List,
-    Tuple,
-    Union,
-    Any
-
-)
+from typing import *
 import logging
-from logging import DEBUG
 import asyncio
 import textwrap
 
@@ -36,9 +27,20 @@ from utils import Paginator
 from utils.paginators.base import navigation_row
 from utils.paginators.tag import TagHandler, Tag
 
-from core import getLogger
+from core import getLogger, BotResponseError
 
 log = getLogger(__name__)
+
+class TagPaginator(Paginator):
+    def __init__(self, tag: Tag, **kwargs):
+        self.tag = tag
+        super().__init__(
+            **kwargs,
+        )
+    async def post_start(self: Paginator, ctx: Context):
+        if self.tag.tag_links:
+            asyncio.create_task(show_linked_tag(ctx=ctx, tag=self.tag, message_id=self._message.id))
+        await super().post_start(ctx)
 
 
 async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping[str, Any]]:
@@ -118,10 +120,11 @@ async def get_tag(ctx: Context, name: str) -> Optional[Mapping[str, Any]]:
 
 
 async def show_record(
-    record: asyncpg.Record, 
+    record: Mapping[str, Any], 
     ctx: Context, 
     name: Optional[str] = None,
     force_show_name: bool = False,
+    tag: Optional[Tag] = None,
 ) -> None:
     """
     Sends the given tag(record) into the channel of <ctx>
@@ -136,6 +139,8 @@ async def show_record(
         The key under which the tag was invoked. If key is an alias, the tag key will be
         displayed, otherwise it wont
     """
+    if not tag:
+        tag = await Tag.from_record(record,  db_checks=False)
     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
     if record is None:
         await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id)
@@ -143,25 +148,57 @@ async def show_record(
         return
     messages = []
 
-    for value in crumble(record["tag_value"], 1900):
+    for value in crumble(tag.value, 1900):
         message = ""
         # if tag isn't just a picture and tag was not invoked with original name,
         # then append original name at start of message
         if (
             not (
-                name == record["tag_key"]
-                or re.match(media_regex, record["tag_value"].strip())
+                name == tag.name
+                or re.match(media_regex, tag.value.strip())
             )
             or force_show_name
         ):
-            message += f"**{record['tag_key']}**\n\n"
+            message += f"**{tag.name}**\n\n"
         message += value
         messages.append(message)
-    pag = Paginator(
+    pag = TagPaginator(
+        tag=tag,
         page_s=messages,
         compact=True,
+        additional_components=tag.components,
+        disable_component=True,
     )
-    await pag.start(ctx)
+    asyncio.create_task(pag.start(ctx))
+        
+
+async def show_linked_tag(ctx: Context, tag: Tag, message_id: int | None = None) -> None:
+    tag_link, event, interaction = await bot.wait_for_interaction(
+        custom_ids=tag.component_custom_ids, 
+        user_id =ctx.author.id, 
+        channel_id=ctx.channel_id,
+        message_id=message_id,
+    )
+    if tag_link is None:
+        # timeout
+        return None
+    ctx._interaction = interaction
+    ctx._responded = False
+    try:
+        new_tag = await tag.fetch_tag_from_link(tag_link, current_guild=ctx.guild_id or 0)
+    except BotResponseError as e:
+        # inform the user about the mistake
+        return await ctx.respond(**e.kwargs)
+    finally:
+        # wait for other button reactions
+        asyncio.create_task(show_linked_tag(ctx=ctx, tag=tag, message_id=message_id))
+    # show selected tag
+    asyncio.create_task(show_record({}, ctx, new_tag.name, tag=new_tag))
+    
+
+
+
+
 
 
 def records_to_embed(
@@ -384,7 +421,6 @@ async def overview(ctx: Context):
     )
     msg = await ctx.respond("Which overview do you want?", component=menu)
     msg = await msg.message()
-    log.debug(msg.id)
     try:
         event = await ctx.bot.wait_for(
             hikari.InteractionCreateEvent,
@@ -764,7 +800,7 @@ async def guild_auto_complete(
         # if value.lower() in str(name).lower():
         guilds.append({'id': gid, 'name': str(name)})
     if len(guilds) >= 1000:
-        log.debug("Too many guilds to autocomplete - optimising guild list fast..")
+        log.warning("Too many guilds to autocomplete - optimising guild list fast..")
         guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
 
     if len(guilds) > 25:
