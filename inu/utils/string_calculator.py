@@ -17,8 +17,10 @@ from pyparsing import (
 import math
 import operator
 
-from core import Bash
+from core import Bash, getLogger
 from utils import Human
+
+log = getLogger(__name__)
 
 class NumericStringParser(object):
     '''
@@ -145,4 +147,8 @@ async def calc(calculation: str) -> str:
 
     def replace_number(match):
         return Human.number(match.group(0))
-    return re.sub(r'[-]?\d+\.?\d+', replace_number, result)
+   
+    if result.endswith("...") and " " in result:
+        result = result.replace("...", ")...")
+        result = result.replace(" ", "(")
+    return Human.number(result) #re.sub(r'!(\d+[ ])[-]?\d+\.?\d+', replace_number, result) 
