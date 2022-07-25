@@ -138,6 +138,7 @@ class Paginator():
         timeout: int = 120,
         component_factory: Callable[[int], ActionRowBuilder] = None,
         components_factory: Callable[[int], List[ActionRowBuilder]] = None,
+        additional_components: List[ActionRowBuilder] = None,
         disable_pagination: bool = False,
         disable_component: bool = True,
         disable_components: bool = False,
@@ -193,7 +194,7 @@ class Paginator():
         self._disable_component = disable_component
         if not self._disable_component and not self._disable_components:
             raise RuntimeError(f"Paginator.__init__: disable_component can be False OR disable_components can be False. Not both")
-        self._exit_when_one_site = disable_paginator_when_one_site
+        self._disable_paginator_when_one_site = disable_paginator_when_one_site
         self._task: asyncio.Task
         self._message: Message
         self._component_factory = component_factory
@@ -202,6 +203,7 @@ class Paginator():
         self._download: Union[Callable[[Paginator], str], str, None] = download
         self._download_name = download_name
         self._first_message_kwargs = first_message_kwargs or {}
+        self._additional_components = additional_components or []
         self.bot: lightbulb.BotApp
         self.ctx: Context
 
@@ -358,17 +360,24 @@ class Paginator():
         return action_row
     
     def build_default_component(self, position=None) -> Optional[ActionRowBuilder]:
+        if self._disable_paginator_when_one_site and len(self._pages) == 1:
+            return None
         return self._navigation_row(position)
     
     def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
-        action_rows = [self.build_default_component(position)]
+        navi = self.build_default_component(position)
+        action_rows = []
+        if navi:
+            action_rows.append(navi)
         action_row = None
         if not self.compact:
             action_row = self.button_factory(
                 custom_id="search",
                 emoji="🔍"
             )
-            action_rows.append(action_row)        
+            action_rows.append(action_row)
+        if self._additional_components:
+            action_rows.extend(self._additional_components)    
         return action_rows
     
     @property
@@ -432,7 +441,7 @@ class Paginator():
             kwargs["embed"] = content  
         else:
             raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
-
+        log.debug(f"Sending message: {kwargs}")
         await update_message(**kwargs)
 
     async def stop(self):
@@ -448,6 +457,9 @@ class Paginator():
         """
         starts the pagination
         
+        Calls:
+        ------
+        - `self.post_start` - coro - when start finished
         Returns:
         -------
             - (hikari.Message) the message, which was used by the paginator
@@ -456,7 +468,7 @@ class Paginator():
         self.bot = ctx.bot
         if len(self.pages) < 1:
             raise RuntimeError("<pages> must have minimum 1 item")
-        elif len(self.pages) == 1 and self._exit_when_one_site and len(self.components) < 2:
+        elif len(self.pages) == 1 and self._disable_paginator_when_one_site and len(self.components) == 0:
             log.debug("<pages> has only one item, and <components> has only one item, so the paginator will exit")
             if isinstance(self.pages[0], Embed):
                 msg_proxy = await ctx.respond(
@@ -489,7 +501,9 @@ class Paginator():
                 **kwargs
             )
         self._message = await msg_proxy.message()
-        if len(self.pages) == 1 and self._exit_when_one_site and len(self.components) < 2:
+        log.debug(f"Message created: {self._message.id}")
+        # check for one extra component - paginator is automatically disabled when there is only one site
+        if len(self.pages) == 1 and self._disable_paginator_when_one_site and len(self.components) < 1:
             self.log.debug("Only one page, exiting")
             return self._message
         self._position = 0
