@@ -11,6 +11,7 @@ from typing import (
 )
 import asyncio
 import logging
+import re
 
 import hikari
 from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, events, ResponseType, Embed
@@ -33,12 +34,10 @@ from utils import crumble, TagManager
 from utils.language import Human
 from utils.db import Tag
 
-from core import Inu
+from core import Inu, BotResponseError
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
-
-
 
 
 class TagHandler(Paginator):
@@ -52,6 +51,7 @@ class TagHandler(Paginator):
         disable_component: bool = True,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = False,
+        edit_mode: bool = True,
 
     ):
 
@@ -60,6 +60,8 @@ class TagHandler(Paginator):
         self.log = logging.getLogger(__name__)
         self.log.setLevel(logging.DEBUG)
         self.bot: Inu
+        self._edit_mode = edit_mode
+        self._tag_link_task: asyncio.Task
 
         super().__init__(
             page_s=self._pages,
@@ -69,7 +71,7 @@ class TagHandler(Paginator):
             disable_pagination=disable_pagination,
             disable_component=disable_component,
             disable_components=disable_components,
-            disable_paginator_when_one_site=disable_paginator_when_one_site,
+            disable_paginator_when_one_site=False,
         )
 
     async def start(self, ctx: Context, tag: Mapping = None):
@@ -87,10 +89,14 @@ class TagHandler(Paginator):
                 await self.prepare_new_tag(ctx.member or ctx.author)
             else:
                 await self.load_tag(tag, ctx.member or ctx.author)
-                
+            self._additional_components = self.tag.components or []
             await super().start(ctx)
         except Exception:
             self.log.error(traceback.format_exc())
+
+    async def post_start(self, ctx: Context):
+        self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
+        await super().post_start(ctx)
 
     async def update_page(self, update_value: bool = False):
         """Updates the embed, if the interaction wasn't for pagination"""
@@ -107,6 +113,14 @@ class TagHandler(Paginator):
         for page in self._pages:
             page.title = self.tag.name or "Name - not set"
         await self.tag.update()
+
+        # these can always change
+        self._additional_components = self.tag.components
+
+        if self.tag.tag_link_infos:
+            if self._tag_link_task:
+                self._tag_link_task.cancel()
+            self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
 
         self._pages[0].edit_field(0, "Info", str(self.tag))
         await self._message.edit(
@@ -165,6 +179,9 @@ class TagHandler(Paginator):
             elif custom_id == "remove_guild_id":
                 await self.change_guild_ids(i, set.remove)
             else:
+                if custom_id in self.tag.tag_links:
+                    # reaction to this in in self._tag_link_task
+                    return
                 log.warning(f"Unknown custom_id: {custom_id} - in {self.__class__.__name__}")
             if self.tag.name and self.tag.value:
                 try:
@@ -211,7 +228,6 @@ class TagHandler(Paginator):
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
 
-        log.debug("ask")
         guild_id, interaction, event = await self.bot.shortcuts.ask_with_modal(
             "Edit Tag",
             "Enter the guild ID you want to add",
@@ -370,7 +386,7 @@ class TagHandler(Paginator):
             return
 
         try:
-            user = await user_converter(WrappedArg(event.message.content, self.ctx))
+            pass # old user search
         except NotFoundError:
             user = None
 
@@ -385,77 +401,29 @@ class TagHandler(Paginator):
         # await self.update_page()
 
     def build_default_components(self, position) -> List[ActionRowBuilder]:
+        rows = []
         navi = super().build_default_component(position)
-        disable_remove_when = lambda self: self.tag.name is None or self.tag.value is None
-        disable_save_when = lambda self: self.tag.name is None or self.tag.value is None
-        intelligent_button_style = lambda value: ButtonStyle.PRIMARY if not (value) else ButtonStyle.SECONDARY
-        tag_specific = (
-            ActionRowBuilder()
-            .add_button(intelligent_button_style(self.tag.name), "set_name")
-            .set_label("set name")
-            .add_to_container()
-            .add_button(intelligent_button_style(self.tag.value), "set_value")
-            .set_label("set value")
-            .add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "extend_value")
-            .set_label("append to value")
-            .add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "change_visibility")
-            .set_label("local/global")
-            .add_to_container()
-        )
-        add_options = (
-            ActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "add_alias")
-            .set_label("add an alias").add_to_container()
-            # .add_button(ButtonStyle.DANGER, "change_owner")
-            # .set_label("change tag owner")
-            .add_button(ButtonStyle.SECONDARY, "add_guild_id")
-            .set_is_disabled(not self.tag.is_local)
-            .set_label("add a guild").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "add_author_id")
-            .set_label("add an author").add_to_container()
-        )
-        danger_tags = (
-            ActionRowBuilder()
-            .add_button(ButtonStyle.DANGER, "remove_tag")
-            .set_label("delete tag")
-            .set_is_disabled(not self.tag.is_stored).add_to_container()
-            # .add_button(ButtonStyle.DANGER, "change_owner")
-            # .set_label("change tag owner")
-            .add_button(ButtonStyle.DANGER, "remove_author_id")
-            .set_label("remove author").add_to_container()
-            .add_button(ButtonStyle.DANGER, "remove_alias")
-            .set_label("remove alias").add_to_container()
-            .add_button(ButtonStyle.DANGER, "remove_guild_id")
-            .set_label("remove server")
-            .set_is_disabled(not self.tag.is_local).add_to_container()
-        )
-        finish = (
-            ActionRowBuilder()
-            .add_button(intelligent_button_style(self.tag.is_stored), "finish")
-            .set_label("save")
-            .set_is_disabled(disable_save_when(self))
-            .add_to_container()
-        )
+        rows.append(navi)
         menu = (
-            ActionRowBuilder()
-            .add_select_menu("tag_options")
-            .add_option("set name", "set_name").add_to_menu()
-            .add_option("set value", "set_value").add_to_menu()
-            .add_option("append to value", "extend_value").add_to_menu()
-            .add_option("add an alias", "add_alias").add_to_menu()
-            .add_option("add a guild", "add_guild_id").add_to_menu()
-            .add_option("add an author", "add_author_id").add_to_menu()
-            .add_option("remove an author", "remove_author_id").add_to_menu()
-            .add_option("remove alias", "remove_alias").add_to_menu()
-            .add_option("remove guild", "remove_guild_id").add_to_menu()
-            .add_option("local / global", "change_visibility").add_to_menu()
-            .add_option("delete tag", "remove_tag").add_to_menu()
-            .add_to_container()
-        )
+                ActionRowBuilder()
+                .add_select_menu("tag_options")
+                .add_option("set name", "set_name").add_to_menu()
+                .add_option("set value", "set_value").add_to_menu()
+                .add_option("append to value", "extend_value").add_to_menu()
+                .add_option("add an alias", "add_alias").add_to_menu()
+                .add_option("add a guild", "add_guild_id").add_to_menu()
+                .add_option("add an author", "add_author_id").add_to_menu()
+                .add_option("remove an author", "remove_author_id").add_to_menu()
+                .add_option("remove alias", "remove_alias").add_to_menu()
+                .add_option("remove guild", "remove_guild_id").add_to_menu()
+                .add_option("local / global", "change_visibility").add_to_menu()
+                .add_option("delete tag", "remove_tag").add_to_menu()
+                .add_to_container()
+            )
+        rows.append(menu)
+        rows.extend(self._additional_components)
         #if self.pagination:
-        return [navi, menu] #type: ignore
+        return rows
         #return [tag_specific, finish]
 
     async def load_tag(self, tag: Mapping[str, Any], author: Union[hikari.Member, hikari.User]):
@@ -466,26 +434,8 @@ class TagHandler(Paginator):
             - tag: (Mapping[str, Any]) the tag which should be loaded
             - author: (Member, User) the user which stored the tag
         """
-        # guild_id = author.guild_id if isinstance(author, hikari.Member) else 0
-        # local_taken, global_taken = await TagManager.is_taken(key=tag["tag_key"], guild_id = guild_id or 0)
-        # new_tag: Tag = Tag(author)
-        # new_tag.name = tag["tag_key"]
-        # new_tag.value = tag["tag_value"]
-        # new_tag.is_stored = True
-        # new_tag.id = tag["tag_id"]
-        # new_tag.guild_ids = tag["guild_ids"]
-        # new_tag.aliases = tag["aliases"]
-        # new_tag.owners = tag["author_ids"]
-        # if (
-        #     isinstance(author, hikari.Member)
-        #     and not 0 in tag["guild_ids"]
-        #     and author.guild_id in tag["guild_ids"]
-        # ):
-        #     new_tag._is_local = True
-        # else:
-        #     new_tag._is_local = False
-        # new_tag.is_global_available = not global_taken
-        # new_tag.is_local_available = not local_taken
+
+
         new_tag = await Tag.from_record(record=tag, author=author)
         self.tag = new_tag
 
@@ -495,6 +445,7 @@ class TagHandler(Paginator):
         self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
         self._default_site = len(self._pages) - 1
+
 
     async def prepare_new_tag(self, author):
         """
@@ -521,6 +472,79 @@ class TagHandler(Paginator):
         self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
 
+    async def _wait_for_link_button(self, tag: Tag) -> None:
+        tag_link, event, interaction = await self.bot.wait_for_interaction(
+            custom_ids=tag.component_custom_ids, 
+            user_id =self.ctx.author.id, 
+            channel_id=self.ctx.channel_id,
+            message_id=self._message.id,
+        )
+        if tag_link is None:
+            # timeout
+            self._tag_link_task = None
+            return None
+
+        self.ctx._interaction = interaction
+        self.ctx._responded = False
+        try:
+            new_tag = await tag.fetch_tag_from_link(tag_link, current_guild=self.ctx.guild_id or 0)
+        except BotResponseError as e:
+            # inform the user about the mistake
+            return await self.ctx.respond(**e.kwargs)
+        finally:
+            self._tag_link_task = asyncio.create_task(self._wait_for_link_button(tag))
+        # show selected tag
+        asyncio.create_task(self.show_record(name=new_tag.name, tag=new_tag))
+        # wait for other button reactions
+        
+
+    async def show_record(
+        self,
+        tag: Optional[Tag],
+        name: Optional[str] = None,
+        force_show_name: bool = False,
+    ) -> None:
+        """
+        Sends the given tag(record) into the channel of <ctx>
+        
+        Args:
+        ----
+        record : `asyncpg.Record`
+            the record/dict, which should contain the keys `tag_value` and `tag_key`
+        ctx : `Context`
+            the context, under wich the message will be sent (important for the channel)
+        key : `str`
+            The key under which the tag was invoked. If key is an alias, the tag key will be
+            displayed, otherwise it wont
+        """
+
+        media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
+
+        messages = []
+
+        for value in crumble(tag.value, 1900):
+            message = ""
+            # if tag isn't just a picture and tag was not invoked with original name,
+            # then append original name at start of message
+            if (
+                not (
+                    name == tag.name
+                    or re.match(media_regex, tag.value.strip())
+                )
+                or force_show_name
+            ):
+                message += f"**{tag.name}**\n\n"
+            message += value
+            messages.append(message)
+        pag = Paginator(
+            page_s=messages,
+            compact=True,
+            additional_components=tag.components,
+            disable_component=True,
+        )
+        asyncio.create_task(pag.start(self.ctx))
+        if tag.tag_links:
+            asyncio.create_task(self._wait_for_link_button(tag))
 
 
 
