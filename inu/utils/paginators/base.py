@@ -135,7 +135,7 @@ class Paginator():
     def __init__(
         self,
         page_s: Union[List[Embed], List[str]],
-        timeout: int = 120,
+        timeout: int = 2*60,
         component_factory: Callable[[int], ActionRowBuilder] = None,
         components_factory: Callable[[int], List[ActionRowBuilder]] = None,
         additional_components: List[ActionRowBuilder] = None,
