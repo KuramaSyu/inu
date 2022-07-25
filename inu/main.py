@@ -105,13 +105,14 @@ def main():
         )
 
 
-    @inu.listen(lightbulb.events.CommandInvocationEvent)
-    async def on_event(event: lightbulb.events.CommandInvocationEvent):
-        log.debug(
-            (
-                f"[{event.context.user.id}] {event.context.author.username} called {event.command.name}"
-            )
-        )
+    # @inu.listen(lightbulb.events.CommandInvocationEvent)
+    # async def on_event(event: lightbulb.events.CommandInvocationEvent):
+    #     log.debug(
+    #         (
+    #             f"[{event.context.user.id}] {event.context.author.username} called {event.command.name}"
+    #         )
+    #     )
+    
     stop = False
     while not stop:
         try:
