@@ -145,4 +145,4 @@ async def calc(calculation: str) -> str:
 
     def replace_number(match):
         return Human.number(match.group(0))
-    return re.sub(r'[-]?\d+\.\d*', replace_number, result)
+    return re.sub(r'[-]?\d+\.?\d+', replace_number, result)
