@@ -421,7 +421,8 @@ class TagHandler(Paginator):
                 .add_to_container()
             )
         rows.append(menu)
-        rows.extend(self._additional_components)
+        if self._additional_components:
+            rows.extend(self._additional_components)
         #if self.pagination:
         return rows
         #return [tag_specific, finish]
