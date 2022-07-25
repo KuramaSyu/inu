@@ -143,7 +143,10 @@ class Tag():
         """
         Fetches a tag from a link.
         """
-        tag_info = cls._get_links(link)[0]
+        try:
+            tag_info = cls._get_links(link)[0]
+        except IndexError:
+            return None
         tag_info["scope"] = (
             tag_info["scope"]
             .replace("this-guild", str(current_guild))
