@@ -12,21 +12,25 @@ from typing import (
 import typing
 from copy import deepcopy
 from enum import Enum
+import re
 
 import asyncpg
 from asyncache import cached
 from cachetools import TTLCache, LRUCache
 import hikari
-from hikari import Embed
+from hikari import ButtonStyle, Embed
 from hikari import Snowflake, User, Member
+from hikari.impl import ActionRowBuilder
 from numpy import column_stack
 from asyncache import cached
 from cachetools import TTLCache
 
 from ..language import Human, Multiple
 from core.db import Database, Table
-from core import Inu
+from core import Inu, BotResponseError
 
+
+TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{}]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
 
 class Tag():
     def __init__(self, owner: Optional[hikari.User] = None, channel_id: Optional[hikari.Snowflakeish] = None):
@@ -74,7 +78,28 @@ class Tag():
         
         if len(str(value)) > 256:
             raise RuntimeError("Can't store a tag with a name bigger than 256 chars")
+        if not re.match(TAG_REGEX, f"tag://{value}.local"):
+            raise RuntimeError("Some characters are not allowed in the tag name")
         self._name = value
+
+    @property
+    def tag_links(self) -> List[str]:
+        if not self.value:
+            raise RuntimeError("Can't get tag links without a value")
+        return [f"tag://{info['tag_name']}.{info['scope']}"  for info in self._get_links(self.value)]
+
+    @property
+    def tag_link_infos(self) -> List[str]:
+        if not self.value:
+            raise RuntimeError("Can't get tag links without a value")
+        return self._get_links(self.value)
+
+    @classmethod
+    def _get_links(cls, value: str) -> List[str]:
+        """
+        Returns a list of links in the value
+        """
+        return [{"tag_name":t[0], "scope":t[1]} for t in re.findall(TAG_REGEX, value)]
 
     @property
     def is_local(self) -> bool:
@@ -113,6 +138,33 @@ class Tag():
             to_do_msg += "- Your tag isn't global available -> change the name\n"
         return to_do_msg or None
         
+    @classmethod
+    async def fetch_tag_from_link(cls, link: str, current_guild: int) -> Optional["Tag"]:
+        """
+        Fetches a tag from a link.
+        """
+        tag_info = cls._get_links(link)[0]
+        tag_info["scope"] = (
+            tag_info["scope"]
+            .replace("this-guild", str(current_guild))
+            .replace("local", str(current_guild))
+            .replace("global", "0")
+        )
+        records = await TagManager.get(tag_info["tag_name"], int(tag_info["scope"]))
+        if not records:
+            raise BotResponseError(
+                str(
+                    f"Tag doesn't existent here - "
+                    f"no tag found with name `{tag_info['tag_name']}` {'in this guild' if tag_info['scope'] != '0' else 'globally'}.\n"
+                    f"Maybe the tag is available in another guild, but not shared with this one?\n"
+                    f"You could ask the person who should own this tag to share it with your guild.\n"
+                    f"The command is `/tag add-guild`\n"
+                    f"Otherwise you can also create the tag with `/tag add`"
+                ),
+                ephemeral=True,
+            )
+            
+        return await cls.from_record(records[0], db_checks=False)
 
     async def save(self):
         """
@@ -145,16 +197,21 @@ class Tag():
         self.is_stored = True
 
     @classmethod
-    async def from_record(cls, record: Mapping[str, Any], author: hikari.User) -> "Tag":
+    async def from_record(cls, record: Mapping[str, Any], author: hikari.User = None, db_checks: bool = True) -> "Tag":
         """
         loads an existing tag in form of a dict like object into self.tag (`Tag`)
         Args:
         -----
             - record: (Mapping[str, Any]) the tag which should be loaded
             - author: (Member, User) the user which stored the tag
+        db_checks: bool
+            - wether or not checking db for tag availability
         """
-        local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_ids=record["guild_ids"])
-        new_tag = cls(author)
+        if db_checks:
+            local_taken, global_taken = await TagManager.is_taken(key=record["tag_key"], guild_ids=record["guild_ids"])
+        else:
+            local_taken, global_taken = True, True
+        new_tag = cls()
         new_tag.name = record["tag_key"]
         new_tag.value = record["tag_value"]
         new_tag.is_stored = True
@@ -248,6 +305,49 @@ class Tag():
         await TagManager.remove(self.id)
         self.is_stored = False
         return
+
+    @property
+    def components(self) -> List[ActionRowBuilder] | None:
+        """
+        Returns a list of components of the tag.
+        """
+        if not self.tag_link_infos:
+            return None
+        if len(self.tag_link_infos) < 6:
+            action_row = ActionRowBuilder()
+            for link in self.tag_link_infos:
+                (
+                    action_row
+                    .add_button(ButtonStyle.SECONDARY, f"tag://{link['tag_name']}.{link['scope']}")
+                    .set_label(link["tag_name"])
+                    .add_to_container()
+                )
+        else:
+            action_row = ActionRowBuilder().add_select_menu(f"{self.name}-link-menu")
+            for link in self.tag_link_infos[:24]:
+                action_row = (
+                    action_row
+                    .add_option(f"{link['tag_name']}", f"tag://{link['tag_name']}.{link['scope']}").add_to_menu()
+                )
+            action_row = action_row.add_to_container()
+        return [action_row]
+
+    @property
+    def component_custom_ids(self) -> List[str]:
+        """
+        Returns a list of custom ids of the tag.
+        """
+        if not self.tag_link_infos:
+            return None
+
+        c_ids = []
+        if len(self.tag_link_infos) < 6:
+            action_row = ActionRowBuilder()
+            for link in self.tag_link_infos:
+                c_ids.append(f"tag://{link['tag_name']}.{link['scope']}")
+        else:
+            c_ids.append(f"{self.name}-link-menu")
+        return c_ids
 
 
 class TagType(Enum):
