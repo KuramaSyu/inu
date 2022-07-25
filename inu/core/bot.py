@@ -61,7 +61,6 @@ class Inu(lightbulb.BotApp):
         from core.db import Database
         self.db = Database()
         self.db.bot = self
-        self.log.debug(self)
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
@@ -215,15 +214,19 @@ class Inu(lightbulb.BotApp):
 
     async def wait_for_interaction(
         self, 
-        custom_id: str = "",
-        custom_ids: List[str] = [],
+        custom_id: Optional[str] = None,
+        custom_ids: List[str] | None = None,
         user_id: Optional[int] = None, 
         channel_id: Optional[int] = None,
         message_id: Optional[int] = None,
         interaction_instance: Any = hikari.ComponentInteraction,
     ) -> Tuple[str, InteractionCreateEvent, ComponentInteraction]:
+        """
+        Returns:
+        str:
+            first value if there is one, otherwise custom_id
+        """
         try:
-            self.log.debug(self)
             event = await self.wait_for(
                 InteractionCreateEvent,
                 timeout=10*60,
