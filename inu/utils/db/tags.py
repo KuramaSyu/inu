@@ -107,7 +107,7 @@ class Tag():
 
     @property
     def is_local(self) -> bool:
-        return self._is_local
+        return not 0 in self.guild_ids
 
 
     @property
