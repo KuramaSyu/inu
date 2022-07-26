@@ -31,6 +31,8 @@ from core import getLogger, BotResponseError
 
 log = getLogger(__name__)
 
+
+
 class TagPaginator(Paginator):
     def __init__(self, tag: Tag, **kwargs):
         self.tag = tag
@@ -197,11 +199,6 @@ async def show_linked_tag(ctx: Context, tag: Tag, message_id: int | None = None)
     asyncio.create_task(show_record({}, ctx, new_tag.name, tag=new_tag))
     
 
-
-
-
-
-
 def records_to_embed(
     records: List[asyncpg.Record], 
     value_length: int = 80, 
@@ -316,6 +313,8 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         return await ctx.respond("Your tag is already taken")
     return await ctx.respond(f"Your tag `{name}` has been added to my storage")
 
+
+
 @tag.child
 @lightbulb.option(
     "name", 
@@ -341,12 +340,6 @@ async def tag_edit(ctx: Context):
     await taghandler.start(ctx, record)
 
 
-
-
-
-
-    # selection menu here
-        
     
 @tag.child
 @lightbulb.option(
@@ -396,9 +389,6 @@ async def tag_get(ctx: Context):
     await show_record(record, ctx, ctx.options.name)
 
 
-
-
-    
     
 @tag.child
 @lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
@@ -451,6 +441,8 @@ async def overview(ctx: Context):
     pag = Paginator(page_s=embeds, timeout=10*60)
     await pag.start(ctx)
 
+
+
 @tag.child
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option(
@@ -471,6 +463,8 @@ async def tag_execute(ctx: Context):
     for cmd in ext.all_commands:
         if cmd.name == "run":
             return await cmd.callback(ctx)
+
+
 
 @tag.child
 @lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
@@ -497,6 +491,8 @@ async def tag_append(ctx: Context):
     await ctx.respond(
         f"Done."
     )
+
+
 
 @tag.child
 @lightbulb.option("new_name", "The new name for the tag", modifier=OM.CONSUME_REST)
@@ -526,6 +522,7 @@ async def tag_change_name(ctx: Context):
     )
 
 
+
 @tag.child
 @lightbulb.option(
     "name", 
@@ -536,6 +533,7 @@ async def tag_change_name(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_info(ctx: Context):
     record = await get_tag(ctx, ctx.options.name)
+    tag = await Tag.from_record(record, ctx.author, db_checks=False)
     if record is None:
         return await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id, ctx.author.id)
     message = (
@@ -544,7 +542,8 @@ async def tag_info(ctx: Context):
         f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
         f"tag guilds/channels: {Human.list_(record['guild_ids'], with_a_or_an=False)}\n"
         f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
-        f"tag content: ```{Human.short_text(record['tag_value'], 800).replace('`', '')}```"
+        f"tag content: ```{Human.short_text(record['tag_value'], 800).replace('`', '')}```\n"
+        f"link for this tag: `{tag.link}`"
     )
     await ctx.respond(message)
 
