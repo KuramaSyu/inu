@@ -83,6 +83,10 @@ class Tag():
         self._name = value
 
     @property
+    def link(self):
+        return f"tag://{self.name}.{'this-guild' if self.is_local else 'global'}"
+
+    @property
     def tag_links(self) -> List[str]:
         if not self.value:
             raise RuntimeError("Can't get tag links without a value")
