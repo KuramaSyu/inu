@@ -147,10 +147,11 @@ async def ping(ctx: context.Context):
         f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
     )
     embed.add_field("Public IP", await IP.fetch_public_ip(), inline=True)
+    embed.add_field("Domain:", "inuthebot.ddns.net\n\n(can be used instead of the IP Adress)", inline=True)
     await msg.edit(embed=embed)
 
 
-@basics.command
+@basics.command 
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("status", "get information to the current status of the bot")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
