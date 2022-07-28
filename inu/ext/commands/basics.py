@@ -269,6 +269,8 @@ async def purge(ctx: context.Context):
 #         )
 #     )
 
+
+
 @basics.command
 @lightbulb.command("search", "search different things and get it's ID with the name")
 @lightbulb.implements(commands.SlashCommandGroup, commands.PrefixCommandGroup)
@@ -301,6 +303,8 @@ async def search_guild(ctx: Context):
     pag = Paginator(page_s=[f"```\n{p.replace('```', '')}```" for p in crumble(result)])
     await pag.start(ctx)
 
+
+
 @search.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option(
@@ -328,24 +332,6 @@ async def search_member(ctx: Context):
     pag = Paginator(page_s=[f"```\n{p.replace('```', '')}```" for p in crumble(result)])
     await pag.start(ctx)
 
-# @basics.command
-# @lightbulb.command("testmodal", "Ping the bot", hidden=True)
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-# async def testmodal(ctx: context.Context):
-#     modal = (
-#         ActionRowBuilder()
-#         .add_text_input("test_modal", "The title")
-#         .set_placeholder("test placeholder")
-#         .add_to_container()
-#     )
-
-#     resp = await ctx.interaction.create_modal_response("title from interac", "custom_id", components=[modal])
-#     cast(Inu, ctx.bot)
-#     bot: Inu = ctx.bot
-#     d, i, _ = await bot.wait_for_.modal(
-#         "custom_id",
-#     )
-#     await i.create_initial_response(ResponseType.MESSAGE_CREATE, f"{d}")
 
 
 @basics.command
@@ -377,6 +363,7 @@ async def user_info(ctx: context.UserContext):
     embed.set_thumbnail(author.avatar_url)
 
     await ctx.respond(embed=embed)
+
 
 
 @basics.command
@@ -440,10 +427,6 @@ async def add_alias(ctx: context.UserContext):
         flags=hikari.MessageFlag.EPHEMERAL,
     )
 
-
-
-
-    
 
 
 def load(inu: lightbulb.BotApp):
