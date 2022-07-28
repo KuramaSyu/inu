@@ -1,8 +1,4 @@
-import random
 import re
-from tokenize import group
-import traceback
-import typing
 from typing import (
     List,
     Sequence,
@@ -11,28 +7,22 @@ from typing import (
     Mapping,
     Dict,
 )
-import sys
-import inspect
-from inspect import isclass
-import logging
-from pprint import pformat
 
 import hikari
 import lightbulb
 from lightbulb import help_command
 from lightbulb.context import Context
 from lightbulb.commands import Command, PrefixCommand, PrefixCommandGroup, CommandLike, PrefixSubCommand, PrefixSubGroup
-from matplotlib.colors import cnames
 
-from core import Inu
+from core import Inu, getLogger
 from utils import Paginator, Colors
-
-from core import getLogger
 
 log = getLogger(__name__)
 
 
 bot_app: Optional[Inu] = None
+
+
 
 class CustomHelp(help_command.BaseHelpCommand):
     def __init__(self, bot: lightbulb.BotApp):
@@ -149,9 +139,6 @@ class CustomHelp(help_command.BaseHelpCommand):
         return parted_commands
 
 
-
-
-
     def search(self, obj, commands=[], search_deeper: bool = True) -> List[Command]:
         """
         ### Iterates recursivly through the bot commands/groups/subcommands
@@ -184,6 +171,7 @@ class CustomHelp(help_command.BaseHelpCommand):
         else:
             return list(set(results))
 
+
     def group_to_commands(self, group: Union[PrefixCommandGroup, PrefixSubGroup], ctx: Context):
         commands: List[Command] = [group]  # because the group is also a command
         for command in group.subcommands.values():
@@ -194,6 +182,7 @@ class CustomHelp(help_command.BaseHelpCommand):
                 subcommands = self.group_to_commands(command, ctx)[1:]  # remove group, since the group is already in
                 commands.extend(subcommands)
         return commands
+
 
     async def dicts_to_pagination(self, dicts: List[List[Dict[str, str]]], ctx: Context) -> None:
         """
@@ -208,6 +197,7 @@ class CustomHelp(help_command.BaseHelpCommand):
         embeds = self.dicts_to_embeds(dicts)
         pag = Paginator(page_s=embeds, timeout=500)
         await pag.start(ctx)
+
 
     def dicts_to_embeds(
         self, 
@@ -265,6 +255,7 @@ class CustomHelp(help_command.BaseHelpCommand):
             "group": f" for Group: {group_name}" if group_name else ""
         }
 
+
     def _remove_defaults(self, cmd_signature: str) -> str:
         """removes defaults and <ctx>"""
         if (i:=cmd_signature.find("<ctx>")) != -1:
@@ -284,6 +275,7 @@ class CustomHelp(help_command.BaseHelpCommand):
         if "=" in cmd_signature:
             cmd_signature = self._remove_defaults(cmd_signature)
         return cmd_signature
+
 
     def _get_command_signature(self, command: Command, ctx: Context):
         full_invoke = command.qualname.replace(command.name, "")
@@ -370,12 +362,15 @@ class OutsideHelp:
         await pag.start(ctx)
 
 
+
 def load(bot):
     global bot_app
     bot_app = bot
     OutsideHelp.bot = bot
     bot.d.old_help_command = bot.help_command
     bot.help_command = CustomHelp(bot)
+
+
 
 def unload(bot):
     bot.help_command = bot.d.old_help_command

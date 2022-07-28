@@ -1,30 +1,25 @@
-from pprint import pformat
 import traceback
 from typing import *
-from typing import Union
 import asyncio
-from datetime import datetime, timedelta
 
 import hikari
 import lightbulb
 import lightbulb.context as context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
-import pandas as pd
-import seaborn as sns
-from matplotlib import pyplot as plt
 
 from utils.games.connect_four_handler import Connect4Handler
 from utils.games import HikariOnu
-from utils.db import CurrentGamesManager
-from utils import AkinatorSI, Paginator
-from core import getLogger, Inu
+from utils import AkinatorSI
+from core import getLogger
+
 
 log = getLogger(__name__)
-
 Context = Union[context.SlashContext, context.PrefixContext]
 plugin = lightbulb.Plugin("Game Commands", "Extends the commands with commands all about games")
 onu_sessions = set()
+
+
 
 async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
     if not ctx._options.get("player2"):
@@ -50,15 +45,18 @@ async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
     await msg.remove_all_reactions()
 
 
+
 @plugin.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
-@lightbulb.command("connect4", "starts a Connect 4 game", aliases=["con4", "connect-4", "4-in-a-row", "4inarow"])
+@lightbulb.command("connect-4", "starts a Connect 4 game", aliases=["con4", "4-in-a-row", "4inarow"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def connect4(ctx: Context):
     await start_4_in_a_row(ctx, rows=6, columns=7)
+
+
 
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -70,6 +68,8 @@ async def connect4(ctx: Context):
 async def connect4_classic(ctx: Context):
     await start_4_in_a_row(ctx, rows=6, columns=7)
 
+
+
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
@@ -79,7 +79,9 @@ async def connect4_classic(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_8by8(ctx: Context):
     await start_4_in_a_row(ctx, rows=8, columns=8)
-    
+
+
+
 @plugin.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.add_cooldown(120, 2, lightbulb.UserBucket)
@@ -113,6 +115,8 @@ async def onu(ctx: Context):
         for p_id in players.keys():
             onu_sessions.remove(p_id)
 
+
+
 @plugin.command
 @lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
 @lightbulb.command("akinator", "I guess a character for you", aliases=["aki"], auto_defer=True)
@@ -120,6 +124,7 @@ async def onu(ctx: Context):
 async def akinator(ctx: Context):
     aki = AkinatorSI("en")
     await aki.start(ctx)
+
 
 
 def load(bot: lightbulb.BotApp):

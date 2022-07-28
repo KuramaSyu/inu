@@ -28,7 +28,10 @@ from utils import (
 
 log = getLogger(__name__)
 
+
+
 class CalculationBlueprint:
+    """Class to create calculations"""
     def __init__(
         self,
         max_number: int,
@@ -42,7 +45,6 @@ class CalculationBlueprint:
         max_result_number: Optional[int] = None,
         display_name: str = "",
 
-        
     ):
         """
         Args:

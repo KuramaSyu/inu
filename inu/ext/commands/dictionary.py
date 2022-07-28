@@ -1,33 +1,15 @@
-import typing
-from typing import (
-    Union,
-    Optional,
-    List,
-    overload,
-)
-import asyncio
-import logging
-
-from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
-from hikari.messages import ButtonStyle
-from hikari.impl.special_endpoints import ActionRowBuilder
-from hikari.events import InteractionCreateEvent
+from hikari import Embed
 import lightbulb
-import lightbulb.utils as lightbulb_utils
 from lightbulb import commands, context
-import hikari
-from numpy import isin
 
 from core import getLogger, BotResponseError
 from utils import Urban, Paginator, Colors
-# from utils.logging import LoggingHandler
-# logging.setLoggerClass(LoggingHandler)
-
 
 
 log = getLogger(__name__)
-
 plugin = lightbulb.Plugin("Dictionary", "Extends the commands with urban commands")
+
+
 
 @plugin.command
 @lightbulb.option("word", "What do you want to search?")

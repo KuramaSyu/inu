@@ -1,5 +1,3 @@
-import logging
-import typing
 from typing import Tuple, Union, Optional, List
 import os
 
@@ -20,6 +18,7 @@ log = getLogger(__name__)
 
 
 plugin = lightbulb.Plugin("Code", "Information to the ammount of code")
+
 
 def get_directory_size(directory: str) -> Tuple[int, int]:
     """Returns the `directory` size in bytes. and the count of all lines"""
@@ -54,6 +53,8 @@ def get_directory_size(directory: str) -> Tuple[int, int]:
         return 0, 0
     return total, lines
 
+
+
 @plugin.command
 @lightbulb.command("code", "Shows information to the ammount of code I have")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
@@ -78,6 +79,8 @@ async def code(ctx: Context):
     embed.set_thumbnail(str(plugin.bot.me.avatar_url))
     embed.color = Colors.from_name("slateblue")
     await ctx.respond(embed=embed)
+
+
 
 def load(bot: Inu):
     bot.add_plugin(plugin)

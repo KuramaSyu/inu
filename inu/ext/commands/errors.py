@@ -1,5 +1,4 @@
 from contextlib import suppress
-import logging
 import random
 import asyncio
 from typing import (
@@ -18,9 +17,11 @@ from utils.language import Human
 from .help import OutsideHelp
 
 from core import getLogger, BotResponseError
-log = getLogger(__name__)
 
+log = getLogger(__name__)
 pl = lightbulb.Plugin("Error Handler")
+
+
 
 @pl.listener(hikari.ExceptionEvent)
 async def on_exception(event: hikari.ExceptionEvent):
@@ -32,6 +33,7 @@ async def on_exception(event: hikari.ExceptionEvent):
         log.error(f"{''.join(traceback.format_exception(event.exception))}")
     except Exception:
         log.critical(traceback.format_exc())
+
 
 
 @pl.listener(events.CommandErrorEvent)
@@ -158,6 +160,8 @@ async def on_error(event: events.CommandErrorEvent):
                 await message_dialog(error_embed)
     except Exception:
         log.critical(traceback.format_exc())
+
+
 
 def load(bot: Inu):
     bot.add_plugin(pl)
