@@ -250,24 +250,24 @@ async def purge(ctx: context.Context):
 
 
 
-@basics.command
-@lightbulb.command("invite", "Invite this bot to your server")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def invite(ctx: context.Context):
-    await ctx.respond(
-        embed=Embed(
-            title="Invite me",
-            description=f"[Click here]({ctx.bot.conf.bot.DISCORD_INVITE_LINK}) _or click the button_",
-            color=Colors.from_name("mediumslateblue"),
-        ).set_thumbnail(ctx.bot.get_me().avatar_url),
-        component=(
-            ActionRowBuilder()
-            .add_button(
-                ButtonStyle.LINK, 
-                ctx.bot.conf.bot.DISCORD_INVITE_LINK
-            ).set_label("my invite link").add_to_container()
-        )
-    )
+# @basics.command
+# @lightbulb.command("invite", "Invite this bot to your server")
+# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+# async def invite(ctx: context.Context):
+#     await ctx.respond(
+#         embed=Embed(
+#             title="Invite me",
+#             description=f"[Click here]({ctx.bot.conf.bot.DISCORD_INVITE_LINK}) _or click the button_",
+#             color=Colors.from_name("mediumslateblue"),
+#         ).set_thumbnail(ctx.bot.get_me().avatar_url),
+#         component=(
+#             ActionRowBuilder()
+#             .add_button(
+#                 ButtonStyle.LINK, 
+#                 ctx.bot.conf.bot.DISCORD_INVITE_LINK
+#             ).set_label("my invite link").add_to_container()
+#         )
+#     )
 
 @basics.command
 @lightbulb.command("search", "search different things and get it's ID with the name")
