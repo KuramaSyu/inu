@@ -1,14 +1,12 @@
 import traceback
 from typing import *
 
-
 from jikanpy import AioJikan
 import hikari
 import lightbulb
 from lightbulb import commands, context
 from lightbulb.commands import OptionModifier as OM
 from matplotlib.pyplot import title
-
 
 from utils import (
     Human, 
@@ -20,6 +18,8 @@ from utils import (
 from core import getLogger
 
 log = getLogger(__name__)
+
+
 
 async def search_anime(search: str) -> List[hikari.Embed]:
     def build_embeds(search_title: str, results: Dict):
@@ -66,11 +66,11 @@ async def search_anime(search: str) -> List[hikari.Embed]:
 
     async with AioJikan() as aio_jikan:
         results = await aio_jikan.search(search_type='anime', query=search)
-    #pprint.pprint(results)
     embeds = build_embeds(search, results)
     if not embeds:
         return [hikari.Embed(title="Nothing found")]
     return embeds
+
 
 def resp_to_embed(resp: dict) -> List[hikari.Embed]:
     data = resp["data"]
@@ -118,8 +118,6 @@ def resp_to_embed(resp: dict) -> List[hikari.Embed]:
                         )
                     }\n"""
                     f"produce date: {anime['aired']['string']}\n"
-                    # f"date: {anime['start_date'][:5] if anime['start_date'] else '?'} - "
-                    # f"{anime['end_date'][:5] if anime['end_date'] else '?'}\n"
                     f"MyAnimeList ID: {anime['mal_id']}\n"
                     f"""{", ".join(anime["title_synonyms"])}\n"""
                 )
@@ -154,6 +152,8 @@ def resp_to_embed(resp: dict) -> List[hikari.Embed]:
 
 plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 
+
+
 @plugin.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.option("name", "the name of the Anime", type=str, modifier=OM.CONSUME_REST)
@@ -167,6 +167,8 @@ async def fetch_anime(ctx: context.Context):
         log.debug(traceback.format_exc())
         return
     await pag.start(ctx, ctx.options.name)
+
+
 
 @plugin.command
 @lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
@@ -182,6 +184,8 @@ async def fetch_anime_character(ctx: context.Context):
         return
     await pag.start(ctx, ctx.options.name)
 
+
+
 @plugin.command
 @lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
 @lightbulb.option("name", "the name of the Manga", type=str, modifier=OM.CONSUME_REST)
@@ -195,6 +199,8 @@ async def fetch_manga(ctx: context.Context):
         log.debug(traceback.format_exc())
         return
     await pag.start(ctx, ctx.options.name)
+
+
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
