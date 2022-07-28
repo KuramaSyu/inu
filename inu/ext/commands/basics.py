@@ -27,7 +27,10 @@ from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList,
 log = getLogger(__name__)
 bot: Inu = None
 
+
+
 class RestDelay:
+    """Class to test delays of REST APIs via passing methods or urls into the builder"""
     def __init__(
         self,
         name: str,
@@ -125,6 +128,8 @@ def ping_to_color_rest(ping: float) -> str:
     else:
         return "🟢"
 
+
+
 @basics.command
 @lightbulb.command("ping", "is the bot alive?")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
@@ -136,7 +141,6 @@ async def ping(ctx: context.Context):
                 f"Bot is alive\n\n"
                 f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
                 f"⚫ REST: .... ms\n\n"
-                # f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
             ),
     )
     msg = await ctx.respond(embed=embed)
@@ -151,6 +155,7 @@ async def ping(ctx: context.Context):
     await msg.edit(embed=embed)
 
 
+
 @basics.command 
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("status", "get information to the current status of the bot")
@@ -162,7 +167,6 @@ async def status(ctx: context.Context):
             description=(
                 f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
                 f"⚫ REST: .... ms\n\n"
-                # f"{ping_to_color_db(db_delay.total_seconds()*1000)} Database: {db_delay.total_seconds()*1000:.2f} ms"
             ),
     )
     msg = await ctx.respond(embed=embed)
@@ -193,6 +197,8 @@ async def status(ctx: context.Context):
         )
     )
     await msg.edit(embed=embed)
+
+
 
 @basics.command
 @lightbulb.add_cooldown(3, 1, lightbulb.UserBucket)
@@ -241,6 +247,8 @@ async def purge(ctx: context.Context):
     if ctx.options.message_link and ammount <= 0:
         raise BotResponseError(f"Your linked message is not under the last 50 messages")
     await channel.delete_messages(messages)
+
+
 
 @basics.command
 @lightbulb.command("invite", "Invite this bot to your server")
