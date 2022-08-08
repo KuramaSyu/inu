@@ -15,7 +15,7 @@ mock
 jikanpy
 fuzzywuzzy
 pyyaml
-akinator.py[fast_async]
+akinator[async]
 hikari-miru
 python-Levenshtein
 types-PyYAML
