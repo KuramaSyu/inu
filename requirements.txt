@@ -29,3 +29,4 @@ colormap
 easydev
 youtube-search-python
 humanize
+qrcode
