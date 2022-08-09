@@ -130,7 +130,8 @@ async def show_record(
     tag: Optional[Tag] = None,
 ) -> None:
     """
-    Sends the given tag(record) into the channel of <ctx>
+    Sends the given tag(record) into the channel of <ctx>.
+    If record is None, similar tags will be searched and sent into the channel of <ctx>.
     
     Args:
     ----
@@ -142,6 +143,8 @@ async def show_record(
         The key under which the tag was invoked. If key is an alias, the tag key will be
         displayed, otherwise it wont
     """
+    if record is None and tag is None:
+        return await no_tag_found_msg(ctx, name, ctx.guild_id)
     if not tag:
         tag = await Tag.from_record(record,  db_checks=False)
     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
@@ -176,6 +179,25 @@ async def show_record(
         
 
 async def show_linked_tag(ctx: Context, tag: Tag, message_id: int | None = None) -> None:
+    """
+    Is called when:
+    -----------
+    When a tag is called and it contains a link to another tag, for every link in this tag,
+    this function will be called, to wait for the button interaction and then show the linked tag
+
+    Args
+    ----
+    ctx : `Context`
+        The context of the initial interaction from the user. Will be used to filter out the tag link button interaction
+    tag : `Tag`
+        The tag, which contains the links to other tags
+    message_id : `int` | `None`
+        an optional message id, which will be used to filter out the tag link button interaction
+
+    Returns:
+    -------
+    None
+    """
     tag_link, event, interaction = await bot.wait_for_interaction(
         custom_ids=tag.component_custom_ids, 
         user_id =ctx.author.id, 
@@ -185,13 +207,15 @@ async def show_linked_tag(ctx: Context, tag: Tag, message_id: int | None = None)
     if tag_link is None:
         # timeout
         return None
+    # overriding the interaction with the new interaction
     ctx._interaction = interaction
     ctx._responded = False
     try:
         new_tag = await tag.fetch_tag_from_link(tag_link, current_guild=ctx.guild_id or 0)
     except BotResponseError as e:
         # inform the user about the mistake
-        return await ctx.respond(**e.kwargs)
+        await ctx.respond(**e.kwargs)
+        return
     finally:
         # wait for other button reactions
         asyncio.create_task(show_linked_tag(ctx=ctx, tag=tag, message_id=message_id))
