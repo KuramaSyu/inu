@@ -581,6 +581,9 @@ class Reminders:
 
     @classmethod
     async def clean_up_reminders(cls):
+        """
+        Deletes reminders which are in the past.
+        """
         sql = """
         DELETE FROM reminders
         WHERE remind_time < $1
@@ -591,6 +594,15 @@ class Reminders:
 
     @classmethod
     def add_reminders_to_set(cls, records: List[asyncpg.Record]):
+        """
+        Add a reminder to the set of running reminders.
+        Used as cache to avoid duplicates.
+
+        Args:
+        -----
+        records: List[asyncpg.Record]
+            The records which contain the reminder data which should be added to the set.
+        """
         for r in records:
             if r["reminder_id"] in cls.running_reminders:
                 continue
@@ -609,6 +621,9 @@ class Reminders:
 
     @classmethod
     def delete_from_set(cls, reminder: asyncpg.Record):
+        """
+        remove a reminder form the cache set.
+        """
         log.debug(f"del: {reminder}")
         try:
             cls.running_reminders.remove(reminder["reminder_id"])
