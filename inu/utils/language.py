@@ -227,8 +227,13 @@ class Human():
         out = ''.join(r)
         if cents:
             out += '.' + cents
-        if out.endswith(".0"):
-            out = out[:-2]
+        if "." in out:
+            while out.endswith("0"):
+                # remove trailing zeros
+                out = out[:-1]
+            # remove dot if dot is the last character
+            if out.endswith("."):
+                out = out[:-1]
         return out
 
     @staticmethod
