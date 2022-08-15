@@ -326,15 +326,17 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         ctx._interaction = interaction
         name = name.strip()
     try:
-        await TagManager.set(
-            name, 
-            value,
-            [ctx.member or ctx.author],
-            [ctx.guild_id or ctx.channel_id],
-            [],
+        tag = Tag(
+            owner=ctx.author,
+            channel_id=ctx.guild_id or ctx.channel_id,
         )
+        tag.name = name
+        tag.value = value
+        await tag.save()
     except TagIsTakenError:
-        return await ctx.respond("Your tag is already taken")
+        raise BotResponseError("Your tag is already taken", ephemeral=True)
+    except RuntimeError as e:
+        raise BotResponseError(bot_message=e.args[0], ephemeral=True)
     return await ctx.respond(f"Your tag `{name}` has been added to my storage")
 
 
