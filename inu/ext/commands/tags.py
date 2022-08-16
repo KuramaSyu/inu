@@ -142,11 +142,19 @@ async def show_record(
     key : `str`
         The key under which the tag was invoked. If key is an alias, the tag key will be
         displayed, otherwise it wont
+
+    Raises:
+    -------
+    BotResponseError:
+        when the tag creation raises an RuntimeError
     """
     if record is None and tag is None:
         return await no_tag_found_msg(ctx, name, ctx.guild_id)
     if not tag:
-        tag = await Tag.from_record(record,  db_checks=False)
+        try:
+            tag = await Tag.from_record(record,  db_checks=False)
+        except RuntimeError as e:
+            raise BotResponseError(e.args[0], emphemeral=True)
     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
     if record is None:
         await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id)
