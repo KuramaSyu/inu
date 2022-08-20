@@ -229,7 +229,7 @@ class Inu(lightbulb.BotApp):
         try:
             event = await self.wait_for(
                 InteractionCreateEvent,
-                timeout=10*60,
+                timeout=15*60,
                 predicate=lambda e:(
                     isinstance(e.interaction, interaction_instance)
                     and (True if not custom_id else custom_id == e.interaction.custom_id)
