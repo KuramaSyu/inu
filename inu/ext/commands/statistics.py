@@ -279,7 +279,7 @@ async def build_activity_graph(
     # and resample hours to `resample_delta` and sum them up
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
-    log.debug(f"resampled df:\n{df}")
+    log.debug(f"resampled df:\n{df_summarized}")
     # style preparations
     color_paletes = ["magma_r", "rocket_r", "mako_r"] #  , None, "Pastel1", "Spectral", "Set3", "Set2", "Paired", 
     plt.style.use("cyberpunk")
