@@ -254,8 +254,13 @@ async def build_activity_graph(
         since=datetime.now() - since,
         activity_filter=activities,
     )
+    old_row_amount = len(df.index)
+    # drop NaN values (r_timestamp bc of rounding issues)
+    df.dropna(axis=0, how='any', thresh=None, subset=None, inplace=True)
     df.set_index(keys="r_timestamp", inplace=True)
-
+    if old_row_amount != (new_row_amount := len(df.index)):
+        log.waring(f"missing rows ({old_row_amount - new_row_amount}) in guild {guild_id}")
+    
     since: datetime = df.index.min()
     until: datetime = df.index.max()
     # log.debug(f"since: {str(since)}, until: {str(until)}\n{df.head(10)}\n{df.tail(10)}")
