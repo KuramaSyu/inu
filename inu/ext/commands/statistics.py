@@ -260,7 +260,7 @@ async def build_activity_graph(
     df.set_index(keys="r_timestamp", inplace=True)
     if old_row_amount != (new_row_amount := len(df.index)):
         log.waring(f"missing rows ({old_row_amount - new_row_amount}) in guild {guild_id}")
-    
+    log.debug(df.to_string())
     since: datetime = df.index.min()
     until: datetime = df.index.max()
     # log.debug(f"since: {str(since)}, until: {str(until)}\n{df.head(10)}\n{df.tail(10)}")
