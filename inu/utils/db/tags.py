@@ -54,7 +54,7 @@ class Tag():
         self.is_local_available: bool
         self.is_global_available: bool
         self._is_local: bool = True
-        self.is_stored: bool
+        self.is_stored: bool = False
         self._id: Optional[int] = None
         self.aliases: Set[str] = set()
         self.guild_ids: Set[int] = set()
@@ -263,8 +263,10 @@ class Tag():
             tag._is_local = False
         tag.is_global_available = False
         tag.is_local_available = False
-        self.tag = tag
+        Tag._initialize_embed(tag)
+        self = tag
 
+    def _initialize_embed(self):
         self.embed = Embed()
         self.embed.title = self.tag.name or "Name - Not set"
         self.embed.description = self.tag.value or "Value - Not set"
