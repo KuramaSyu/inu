@@ -254,8 +254,14 @@ async def build_activity_graph(
         since=datetime.now() - since,
         activity_filter=activities,
     )
+    old_row_amount = len(df.index)
+    # drop NaN values (r_timestamp bc of rounding issues)
+    df.dropna(axis=0, how='any', thresh=None, subset=None, inplace=True)
+    log.debug(df.to_string())
     df.set_index(keys="r_timestamp", inplace=True)
-
+    if old_row_amount != (new_row_amount := len(df.index)):
+        log.waring(f"missing rows ({old_row_amount - new_row_amount}) in guild {guild_id}")
+    
     since: datetime = df.index.min()
     until: datetime = df.index.max()
     # log.debug(f"since: {str(since)}, until: {str(until)}\n{df.head(10)}\n{df.tail(10)}")
@@ -350,7 +356,7 @@ async def build_activity_graph(
     df_summarized.reset_index(inplace=True)
 
     log.debug(f"df sum corrected:\n{df_summarized.to_string()}")
-    # style preparations
+
     color_paletes = ["magma_r", "rocket_r", "mako_r"] #  , None, "Pastel1", "Spectral", "Set3", "Set2", "Paired", 
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
