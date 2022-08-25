@@ -310,12 +310,46 @@ async def build_activity_graph(
             log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
         df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
 
+    min_date = min(df_summarized["r_timestamp"])
+    def game_add_zero_l(game_name: str):
+        nonlocal df_summarized
+        game_df: pd.DataFrame = df_summarized[df_summarized["game"] == game_name]
+        added_zero = True
+        prev_date: datetime = game_df.iloc[-1]["r_timestamp"]
+        to_add: Dict[str, Any] = {
+            "game": [],
+            "hours": [],
+            "r_timestamp": [],
+        }
+        def add_row(dt: Optional[datetime] = None):
+            to_add["game"].append(game_name)
+            to_add["hours"].append(0)
+            to_add["r_timestamp"].append(dt or prev_date - resample_delta,)
+
+        for _, row in reversed([*game_df.iterrows()]):
+            date = row["r_timestamp"]
+            if prev_date - date > resample_delta and not added_zero:
+                # missing row of a specific time
+                # add this row with hours=0
+                add_row()
+                added_zero = True
+            else:
+                added_zero = False
+            prev_date = date
+        if prev_date - min_date >= resample_delta:
+            log.debug(f"add first entry for {game_name}")
+            add_row()
+        else:
+            log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
+        df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
+
     for game in games:
         game_add_zero_r(game)
+        game_add_zero_l(game)
 
     df_summarized.reset_index(inplace=True)
 
-    log.debug(f"df sum corrected:\n{df_summarized}")
+    log.debug(f"df sum corrected:\n{df_summarized.to_string()}")
     # style preparations
     color_paletes = ["magma_r", "rocket_r", "mako_r"] #  , None, "Pastel1", "Spectral", "Set3", "Set2", "Paired", 
     plt.style.use("cyberpunk")
