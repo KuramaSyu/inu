@@ -35,3 +35,5 @@ to restore the dump:
 
 `cat dump_file.sql | docker exec -i <postgres-container-id> psql -U inu inu_db`
 
+"postgresql" can also be used instead of the id, hence it's the containers name
+
