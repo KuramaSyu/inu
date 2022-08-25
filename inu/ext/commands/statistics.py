@@ -273,7 +273,49 @@ async def build_activity_graph(
     # and resample hours to `resample_delta` and sum them up
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
+    log.debug(f"df not corrected:\n{df_summarized.to_string()}")
+    # set before and after game to 0
+    games = set(df_summarized["game"])
+    last_date = max(df_summarized["r_timestamp"])
 
+    def game_add_zero_r(game_name: str):
+        nonlocal df_summarized
+        game_df: pd.DataFrame = df_summarized[df_summarized["game"] == game_name]
+        added_zero = True
+        prev_date: datetime = game_df.iloc[0]["r_timestamp"]
+        to_add: Dict[str, Any] = {
+            "game": [],
+            "hours": [],
+            "r_timestamp": [],
+        }
+        def add_row(dt: Optional[datetime] = None):
+            to_add["game"].append(game_name)
+            to_add["hours"].append(0)
+            to_add["r_timestamp"].append(dt or prev_date + resample_delta,)
+
+        for _, row in game_df.iterrows():
+            date = row["r_timestamp"]
+            if date - prev_date > resample_delta and not added_zero:
+                # missing row of a specific time
+                # add this row with hours=0
+                add_row()
+                added_zero = True
+            else:
+                added_zero = False
+            prev_date = date
+        if last_date - prev_date >= resample_delta:
+            log.debug(f"add last entry for {game_name}")
+            add_row()
+        else:
+            log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
+        df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
+
+    for game in games:
+        game_add_zero_r(game)
+
+    df_summarized.reset_index(inplace=True)
+
+    log.debug(f"df sum corrected:\n{df_summarized}")
     # style preparations
     color_paletes = ["magma_r", "rocket_r", "mako_r"] #  , None, "Pastel1", "Spectral", "Set3", "Set2", "Paired", 
     plt.style.use("cyberpunk")
