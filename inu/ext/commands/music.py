@@ -15,6 +15,8 @@ from typing import (
 from xml.etree.ElementInclude import include
 
 from lightbulb.commands.slash import SlashCommand
+
+from inu.core.bot import BotResponseError
 typing.TYPE_CHECKING
 import asyncio
 import logging
@@ -708,7 +710,12 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             and "&list" in query
         ):
             query = YouTubeHelper.remove_playlist_info(query)
-        track = await search_track(ctx, query, be_quiet)
+        try:
+            track = await search_track(ctx, query, be_quiet)
+        except BotResponseError as e:
+            raise e
+        except asyncio.TimeoutError:
+            return
         if track is None:
             return await ctx.respond(f"I only found a lot of empty space for `{query}`")
         await load_track(ctx, track, be_quiet)
@@ -831,6 +838,13 @@ async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> 
 async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Optional[lavasnek_rs.Track]:
     """
     searches the query and returns the Track or None
+
+    Raises:
+    ------
+    BotResponseError :
+        Given query is not available
+    asyncio.TimeoutError :
+        User hasn't responded to the menu
     """
 
     query_information = await lavalink.auto_search_tracks(query)
@@ -851,9 +865,31 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
         try:
             track = await music.d.interactive.ask_for_song(ctx, query, query_information=query_information)
             if track is None:
-                return None
+                raise asyncio.TimeoutError()
         except Exception:
             music.d.log.error(traceback.print_exc())
+    elif len(query_information.tracks) == 0:
+        embed = Embed(title="Title not available")
+        url_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
+        if re.match(url_pattern, query):  # Returns Match object
+            embed.add_field(name="Typical issues", value=(
+                "• Your title has an age limit\n"
+                "• Your title is not available in my region\n"
+            ))
+            embed.add_field(name="What you can do:", value=(
+                "• search the name of your title instead of passing in the URL\n"
+                "• try other URL's\n"
+            ))
+            embed.description = f"Your [title]({query}) is not available for me"
+        else:
+            embed.add_field(name="Typical issues", value=(
+                "• You have entered a bunch of shit\n"
+            ))
+            embed.add_field(name="What you can do:", value=(
+                "• Give me shorter queries"
+            ))
+            embed.description = f"I just found a lot of empty space for `{query}`"
+        raise BotResponseError(embed=embed, ephemeral=True)
     else:
         track = query_information.tracks[0]
 
