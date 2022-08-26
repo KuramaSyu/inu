@@ -76,7 +76,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     if not entry:
         log.debug(f"no entry found => add entry")
         message = await bot.rest.fetch_message(event.channel_id, event.message_id)
-        attachment_urls = [a.url for a in message.attachments]
+        attachment_urls = [str(a.url) for a in message.attachments]
         if message is None:
             return
         content = message.content or ""
@@ -87,8 +87,8 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
             if message.embeds[0].description:
                 content += f"\n{message.embeds[0].description}"
             if message.embeds[0].image:
-                attachment_urls.append(message.embeds[0].image.url)
-
+                attachment_urls.append(str(message.embeds[0].image.url))
+        attachment_urls = attachment_urls.sort(key=lambda a: Multiple.endswith_(a, [".jpg", ".png", ".webp"]), reverse=True)
         if not message:
             log.debug("message not found")
             return
@@ -206,7 +206,6 @@ async def update_message(
         to_remove = []
         for attachment in board_entry['attachment_urls']:
             if Multiple.endswith_(attachment, [".jpg", ".png", ".webp"]):
-                log.debug(f"adding: {attachment}")
                 if len(to_remove) == 0:
                     embeds[0].set_image(attachments[0])
                     to_remove.append(attachment)
@@ -218,7 +217,6 @@ async def update_message(
                 to_remove.append(attachment)
         for r_attachment in to_remove:
             board_entry['attachment_urls'].remove(r_attachment)
-        log.debug(f"{embeds=}")
 
     if not board_entry["board_message_id"]:
         # create new message and add message_id to entry
