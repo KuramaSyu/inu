@@ -257,7 +257,7 @@ async def build_activity_graph(
     old_row_amount = len(df.index)
     # drop NaN values (r_timestamp bc of rounding issues)
     df.dropna(axis=0, how='any', thresh=None, subset=None, inplace=True)
-    log.debug(df.to_string())
+    # log.debug(df.to_string())
     df.set_index(keys="r_timestamp", inplace=True)
     if old_row_amount != (new_row_amount := len(df.index)):
         log.waring(f"missing rows ({old_row_amount - new_row_amount}) in guild {guild_id}")
@@ -279,7 +279,7 @@ async def build_activity_graph(
     # and resample hours to `resample_delta` and sum them up
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
-    log.debug(f"df not corrected:\n{df_summarized.to_string()}")
+    # log.debug(f"df not corrected:\n{df_summarized.to_string()}")
     # set before and after game to 0
     games = set(df_summarized["game"])
     last_date = max(df_summarized["r_timestamp"])
@@ -310,10 +310,11 @@ async def build_activity_graph(
                 added_zero = False
             prev_date = date
         if last_date - prev_date >= resample_delta:
-            log.debug(f"add last entry for {game_name}")
+            # log.debug(f"add last entry for {game_name}")
             add_row()
         else:
-            log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
+            pass
+            # log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
         df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
 
     min_date = min(df_summarized["r_timestamp"])
@@ -343,10 +344,11 @@ async def build_activity_graph(
                 added_zero = False
             prev_date = date
         if prev_date - min_date >= resample_delta:
-            log.debug(f"add first entry for {game_name}")
+            # log.debug(f"add first entry for {game_name}")
             add_row()
         else:
-            log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
+            pass
+            # log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
         df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
 
     for game in games:
@@ -355,7 +357,7 @@ async def build_activity_graph(
 
     df_summarized.reset_index(inplace=True)
 
-    log.debug(f"df sum corrected:\n{df_summarized.to_string()}")
+    # log.debug(f"df sum corrected:\n{df_summarized.to_string()}")
 
     color_paletes = ["magma_r", "rocket_r", "mako_r"] #  , None, "Pastel1", "Spectral", "Set3", "Set2", "Paired", 
     plt.style.use("cyberpunk")
