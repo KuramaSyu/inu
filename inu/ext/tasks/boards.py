@@ -208,6 +208,8 @@ async def update_message(
             if Multiple.endswith_(attachment, [".jpg", ".png", ".webp"]):
                 if len(to_remove) == 0:
                     embeds[0].set_image(attachments[0])
+                    to_remove.append(attachment)
+                    continue
                 embed = Embed()
                 embed.set_image(attachment)
                 embed.color = Colors.from_name(color)
