@@ -5,7 +5,9 @@ from typing import *
 import asyncpg
 asyncpg.UniqueViolationError
 
-from core import Table, Inu
+from core import Table, Inu, getLogger
+
+log = getLogger(__name__)
 
 
 class BoardManager:
@@ -16,7 +18,7 @@ class BoardManager:
     _cache: Dict[int, Dict[str, Set[int] | Set[str]]] = {}
 
     @classmethod
-    def _cache_add_entry(cls, guild_id: int, emoji: str, message_id: int):
+    def _cache_add_entry(cls, guild_id: int, emoji: str, message_id: Optional[int]):
         guild_cache = cls._cache.get(guild_id)
         if not guild_cache:
             cls._cache[guild_id] = {
@@ -24,7 +26,8 @@ class BoardManager:
             }
         elif guild_cache.get(emoji) is None:
             cls._cache[guild_id][emoji] = set()
-        cls._cache[guild_id][emoji].add(emoji)  # type: ignore
+        if message_id:
+            cls._cache[guild_id][emoji].add(message_id)  # type: ignore
 
     @classmethod
     def _cache_remove_entry(cls, guild_id: int, emoji: str, message_id: int):
@@ -41,12 +44,24 @@ class BoardManager:
             pass
 
     @classmethod
-    def init_bot(cls, bot: Inu):
+    async def init_bot(cls, bot: Inu):
         cls.bot = bot
+        log.debug("Boardmanager - bot initialized")
+        log.debug("fetching tracked emojis")
+        table = Table("board.boards")
+        records = await table.fetch(f"SELECT guild_id, emoji FROM {table.name}")
+        for record in records:
+            cls._cache_add_entry(
+                guild_id=record["guild_id"], 
+                emoji=record["emoji"],
+                message_id=None,
+            )
 
     @classmethod
     def has_emoji(cls, guild_id: int, emoji: str) -> bool:
-        return bool(cls._cache.get(guild_id, {}).get(emoji))
+        return bool(
+           cls._cache.get(guild_id, {}).get(emoji) != None
+        )
 
     @classmethod
     def has_message_id(cls, guild_id: int, emoji:str, message_id: int) -> bool:
@@ -56,21 +71,75 @@ class BoardManager:
     async def add_entry(
         cls,
         message_id: int,
+        channel_id: int,
+        content: Optional[str],
+        author_id: int,
         guild_id: int,
         emoji: str,
+        attachment_urls: Optional[List[str]],
     ):
         """
         Raises
         ------
         asyncpg.UniqueViolationError:
             When this entry already exists. Should normally not occure
+
+        Note:
+        -----
+        if entry already exists, then it will be updated
         """
-        table = Table("board.reactions")
-        await table.insert(
-            which_columns=["message_id", "guild_id", "created_at", "emoji"],
-            values=[message_id, guild_id, datetime.now(),emoji]
+        table = Table("board.entries")
+        sql = (
+            f"INSERT INTO {table.name}"
+        )
+        entry = await table.insert(
+            which_columns=[
+                "message_id", "board_message_id", "channel_id", "content", "author_id",
+                "created_at", "guild_id", "emoji", "attachment_urls"
+            ],
+            values=[
+                message_id, None, channel_id, content, author_id, 
+                datetime.now(), guild_id, emoji, attachment_urls
+            ]
         )
         cls._cache_add_entry(guild_id, emoji, message_id)
+        return entry
+
+    @classmethod
+    async def edit_entry(
+        cls,
+        message_id: int,
+        emoji: str,
+        content: Optional[str],
+        board_message_id: Optional[int],
+
+    ):
+        """
+        Raises
+        ------
+        asyncpg.UniqueViolationError:
+            When this entry already exists. Should normally not occure
+
+        Note:
+        -----
+        if entry already exists, then it will be updated
+        """
+        table = Table("board.entries")
+        set_: Dict[str, str | int] = {}
+        if content:
+            set_["content"] = content
+        if board_message_id:
+            set_["board_message_id"] = board_message_id
+        
+        await table.update(
+            where={
+                "message_id": message_id,
+                "emoji": emoji,
+            },
+            set=set_
+        )
+
+    
 
     @classmethod
     async def remove_entry(
@@ -118,14 +187,28 @@ class BoardManager:
     async def fetch_entry(
         cls,
         message_id: int,
-    ):
-        table = Table("baord.entries")
-        return await Table.fetch(
-            f"""
-            SELECT * FROM {table.name}
-            WHERE message_id = {message_id}
-            """
-        )[0]
+        emoji: str,
+    ) -> Optional[Dict[str, Any]]:
+        """
+        fetches an entry
+
+        Args:
+        ----
+        message_id : int
+            the message id of the entry (entry = message + creation date)
+        """
+        table = Table("board.entries")
+        try:
+            return (await table.fetch(
+                f"""
+                SELECT * FROM {table.name}\n
+                WHERE message_id = $1 AND emoji = $2
+                """,
+                message_id,
+                emoji,
+            ))[0]
+        except IndexError:
+            return None
 
     @classmethod
     async def add_board(
@@ -149,6 +232,7 @@ class BoardManager:
             timedelta(days=cls.bot.conf.commands.board_entry_lifetime),
             emoji,
         )
+        cls._cache_add_entry(guild_id, emoji, None)
 
     @classmethod
     async def fetch_board(
@@ -161,7 +245,7 @@ class BoardManager:
         """
         table = Table("board.boards")
         sql = (
-            f"SELECT {select} FROM {table.name}"
+            f"SELECT {select} FROM {table.name}\n"
             "WHERE guild_id = $1 AND emoji = $2"
         )
         try:
