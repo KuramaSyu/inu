@@ -88,7 +88,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
                 content += f"\n{message.embeds[0].description}"
             if message.embeds[0].image:
                 attachment_urls.append(str(message.embeds[0].image.url))
-        attachment_urls = attachment_urls.sort(key=lambda a: Multiple.endswith_(a, [".jpg", ".png", ".webp"]), reverse=True)
+        attachment_urls.sort(key=lambda a: Multiple.endswith_(a, [".jpg", ".png", ".webp"]), reverse=True)
         if not message:
             log.debug("message not found")
             return
