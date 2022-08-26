@@ -79,7 +79,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
         attachment_urls = [a.url for a in message.attachments]
         if message is None:
             return
-        content = f"{message.content}"
+        content = message.content or ""
         # add first embed to content
         if len(message.embeds) > 0:
             if message.embeds[0].title:
