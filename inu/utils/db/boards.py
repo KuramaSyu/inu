@@ -172,15 +172,16 @@ class BoardManager:
     @classmethod
     async def fetch_reactions(
         cls,
-        message_id: int
+        message_id: int,
+        emoji: str,
     ) -> List[Dict[str, Any]]:
         table = Table("board.reactions")
         return await table.fetch(
             f"""
             SELECT * FROM {table.name}
-            WHERE message_id = $1
+            WHERE message_id = $1 and emoji = $2
             """,
-            message_id
+            message_id, emoji
         )
 
     @classmethod

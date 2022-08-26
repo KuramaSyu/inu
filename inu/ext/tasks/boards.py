@@ -170,7 +170,7 @@ async def update_message(
         log.warning(f"no member with id {board_entry['author_id']} found")
         return
 
-    message_votes = await BoardManager.fetch_reactions(message_id)
+    message_votes = await BoardManager.fetch_reactions(message_id, emoji)
     board = await BoardManager.fetch_board(guild_id, emoji)
 
     color_stages = {
@@ -217,7 +217,7 @@ async def update_message(
                 board_entry["attachment_urls"].remove(attachment)
 
     if not board_entry["board_message_id"]:
-        # create new entry
+        # create new message and add message_id to entry
         if not message:
             raise RuntimeError(
                 "in update_message:\nif board entry gets created first time, a message musst be passed in"
