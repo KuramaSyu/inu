@@ -22,7 +22,7 @@ from utils.db import BoardManager
 import asyncpg
 
 from core import Table, getLogger, Inu
-from utils import make_message_link, Colors
+from utils import make_message_link, Colors, Multiple
 
 log = getLogger(__name__)
 METHOD_SYNC_TIME: int
@@ -83,7 +83,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
         # add first embed to content
         if len(message.embeds) > 0:
             if message.embeds[0].title:
-                content += f"\n\n**{message.embeds[0].title}**"
+                content += f"\n**{message.embeds[0].title}**"
             if message.embeds[0].description:
                 content += f"\n{message.embeds[0].description}"
             if message.embeds[0].image:
@@ -187,17 +187,34 @@ async def update_message(
     }
     color = color_stages.get(len(message_votes), "crimson")
     reaction_content = f"{len(message_votes)}x {emoji}"
+    embeds: List[Embed] = []
     embed = Embed()
     embed.set_author(
         name=f"{author.username}", 
         icon=author.display_avatar_url
     )
+
     embed.description = (
         f"[Jump to the message in <#{board_entry['channel_id']}>]"
-        f"({make_message_link(guild_id, channel_id, message_id)})\n\n{content}"
+        f"({make_message_link(guild_id, channel_id, message_id)})\n{content}"
     )
     # embed color -> how many stars
     embed.color = Colors.from_name(color)
+    embeds.append(embed)
+
+    # move attachment pics into embeds
+    if (attachments:=board_entry['attachment_urls']):
+        if len(attachments) == 1 and Multiple.endswith_(attachments[0], ".jpg", ".png"):
+            # move first picture to embed
+            embeds[0].set_image(attachments[0])
+            board_entry["attachment_urls"].pop(0)
+        for attachment in board_entry['attachment_urls']:
+            if Multiple.endswith_(attachment, ".jpg", ".png"):
+                embed = Embed()
+                embed.set_image(attachment)
+                embed.color = Colors.from_name(color)
+                embeds.append(embed)
+                board_entry["attachment_urls"].remove(attachment)
 
     if not board_entry["board_message_id"]:
         # create new entry
@@ -205,9 +222,10 @@ async def update_message(
             raise RuntimeError(
                 "in update_message:\nif board entry gets created first time, a message musst be passed in"
             )
+
         kwargs = {
             "attachments": board_entry['attachment_urls'],
-            "embed": embed,
+            "embeds": embeds,
             "content": reaction_content,
             "components": message.components,
             "channel": board['channel_id'],
@@ -225,9 +243,8 @@ async def update_message(
         await bot.rest.edit_message(
             board['channel_id'], 
             board_entry['board_message_id'], 
-            embed=embed,
+            embeds=embeds,
             content=reaction_content,
-            attachments=board_entry['attachment_urls']
         )
 
     
