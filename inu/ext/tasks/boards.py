@@ -177,10 +177,9 @@ async def update_message(
         n: color for n, color in zip(
             range(1,100),
             [
-                "royalblue", "midnightblue", "slateblue",
+                "royalblue", "slateblue",
                 "mediumpurple", "blueviolet", "indigo",
-                "darkorchid", "darkviolet", "mediumorchid",
-                "purple", "darkmagenta", "mediumvioletred",
+                "mediumorchid", "purple", "darkmagenta", "mediumvioletred",
                 "deeppink", "crimson"
             ]
         )
