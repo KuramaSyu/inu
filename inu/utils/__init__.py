@@ -9,6 +9,7 @@ from .rest import *
 from .db import *
 from .logger import *
 from .poll import Poll
+from .shortcuts import *
 
 from .emojis import Emoji
 
