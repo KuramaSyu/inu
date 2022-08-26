@@ -62,10 +62,8 @@ def main():
             TagManager.init_db(inu)
             await PollManager.init_bot(inu)
             Urban.init_bot(inu)
-            BoardManager.init_bot(inu)
+            await BoardManager.init_bot(inu)
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
-
-
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
