@@ -236,7 +236,7 @@ class Table():
             f"RETURNING {returning}\n"
         )
         self._create_sql_log_message(sql, values)
-        return_values = await self.db.execute(sql, *values)
+        return_values = await self.db.fetch(sql, *values)
         return return_values
 
     @logging()
@@ -274,6 +274,38 @@ class Table():
         )
         if returning:
             sql += f"RETURNING {returning} \n"
+        self._create_sql_log_message(sql, values)
+        return_values = await self.db.execute(sql, *values)
+        return return_values   
+
+    @logging()
+    @formatter
+    async def update(
+        self, 
+        set: Dict[str, Any], 
+        where: Dict[str, Any],
+        returning: str = ""
+    ) -> Optional[asyncpg.Record]:
+        """
+        NOTE
+        ----
+            - the first value of `which_columns` and `values` should be the id!
+            - if the id is a compound, then pass these first into `which_columns` and `values`
+              and set `compound_of` to the number, how many values count 
+              (until wich index + 1) to that compound
+        """
+        num_gen = (num for num in range(1,100))
+        update_set_query = ", ".join([f'{col_name}=${i}' for i, col_name in zip(num_gen, set.keys())])
+        next_ = next(num_gen) -1  # otherwise it would be one to high - python bug?
+        log.debug(next_)
+        sql = (
+            f"UPDATE {self.name} \n"
+            f"SET {update_set_query} \n"
+            f"WHERE {self.__class__.create_where_statement([*where.keys()], dollar_start=next_)}\n"
+        )
+        if returning:
+            sql += f"RETURNING {returning} \n"
+        values = [*set.values(), *where.values()]
         self._create_sql_log_message(sql, values)
         return_values = await self.db.execute(sql, *values)
         return return_values   
@@ -343,11 +375,6 @@ class Table():
             return None
         return records[0]
 
-    @logging()
-    @formatter
-    async def update(self):
-        pass
-
     async def delete_by_id(self, column: str, id: Any) -> Optional[Dict]:
         """
         Delete a record by it's id
@@ -379,11 +406,11 @@ class Table():
         return await self.db.fetch(sql, *args)
 
     @staticmethod
-    def create_where_statement(columns: List[str]) -> str:
+    def create_where_statement(columns: List[str], dollar_start: int = 1) -> str:
         where = ""
-        for i, item in enumerate(columns):
-            where += f"{'and ' if i > 0 else ''}{item}=${i+1} "
-        return where
+        for i, item in zip(range(dollar_start, dollar_start+len(columns)+1),columns):
+            where += f"{'and ' if i > 0 else ''}{item}=${i} "
+        return where[4:]  # cut first and
     
     def _create_sql_log_message(self, sql:str, values: List):
         self._executed_sql = (
