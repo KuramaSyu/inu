@@ -204,12 +204,12 @@ async def update_message(
 
     # move attachment pics into embeds
     if (attachments:=board_entry['attachment_urls']):
-        if len(attachments) == 1 and Multiple.endswith_(attachments[0], ".jpg", ".png"):
+        if len(attachments) == 1 and Multiple.endswith_(attachments[0], [".jpg", ".png"]):
             # move first picture to embed
             embeds[0].set_image(attachments[0])
             board_entry["attachment_urls"].pop(0)
         for attachment in board_entry['attachment_urls']:
-            if Multiple.endswith_(attachment, ".jpg", ".png"):
+            if Multiple.endswith_(attachment, [".jpg", ".png"]):
                 embed = Embed()
                 embed.set_image(attachment)
                 embed.color = Colors.from_name(color)
