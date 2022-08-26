@@ -46,7 +46,7 @@ async def initial_load_all_polls():
     SELECT * FROM polls 
     """
     loaded_poll_count = 0
-    poll_table = Table("polls")
+    poll_table = Table("polls", debug_log=False)
     records_polls = await poll_table.fetch(sql)
     count = 0
     for record in records_polls:
@@ -72,7 +72,7 @@ async def load_active_polls():
         WHERE expires < $1
         """
         loaded_poll_count = 0
-        poll_table = Table("polls")
+        poll_table = Table("polls", debug_log=False)
         records_polls = await poll_table.fetch(sql, datetime.now() + timedelta(seconds=POLL_SYNC_TIME))
 
         #load polls and fetch further information
