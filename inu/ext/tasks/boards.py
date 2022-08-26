@@ -203,17 +203,19 @@ async def update_message(
 
     # move attachment pics into embeds
     if (attachments:=board_entry['attachment_urls']):
-        if len(attachments) == 1 and Multiple.endswith_(attachments[0], [".jpg", ".png"]):
-            # move first picture to embed
-            embeds[0].set_image(attachments[0])
-            board_entry["attachment_urls"].pop(0)
+        to_remove = []
         for attachment in board_entry['attachment_urls']:
-            if Multiple.endswith_(attachment, [".jpg", ".png"]):
+            if Multiple.endswith_(attachment, [".jpg", ".png", ".webp"]):
+                if len(to_remove) == 0:
+                    embeds[0].set_image(attachments[0])
                 embed = Embed()
                 embed.set_image(attachment)
                 embed.color = Colors.from_name(color)
                 embeds.append(embed)
-                board_entry["attachment_urls"].remove(attachment)
+                to_remove.append(attachment)
+        for r_attachment in to_remove:
+            board_entry['attachment_urls'].remove(r_attachment)
+        log.debug(embeds)
 
     if not board_entry["board_message_id"]:
         # create new message and add message_id to entry
