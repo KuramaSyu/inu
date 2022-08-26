@@ -12,11 +12,7 @@ from typing import (
     Tuple,
     cast
 )
-from xml.etree.ElementInclude import include
 
-from lightbulb.commands.slash import SlashCommand
-
-from inu.core.bot import BotResponseError
 typing.TYPE_CHECKING
 import asyncio
 import logging
@@ -46,7 +42,7 @@ from utils import method_logger as logger
 from core.db import Database
 from utils.paginators.music_history import MusicHistoryPaginator
 
-from core import getLogger
+from core import getLogger, BotResponseError
 log = getLogger(__name__)
 
 
