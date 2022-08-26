@@ -76,6 +76,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     if not entry:
         log.debug(f"no entry found => add entry")
         message = await bot.rest.fetch_message(event.channel_id, event.message_id)
+        attachment_urls = [a.url for a in message.attachments]
         if message is None:
             return
         content = f"{message.content}"
@@ -85,6 +86,9 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
                 content += f"\n\n**{message.embeds[0].title}**"
             if message.embeds[0].description:
                 content += f"\n{message.embeds[0].description}"
+            if message.embeds[0].image:
+                attachment_urls.append(message.embeds[0].image.url)
+
         if not message:
             log.debug("message not found")
             return
@@ -96,7 +100,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
             channel_id=message.channel_id,
             emoji=event.emoji_name,
             content=content,
-            attachment_urls=[a.url for a in message.attachments]
+            attachment_urls=attachment_urls,
         ))[0]
 
     # add a reaction
@@ -196,6 +200,7 @@ async def update_message(
     embed.color = Colors.from_name(color)
 
     if not board_entry["board_message_id"]:
+        # create new entry
         if not message:
             raise RuntimeError(
                 "in update_message:\nif board entry gets created first time, a message musst be passed in"
