@@ -297,7 +297,6 @@ class Table():
         num_gen = (num for num in range(1,100))
         update_set_query = ", ".join([f'{col_name}=${i}' for i, col_name in zip(num_gen, set.keys())])
         next_ = next(num_gen) -1  # otherwise it would be one to high - python bug?
-        log.debug(next_)
         sql = (
             f"UPDATE {self.name} \n"
             f"SET {update_set_query} \n"
