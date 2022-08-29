@@ -477,7 +477,7 @@ async def settings_board_add(ctx: SlashContext):
     await ctx.respond(
         (
             f"{ctx.get_channel().name} is now a {ctx.options.emoji}-Board.\n"
-            f"Means all messages with a {ctx.options.emoji} will be sent in here."
+            f"Means all messages with a {ctx.options.emoji} reaction will be sent in here."
         )
     )
 
@@ -504,7 +504,8 @@ async def board_emoji_autocomplete(
     option: hikari.AutocompleteInteractionOption, 
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
-    return ["⭐", "🗑️", "👍", "👎", "😂"]
+    letters = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮', '🇯', '🇰', '🇱', '🇲', '🇳', '🇴', '🇵', '🇶', '🇷', '🇸', '🇹', '🇺', '🇻', '🇼', '🇽', '🇾', '🇿']
+    return ["⭐", "🗑️", "👍", "👎", "😂", *letters][:24]
 
 def load(inu: Inu):
     inu.add_plugin(plugin)
