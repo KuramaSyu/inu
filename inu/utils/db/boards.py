@@ -12,10 +12,10 @@ log = getLogger(__name__)
 
 class BoardManager:
     bot: Inu
-    # Mapping[guild_id, Dict]
+    # Mapping[guild_id, Dict[emoji, Set[orig message_id]]]
     # Dict has keys emojis (str set) and message_ids (int set)
     # this cache is not aware of, that a message can have multiple reactions
-    _cache: Dict[int, Dict[str, Set[int] | Set[str]]] = {}
+    _cache: Dict[int, Dict[str, Set[int]]] = {}
 
     @classmethod
     def _cache_add_entry(cls, guild_id: int, emoji: str, message_id: Optional[int]):
@@ -42,20 +42,30 @@ class BoardManager:
             del cls._cache[guild_id][emoji]
         except KeyError:
             pass
+    
+    @classmethod
+    def _cache_remove_guild(cls, guild_id: int):
+        try:
+            del cls._cache[guild_id]
+        except KeyError:
+            pass
 
     @classmethod
     async def init_bot(cls, bot: Inu):
+        """
+        Set bot and build up cache from db
+        """
         cls.bot = bot
-        log.debug("Boardmanager - bot initialized")
-        log.debug("fetching tracked emojis")
-        table = Table("board.boards")
-        records = await table.fetch(f"SELECT guild_id, emoji FROM {table.name}")
+        table = Table("board.entries")
+        records = await table.fetch(f"SELECT guild_id, message_id, emoji FROM {table.name}")
         for record in records:
             cls._cache_add_entry(
                 guild_id=record["guild_id"], 
                 emoji=record["emoji"],
-                message_id=None,
+                message_id=record["message_id"],
             )
+        log.info(f"initialized BoardManager with {len(records)} entries")
+
 
     @classmethod
     def has_emoji(cls, guild_id: int, emoji: str) -> bool:
@@ -145,29 +155,28 @@ class BoardManager:
     async def remove_entry(
         cls,
         message_id: int,
-        emoji: Optional[str] = None,
+        emoji: str
     ):
         """
-        Delete board entries(s)
+        Delete board entry
 
         Args:
         -----
         message_id: `int`
-            the message_id which shouldn't be tracked by the board
+            the message_id which shouldn't be tracked by the board (original message_id)
         emoji: `str | None`
             the emoji which triggers the board
             NOTE: If it's None, all entries with this message id will be removed (since a message can have different reactions)
         """
-        table = Table("board.reactions")
+        table = Table("board.entries")
         columns = ["message_id"]
         where: List[str | int] = [message_id]
         if emoji:
             columns.append("emoji")
             where.append(emoji)
-        a = ()
-        records = await table.delete(columns=columns, matching_values=where)
-        for r in records:
-            cls._cache_remove_entry(r["guild_id"], r["emoji"], r["message_id"])
+        record = (await table.delete(columns=columns, matching_values=where))[0]
+        cls._cache_remove_entry(record["guild_id"], record["emoji"], record["message_id"])
+        return record
 
     @classmethod
     async def fetch_reactions(
@@ -196,7 +205,9 @@ class BoardManager:
         Args:
         ----
         message_id : int
-            the message id of the entry (entry = message + creation date)
+            the message id the original message (entry = message + creation date)
+        emoji : str
+            hence the message can be added to multiple boards, the emoji is needed to destinglish between them
         """
         table = Table("board.entries")
         try:
@@ -258,7 +269,6 @@ class BoardManager:
     async def remove_board(
         cls,
         guild_id: int,
-        channel_id: int,
         emoji: Optional[str] = None,
     ):
         """
@@ -271,17 +281,23 @@ class BoardManager:
         emoji: `str | None`
             the emoji which triggers the board
             NOTE: If it's None, all boards of the guild will be removed
+
+        Returns:
+        -------
+        List[Dict[str, Any]] :
+            the deleted board records
         """
         table = Table("board.boards")
-        columns = ["guild_id", "channel_id"]
-        where: List[str | int] = [guild_id, channel_id]
+        columns = ["guild_id"]
+        where: List[str | int] = [guild_id]
         if emoji:
             columns.append("emoji")
             where.append(emoji)
 
         records = await table.delete(columns=columns, matching_values=where)
-        for r in records:
-            cls._cache_remove_emoji(guild_id, r["emoji"])
+        if records:
+            cls._cache_remove_guild(guild_id)
+        return records
 
     @classmethod
     async def add_reaction(
@@ -305,7 +321,7 @@ class BoardManager:
         message_id: int,
         reacter_id: int,
         emoji: Optional[str] = None,
-    ):
+    ) -> List[Dict[str, Any]]:
         """
         Delete reaction(s)
 
@@ -316,6 +332,11 @@ class BoardManager:
         emoji: `str | None`
             the emoji which was removed from the message
             NOTE: If it's None, all reactions of the reacter of the message will be deleted
+
+        Returns:
+        -------
+        List[Dict[str, Any]] :
+            Deleted records
         """
         table = Table("board.reactions")
         columns = ["message_id", "reacter_id"]
@@ -326,6 +347,31 @@ class BoardManager:
         records = await table.delete(columns=columns, matching_values=where)
         for r in records:
             cls._cache_remove_entry(guild_id, r["emoji"], message_id)
+        return records
+
+    @classmethod
+    async def fetch_entry_reaction_amount(
+        cls,
+        original_message_id: int,
+        emoji: str,
+    ) -> int:
+        """
+        Returns:
+        -------
+        int :
+            how many reactions are currently added to this entry
+        """
+        table = Table("board.reactions")
+        record = (await table.execute(
+            (
+                f"SELECT COUNT(*) AS count\n"
+                f"FROM {table.name}\n"
+                f"WHERE message_id = $1 and emoji = $2"
+            ),
+            original_message_id,
+            emoji
+        ))[0]
+        return record["count"]
 
 
 
