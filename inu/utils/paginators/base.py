@@ -148,6 +148,7 @@ class Paginator():
         default_site: Optional[int] = 0,
         download: Union[Callable[["Paginator"], str], str, bool] = False,
         download_name: str = "content.txt",
+        disable_search_btn: bool = False,
         first_message_kwargs: Dict[str, Any] = {},
     ):
         """
@@ -170,6 +171,8 @@ class Paginator():
                 - (bool) If True, the pagination embeds|strings will be automatically convertet into a str; 
                          If False, deactivate download functionallity at all
             - first_message_kwargs: (Dict[str, Any], default) kwargs, which should be added to the first created message
+            - disable_search_btn: bool
+                wether or not to disable the search button
         Note:
         -----
             - the listener is always listening to 2 events:
@@ -192,6 +195,7 @@ class Paginator():
         self._components: Optional[List[ActionRowBuilder]] = None
         self._disable_components = disable_components
         self._disable_component = disable_component
+        self._disable_search_btn = disable_search_btn
         if not self._disable_component and not self._disable_components:
             raise RuntimeError(f"Paginator.__init__: disable_component can be False OR disable_components can be False. Not both")
         self._disable_paginator_when_one_site = disable_paginator_when_one_site
@@ -370,7 +374,7 @@ class Paginator():
         if navi:
             action_rows.append(navi)
         action_row = None
-        if not self.compact:
+        if not self.compact and not self._disable_search_btn:
             action_row = self.button_factory(
                 custom_id="search",
                 emoji="🔍"
