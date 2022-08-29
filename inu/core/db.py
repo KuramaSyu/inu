@@ -5,6 +5,8 @@ import typing
 from typing import *
 from functools import wraps
 import traceback
+from datetime import datetime, timedelta
+import re
 
 import aiofiles
 import asyncpg
@@ -24,10 +26,20 @@ log = getLogger(__name__)
 conf = ConfigProxy(ConfigType.YAML)
 table_logging = conf.db.SQL_logging
 log.info(f"DB table DEBUG logging: {table_logging}")
+db_calls: Dict[datetime, int] = {}
+
+def add_call():
+    now = datetime.now()
+    time = datetime(now.year, now.month, now.day, now.hour, 0, 0)
+    try:
+        db_calls[time] += 1
+    except KeyError:
+        db_calls[time] = 1
 
 def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
     @wraps(func)
     async def wrapper(self: "Database", *args: Any, **kwargs: Any) -> Any:
+        add_call()
         if isinstance(self, str):
             args = (self, *args)
             self = Database()
@@ -143,6 +155,25 @@ class Database(metaclass=Singleton):
     async def execute_script(self, path: str, *args: Any, _cxn: asyncpg.Connection) -> None:
         async with aiofiles.open(path, "r") as script:
             await _cxn.execute((await script.read()) % args)
+
+    @property
+    def query_df(self) -> pd.DataFrame:
+        return pd.DataFrame.from_records(
+            [(dt, calls) for dt, calls in db_calls.items()], 
+            columns=["datetime", "calls"],
+            index="datetime"
+        )
+
+    @property
+    def hourly_queries(self) -> pd.DataFrame:
+        df = self.query_df
+        return df.resample("1h")["calls"].sum()
+
+    @property
+    def daily_queries(self) -> pd.DataFrame:
+        hourly = self.query_df
+        daily = hourly.resample("1d")["calls"].sum()
+        return daily
 
 ######Database
 #### tables
