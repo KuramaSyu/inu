@@ -17,6 +17,8 @@ import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
 from utils.rest import Reddit
+import apscheduler
+from apscheduler.triggers.interval import IntervalTrigger
 
 from core import getLogger
 
@@ -66,6 +68,45 @@ async def memes(ctx: Context):
     await send_pic(ctx, subreddit)
 
 
+subreddits: Dict[str, int] = {
+    'AnimeBooty': 12,
+    'animelegs': 10,
+    'Atago': 5,
+    'bluehairhentai': 5,
+    'chiisaihentai': 10,
+    'ecchi': 20,
+    'hentai': 20,
+    'HentaiBlowjob': 5,
+    'HentaiSchoolGirls': 5,
+    'MasturbationHentai': 10,
+    'Nekomimi': 15,
+    'Sukebei': 12,
+    'thighdeology': 15,
+    'WaifusOnCouch': 5,
+    'pantsu': 10,
+    'ahegao': 5,
+    'yuri': 5,
+    'ZettaiRyouiki': 9,
+    'Paizuri': 5,
+    'CumHentai': 8,
+}
+
+
+
+SYNCING = False
+
+@plugin.listener(hikari.ShardReadyEvent)
+async def load_tasks(event: hikari.ShardReadyEvent):
+    global SYNCING
+    if SYNCING:
+        return
+    else:
+        SYNCING = True
+    await _update_pictures(subreddits)
+
+    trigger = IntervalTrigger(seconds=int(3*60*60))
+    plugin.bot.scheduler.add_job(_update_pictures, trigger, args=[subreddits])
+    logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
 @plugin.command
 @lightbulb.add_cooldown(1, 4, lightbulb.UserBucket)
@@ -87,13 +128,9 @@ async def hentai(ctx: Context):
     # ):
     #     amount = 1
     if not subreddit:
+        # all hentai subreddits: "https://www.reddit.com/r/hentai/wiki/hentai_subreddits/#wiki_subreddits_based_on..."
         subreddit = random.choice(
-            (subreddits := [
-                'AnimeBooty',
-                'animelegs', 'Atago', 'bluehairhentai', 'chiisaihentai', 'ecchi',
-                'hentai', 'HentaiBlowjob', 'HentaiSchoolGirls',
-                'MasturbationHentai', 'Nekomimi', 'Sukebei', 'thighdeology', 'WaifusOnCouch',
-            ]) #'animearmpits', 
+            [sub  for sub, amount in subreddits.items() for _ in range(amount)]
         )
     await send_pic(ctx, subreddit, footer=False, amount=10)
     if plugin.d.last_update + float(3*60*60) < tm.time() and subreddits:
@@ -101,17 +138,18 @@ async def hentai(ctx: Context):
         await _update_pictures(subreddits=subreddits, minimum=10)
     #await .send_pic(ctx, subreddit, footer=False)
 
-async def _update_pictures(subreddits: List[str], minimum: int = 5):
+async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
     plugin.d.updating = False
-    async def update(subreddit):
+    async def update(subreddit, amount: int):
+        # just calling it, will trigger the cache
         _ = await Reddit.get_posts(
             subreddit=subreddit,
             hot=True,
-            minimum=minimum,
+            minimum=amount,
         )
     tasks: List[asyncio.Task] = []
-    for subreddit in subreddits:
-        asyncio.create_task(update(subreddit))
+    for subreddit, amount in subreddits.items():
+        asyncio.create_task(update(subreddit, amount))
     L = await asyncio.gather(*tasks)
     plugin.d.updating = True
     log.debug("cached hentai urls")
