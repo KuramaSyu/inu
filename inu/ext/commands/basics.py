@@ -196,6 +196,8 @@ async def status(ctx: context.Context):
             "```"
         )
     )
+    embed.add_field(f"Daily DB calls", f"```py\n{bot.db.daily_queries.tail(7)}```", inline=False)
+    embed.add_field(f"Hourly DB calls", f"```py\n{bot.db.hourly_queries.tail(24)}```", inline=False)
     await msg.edit(embed=embed)
 
 
