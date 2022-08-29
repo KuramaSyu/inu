@@ -101,15 +101,20 @@ async def week_activity(ctx: Context):
     "apps", 
     "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
     default=None,
-    modifier=OM.CONSUME_REST,
 )
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
     default="9 days"
 )
+@lightbulb.option(
+    "show_only_games",
+    "[Yes | No] wether you see only games or not. Default is Yes",
+    default=True,
+    type=bool,
+)
 @lightbulb.command("current-games", "Shows, which games are played in which guild")
-@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
+@lightbulb.implements(commands.SlashCommand)
 async def current_games(ctx: Context):
     # constants
     seconds = timeparse(ctx.options.time)
@@ -124,9 +129,14 @@ async def current_games(ctx: Context):
             ephemeral=True,
         )
     timedelta_ = timedelta(seconds=seconds)
+    show_only_games = ctx.options.show_only_games
+    remove_apps: List[str] = []
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
     double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
+    remove_apps.extend(double_games)
+    if show_only_games:
+        remove_apps.extend([*coding_apps, *music_apps])
     max_ranking_num: int = 20
 
     async def build_embeds() -> List[Embed]:
@@ -157,7 +167,7 @@ async def current_games(ctx: Context):
         embeds.append(embed)
 
         # enuerate all games
-        game_records = [g for g in activity_records if g['game'] not in [*coding_apps, *music_apps, *double_games]]
+        game_records = [g for g in activity_records if g['game'] not in remove_apps]
         for i, game in enumerate(game_records):
             if i > 150:
                 break
@@ -220,7 +230,7 @@ async def current_games(ctx: Context):
                 guild_id=ctx.guild_id, 
                 since=custom_time,
                 limit=6,
-                remove_activities=[*coding_apps, *music_apps, *double_games]
+                remove_activities=remove_apps
             )
         ]
         if not apps:
