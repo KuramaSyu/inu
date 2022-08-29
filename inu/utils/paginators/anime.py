@@ -4,6 +4,7 @@ from pprint import pprint
 import random
 import traceback
 from pprint import pformat
+import re
 from copy import deepcopy
 
 import hikari
@@ -60,7 +61,17 @@ class AnimePaginator(Paginator):
 
         self._results: List[Dict]
         self._updated_mal_ids = set()
-        super().__init__(page_s=["None"], timeout=60*2, disable_paginator_when_one_site=False)
+        self._current_has_prequel: bool = False
+        self._current_has_sequel: bool = False
+        self._max_openings: int = 4
+        self._max_endings: int = 4
+
+        # re-init in start - just leave it
+        super().__init__(
+            page_s=["None"], 
+            timeout=60*2, 
+            disable_paginator_when_one_site=False,
+        )
         
 
     def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
@@ -80,23 +91,44 @@ class AnimePaginator(Paginator):
             components[-1]
             .add_button(ButtonStyle.SECONDARY, "btn_anime_more_info")
             .set_label("details").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "btn_anime_openings")
-            .set_label("all openings").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "btn_anime_endings")
-            .set_label("all endings").add_to_container()
         )
+        if self.has_too_many_openings:
+            components[-1] = (
+                components[-1]
+                .add_button(ButtonStyle.SECONDARY, "btn_anime_openings")
+                .set_label("openings").add_to_container()
+            )
+        if self.has_too_many_openings:
+            components[-1] = (
+                components[-1]
+                .add_button(ButtonStyle.SECONDARY, "btn_anime_endings")
+                .set_label("endings").add_to_container()
+            )     
+        if self.has_prequel:
+            components[-1] = (
+                components[-1]
+                .add_button(ButtonStyle.SECONDARY, "btn_anime_prequel")
+                .set_label("⏪ Prequel").add_to_container()
+            )
+        if self.has_sequel:
+            components[-1] = (
+                components[-1]
+                .add_button(ButtonStyle.SECONDARY, "btn_anime_sequel")
+                .set_label("Sequel ⏩").add_to_container()
+            )
         return components
     
     @listener(hikari.InteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
         if not isinstance(event.interaction, ComponentInteraction):
             return
+        custom_id = event.interaction.custom_id
         if event.interaction.custom_id == "btn_anime_sort":
             self._sort_embeds(SortTypes.BY_SCORE)
             self._position = 0
             await self.send(self._pages[self._position], interaction=event.interaction)
             return
-        elif event.interaction.custom_id == "btn_anime_re_search":
+        elif custom_id == "btn_anime_re_search":
             self._stop = True
             if self._old_message:
                 await self._old_message.delete()
@@ -110,13 +142,21 @@ class AnimePaginator(Paginator):
                         return
             except:
                 log.error(traceback.format_exc())
-        elif event.interaction.custom_id == "btn_anime_more_info":
+        elif custom_id == "btn_anime_more_info":
             await self._update_position(event.interaction, detailed=True)
             return
-        elif event.interaction.custom_id == "btn_anime_openings":
+        elif custom_id == "btn_anime_openings":
             return await self._send_openings(interaction=event.interaction)
-        elif event.interaction.custom_id == "btn_anime_endings":
+        elif custom_id == "btn_anime_endings":
             return await self._send_endings(interaction=event.interaction)
+        elif custom_id == "btn_anime_prequel":
+            self._set_anime_id_as_next_item(self.prequel_id)
+            self._position += 1
+            await self._update_position(event.interaction)
+        elif custom_id == "btn_anime_sequel":
+            self._set_anime_id_as_next_item(self.sequel_id)
+            self._position += 1
+            await self._update_position(event.interaction)
         
 
     def _sort_embeds(self, sort_by: SortTypes):
@@ -127,13 +167,20 @@ class AnimePaginator(Paginator):
         self._pages = await self._search_anime(anime_name)
         self._position = 0
         await self._load_details()
-        super().__init__(page_s=self._pages, timeout=10*8, disable_paginator_when_one_site=False)
+        super().__init__(
+            page_s=self._pages, 
+            timeout=10*8, 
+            disable_paginator_when_one_site=False,
+            disable_search_btn=True,
+        )
         return await super().start(ctx)
 
     async def _update_position(self, interaction: ComponentInteraction, detailed=False):
         """
         replaces embed page first with a more detailed one, before sending the message
         """
+        self._current_has_prequel = False
+        self._current_has_sequel = False
         await self._load_details(detailed=detailed)
         return await super()._update_position(interaction)
 
@@ -201,6 +248,7 @@ class AnimePaginator(Paginator):
         log.debug(f"fetched anime: {anime}")
         return anime
 
+
     async def _load_details(self, detailed=False) -> None:
         """
         updates the embed `self._pages[self._position]` to a more detailed version of the anime
@@ -222,7 +270,7 @@ class AnimePaginator(Paginator):
             popularity = f"somewhat known | {anime.popularity}"
         else:
             popularity = anime.popularity
-        embed = (
+        embed: hikari.Embed = (
             hikari.Embed()
             .add_field("Type", anime.type_, inline=True)
             .add_field("Score", f"{anime.score}/10", inline=True)
@@ -274,17 +322,19 @@ class AnimePaginator(Paginator):
 
         related_str = ""
         always_used = ["prequel", "sequel", "full_story"]
-        sequel_added = False
+        fmt_prequel = "⏪ Prequel"
+        fmt_sequel = "Sequel ⏩"
         for relation_type, relations in anime.related.items():
             # related contains dict with mapping from relation_type to list of relations
             # one relation is a node with keys "mal_id", "title", "type", "mal_url"..
             related_str =""
             fmt_relation = ""
             if relation_type == "prequel":
-                fmt_relation = "⏪ Prequel"
+                fmt_relation = fmt_prequel
+                self._current_has_prequel = True
             elif relation_type == "sequel":
-                fmt_relation = "Sequel ⏩"
-                sequel_added = True
+                fmt_relation = fmt_sequel
+                self._current_has_sequel = True
             elif relation_type == "full_story":
                 fmt_relation = "Full story"
             else:
@@ -303,15 +353,26 @@ class AnimePaginator(Paginator):
                     related_str, 
                     inline=len(related_str) < 180
                 )
-                # make prequel be showen first
-                if sequel_added and relation_type == "prequel":
-                    embed._fields.extend([embed._fields.pop() for _ in range(2)])
+
+        if self._current_has_prequel and self._current_has_sequel and embed.fields:
+            to_move: List[hikari.EmbedField] = []
+            for field in embed.fields:
+                if field.name in [fmt_prequel, fmt_sequel]:
+                    to_move.append(field)
+            # change prequel and sequel if reversed
+            if to_move[0].name == fmt_sequel:
+                to_move.insert(0, to_move.pop(-1))
+            # remove field from somewhere in the embed
+            [embed._fields.remove(item) for item in to_move]
+            # move them in the right order to the end
+            [embed._fields.append(item) for item in to_move]
+
 
         
         if anime.background and detailed:
             embed.add_field("Background", Human.short_text(anime.background, 200))
 
-        if (len_openings := len(anime.opening_themes)) > 4:
+        if (len_openings := len(anime.opening_themes)) > self._max_openings:
             embed.add_field("Opening themes", f"Too many to show here ({len_openings})", inline=True)
         elif len_openings == 0:
             pass
@@ -322,7 +383,7 @@ class AnimePaginator(Paginator):
             embed.add_field("Completion rate", f"{anime.completion_rate}", inline=True)
 
         # add endings if not too much
-        if (len_endings := len(anime.ending_themes)) > 3:
+        if (len_endings := len(anime.ending_themes)) > self._max_endings:
             embed.add_field("Ending themes", f"Too many to show here ({len_openings})", inline=True)
         elif len_endings == 0:
             pass
@@ -368,6 +429,70 @@ class AnimePaginator(Paginator):
         )
         embed.color = Colors.random_blue()
         return await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, embed=embed)
+
+    @property
+    def has_prequel(self) -> bool:
+        """wether or not the current anime has a prequel"""
+        return self._current_has_prequel
+    
+    @property
+    def has_sequel(self) -> bool:
+        """wether or not the current anime has a sequel"""
+        return self._current_has_sequel
+
+    @property
+    def prequel_id(self) -> int:
+        try:
+            anime = self._results[self._position].get("anime")
+            if not isinstance(anime, Anime):
+                raise RuntimeError(f"It was supposed, that anime is an instance of `Anime`")
+            nodes = anime.related["prequel"]
+            anime_url = [node["url"] for node in nodes if node["relation_type"] == "prequel"][0]
+            regex = f"anime\/([0-9]+)$"
+            return int((re.findall(regex, anime_url))[0])
+        except Exception as e:
+            log.debug(f"can't find prequel id for anime {anime or None}")
+            raise e
+
+    @property
+    def sequel_id(self) -> int:
+        try:
+            anime = self._results[self._position].get("anime")
+            if not isinstance(anime, Anime):
+                raise RuntimeError(f"It was supposed, that anime is an instance of `Anime`")
+            nodes = anime.related["sequel"]
+            anime_url = [node["url"] for node in nodes if node["relation_type"] == "sequel"][0]
+            regex = f"anime\/([0-9]+)$"
+            return int((re.findall(regex, anime_url))[0])
+        except Exception as e:
+            log.debug(f"can't find sequel id for anime {anime or None}")
+            raise e
+
+    @property
+    def has_too_many_endings(self) -> bool:
+        return len(self.current_anime.ending_themes) > self._max_endings
+
+    @property
+    def has_too_many_openings(self) -> bool:
+        return len(self.current_anime.opening_themes) > self._max_openings
+
+    @property
+    def current_anime(self) -> Anime:
+        """
+        Raises:
+        ------- 
+        RuntimeError :
+            if self._results[self._position] has no key "anime" aka the anime wasn't fetched
+        """
+        anime = self._results[self._position].get("anime")
+        if not isinstance(anime, Anime):
+            raise RuntimeError(f"It was supposed, that anime is an instance of `Anime`\nMaybe called before site was updated/fetched?")
+        return anime
+
+    def _set_anime_id_as_next_item(self, anime_id: int):
+        self.pages.insert(self._position+1, Embed(title=f"Anime [{anime_id}]"))
+        self._results.insert(self._position+1, {"node": {"id": anime_id}})
+        
 
 
 if __name__ == "__main__":
