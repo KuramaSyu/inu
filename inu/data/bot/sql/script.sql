@@ -141,16 +141,16 @@ CREATE TABLE IF NOT EXISTS board.boards (
 
 -- tracks a message once
 CREATE TABLE IF NOT EXISTS board.entries (
-    message_id BIGINT NOT NULL,
+    message_id BIGINT NOT NULL,  -- original message
     board_message_id BIGINT,
-    channel_id BIGINT NOT NULL,
+    channel_id BIGINT NOT NULL,  -- original message
     content VARCHAR(4100),
     author_id BIGINT NOT NULL,
     created_at TIMESTAMP NOT NULL,
     guild_id BIGINT NOT NULL,
     emoji TEXT NOT NULL,
     attachment_urls VARCHAR(2048)[],
-    CONSTRAINT fk_unique_guild_emoji
+    CONSTRAINT fk_unique_guild_emoji  -- when board deleted, delete all entries with it
         FOREIGN KEY (guild_id, emoji)
         REFERENCES board.boards(guild_id, emoji)
         ON DELETE CASCADE,
@@ -159,7 +159,7 @@ CREATE TABLE IF NOT EXISTS board.entries (
 
 -- tracks who reacted to an entry
 CREATE TABLE IF NOT EXISTS board.reactions (
-    message_id BIGINT,
+    message_id BIGINT,  -- original message id
     reacter_id BIGINT,
     emoji TEXT,
     CONSTRAINT fk_emoji_message
