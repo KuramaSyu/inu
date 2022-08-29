@@ -284,7 +284,7 @@ class Table():
         self, 
         set: Dict[str, Any], 
         where: Dict[str, Any],
-        returning: str = ""
+        returning: str = "*"
     ) -> Optional[asyncpg.Record]:
         """
         NOTE
@@ -330,7 +330,7 @@ class Table():
         )
         self._create_sql_log_message(sql, matching_values)
 
-        records = await self.db.execute(sql, *matching_values)
+        records = await self.db.fetch(sql, *matching_values)
         return records
 
     @logging()
