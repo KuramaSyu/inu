@@ -54,31 +54,23 @@ async def method():
 
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
-    log.debug(f"receiving: {event.emoji_name}")
+    log.debug(f"REACTION ADD receiving: {event.emoji_name}")
     # insert to board
 
     # guild has no board with this reaction
     if not BoardManager.has_emoji(event.guild_id, event.emoji_name):
         log.debug(f"emoji not tracked")
         return
-
-    # board don't has this message -> create entry
-    # if not BoardManager.has_message_id(event.guild_id, event.emoji_name, event.message_id):
-    #     log.debug("board don't has this message -> create entry")
-    #     await BoardManager.add_entry(
-    #         message_id=event.message_id,
-    #         guild_id=event.guild_id,
-    #         emoji=event.emoji_name,
-    #     )
     
     message: Optional[hikari.Message] = None
     entry = await BoardManager.fetch_entry(event.message_id, event.emoji_name)
     if not entry:
         log.debug(f"no entry found => add entry")
         message = await bot.rest.fetch_message(event.channel_id, event.message_id)
-        attachment_urls = [str(a.url) for a in message.attachments]
-        if message is None:
+        if not message:
+            log.debug(f"reaction message not found")
             return
+        attachment_urls = [str(a.url) for a in message.attachments]
         content = message.content or ""
         # add first embed to content
         if len(message.embeds) > 0:
@@ -88,6 +80,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
                 content += f"\n{message.embeds[0].description}"
             if message.embeds[0].image:
                 attachment_urls.append(str(message.embeds[0].image.url))
+        # put picture things in front. Otherwise Python bug
         attachment_urls.sort(key=lambda a: Multiple.endswith_(a, [".jpg", ".png", ".webp"]), reverse=True)
         if not message:
             log.debug("message not found")
@@ -124,17 +117,22 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
 
 @plugin.listener(hikari.GuildReactionDeleteEvent)
 async def on_reaction_remove(event: hikari.GuildReactionDeleteEvent):
+    log = getLogger(__name__, "REACTION REMOVE")
     # delete from board
+    emoji = event.emoji_name
+    log.debug(f"receiving: {emoji}")
 
     # guild has no board with this reaction
     if not BoardManager.has_emoji(event.guild_id, event.emoji_name):
+        log.debug(f"emoji not tracked")
         return
 
     # board don't has this message -> create entry
     if not BoardManager.has_message_id(event.guild_id, event.emoji_name, event.message_id):
+        log.debug(f"message not tracked")
         return
     try:
-        await BoardManager.remove_reaction(
+        removed_records = await BoardManager.remove_reaction(
             guild_id=event.guild_id,
             message_id=event.message_id,
             reacter_id=event.user_id,
@@ -144,6 +142,23 @@ async def on_reaction_remove(event: hikari.GuildReactionDeleteEvent):
         log.warning(f"insertion error, which shouldn't occure.\n{traceback.format_exc()}")
     # TODO: when a message has no reactions any more, delete it 
     # (db will be cleared automatically -> when updating message results in error, delete message)
+    if not removed_records:
+        return
+    
+    if (amount := await BoardManager.fetch_entry_reaction_amount(event.message_id, emoji)) == 0:
+        # delete board entry
+        log.debug(f"entry has {amount} reactions -> removing it")
+        entry = await BoardManager.remove_entry(event.message_id, emoji)
+        if not entry:
+            log.debug(f"No entry was deleted ")
+            return
+        board = await BoardManager.fetch_board(event.guild_id, emoji)
+        await bot.rest.delete_message(board["channel_id"], entry["board_message_id"])
+        log.debug(f"message {entry['board_message_id']} deleted")
+    else:
+        entry = await BoardManager.fetch_entry(event.message_id, emoji)
+        await update_message(entry, reaction_amount=amount)
+    
 
 @plugin.listener(hikari.GuildMessageDeleteEvent)
 async def on_message_remove(event: hikari.GuildMessageDeleteEvent):
@@ -153,11 +168,14 @@ async def on_message_remove(event: hikari.GuildMessageDeleteEvent):
 @plugin.listener(hikari.GuildLeaveEvent)
 async def on_guild_leave(event: hikari.GuildLeaveEvent):
     # remove all boards
-    ...
+    getLogger(__name__, "GUILD LEAVE")
+    board_records = await BoardManager.remove_board(event.guild_id)
+    log.debug(f"removed {len(board_records)} boards from {event.guild_id}")
 
 async def update_message(
     board_entry: Dict[str, Any],
     message: Optional[hikari.Message] = None,
+    reaction_amount: int | None = None,
 ):
     channel_id = board_entry["channel_id"]
     message_id = board_entry["message_id"]
@@ -170,7 +188,7 @@ async def update_message(
         log.warning(f"no member with id {board_entry['author_id']} found")
         return
 
-    message_votes = await BoardManager.fetch_reactions(message_id, emoji)
+    message_votes = reaction_amount or await BoardManager.fetch_entry_reaction_amount(message_id, emoji)
     board = await BoardManager.fetch_board(guild_id, emoji)
 
     color_stages = {
@@ -184,8 +202,8 @@ async def update_message(
             ]
         )
     }
-    color = color_stages.get(len(message_votes), "crimson")
-    reaction_content = f"{len(message_votes)}x {emoji}"
+    color = color_stages.get(message_votes, "crimson")
+    reaction_content = f"{message_votes}x {emoji}"
     embeds: List[Embed] = []
     embed = Embed()
     embed.set_author(
@@ -203,7 +221,7 @@ async def update_message(
 
     # move attachment pics into embeds
     if (attachments:=board_entry['attachment_urls']):
-        to_remove = []
+        to_remove: List[str] = []
         for attachment in board_entry['attachment_urls']:
             if Multiple.endswith_(attachment, [".jpg", ".png", ".webp"]):
                 if len(to_remove) == 0:
