@@ -14,16 +14,20 @@ COPYRIGHT HOLDERS BE LIABLE FOR ANY CLAIM, DAMAGES OR OTHER LIABILITY, WHETHER I
 OTHERWISE, ARISING FROM, OUT OF OR IN CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 """
 # edited
-
+from typing import *
 import logging
 import os
+import inspect
 from pathlib import Path
-import datetime
+from datetime import datetime, timedelta
 from typing import *
+from functools import wraps
+import asyncio
 
 from colorama import init, Fore, Style
 from . import ConfigProxy, ConfigType
 import colorlog
+
 
 
 init()
@@ -91,9 +95,9 @@ class LoggingHandler(logging.Logger):
             message = record.msg % record.args
         except Exception:
             message = record.msg
-        date = datetime.datetime.now()
+        date = datetime.now()
         time_stemp = date.strftime("%b %d %H:%M:%S")
-        now = datetime.datetime.now()
+        now = datetime.now()
         print(f"{level_color[level_name]}{level_style[level_name]}{level_name:<8}{Style.RESET_ALL}"
               f" "
               f"{self._get_color('datetime')}[{time_stemp:<8}]{Style.RESET_ALL} "
@@ -115,6 +119,45 @@ class LoggingHandler(logging.Logger):
                 color_patterns_cache[name] = color
                 return color
         return color_patterns[""]
+
+def stopwatch(
+    note: Optional[str | Callable[[], str]] = None, 
+    mention_method: bool = False
+):
+    def decorator(
+        func: Callable
+    ):
+        def log_text(start: datetime):
+            log = getLogger(func.__name__)
+            text = f"[{(datetime.now() - start).total_seconds()*1000:.0f} ms] "
+            if not note or mention_method:
+                text += f"({func.__qualname__}) "
+            if note:
+                if inspect.isfunction(note):
+                    text += note()
+                else:
+                    text += note
+            log.warning(text)
+        
+        if asyncio.iscoroutinefunction(func):
+            log.warning("is coro")
+            @wraps(func)  # type: ignore
+            async def wrapper(*args, **kwargs):
+                start = datetime.now()
+                val = await func(*args, **kwargs)
+                log_text(start)
+                return val
+        else:
+            start = datetime.now()
+            @wraps(func)  # type: ignore
+            def wrapper(*args, **kwargs):
+                log.warning("is not coro")
+                val = func(*args, **kwargs)
+                log_text(start)
+                return val     
+        return wrapper
+    return decorator
+            
 
 logs = set()
 def getLogger(*names):
