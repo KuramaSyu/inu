@@ -41,7 +41,6 @@ class Reddit():
             client_secret=REDDIT_APP_SECRET,
             user_agent="inu:%s:1.0" % REDDIT_APP_ID,
         )
-
     @classmethod
     @cached(TTLCache(int(2 ** 16), float(3*60*60)))
     async def get_posts(
@@ -52,7 +51,33 @@ class Reddit():
         minimum: int = 10,
         time_filter: str = 'day',
     ) -> List[asyncpraw.models.Submission]:
+        """
+        Fetches submissions for specified settings.
 
+        Note:
+        -----
+        submissions will be cached for 3 hours
+        """
+        return await cls._fetch_posts(
+            subreddit,
+            hot,
+            top,
+            minimum,
+            time_filter,
+        )
+
+    @classmethod
+    async def _fetch_posts(
+        cls,
+        subreddit: str,
+        hot: bool = False,
+        top: bool = False,
+        minimum: int = 10,
+        time_filter: str = 'day',
+    ) -> List[asyncpraw.models.Submission]:
+        """
+        Fetch submissions with given settings. No cache implemented
+        """
         if not cls.reddit_client:
             raise UnvalidRedditClient
 
