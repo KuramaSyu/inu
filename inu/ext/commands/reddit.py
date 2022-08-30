@@ -20,7 +20,8 @@ from utils.rest import Reddit
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from core import getLogger
+from utils import Human as H
+from core import getLogger, stopwatch
 
 log = getLogger(__name__)
 
@@ -90,6 +91,8 @@ subreddits: Dict[str, int] = {
     'Paizuri': 5,
     'CumHentai': 8,
 }
+# list with all submissions, updated every 3 hours
+hentai_cache: List[asyncpraw.models.Submission] = []
 
 
 
@@ -120,39 +123,35 @@ async def hentai(ctx: Context):
     [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
     '''
     subreddit = ctx.options.subreddit
-    subreddits = []
-    #amount = 1
-    # if (
-    #     plugin.d.last_update - float(3*60*60) - 120 < tm.time() 
-    #     and not plugin.d.updating
-    # ):
-    #     amount = 1
     if not subreddit:
         # all hentai subreddits: "https://www.reddit.com/r/hentai/wiki/hentai_subreddits/#wiki_subreddits_based_on..."
         subreddit = random.choice(
             [sub  for sub, amount in subreddits.items() for _ in range(amount)]
         )
     await send_pic(ctx, subreddit, footer=False, amount=10)
-    if plugin.d.last_update + float(3*60*60) < tm.time() and subreddits:
-        plugin.d.last_update = float(tm.time()) + float(3*60*60)
-        await _update_pictures(subreddits=subreddits, minimum=10)
     #await .send_pic(ctx, subreddit, footer=False)
 
+
+@stopwatch(
+    lambda: f"cached {H.plural_('submission', len(hentai_cache), with_number=True)} | goal was: {sum([n for n in subreddits.values()])}"
+)
 async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
     plugin.d.updating = False
     async def update(subreddit, amount: int):
         # just calling it, will trigger the cache
-        _ = await Reddit.get_posts(
+        subs = await Reddit._fetch_posts(
             subreddit=subreddit,
             hot=True,
             minimum=amount,
         )
+        hentai_cache.extend(subs)
+        # log.debug(f"{hentai_cache=}")
     tasks: List[asyncio.Task] = []
     for subreddit, amount in subreddits.items():
-        asyncio.create_task(update(subreddit, amount))
-    L = await asyncio.gather(*tasks)
-    plugin.d.updating = True
-    log.debug("cached hentai urls")
+        tasks.append(
+            asyncio.create_task(update(subreddit, amount))
+        )
+    L = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
     
 
 async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int=5):
