@@ -125,10 +125,14 @@ async def hentai(ctx: Context):
     subreddit = ctx.options.subreddit
     if not subreddit:
         # all hentai subreddits: "https://www.reddit.com/r/hentai/wiki/hentai_subreddits/#wiki_subreddits_based_on..."
-        subreddit = random.choice(
-            [sub  for sub, amount in subreddits.items() for _ in range(amount)]
-        )
+    #     subreddit = random.choice(
+    #         [sub  for sub, amount in subreddits.items() for _ in range(amount)]
+    #     )
+        submission = random.choice(hentai_cache)
+        return await send_pic(ctx, None, footer=False, amount=10, submission=submission)
     await send_pic(ctx, subreddit, footer=False, amount=10)
+
+
     #await .send_pic(ctx, subreddit, footer=False)
 
 
@@ -136,7 +140,7 @@ async def hentai(ctx: Context):
     lambda: f"cached {H.plural_('submission', len(hentai_cache), with_number=True)} | goal was: {sum([n for n in subreddits.values()])}"
 )
 async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
-    plugin.d.updating = False
+    new_cache: List[asyncpraw.models.Submission] = []
     async def update(subreddit, amount: int):
         # just calling it, will trigger the cache
         subs = await Reddit._fetch_posts(
@@ -144,7 +148,7 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
             hot=True,
             minimum=amount,
         )
-        hentai_cache.extend(subs)
+        new_cache.extend(subs)
         # log.debug(f"{hentai_cache=}")
     tasks: List[asyncio.Task] = []
     for subreddit, amount in subreddits.items():
@@ -152,18 +156,23 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
             asyncio.create_task(update(subreddit, amount))
         )
     L = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+    global hentai_cache
+    hentai_cache = new_cache
     
 
-async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int=5):
-    posts = await Reddit.get_posts(
-        subreddit=subreddit,
-        hot=True,
-        minimum=amount,
-    )
-    try:
-        post = random.choice(posts)
-    except IndexError:
-        return await ctx.respond(f"`{subreddit}` is currently not reachable or has too less pictures")
+async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int=5, submission: asyncpraw.models.Submission | None = None):
+    if not submission:
+        posts = await Reddit.get_posts(
+            subreddit=subreddit,
+            hot=True,
+            minimum=amount,
+        )
+        try:
+            post = random.choice(posts)
+        except IndexError:
+            return await ctx.respond(f"`{subreddit}` is currently not reachable or has too less pictures")
+    else:
+        post = submission
     embed = hikari.Embed()
     embed.title = post.title
     embed.set_image(post.url)
