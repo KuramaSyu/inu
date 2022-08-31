@@ -108,7 +108,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
         SYNCING = True
     await _update_pictures(subreddits)
 
-    trigger = IntervalTrigger(hours=24)
+    trigger = IntervalTrigger(hours=10)
     plugin.bot.scheduler.add_job(_update_pictures, trigger, args=[subreddits])
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
