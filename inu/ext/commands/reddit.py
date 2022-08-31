@@ -85,7 +85,7 @@ subreddits: Dict[str, int] = {
     'thighdeology': 15,
     'WaifusOnCouch': 5,
     'pantsu': 10,
-    'ahegao': 5,
+    'ahegao': 3,
     'yuri': 5,
     'ZettaiRyouiki': 9,
     'Paizuri': 5,
