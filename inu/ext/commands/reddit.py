@@ -71,23 +71,23 @@ async def memes(ctx: Context):
 
 subreddits: Dict[str, int] = {
     'AnimeBooty': 12,
-    'animelegs': 10,
-    'Atago': 5,
+    'animelegs': 5,
+    'Atago': 1,
     'bluehairhentai': 5,
     'chiisaihentai': 10,
     'ecchi': 20,
     'hentai': 20,
-    'HentaiBlowjob': 5,
-    'HentaiSchoolGirls': 5,
+    'HentaiBlowjob': 3,
+    'HentaiSchoolGirls': 3,
     'MasturbationHentai': 10,
     'Nekomimi': 15,
     'Sukebei': 12,
-    'thighdeology': 15,
-    'WaifusOnCouch': 5,
-    'pantsu': 10,
-    'ahegao': 3,
+    'thighdeology': 20,
+    'WaifusOnCouch': 3,
+    'pantsu': 13, # fanservice
+    'ahegao': 1,
     'yuri': 5,
-    'ZettaiRyouiki': 9,
+    'ZettaiRyouiki': 5,
     'Paizuri': 5,
     'CumHentai': 8,
 }
@@ -148,14 +148,26 @@ async def hentai(ctx: Context):
 async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
     new_cache: List[asyncpraw.models.Submission] = []
     async def update(subreddit, amount: int):
-        # just calling it, will trigger the cache
         subs = await Reddit._fetch_posts(
             subreddit=subreddit,
-            hot=False,
-            top=True,
+            hot=True,
+            top=False,
             time_filter="day",
             minimum=amount,
         )
+        hot_only_len = len(subs)
+        subs.extend( 
+            list(set(
+                    await Reddit._fetch_posts(
+                    subreddit=subreddit,
+                    hot=False,
+                    top=True,
+                    time_filter="day",
+                    minimum=amount,
+                )
+            ) - set(subs))
+        )
+        log.debug(f"subreddit: {subreddit:<20} | amount: {len(set(subs)):<3} | unique in top: {len(subs) - hot_only_len}")
         new_cache.extend(subs)
         # log.debug(f"{hentai_cache=}")
     tasks: List[asyncio.Task] = []
@@ -164,9 +176,12 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
             asyncio.create_task(update(subreddit, amount))
         )
     L = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+
     global hentai_cache, _old_hentai_cache
     _old_hentai_cache = set(hentai_cache)
     hentai_cache = new_cache
+    old_len = len(hentai_cache)
+    log.debug(f"hentai cache: dobble posts: {old_len - len(set(hentai_cache))}")
     
 
 async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int=5, submission: asyncpraw.models.Submission | None = None):
@@ -185,7 +200,7 @@ async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: in
     embed = hikari.Embed()
     embed.title = post.title
     embed.set_image(post.url)
-    if footer:
+    if footer and subreddit:
         embed.set_footer(text=f"r/{subreddit}")
     await ctx.respond(embed=embed)
 
