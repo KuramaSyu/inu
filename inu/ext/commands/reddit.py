@@ -93,6 +93,7 @@ subreddits: Dict[str, int] = {
 }
 # list with all submissions, updated every 3 hours
 hentai_cache: List[asyncpraw.models.Submission] = []
+_old_hentai_cache: set[asyncpraw.models.Submission] = set()
 
 
 
@@ -107,7 +108,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
         SYNCING = True
     await _update_pictures(subreddits)
 
-    trigger = IntervalTrigger(seconds=int(3*60*60))
+    trigger = IntervalTrigger(hours=24)
     plugin.bot.scheduler.add_job(_update_pictures, trigger, args=[subreddits])
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
@@ -137,7 +138,12 @@ async def hentai(ctx: Context):
 
 
 @stopwatch(
-    lambda: f"cached {H.plural_('submission', len(hentai_cache), with_number=True)} | goal was: {sum([n for n in subreddits.values()])}"
+    lambda: (
+        f"cached {H.plural_('submission', len(hentai_cache), with_number=True)} "
+        f"| goal was: {sum([n for n in subreddits.values()])} "
+        f"| set amount: {len(set(hentai_cache))} "
+        f"| new added: {len(set(hentai_cache) & _old_hentai_cache)}"
+    )
 )
 async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
     new_cache: List[asyncpraw.models.Submission] = []
@@ -145,7 +151,9 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
         # just calling it, will trigger the cache
         subs = await Reddit._fetch_posts(
             subreddit=subreddit,
-            hot=True,
+            hot=False,
+            top=True,
+            time_filter="day",
             minimum=amount,
         )
         new_cache.extend(subs)
@@ -156,7 +164,8 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
             asyncio.create_task(update(subreddit, amount))
         )
     L = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
-    global hentai_cache
+    global hentai_cache, _old_hentai_cache
+    _old_hentai_cache = set(hentai_cache)
     hentai_cache = new_cache
     
 
