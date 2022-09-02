@@ -180,22 +180,16 @@ async def hentai(ctx: Context):
     Parameters:
     [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
     '''
-    def get_leght():
-        id = ctx.guild_id or ctx.channel_id
-        if not hentai_cache_indexes.get(id):
-            hentai_cache_indexes[id] = []
-        if (length:=len(hentai_cache_indexes[id])) == 0:
-            length = len(hentai_cache)
-            hentai_cache_indexes[id] = [i for i in range(length)]
-        return length
-    length = get_leght()
+    id = ctx.guild_id or ctx.channel_id
+    def check_index_list():
+        if not hentai_cache_indexes.get(id, []):
+            hentai_cache_indexes[id] = [i for i in range(len(hentai_cache))]
+            random.shuffle(hentai_cache_indexes[id])
+    check_index_list()
     # needs to be in a function, otherwise async would cause problems
     # when command is called very fast
-    def get_submission(): 
-        i = random.randint(0, length-1)
-        hentai_cache_indexes[id].remove(i)
-        submission = hentai_cache[i]
-        return submission
+    def get_submission():
+        return hentai_cache[hentai_cache_indexes[id].pop(-1)]
     submission = get_submission()
     return await send_pic(ctx, "", footer=True, amount=10, submission=submission)
 
