@@ -18,7 +18,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from utils import Reddit
 from core.db import Database
 from core import Inu
-from utils import DailyContentChannels
+from utils import DailyContentChannels, Human
 from utils import Columns as Col
 
 
@@ -55,7 +55,7 @@ plugin.d.daily_content = {
         '0':['DesignPorn', 3],
     }}
 
-def subreddit_generator() -> Generator[None, str, None]:
+def subreddit_generator() -> Generator[str, str, str]:
     picture_subs = ["MostBeautiful", "itookapicture", "EarthPorn", "CityPorn", "Art", "Pictures", "DesignPorn"]
     meme_subs = ["comics", "me_irl", "funny", "wholesomememes", "ComedyCemetery", "ComedyCemetery", "softwaregore", "memes"]
     while True:
@@ -133,7 +133,7 @@ async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 3):
             return
         for x in range(0, count, 1):
             embed = hikari.Embed()
-            embed.title = f'{posts[x].title}'
+            embed.title = f'{Human.short_text(posts[x].title, 256)}'
             embed.set_image(posts[x].url)
             embed.description = f'[{posts[x].subreddit_name_prefixed}](https://www.reddit.com/{posts[x].subreddit._path})'
             log.debug(channel_id)
