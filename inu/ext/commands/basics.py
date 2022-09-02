@@ -372,8 +372,8 @@ async def user_info(ctx: context.UserContext):
 @lightbulb.add_cooldown(3, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(
     lightbulb.guild_only, 
-    # lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
-    lightbulb.has_role_permissions(hikari.Permissions.MANAGE_CHANNELS)
+    lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
+    # lightbulb.has_role_permissions(hikari.Permissions.MANAGE_CHANNELS)
 )
 @lightbulb.command("purge until here", "Delete all messages until the message (including)")
 @lightbulb.implements(commands.MessageCommand)
