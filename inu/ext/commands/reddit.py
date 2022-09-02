@@ -21,15 +21,15 @@ import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from utils import Human as H
-from core import getLogger, stopwatch
+from core import getLogger, stopwatch, BotResponseError, Inu
 
 log = getLogger(__name__)
 
 
 plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
-
 plugin.d.last_update = 0
 plugin.d.updating = False
+bot: Inu
 
 @plugin.listener(hikari.ShardReadyEvent)
 async def on_ready(event: hikari.ShardReadyEvent):
@@ -114,7 +114,6 @@ async def load_tasks(event: hikari.ShardReadyEvent):
 
 @plugin.command
 @lightbulb.add_cooldown(1, 4, lightbulb.UserBucket)
-@lightbulb.option("subreddit", "A Subreddit where the pic should come from", default=None)
 @lightbulb.command("hentai", "sends a hentai picture from Reddit")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def hentai(ctx: Context):
@@ -123,15 +122,8 @@ async def hentai(ctx: Context):
     Parameters:
     [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
     '''
-    subreddit = ctx.options.subreddit
-    if not subreddit:
-        # all hentai subreddits: "https://www.reddit.com/r/hentai/wiki/hentai_subreddits/#wiki_subreddits_based_on..."
-    #     subreddit = random.choice(
-    #         [sub  for sub, amount in subreddits.items() for _ in range(amount)]
-    #     )
-        submission = random.choice(hentai_cache)
-        return await send_pic(ctx, None, footer=False, amount=10, submission=submission)
-    await send_pic(ctx, subreddit, footer=False, amount=10)
+    submission = random.choice(hentai_cache)
+    return await send_pic(ctx, "", footer=True, amount=10, submission=submission)
 
 
     #await .send_pic(ctx, subreddit, footer=False)
@@ -197,14 +189,26 @@ async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: in
             return await ctx.respond(f"`{subreddit}` is currently not reachable or has too less pictures")
     else:
         post = submission
+    if (
+        post.over_18 
+        and ctx.guild_id 
+        and not (ctx.get_channel() or await bot.rest.fetch_channel(ctx.channel_id)).is_nsfw  # type: ignore
+    ):
+        raise BotResponseError(
+            f"This is NSFW content. Please post into an according channel for it",
+            ephemeral=True
+        )
     embed = hikari.Embed()
     embed.title = post.title
     embed.set_image(post.url)
-    if footer and subreddit:
-        embed.set_footer(text=f"r/{subreddit}")
+    if footer:
+        embed.description = f'[{post.subreddit_name_prefixed}](https://www.reddit.com/{post.subreddit._path})'
     await ctx.respond(embed=embed)
 
 
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(plugin)
+def load(inu: lightbulb.BotApp):
+    inu.add_plugin(plugin)
+    global bot
+    bot = inu
+    
 
