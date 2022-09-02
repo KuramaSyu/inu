@@ -122,15 +122,21 @@ class Interactive:
         returns
         -------
             - (lavasnek_rs.Track | None) the chosen title (is None if timeout or other errors)
+
+        raises
+        ------
+        asyncio.TimeoutError:
+            When no interaction with the menu was made
         """
         if not ctx.guild_id:
             return None
         query_print = ""
         if not query_information:
             query_information = await self.lavalink.auto_search_tracks(query)
+        id_ = bot.id_creator.create_id()
         menu = (
             ActionRowBuilder()
-            .add_select_menu("query_menu")
+            .add_select_menu(f"query_menu-{id_}")
         )
         embeds: List[Embed] = []
         # building selection menu
@@ -161,13 +167,14 @@ class Interactive:
                     isinstance(e.interaction, ComponentInteraction) 
                     and e.interaction.user.id == ctx.author.id
                     and e.interaction.message.id == menu_msg.id
+                    and e.interaction.custom_id == f"query_menu-{id_}"
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
                 return None  # to avoid problems with typecheckers
             track_num = int(event.interaction.values[0])
         except asyncio.TimeoutError as e:
-            return None
+            raise e
         await event.interaction.create_initial_response(
             ResponseType.DEFERRED_MESSAGE_UPDATE
         )
@@ -373,7 +380,7 @@ class MusicLog:
 
 
 music = lightbulb.Plugin(name="Music", include_datastore=True)
-lavalink = None
+lavalink: lavasnek_rs.Lavalink = None
 
 
 @music.listener(hikari.ShardReadyEvent)
@@ -654,7 +661,7 @@ async def pl(ctx: context.Context) -> None:
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
 
-async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queue: bool = False) -> None:
+async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queue: bool = False) -> bool:
     """
     - Will search the query
     - if more than one track found, ask which track to use
@@ -674,6 +681,11 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         whether to prevent sending the queue
         - needed when queue have to be called afterwards
 
+    Returns:
+    -------
+    bool : 
+        wether or not it fails to add a title
+
     Note
     ----
     sending the queue will be automatically prevented, 
@@ -684,7 +696,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     first element in the queue.
     """
     if not ctx.guild_id or not ctx.member:
-        return  # just for pylance
+        return False # just for pylance
     music.d.last_context[ctx.guild_id] = ctx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
     # Join the user's voice channel if the bot is not in one.
@@ -706,14 +718,16 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             and "&list" in query
         ):
             query = YouTubeHelper.remove_playlist_info(query)
+        # try to add song
         try:
             track = await search_track(ctx, query, be_quiet)
         except BotResponseError as e:
             raise e
         except asyncio.TimeoutError:
-            return
+            return False
         if track is None:
-            return await ctx.respond(f"I only found a lot of empty space for `{query}`")
+            await ctx.respond(f"I only found a lot of empty space for `{query}`")
+            return False
         await load_track(ctx, track, be_quiet)
     await asyncio.sleep(0.2)
     node = await lavalink.get_guild_node(ctx.guild_id)
@@ -728,6 +742,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             force_resend=True,
             create_footer_info=True,
         )
+    return True
 
 
 @pl.child
@@ -762,23 +777,31 @@ async def position(ctx: SlashContext) -> None:
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
-    await _play(ctx, query, prevent_to_queue=True)
+    # will be called from event track start
+    node = await lavalink.get_guild_node(ctx.guild_id)
+    if not node:
+        prevent_to_queue = True
+    else:
+        prevent_to_queue = len(node.queue) == 0
+    song_added = await _play(ctx, query, prevent_to_queue=True)
+    if not song_added:
+        return
     node = await lavalink.get_guild_node(ctx.guild_id)
     if node is None or not ctx.guild_id:
         return
-    # move the track to the position and rebind node
-    track = node.queue.pop()
     node_queue = node.queue
+    track = node_queue.pop(-1)
     node_queue.insert(pos, track)
     node.queue = node_queue
     await lavalink.set_guild_node(ctx.guild_id, node)
-    await queue(
-        ctx, 
-        ctx.guild_id, 
-        force_resend=True, 
-        create_footer_info=True,
-        custom_info=f"{track.track.info.title} added by {ctx.author.username}"
-    )
+    if not prevent_to_queue:
+        await queue(
+            ctx, 
+            ctx.guild_id, 
+            force_resend=True, 
+            create_footer_info=True,
+            custom_info=f"{track.track.info.title} added by {ctx.author.username}"
+        )
 
 async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
     guild_id = ctx.guild_id
@@ -860,10 +883,10 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     if len(query_information.tracks) > 1:
         try:
             track = await music.d.interactive.ask_for_song(ctx, query, query_information=query_information)
-            if track is None:
-                raise asyncio.TimeoutError()
+        except asyncio.TimeoutError as e:
+            raise e
         except Exception:
-            music.d.log.error(traceback.print_exc())
+            music.d.log.error(traceback.format_exc())
     elif len(query_information.tracks) == 0:
         embed = Embed(title="Title not available")
         url_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
