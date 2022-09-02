@@ -628,6 +628,13 @@ async def leave(ctx: context.Context) -> None:
     if not ctx.guild_id:
         return  # just for pylance
     await _leave(ctx.guild_id)
+    await ctx.respond(
+        embed=(
+            Embed(title="🛑 music stopped")
+                .set_footer(text=f"music was stopped by {ctx.author.display_name}", icon=ctx.author.avatar_url)
+        )
+    )
+
 
 async def _leave(guild_id: int):
     await bot.update_voice_state(guild_id, None)
@@ -729,19 +736,22 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             await ctx.respond(f"I only found a lot of empty space for `{query}`")
             return False
         await load_track(ctx, track, be_quiet)
+
+    if prevent_to_queue:
+        return True
+
     await asyncio.sleep(0.2)
     node = await lavalink.get_guild_node(ctx.guild_id)
 
     if len(node.queue) in [1, 0]:
-        prevent_to_queue = True
+        return True
     
-    if not prevent_to_queue:
-        await queue(
-            ctx, 
-            ctx.guild_id, 
-            force_resend=True,
-            create_footer_info=True,
-        )
+    await queue(
+        ctx, 
+        ctx.guild_id, 
+        force_resend=True,
+        create_footer_info=True,
+    )
     return True
 
 
@@ -984,11 +994,17 @@ async def pause(ctx) -> None:
     if not ctx.guild_id:
         return
     await _pause(ctx.guild_id)
+    await ctx.respond(
+        embed=(
+            Embed(title="⏸ Music paused")
+                .set_author(name=ctx.author.username, icon=ctx.author.avatar_url)
+        )
+    )
     message = music.d.music_message[ctx.guild_id]
-    await message.remove_reaction(str('▶'), user=ctx.author)
-    await message.remove_reaction(str('▶'), user=music.bot.me)
+    await message.remove_reaction(str('⏸'), user=ctx.author)
+    await message.remove_reaction(str('⏸'), user=music.bot.me)
     await asyncio.sleep(0.1)
-    await message.add_reaction(str('⏸'))
+    await message.add_reaction(str('▶'))
 
 async def _pause(guild_id: int):
     await lavalink.pause(guild_id)
@@ -1003,6 +1019,12 @@ async def resume(ctx: Context) -> None:
     if not ctx.guild_id:
         return
     await _resume(ctx.guild_id)
+    await ctx.respond(
+        embed=(
+            Embed(title="▶ Music resumed")
+                .set_author(name=ctx.author.username, icon=ctx.author.avatar_url)
+        )
+    )
     message = music.d.music_message[ctx.guild_id]
     await message.remove_reaction(str('▶'), user=ctx.author)
     await message.remove_reaction(str('▶'), user=music.bot.me)
