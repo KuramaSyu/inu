@@ -70,30 +70,88 @@ async def memes(ctx: Context):
 
 
 subreddits: Dict[str, int] = {
-    'AnimeBooty': 12,
-    'animelegs': 5,
-    'Atago': 1,
-    'bluehairhentai': 5,
-    'chiisaihentai': 10,
-    'ecchi': 20,
-    'hentai': 20,
-    'HentaiBlowjob': 3,
-    'HentaiSchoolGirls': 3,
-    'MasturbationHentai': 10,
-    'Nekomimi': 15,
-    'Sukebei': 12,
-    'thighdeology': 20,
-    'WaifusOnCouch': 3,
-    'pantsu': 13, # fanservice
-    'ahegao': 1,
-    'yuri': 5,
-    'ZettaiRyouiki': 5,
-    'Paizuri': 5,
-    'CumHentai': 8,
+    'AnimeBooty': {
+        'hot': 13,
+        'top': 5,
+    },
+    'animelegs': {
+        'hot': 5,
+        'top': 1,
+    },
+    'Atago':  {
+        'hot': 1,
+        'top': 1,
+    },
+    'bluehairhentai':  {
+        'hot': 3,
+        'top': 3,
+    },
+    'chiisaihentai':  {
+        'hot': 10,
+        'top': 10,
+    },
+    'ecchi':  {
+        'hot': 20,
+        'top': 15,
+    },
+    'hentai':  {
+        'hot': 20,
+        'top': 6,
+    },
+    'HentaiBlowjob':  {
+        'hot': 4,
+        'top': 4,
+    },
+    'HentaiSchoolGirls':  {
+        'hot': 3,
+        'top': 3,
+    },
+    'MasturbationHentai':  {
+        'hot': 10,
+        'top': 5,
+    },
+    'Nekomimi':  {
+        'hot': 15,
+        'top': 10,
+    },
+    'Sukebei':  {
+        'hot': 12,
+        'top': 5,
+    },
+    'thighdeology':  {
+        'hot': 15,
+        'top': 6,
+    },
+    'WaifusOnCouch':  {
+        'hot': 3,
+        'top': 2,
+    },
+    'pantsu':  {
+        'hot': 13,
+        'top': 5,
+    }, # fanservice
+    # 'ahegao':  {
+    #     'hot': 1,
+    #     'top': 1,
+    # },
+    # 'yuri': 5,
+    # 'ZettaiRyouiki': 5,
+    'Paizuri':  {
+        'hot': 5,
+        'top': 3,
+    },
+    'CumHentai':  {
+        'hot': 8,
+        'top': 5,
+    },
 }
 # list with all submissions, updated every 3 hours
 hentai_cache: List[asyncpraw.models.Submission] = []
 _old_hentai_cache: set[asyncpraw.models.Submission] = set()
+# Dict[guild_id, List[hentai_cache_indexes]]
+hentai_cache_indexes: Dict[int, List[int]] = {
+
+}
 
 
 
@@ -122,7 +180,23 @@ async def hentai(ctx: Context):
     Parameters:
     [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
     '''
-    submission = random.choice(hentai_cache)
+    def get_leght():
+        id = ctx.guild_id or ctx.channel_id
+        if not hentai_cache_indexes.get(id):
+            hentai_cache_indexes[id] = []
+        if (length:=len(hentai_cache_indexes[id])) == 0:
+            length = len(hentai_cache)
+            hentai_cache_indexes[id] = [i for i in range(length)]
+        return length
+    length = get_leght()
+    # needs to be in a function, otherwise async would cause problems
+    # when command is called very fast
+    def get_submission(): 
+        i = random.randint(0, length-1)
+        hentai_cache_indexes[id].remove(i)
+        submission = hentai_cache[i]
+        return submission
+    submission = get_submission()
     return await send_pic(ctx, "", footer=True, amount=10, submission=submission)
 
 
@@ -132,7 +206,7 @@ async def hentai(ctx: Context):
 @stopwatch(
     lambda: (
         f"cached {H.plural_('submission', len(hentai_cache), with_number=True)} "
-        f"| goal was: {sum([n for n in subreddits.values()])} "
+        f"| max was: {sum([x for n in subreddits.values() for _, x in n.items()])} "
         f"| set amount: {len(set(hentai_cache))} "
         f"| new added: {len(set(hentai_cache) & _old_hentai_cache)}"
     )
@@ -145,7 +219,7 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
             hot=True,
             top=False,
             time_filter="day",
-            minimum=amount,
+            minimum=amount["hot"],
         )
         hot_only_len = len(subs)
         subs.extend( 
@@ -155,7 +229,7 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
                     hot=False,
                     top=True,
                     time_filter="day",
-                    minimum=amount,
+                    minimum=amount["top"],
                 )
             ) - set(subs))
         )
