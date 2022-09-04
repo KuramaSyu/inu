@@ -201,8 +201,7 @@ async def hentai(ctx: Context):
     lambda: (
         f"cached {H.plural_('submission', len(hentai_cache), with_number=True)} "
         f"| max was: {sum([x for n in subreddits.values() for _, x in n.items()])} "
-        f"| set amount: {len(set(hentai_cache))} "
-        f"| new added: {len(set(hentai_cache) & _old_hentai_cache)}"
+        f"| new added: {len(set(hentai_cache) - _old_hentai_cache)}"
     )
 )
 async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
@@ -237,11 +236,10 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
         )
     L = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
 
-    global hentai_cache, _old_hentai_cache
+    global hentai_cache, _old_hentai_cache, hentai_cache_indexes
     _old_hentai_cache = set(hentai_cache)
     hentai_cache = new_cache
-    old_len = len(hentai_cache)
-    log.debug(f"hentai cache: dobble posts: {old_len - len(set(hentai_cache))}")
+    hentai_cache_indexes = {}
     
 
 async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int=5, submission: asyncpraw.models.Submission | None = None):
