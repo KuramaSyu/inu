@@ -247,7 +247,7 @@ async def update_message(
             "attachments": board_entry['attachment_urls'],
             "embeds": embeds,
             "content": reaction_content,
-            "components": message.components,
+            # "components": message.components,
             "channel": board['channel_id'],
         }
 
