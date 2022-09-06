@@ -136,6 +136,10 @@ subreddits: Dict[str, int] = {
     # },
     # 'yuri': 5,
     # 'ZettaiRyouiki': 5,
+    'genshinimpacthentai': {
+        'hot': 20,
+        'top': 10,
+    },
     'Paizuri':  {
         'hot': 5,
         'top': 3,
