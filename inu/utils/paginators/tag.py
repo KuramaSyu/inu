@@ -102,12 +102,12 @@ class TagHandler(Paginator):
         """Updates the embed, if the interaction wasn't for pagination"""
         if update_value:
             pages = []
-            for index, page in enumerate(crumble(str(self.tag.value), 2000)):
+            for index, page in enumerate(crumble(str(self.tag.value[self._position]), 2000)):
                 pages.append(Embed(
                     title="",
                     description=page
                 ))
-            self._pages = pages
+            self._pages = [*self._pages[:self._position], *pages, *self._pages[self._position+1:]]  # skip current page and replace it
             self._pages[0].add_field(name="Info", value="not set")
         # updating embed titles
         for page in self._pages:
@@ -124,7 +124,7 @@ class TagHandler(Paginator):
 
         self._pages[0].edit_field(0, "Info", str(self.tag))
         await self._message.edit(
-            embed=self._pages[0],
+            embed=self._pages[self._position],
             components=self.components
         )
 
@@ -178,6 +178,24 @@ class TagHandler(Paginator):
                 await self.change_aliases(i, set.remove)
             elif custom_id == "remove_guild_id":
                 await self.change_guild_ids(i, set.remove)
+            elif custom_id == "add_new_page":
+                if len(self._pages) >= 20:
+                    return await i.create_initial_response(
+                        ResponseType.MESSAGE_CREATE,
+                        f"A tag can't have more then 20 pages"
+                    )
+                self._pages.insert(self._position+1, Embed(title=self.tag.name))
+                self.tag.value.insert(self._position+1, "")
+                self._position += 1
+            elif custom_id == "remove_this_page":
+                if len(self._pages) <= 1:
+                    return await i.create_initial_response(
+                        ResponseType.MESSAGE_CREATE,
+                        f"A tag can't have less then 1 page"
+                    )
+                self._pages.remove(self._pages[self._position])
+                self.tag.value.remove(self.tag.value[self._position])
+                self._position -= 1
             else:
                 if custom_id in self.tag.tag_links:
                     # reaction to this in in self._tag_link_task
@@ -310,7 +328,7 @@ class TagHandler(Paginator):
                 modal_title=self.tag.name or "Tag",
                 question_s="Edit value:",
                 interaction=interaction,
-                pre_value_s=self.tag.value[:4000] or "",
+                pre_value_s=self.tag.value[self._position] or "",
             )
         if not value:
             return
@@ -318,9 +336,9 @@ class TagHandler(Paginator):
             ResponseType.DEFERRED_MESSAGE_UPDATE
         )
         if append and self.tag.value:
-            self.tag.value += value
+            self.tag.value[self._position] += value
         else:
-            self.tag.value = value
+            self.tag.value[self._position] = value
 
     async def extend_value(self, interaction: ComponentInteraction):
         await self.set_value(interaction, append=True)
@@ -416,6 +434,8 @@ class TagHandler(Paginator):
                 .add_option("remove an author", "remove_author_id").add_to_menu()
                 .add_option("remove alias", "remove_alias").add_to_menu()
                 .add_option("remove guild", "remove_guild_id").add_to_menu()
+                .add_option("add new page", "add_new_page").add_to_menu()
+                .add_option("remove current page", "remove_this_page").add_to_menu()
                 .add_option("local / global", "change_visibility").add_to_menu()
                 .add_option("delete tag", "remove_tag").add_to_menu()
                 .add_to_container()
@@ -442,7 +462,7 @@ class TagHandler(Paginator):
 
         self.embed = Embed()
         self.embed.title = self.tag.name
-        self.embed.description = self.tag.value
+        self.embed.description = self.tag.value[0]
         self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
         self._default_site = len(self._pages) - 1
@@ -469,11 +489,13 @@ class TagHandler(Paginator):
 
         self.embed = Embed()
         self.embed.title = self.tag.name or "Name - not set"
-        self.embed.description = self.tag.value or "Value - not set"
+        self.embed.description = self.tag.value[self._position] or "Value - not set"
         self.embed.add_field(name="Status", value=self.tag.__str__())
         self._pages = [self.embed]
 
     async def _wait_for_link_button(self, tag: Tag) -> None:
+        if not tag.tag_links:
+            return
         tag_link, event, interaction = await self.bot.wait_for_interaction(
             custom_ids=tag.component_custom_ids, 
             user_id =self.ctx.author.id, 
@@ -493,6 +515,7 @@ class TagHandler(Paginator):
             # inform the user about the mistake
             return await self.ctx.respond(**e.kwargs)
         finally:
+            # wait for more button interactions
             self._tag_link_task = asyncio.create_task(self._wait_for_link_button(tag))
         # show selected tag
         asyncio.create_task(self.show_record(name=new_tag.name, tag=new_tag))
@@ -522,21 +545,21 @@ class TagHandler(Paginator):
         media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
 
         messages = []
-
-        for value in crumble(tag.value, 1900):
-            message = ""
-            # if tag isn't just a picture and tag was not invoked with original name,
-            # then append original name at start of message
-            if (
-                not (
-                    name == tag.name
-                    or re.match(media_regex, tag.value.strip())
-                )
-                or force_show_name
-            ):
-                message += f"**{tag.name}**\n\n"
-            message += value
-            messages.append(message)
+        for page in tag.value:
+            for value in crumble(page, 1900):
+                message = ""
+                # if tag isn't just a picture and tag was not invoked with original name,
+                # then append original name at start of message
+                if (
+                    not (
+                        name == tag.name
+                        or re.match(media_regex, tag.value[self._position].strip())
+                    )
+                    or force_show_name
+                ):
+                    message += f"**{tag.name}**\n\n"
+                message += value
+                messages.append(message)
         pag = Paginator(
             page_s=messages,
             compact=True,

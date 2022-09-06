@@ -27,7 +27,9 @@ from cachetools import TTLCache
 
 from ..language import Human, Multiple
 from core.db import Database, Table
-from core import Inu, BotResponseError
+from core import Inu, BotResponseError, getLogger
+
+log = getLogger(__name__)
 
 
 TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{}]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
@@ -50,7 +52,7 @@ class Tag():
         """
         self.owners: Set[hikari.Snowflake] = set([owner.id]) if owner else set()
         self._name: Optional[str] = None
-        self.value: Optional[str] = None
+        self.value: Optional[List[str]] = None
         self.is_local_available: bool
         self.is_global_available: bool
         self._is_local: bool = True
@@ -90,16 +92,16 @@ class Tag():
     def tag_links(self) -> List[str]:
         if not self.value:
             raise RuntimeError("Can't get tag links without a value")
-        return [f"tag://{info['tag_name']}.{info['scope']}"  for info in self._get_links(self.value)]
+        return [f"tag://{info['tag_name']}.{info['scope']}"  for info in self._get_links("\n".join(self.value))]
 
     @property
     def tag_link_infos(self) -> List[str]:
         if not self.value:
             raise RuntimeError("Can't get tag links without a value")
-        return self._get_links(self.value)
+        return self._get_links("\n".join(self.value))
 
     @classmethod
-    def _get_links(cls, value: str) -> List[str]:
+    def _get_links(cls, value: str) -> List[Dict[str, str]]:
         """
         Returns a list of links in the value
         """
@@ -342,7 +344,7 @@ class Tag():
         return [action_row]
 
     @property
-    def component_custom_ids(self) -> List[str]:
+    def component_custom_ids(self) -> List[str] | None:
         """
         Returns a list of custom ids of the tag.
         """

@@ -161,21 +161,24 @@ async def show_record(
         # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
         return
     messages = []
-
-    for value in crumble(tag.value, 1900):
-        message = ""
-        # if tag isn't just a picture and tag was not invoked with original name,
-        # then append original name at start of message
-        if (
-            not (
-                name == tag.name
-                or re.match(media_regex, tag.value.strip())
-            )
-            or force_show_name
-        ):
-            message += f"**{tag.name}**\n\n"
-        message += value
-        messages.append(message)
+    add_title = True
+    for page in tag.value:
+        for value in crumble(page, 2000):
+            message = ""
+            # if tag isn't just a picture and tag was not invoked with original name,
+            # AND it's the first page of the tag
+            # then append original name at start of message
+            if (
+                (not (
+                    name == tag.name
+                    or re.match(media_regex, "\n".join(tag.value).strip())
+                )
+                or force_show_name) and add_title
+            ):
+                message += f"**{tag.name}**\n\n"
+                add_title = False
+            message += value
+            messages.append(message)
     pag = TagPaginator(
         tag=tag,
         page_s=messages,
@@ -239,7 +242,7 @@ def records_to_embed(
     desc = ""
     embeds = [hikari.Embed(title="tag_overview")]
     for i, record in enumerate(records):
-        embeds[-1].add_field(record["tag_key"], f'```{textwrap.shorten(record["tag_value"].replace("```", ""), value_length)}```', inline=False)
+        embeds[-1].add_field(record["tag_key"], f'```{textwrap.shorten(", ".join(record["tag_value"]).replace("```", ""), value_length)}```', inline=False)
         #embeds[-1].add_field(record["tag_key"][:255], f'{record["tag_value"][0][:1000]} {"..." if len(record["tag_value"][0]) > 999 else ""}', inline=False)
         if i % tags_per_page == 0 and len(records) > i+1 and i != 0:
             embeds.append(hikari.Embed(title="tag_overview"))
@@ -339,7 +342,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
             channel_id=ctx.guild_id or ctx.channel_id,
         )
         tag.name = name
-        tag.value = value
+        tag.value = [value]
         await tag.save()
     except TagIsTakenError:
         raise BotResponseError("Your tag is already taken", ephemeral=True)
@@ -492,7 +495,7 @@ async def tag_execute(ctx: Context):
     record = await get_tag(ctx, ctx.options.name)
     if not record:
         raise BotResponseError(bot_message=f"I can't find a tag with called `{ctx.options.name}`")
-    ctx._options["code"] = record["tag_value"]  # tag value is a list
+    ctx._options["code"] = "\n".join(record["tag_value"])  # tag value is a list
     ext = tags.bot.get_plugin("Owner")
     for cmd in ext.all_commands:
         if cmd.name == "run":
@@ -520,7 +523,7 @@ async def tag_append(ctx: Context):
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.value += f"\n{ctx.options.text.lstrip()}"
+    tag.value[-1] += f"\n{ctx.options.text.lstrip()}"
     await tag.save()
     await ctx.respond(
         f"Done."
@@ -570,13 +573,14 @@ async def tag_info(ctx: Context):
     tag = await Tag.from_record(record, ctx.author, db_checks=False)
     if record is None:
         return await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id, ctx.author.id)
+    value = "\n".join(record['tag_value'])
     message = (
         f"**{record['tag_key']}**\n\n"
         f"tag {Human.plural_('author', len(record['author_ids']))}: "
         f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
         f"tag guilds/channels: {Human.list_(record['guild_ids'], with_a_or_an=False)}\n"
         f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
-        f"tag content: ```{Human.short_text(record['tag_value'], 800).replace('`', '')}```\n"
+        f"tag content: ```{Human.short_text(value, 800).replace('`', '')}```\n"
         f"link for this tag: `{tag.link}`"
     )
     await ctx.respond(message)
