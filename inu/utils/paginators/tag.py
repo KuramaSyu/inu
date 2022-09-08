@@ -58,7 +58,7 @@ class TagHandler(Paginator):
         self.tag: Tag
         self._pages: List[Embed] = []
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.DEBUG)
+        self.log.setLevel(logging.WARNING)
         self.bot: Inu
         self._edit_mode = edit_mode
         self._tag_link_task: asyncio.Task | None = None
