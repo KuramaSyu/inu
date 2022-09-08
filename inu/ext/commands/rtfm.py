@@ -156,9 +156,7 @@ plugin = lightbulb.Plugin("Read the FUCKING manual", "Extends the commands with 
 plugin.d.rtfm_cache = {}
 plugin.d.docs = {
             'hikari-lightbulb': 'https://hikari-lightbulb.readthedocs.io/en/latest',
-            'dpy-latest': 'https://discordpy.readthedocs.io/en/latest',
             'python': 'https://docs.python.org/3',
-            'dpy-master': 'https://discordpy.readthedocs.io/en/master',
             'hikari': "https://www.hikari-py.dev",
 
 }
