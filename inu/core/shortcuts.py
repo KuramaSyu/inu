@@ -65,4 +65,14 @@ class AutoButton:
         """
         set callback for `<button_custom_id>` or the last created button
         """
+        ...
+    def execute_callback(self) -> Any:
+        """
+        Execute the proper callback according to the response of `self.ask`.
+
+        Returns:
+        --------
+        Any:
+            Whatever the callback returns
+        """
 
