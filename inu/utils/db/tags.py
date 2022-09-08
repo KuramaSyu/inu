@@ -188,7 +188,7 @@ class Tag():
         if self.is_stored:
             await TagManager.edit(
                 key=self.name,
-                value=self.value,
+                value=[value for value in self.value if value],  # remove empty pages
                 author_ids=list(self.owners),
                 tag_id=self.id,
                 guild_ids=list(self.guild_ids),
