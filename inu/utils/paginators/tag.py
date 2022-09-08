@@ -15,7 +15,7 @@ import re
 
 import hikari
 from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, events, ResponseType, Embed
-from hikari.messages import ButtonStyle
+from hikari.messages import ButtonStyle, MessageFlag
 from hikari.impl import ActionRowBuilder
 import lightbulb
 from lightbulb import MemberConverter, GuildConverter, UserConverter
@@ -37,7 +37,7 @@ from utils.db import Tag
 from core import Inu, BotResponseError
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.WARNING)
 
 
 class TagHandler(Paginator):
@@ -61,7 +61,7 @@ class TagHandler(Paginator):
         self.log.setLevel(logging.DEBUG)
         self.bot: Inu
         self._edit_mode = edit_mode
-        self._tag_link_task: asyncio.Task
+        self._tag_link_task: asyncio.Task | None = None
 
         super().__init__(
             page_s=self._pages,
@@ -98,17 +98,25 @@ class TagHandler(Paginator):
         self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
         await super().post_start(ctx)
 
-    async def update_page(self, update_value: bool = False):
+    async def update_page(self, interaction: ComponentInteraction, update_value: bool = False):
         """Updates the embed, if the interaction wasn't for pagination"""
         if update_value:
-            pages = []
-            for index, page in enumerate(crumble(str(self.tag.value[self._position]), 2000)):
-                pages.append(Embed(
-                    title="",
-                    description=page
-                ))
-            self._pages = [*self._pages[:self._position], *pages, *self._pages[self._position+1:]]  # skip current page and replace it
-            self._pages[0].add_field(name="Info", value="not set")
+            pages: List[Embed] = []
+            # crumble only the current page to spare recauses
+            for value in self.tag.value:
+                for index, page in enumerate(crumble(value, 2000)):
+                    pages.append(
+                        Embed(
+                            title="",
+                            description=page
+                        )
+                    )
+                # skip current page and replace it
+            self._pages = pages # [*self._pages[:self._position], *pages, *self._pages[self._position+1:]]
+            self._pages[self._position].add_field(
+                name="Info",
+                value=str(self.tag or "not set")
+            )
         # updating embed titles
         for page in self._pages:
             page.title = self.tag.name or "Name - not set"
@@ -122,11 +130,12 @@ class TagHandler(Paginator):
                 self._tag_link_task.cancel()
             self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
 
-        self._pages[0].edit_field(0, "Info", str(self.tag))
-        await self._message.edit(
-            embed=self._pages[self._position],
-            components=self.components
-        )
+        # self._pages[0].edit_field(0, "Info", str(self.tag))
+        # await self._message.edit(
+        #     embed=self._pages[self._position],
+        #     components=self.components
+        # )
+        await self._update_position(self.interaction)
 
 
     @listener(events.InteractionCreateEvent)
@@ -206,7 +215,7 @@ class TagHandler(Paginator):
                     await self.tag.save()
                 except Exception:
                     pass
-            await self.update_page(update_value=custom_id in ["set_value", "extend_value"])
+            await self.update_page(update_value=custom_id in ["set_value", "extend_value", "add_new_page"], interaction=i)
             
         except Exception:
             self.log.error(traceback.format_exc())
@@ -217,24 +226,23 @@ class TagHandler(Paginator):
         -----
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
-        user_str, interaction, event = await self.bot.shortcuts.ask_with_modal(
+        user_str, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
             "Edit Tag",
             "What is the person you want to add?",
             interaction=interaction,
             placeholder="something like @user, user#0000 or the ID of the user"
         )
-        await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         try:
             user = await UserConverter(self.ctx).convert(user_str)
         except TypeError:
-            return await self.ctx.respond(f"No person like `{user_str}` found.")
+            return await self.create_message(f"No person like `{user_str}` found.")
         try:
             op(self.tag.owners, user.id)
         except ValueError:
-            await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
+            await self.create_message("ID's are supposed to be numbers")
             return
         except KeyError:
-            await self.bot.rest.create_message(interaction.channel_id, "This user never actually had the rights")
+            await self.create_message("This user never actually had the rights")
             return
         
         #await self.bot.rest.create_message(interaction.channel_id, f"`{user_id}` added to authors of this tag")
@@ -246,23 +254,20 @@ class TagHandler(Paginator):
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
 
-        guild_id, interaction, event = await self.bot.shortcuts.ask_with_modal(
+        guild_id, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
             "Edit Tag",
             "Enter the guild ID you want to add",
             placeholder_s="something like 1234567890123456789",
             interaction=interaction,
         )
-
-        await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         try:
             op(self.tag.guild_ids, int(guild_id))
         except ValueError:
-            await self.bot.rest.create_message(interaction.channel_id, "ID's are supposed to be numbers")
+            await self.create_message("ID's are supposed to be numbers")
             return
         except KeyError:
-            await self.bot.rest.create_message(interaction.channel_id, "In this guild your tag was never actually available")
+            await self.create_message("In this guild your tag was never actually available")
             return
-        #await interaction.create_initial_response(f"You can use this tag now in `{guild_id}`")
 
     async def change_aliases(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
         """
@@ -271,29 +276,26 @@ class TagHandler(Paginator):
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
         # I know this function is redundant, but otherwise it would affect the readability
-        alias, interaction, event = await self.bot.shortcuts.ask_with_modal(
+        alias, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
             "Edit Tag",
             "What should be the name of the new alias?",
             interaction=interaction,
         )
-        await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         try:
             op(self.tag.aliases, alias)
         except KeyError:
-            await self.bot.rest.create_message(interaction.channel_id, "Your tag has no such alias")
+            await self.create_message("Your tag has no such alias")
             return
         except ValueError:
-            await self.bot.rest.create_message(interaction.channel_id, "Alias's are supposed to be strings")
+            await self.create_message("Alias's are supposed to be strings")
             return
-        #await interaction.create_initial_response(f"`{alias}` is now an alternative name of this tag")
         
         
 
 
     async def delete(self, interaction: ComponentInteraction):
         await self.tag.delete()
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
+        await self.create_message(
             f"I removed {'local' if self.tag.is_local else 'global'} tag `{self.tag.name}`"
         )
         self.tag.name = None
@@ -303,7 +305,7 @@ class TagHandler(Paginator):
         await self.tag.update()
 
     async def set_name(self, interaction: ComponentInteraction):
-        new_name, interaction, event = await self.bot.shortcuts.ask_with_modal(
+        new_name, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
             "Rename Tag",
             "New name:",
             min_length_s=1,
@@ -311,20 +313,17 @@ class TagHandler(Paginator):
             interaction=interaction,
         )
         self.tag.name = new_name
-        await interaction.create_initial_response(
-            ResponseType.DEFERRED_MESSAGE_UPDATE
-        )
 
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
         if append:
-            value, interaction, event = await self.bot.shortcuts.ask_with_modal(
+            value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
                 modal_title=self.tag.name or "Tag",
                 question_s="Add to value:" if append else "Value:",
                 interaction=interaction,
             )
         else:
-            value, interaction, event = await self.bot.shortcuts.ask_with_modal(
+            value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
                 modal_title=self.tag.name or "Tag",
                 question_s="Edit value:",
                 interaction=interaction,
@@ -332,13 +331,12 @@ class TagHandler(Paginator):
             )
         if not value:
             return
-        await interaction.create_initial_response(
-            ResponseType.DEFERRED_MESSAGE_UPDATE
-        )
+        values = crumble(value, 2000)
+        log.debug(values)
         if append and self.tag.value:
-            self.tag.value[self._position] += value
+            self.tag.value = [*self.tag.value[:self._position], *crumble(self.tag.value[self._position]+values[0], 2000), *values[1:], *self.tag.value[self._position+1:]]
         else:
-            self.tag.value[self._position] = value
+            self.tag.value = [*self.tag.value[:self._position], *crumble(values[0], 2000), *values[1:], *self.tag.value[self._position+1:]]
 
     async def extend_value(self, interaction: ComponentInteraction):
         await self.set_value(interaction, append=True)
@@ -350,7 +348,6 @@ class TagHandler(Paginator):
         else:
             self.tag._is_local = True
             self.tag.guild_ids.remove(0)
-        await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         # await self.update_page()
 
     async def finish(self, interaction: ComponentInteraction):
@@ -358,8 +355,7 @@ class TagHandler(Paginator):
             await self.tag.save()
             await self.update_page()
         except TagIsTakenError:
-            await interaction.create_initial_response(
-                ResponseType.MESSAGE_CREATE,
+            await self.create_message(
                 f"Your tag name {self.tag.name}` is {'locally' if self.tag._is_local else 'globally'} already taken"
             )
         except Exception:
@@ -370,13 +366,11 @@ class TagHandler(Paginator):
                 embed.title = "Saving the tag failed"
                 embed.description = page
                 pages.append(embed)
-            await interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
             paginator = Paginator(pages)
             await paginator.start(self.ctx)
             return
 
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
+        await self.create_message(
             f"Your tag `{self.tag.name}` was successfully added to my storage :)"
         )
 
@@ -385,8 +379,7 @@ class TagHandler(Paginator):
             Embed(title="Enter the ID of the new owner or ping him/her/it or enter the complete name with #XXXX")
             .set_footer(text=f"timeout after {self.timeout}s")
         )
-        await interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE,
+        await self.create_message(
             embed=embed
         )
         bot_message = await interaction.fetch_initial_response()
@@ -464,7 +457,13 @@ class TagHandler(Paginator):
         self.embed.title = self.tag.name
         self.embed.description = self.tag.value[0]
         self.embed.add_field(name="Status", value=self.tag.__str__())
-        self._pages = [self.embed]
+        self._pages = [
+            Embed(
+                title=self.tag.name,
+                description=value,
+            ).add_field("Info", str(self.tag))
+            for value in self.tag.value
+        ]
         self._default_site = len(self._pages) - 1
 
 
@@ -487,11 +486,7 @@ class TagHandler(Paginator):
         tag.is_local_available = False
         self.tag = tag
 
-        self.embed = Embed()
-        self.embed.title = self.tag.name or "Name - not set"
-        self.embed.description = self.tag.value[self._position] or "Value - not set"
-        self.embed.add_field(name="Status", value=self.tag.__str__())
-        self._pages = [self.embed]
+        await self.load_tag(tag, author)
 
     async def _wait_for_link_button(self, tag: Tag) -> None:
         if not tag.tag_links:
