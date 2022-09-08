@@ -34,7 +34,7 @@ log.info(f"lavasnek-rs version:{lavasnek_rs.__version__}")
 def main():
     log.info("Create Inu")
     inu = Inu()
-    log.info(inu.conf)
+    print(inu.conf)
 
     @inu.listen(lightbulb.LightbulbStartedEvent)
     async def sync_prefixes(event: hikari.ShardReadyEvent):
