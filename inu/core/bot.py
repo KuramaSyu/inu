@@ -385,13 +385,30 @@ class MaybeRest:
             t_ids=[guild_id, member_id],
         )
 
-    async def fetch_guilds(self) -> List[hikari.Guild]:
+    async def fetch_members(self, guild_id: int) -> Optional[Iterable[hikari.Member]]:
+        members = await self.fetch_T(
+            cache_method=self.bot.cache.get_members_view_for_guild,
+            rest_coro= self.bot.rest.fetch_members,
+            t_ids=[guild_id],
+        )
+        if isinstance(members, Mapping):
+            return list(members.values())
+        else:
+            return members
 
-        return await self.fetch_T(
+
+    async def fetch_guilds(self) -> Iterable[hikari.Guild]:
+
+        guilds = await self.fetch_T(
             cache_method=self.bot.cache.get_available_guilds_view,
             rest_coro= self.bot.rest.fetch_my_guilds,
             t_ids=[],
         )
+        if isinstance(guilds, Mapping):
+            return list(guilds.values())
+        else:
+            return guilds
+
 
     async def fetch_roles(self, member: hikari.Member) -> List[hikari.Role]:
 
