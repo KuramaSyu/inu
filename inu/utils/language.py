@@ -256,6 +256,20 @@ class Human():
                 break
         return short_text
 
+    @staticmethod
+    def short_text_from_center(text: Optional[str], max_length: int) -> str:
+        """
+        Returns:
+        --------
+            - (str) the text until max_lengh with ... or complete text
+        """
+        text = str(text)
+        if len(text) <= max_length:
+            return text
+        suffix = " [...] "
+        max_length = int(max_length - len(suffix))
+        return f"{text[:int(max_length/2)]}{suffix}{text[-1*(int(max_length/2)):]}"
+
     @classmethod
     def list_(
         cls,
