@@ -1,13 +1,11 @@
 from contextlib import suppress
 import random
 import asyncio
-from typing import (
-    Union,
-    Optional,
-)
+from typing import *
 import traceback
 
 import hikari
+from hikari import Embed
 import lightbulb
 from lightbulb import events, errors
 from lightbulb.context import Context
@@ -16,10 +14,11 @@ from core import Inu
 from utils.language import Human
 from .help import OutsideHelp
 
-from core import getLogger, BotResponseError
+from core import getLogger, BotResponseError, Inu
 
 log = getLogger(__name__)
 pl = lightbulb.Plugin("Error Handler")
+bot: Inu
 
 
 
@@ -41,58 +40,115 @@ async def on_error(event: events.CommandErrorEvent):
     """
     """
     try:
-        ctx: Optional[Context] = event.context
+        ctx: Context | None = event.context
 
-        if ctx is None:
+        if not isinstance(ctx, Context):
             log.debug(f"Exception uncaught: {event.__class__}")
             return
         error = event.exception
-
+        log.debug(f"{dir(event)}")
+        log.debug(f"{dir(error)}")
         async def message_dialog(error_embed: hikari.Embed):
-            message = await (await ctx.respond(embed = error_embed)).message()
+            error_id = f"{bot.restart_num}-{bot.id_creator.create_id()}-{bot.me.username[0]}"
+            component=(
+                hikari.impl.ActionRowBuilder()
+                .add_button(hikari.ButtonStyle.PRIMARY, "error_send_dev")
+                .set_label("🍭 Report bug with note")
+                .add_to_container()
+                .add_button(hikari.ButtonStyle.PRIMARY, "error_send_dev_silent")
+                .set_label("🍭 Report bug silent")
+                .add_to_container()
+            )
+            if pl.bot.conf.bot.owner_id == ctx.user.id:
+                component = (
+                    component
+                    .add_button(hikari.ButtonStyle.SECONDARY, "error_show")
+                    .set_label("Show error")
+                    .add_to_container()
+                )
+            message = await (await ctx.respond(
+                embed=error_embed,
+                component=component
+            )).message()
 
             def check(event: hikari.ReactionAddEvent):
-                if event.user_id != pl.bot.me.id and event.message_id == message.id:
+                if event.user_id != bot.me.id and event.message_id == message.id:
                     return True
                 return False
             
-            for reaction in ['❔']:
-                await message.add_reaction(reaction)
-            if int(pl.bot.conf.bot.owner_id) == ctx.user.id:
-                await message.add_reaction("🍭")
-            try:
-                e: hikari.ReactionAddEvent = await pl.bot.wait_for(
-                    hikari.ReactionAddEvent,
-                    timeout=int(60*10),
-                    predicate=check,
+            custom_id, _, interaction = await bot.wait_for_interaction(
+                custom_ids=["error_send_dev", "error_show", "error_send_dev_silent"],
+                message_id=message.id,
+                user_id=ctx.user.id
+            )
+            # await interaction.delete_message(message)
+            embeds: List[Embed] = [Embed(title=f"Bug #{error_id}", description=str(error)[:2000])]
+            embeds[0].set_author(
+                name=f'Invoked by: {ctx.user.username}',
+                icon=ctx.author.avatar_url
+            )
+            embeds[0].add_field(
+                "invoked with", 
+                value=(
+                    f"Command: {ctx.invoked_with}\n"
+                    "\n".join([f"`{k}`: ```\n{v}```" for k, v in ctx.raw_options.items()])
+                )[:1000]
+            )
+            nonlocal event
+            traceback_list = traceback.format_exception(*event.exc_info)
+            if len(traceback_list) > 0:
+                log.warning(str("\n".join(traceback_list)))
+            error_embed.add_field(
+                name=f'{str(error.__class__)[8:-2]}',
+                value=f'Error:\n{error}'[:1024],
+            )
+            for index, tb in enumerate(traceback_list):
+                if index % 20 == 0 and index != 0:
+                    embeds.append(Embed(description=f"Bug #{error_id}"))
+                embeds[-1].add_field(
+                    name=f'Traceback - layer {index + 1}',
+                    value=f'```python\n{Human.short_text_from_center(tb, 1000)}```',
+                    inline=False
                 )
-            except asyncio.TimeoutError:
-                await message.remove_all_reactions()
-                return
-            if str(e.emoji_name) == '🍭':
-                error_embed.set_author(
-                    name=f'Invoked by: {ctx.member.display_name if ctx.member else ctx.author.username}',
-                    url=str(ctx.author.avatar_url)
-                )
-                traceback_list = traceback.format_exception(*event.exc_info)
-                if len(traceback_list) > 0:
-                    log.warning(str("\n".join(traceback_list)))
-                error_embed.add_field(
-                    name=f'{str(error.__class__)[8:-2]}',
-                    value=f'Error:\n{error}',
+            kwargs: Dict[str, Any] = {"embeds": embeds}
+            answer = ""
+            if custom_id == "error_show":
+                await message.edit(embeds=embeds)
+                
+            if custom_id == "error_send_dev":
+                try:
+                    answer, interaction, event = await bot.shortcuts.ask_with_modal(
+                        f"Bug report", 
+                        question_s="Do you have additional information?", 
+                        interaction=interaction,
+                        pre_value_s="/",
                     )
-                for index, tb in enumerate(traceback_list):
-                    error_embed.add_field(
-                        name=f'Traceback - layer {index + 1}',
-                        value=f'```python\n{tb}```',
-                        inline=False
-                    )
-                await message.edit(embed=error_embed)
-                await message.remove_all_reactions()
+                except asyncio.TimeoutError:
+                    answer = "/"
+                if answer == "/":
+                    answer = ""
 
-            elif str(e.emoji_name) == '❔':
-                await OutsideHelp.search(ctx.invoked_with, ctx)
-                await message.remove_all_reactions()
+            kwargs["content"] = f"**{40*'#'}\nBug #{error_id}\n{40*'#'}**\n\n\n{Human.short_text(answer, 1930)}"
+
+            message = await bot.rest.create_message(
+                channel=bot.conf.bot.bug_channel_id,
+                **kwargs
+            )
+            if interaction:
+                await interaction.create_initial_response(
+                    content=(
+                        f"**Bug #{error_id}** has been reported.\n"
+                        f"You can find the bug report [here]({message.make_link(message.guild_id)})\n"
+                        f"If you can't go to this message, or need additional help,\n"
+                        f"consider to join the [help server]({bot.conf.bot.guild_invite_url})"
+
+                    ),
+                    flags=hikari.MessageFlag.EPHEMERAL,
+                    response_type=hikari.ResponseType.MESSAGE_CREATE
+                )
+            # elif str(e.emoji_name) == '❔':
+            #     await OutsideHelp.search(ctx.invoked_with, ctx)
+            #     await message.remove_all_reactions()
             return
 
         # errors which will be handled also without prefix
@@ -154,8 +210,8 @@ async def on_error(event: events.CommandErrorEvent):
             )
         else:
             error_embed = hikari.Embed()
-            error_embed.title = random.choice(['ERROR', '3RR0R', "Internal problems going on here"])
-            error_embed.description = f'{str(error) if len(str(error)) < 2000 else str(error)[:2000]}'
+            error_embed.title = "Oh no! A bug occurred"
+            error_embed.description = str(error)[:2000]
             with suppress(hikari.ForbiddenError):
                 await message_dialog(error_embed)
     except Exception:
@@ -163,5 +219,7 @@ async def on_error(event: events.CommandErrorEvent):
 
 
 
-def load(bot: Inu):
-    bot.add_plugin(pl)
+def load(inu: Inu):
+    global bot
+    bot = inu
+    inu.add_plugin(pl)
