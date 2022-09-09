@@ -50,6 +50,7 @@ class BotResponseError(Exception):
 
 
 class Inu(lightbulb.BotApp):
+    restart_count: int
     def __init__(self, *args, **kwargs):
         self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
@@ -220,16 +221,24 @@ class Inu(lightbulb.BotApp):
         channel_id: Optional[int] = None,
         message_id: Optional[int] = None,
         interaction_instance: Any = hikari.ComponentInteraction,
-    ) -> Tuple[str, InteractionCreateEvent, ComponentInteraction]:
+        timeout: int | None = None,
+    ) -> Tuple[str | None, InteractionCreateEvent | None, ComponentInteraction | None]:
         """
         Returns:
         str:
             first value if there is one, otherwise custom_id
+            None if timeout
+        InteractionCreateEvent:
+            the event of the awaited interaction
+            None if timeout
+        ComponentInteraction:
+            the component interaction to respond, of the awaited interaction
+            None if timeout
         """
         try:
             event = await self.wait_for(
                 InteractionCreateEvent,
-                timeout=15*60,
+                timeout=timeout or 15*60,
                 predicate=lambda e:(
                     isinstance(e.interaction, interaction_instance)
                     and (True if not custom_id else custom_id == e.interaction.custom_id)
