@@ -168,6 +168,14 @@ async def fetch_anime(ctx: context.Context):
         return
     await pag.start(ctx, ctx.options.name)
 
+@fetch_anime.set_error_handler()
+async def anime_on_error(e: lightbulb.CommandErrorEvent):
+    await e.context.respond(
+        f"Seems like you haven't typed in something anime like.",
+        flags=hikari.MessageFlag.EPHEMERAL
+    )
+    return True
+
 
 
 @plugin.command
