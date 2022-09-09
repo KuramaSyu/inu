@@ -37,6 +37,17 @@ class BoardManager:
             pass
 
     @classmethod
+    def _cache_remove_message(cls, guild_id: int, message_id: int):
+        try:
+            for emoji in cls._cache[guild_id].keys():
+                try:
+                    cls._cache[guild_id][emoji].remove(message_id)  # type: ignore
+                except KeyError:
+                    pass
+        except KeyError:
+            pass
+
+    @classmethod
     def _cache_remove_emoji(cls, guild_id: int, emoji: str):
         try:
             del cls._cache[guild_id][emoji]
@@ -155,7 +166,7 @@ class BoardManager:
     async def remove_entry(
         cls,
         message_id: int,
-        emoji: str
+        emoji: str | None
     ):
         """
         Delete board entry
@@ -174,9 +185,10 @@ class BoardManager:
         if emoji:
             columns.append("emoji")
             where.append(emoji)
-        record = (await table.delete(columns=columns, matching_values=where))[0]
-        cls._cache_remove_entry(record["guild_id"], record["emoji"], record["message_id"])
-        return record
+        records = await table.delete(columns=columns, matching_values=where)
+        for record in records:
+            cls._cache_remove_entry(record["guild_id"], record["emoji"], record["message_id"])
+        return records
 
     @classmethod
     async def fetch_reactions(
