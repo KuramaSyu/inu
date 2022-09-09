@@ -52,20 +52,21 @@ async def on_error(event: events.CommandErrorEvent):
             error_id = f"{bot.restart_num}-{bot.id_creator.create_id()}-{bot.me.username[0]}"
             component=(
                 hikari.impl.ActionRowBuilder()
-                .add_button(hikari.ButtonStyle.PRIMARY, "error_send_dev")
-                .set_label("🍭 Report bug with note")
-                .add_to_container()
                 .add_button(hikari.ButtonStyle.PRIMARY, "error_send_dev_silent")
-                .set_label("🍭 Report bug silent")
+                .set_label("🍭 Send report")
                 .add_to_container()
+                .add_button(hikari.ButtonStyle.PRIMARY, "error_send_dev")
+                .set_label("🍭 Add note & send")
+                .add_to_container()
+
             )
-            if pl.bot.conf.bot.owner_id == ctx.user.id:
-                component = (
-                    component
-                    .add_button(hikari.ButtonStyle.SECONDARY, "error_show")
-                    .set_label("Show error")
-                    .add_to_container()
-                )
+            # if pl.bot.conf.bot.owner_id == ctx.user.id:
+            #     component = (
+            #         component
+            #         .add_button(hikari.ButtonStyle.SECONDARY, "error_show")
+            #         .set_label("Show error")
+            #         .add_to_container()
+            #     )
             message = await (await ctx.respond(
                 embed=error_embed,
                 component=component
