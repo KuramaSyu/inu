@@ -50,7 +50,7 @@ async def init_method():
     pass
 
 async def clean_boards():
-    max_age = datetime.now() - timedelta(days=bot.conf.bot.boards_entry_lifetime)
+    max_age = datetime.now() - timedelta(days=bot.conf.commands.board_entry_lifetime)
     table = Table("board.entries")
     records = await table.execute(
         (
@@ -58,7 +58,7 @@ async def clean_boards():
             f"WHERE created_at < $1"
         ), max_age
     )
-    log.info(f"deleted {Human.plural_('board entry', len(records))}")
+    log.info(f"deleted {Human.plural_('board-entry', len(records), with_number=True)}")
 
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
