@@ -36,6 +36,8 @@ T_INTERACTION_TYPE = TypeVar("T_INTERACTION_TYPE", bound=Union[ComponentInteract
 T_INTERACTION_CTX = TypeVar("T_INTERACTION_CTX", lightbulb.SlashContext, hikari.ComponentInteraction, hikari.ModalInteraction)
 T = TypeVar("T")
 
+log = getLogger(__name__)
+
 
 class BotResponseError(Exception):
     def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
@@ -420,9 +422,9 @@ class Search:
 
     async def guild(cls, guild_query: str) -> List[hikari.Guild]:
         guild_query = guild_query.lower().strip()
-        guilds = await self.m
+        guilds = cls.bot.cache.get_guilds_view()
         return [
-            g for g in guilds 
+            g for s, g in guilds.items()
             if guild_query in str(g.id).lower() or guild_query in str(g.name).lower()
         ]
 
