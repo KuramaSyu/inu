@@ -77,6 +77,7 @@ def main():
             else:
                 count = int(record["value"])
                 count += 1
+            inu.restart_num = count
             await table.upsert(["key", "value"], ["restart_count", str(count)])
             log.info(f'RESTART NUMBER: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
         except Exception:
