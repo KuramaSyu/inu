@@ -22,10 +22,10 @@ from utils.db import BoardManager
 import asyncpg
 
 from core import Table, getLogger, Inu
-from utils import make_message_link, Colors, Multiple
+from utils import make_message_link, Colors, Multiple, Human
 
 log = getLogger(__name__)
-METHOD_SYNC_TIME: int
+BOARD_SYNC_TIME = 60*60*24
 SYNCING = False
 bot: Inu
 
@@ -39,18 +39,26 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     else:
         SYNCING = True
     await asyncio.sleep(3)
-    await method()
+    await clean_boards()
 
-    trigger = IntervalTrigger(seconds=METHOD_SYNC_TIME)
-    plugin.bot.scheduler.add_job(method, trigger)
+    trigger = IntervalTrigger(seconds=BOARD_SYNC_TIME)
+    plugin.bot.scheduler.add_job(clean_boards, trigger)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
     await init_method()
 
 async def init_method():
     pass
 
-async def method():
-    pass
+async def clean_boards():
+    max_age = datetime.now() - timedelta(days=bot.conf.bot.boards_entry_lifetime)
+    table = Table("board.entries")
+    records = await table.execute(
+        (
+            f"DELETE FROM {table.name}\n"
+            f"WHERE created_at < $1"
+        ), max_age
+    )
+    log.info(f"deleted {Human.plural_('board entry', len(records))}")
 
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
@@ -158,12 +166,14 @@ async def on_reaction_remove(event: hikari.GuildReactionDeleteEvent):
     else:
         entry = await BoardManager.fetch_entry(event.message_id, emoji)
         await update_message(entry, reaction_amount=amount)
-    
+
+
 
 @plugin.listener(hikari.GuildMessageDeleteEvent)
 async def on_message_remove(event: hikari.GuildMessageDeleteEvent):
-    # delete from board
-    ...
+    if not BoardManager.has_message_id(event.guild_id, None, event.message_id):
+        return
+    await BoardManager.remove_entry(event.message_id, None)
 
 @plugin.listener(hikari.GuildLeaveEvent)
 async def on_guild_leave(event: hikari.GuildLeaveEvent):
@@ -272,6 +282,6 @@ async def update_message(
 def load(inu: Inu):
     global bot
     bot = inu
-    global METHOD_SYNC_TIME
-    METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
+    global BOARD_SYNC_TIME
+    BOARD_SYNC_TIME = inu.conf.commands.poll_sync_time
     inu.add_plugin(plugin)
