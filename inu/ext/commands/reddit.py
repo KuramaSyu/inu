@@ -69,7 +69,7 @@ async def memes(ctx: Context):
     await send_pic(ctx, subreddit)
 
 
-subreddits: Dict[str, int] = {
+subreddits: Dict[str, Dict[str, int]] = {
     'AnimeBooty': {
         'hot': 13,
         'top': 5,
