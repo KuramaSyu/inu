@@ -12,6 +12,7 @@ from cachetools import TTLCache
 from dotenv import load_dotenv
 from core import Inu
 from core import getLogger
+from utils import Multiple
 
 
 log = getLogger(__name__)
@@ -50,10 +51,28 @@ class Reddit():
         top: bool = False,
         minimum: int = 10,
         time_filter: str = 'day',
+        media_filter: List[str] = ["png", "jpg"]
     ) -> List[asyncpraw.models.Submission]:
         """
         Fetches submissions for specified settings.
 
+        Args:
+        -----
+        subreddit : str
+            the subreddit you want posts from
+        hot : bool
+            wether or not to fetch posts under `hot`
+        top : bool
+            wether or not to fetch posts under `top`
+        minimum : int
+            the amount of posts to fetch
+        time_filter : str
+            the time filter to use for hot posts. Only if hot is True.
+            Possible options:
+                - day
+                - week
+                - month
+                - year
         Note:
         -----
         submissions will be cached for 3 hours
@@ -64,6 +83,7 @@ class Reddit():
             top,
             minimum,
             time_filter,
+            media_filter,
         )
 
     @classmethod
@@ -74,12 +94,15 @@ class Reddit():
         top: bool = False,
         minimum: int = 10,
         time_filter: str = 'day',
+        media_filter: List[str] | None= ["png", "jpg"],
     ) -> List[asyncpraw.models.Submission]:
         """
         Fetch submissions with given settings. No cache implemented
         """
         if not cls.reddit_client:
             raise UnvalidRedditClient
+        if not media_filter:
+            media_filter = [""]
 
         post_list: List[asyncpraw.models.Submission] = []
         try:
@@ -93,10 +116,7 @@ class Reddit():
                 if submission.stickied:
                     continue
                 if (
-                    (
-                        str(submission.url).endswith('png')
-                        or str(submission.url).endswith('jpg')
-                    )
+                    Multiple.endswith_(submission.url, media_filter)
                     and submission not in post_list
                 ):
                     if len(post_list) >= minimum:
