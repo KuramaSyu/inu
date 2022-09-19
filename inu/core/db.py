@@ -318,12 +318,10 @@ class Table():
         returning: str = "*"
     ) -> Optional[asyncpg.Record]:
         """
-        NOTE
-        ----
-            - the first value of `which_columns` and `values` should be the id!
-            - if the id is a compound, then pass these first into `which_columns` and `values`
-              and set `compound_of` to the number, how many values count 
-              (until wich index + 1) to that compound
+        Args:
+        -----
+        set : Dict[str, Any]
+            the
         """
         num_gen = (num for num in range(1,100))
         update_set_query = ", ".join([f'{col_name}=${i}' for i, col_name in zip(num_gen, set.keys())])
