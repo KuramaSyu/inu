@@ -141,9 +141,11 @@ async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 3):
     except Exception as e:
         log.critical(traceback.format_exc())
         raise e
-    
+
+# DISABLED - WILL BE REMOVED
 @plugin.listener(hikari.ReactionAddEvent)
 async def on_thumb_up(event: hikari.ReactionAddEvent):
+    return
     if event.emoji_name != "👍":
         return
     
@@ -159,8 +161,8 @@ async def on_thumb_up(event: hikari.ReactionAddEvent):
             log.debug(ch)
             await plugin.bot.rest.create_message(ch, embed=message.embeds[0])
         except Exception:
-            log.error(traceback.format_exc())
-            await plugin.bot.rest.create_message(event.channel_id, "I can't send this message anywhere :/")
+            pass
+            # await plugin.bot.rest.create_message(event.channel_id, "I can't send this message anywhere :/")
     
          
 def load(bot: Inu):
