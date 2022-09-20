@@ -488,7 +488,6 @@ async def settings_board_add(ctx: SlashContext):
 async def settings_board_remove(ctx: SlashContext):
     await BoardManager.remove_board(
         guild_id=ctx.guild_id,
-        channel_id=ctx.channel_id,
         emoji=ctx.options.emoji,
     )
     await ctx.respond(
