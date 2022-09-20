@@ -133,6 +133,7 @@ class BoardManager:
         emoji: str,
         content: Optional[str],
         board_message_id: Optional[int],
+        author_id: Optional[int] = None,
 
     ):
         """
@@ -151,6 +152,8 @@ class BoardManager:
             set_["content"] = content
         if board_message_id:
             set_["board_message_id"] = board_message_id
+        if author_id:
+            set_["author_id"] = board_message_id
         
         await table.update(
             where={
