@@ -207,7 +207,7 @@ async def update_message(
         await BoardManager.edit_entry(
             message_id=message_id,
             emoji=emoji,
-            author_id=author.id,
+            author_id=optional_author_id,
         )
     if not author:
         log.warning(f"no member with id {board_entry['author_id']} found")
