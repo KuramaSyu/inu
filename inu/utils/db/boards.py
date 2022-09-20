@@ -154,6 +154,8 @@ class BoardManager:
             set_["board_message_id"] = board_message_id
         if author_id:
             set_["author_id"] = board_message_id
+        if not set_:
+            return
         
         await table.update(
             where={
