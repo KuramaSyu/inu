@@ -116,7 +116,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
         )
     except asyncpg.UniqueViolationError:
         log.debug(f"Violation error - reaction was already added")
-    await update_message(entry, message)
+    await update_message(entry, message, optional_author_id=event.user_id)
 
 
 
@@ -161,11 +161,11 @@ async def on_reaction_remove(event: hikari.GuildReactionDeleteEvent):
             log.debug(f"No entry was deleted ")
             return
         board = await BoardManager.fetch_board(event.guild_id, emoji)
-        await bot.rest.delete_message(board["channel_id"], entry["board_message_id"])
-        log.debug(f"message {entry['board_message_id']} deleted")
+        await bot.rest.delete_message(board["channel_id"], entry[0]["board_message_id"])
+        log.debug(f"message {entry[0]['board_message_id']} deleted")
     else:
         entry = await BoardManager.fetch_entry(event.message_id, emoji)
-        await update_message(entry, reaction_amount=amount)
+        await update_message(entry, reaction_amount=amount, optional_author_id=event.user_id)
 
 
 
@@ -175,6 +175,7 @@ async def on_message_remove(event: hikari.GuildMessageDeleteEvent):
         return
     await BoardManager.remove_entry(event.message_id, None)
 
+
 @plugin.listener(hikari.GuildLeaveEvent)
 async def on_guild_leave(event: hikari.GuildLeaveEvent):
     # remove all boards
@@ -182,10 +183,12 @@ async def on_guild_leave(event: hikari.GuildLeaveEvent):
     board_records = await BoardManager.remove_board(event.guild_id)
     log.debug(f"removed {len(board_records)} boards from {event.guild_id}")
 
+
 async def update_message(
     board_entry: Dict[str, Any],
     message: Optional[hikari.Message] = None,
     reaction_amount: int | None = None,
+    optional_author_id: int | None = None,
 ):
     channel_id = board_entry["channel_id"]
     message_id = board_entry["message_id"]
@@ -193,13 +196,26 @@ async def update_message(
     content = board_entry["content"]
     emoji = board_entry["emoji"]
 
-    author = await bot.mrest.fetch_member(guild_id, board_entry["author_id"])
+    # fetch author or event author
+    try:
+        author = await bot.mrest.fetch_member(guild_id, board_entry["author_id"])
+    except Exception as e:
+        if not optional_author_id:
+            log.error(traceback.format_exc())
+            return
+        author = await bot.mrest.fetch_member(guild_id, optional_author_id)
+        await BoardManager.edit_entry(
+            message_id=message_id,
+            emoji=emoji,
+            author_id=author.id,
+        )
     if not author:
         log.warning(f"no member with id {board_entry['author_id']} found")
         return
 
     message_votes = reaction_amount or await BoardManager.fetch_entry_reaction_amount(message_id, emoji)
     board = await BoardManager.fetch_board(guild_id, emoji)
+
 
     color_stages = {
         n: color for n, color in zip(
