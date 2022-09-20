@@ -153,7 +153,7 @@ class BoardManager:
         if board_message_id:
             set_["board_message_id"] = board_message_id
         if author_id:
-            set_["author_id"] = board_message_id
+            set_["author_id"] = author_id
         if not set_:
             return
         
