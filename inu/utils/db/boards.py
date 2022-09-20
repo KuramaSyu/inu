@@ -131,8 +131,8 @@ class BoardManager:
         cls,
         message_id: int,
         emoji: str,
-        content: Optional[str],
-        board_message_id: Optional[int],
+        content: Optional[str] = None,
+        board_message_id: Optional[int] = None,
         author_id: Optional[int] = None,
 
     ):
