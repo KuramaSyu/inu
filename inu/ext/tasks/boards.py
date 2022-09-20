@@ -97,7 +97,7 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
         entry = (await BoardManager.add_entry(
             guild_id=event.guild_id,
             message_id=event.message_id,
-            author_id=message.author.id,
+            author_id=message.author.id or event.user_id,
             channel_id=message.channel_id,
             emoji=event.emoji_name,
             content=content,
