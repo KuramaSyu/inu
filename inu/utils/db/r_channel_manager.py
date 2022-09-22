@@ -20,7 +20,7 @@ from hikari import User, Member
 from numpy import column_stack
 
 
-from core.db import Database
+from core.db import Database, Table
 
 from core import getLogger
 
@@ -87,11 +87,24 @@ class DailyContentChannels:
         await cls.db.execute(sql, guild_id, channels)
 
     @classmethod
+    async def remove_guild(
+        cls,
+        guild_id: int
+    ):
+        table = Table("reddit_channels")
+        sql = f"""
+        DELETE FROM {table.name}
+        WHERE guild_id = $1
+        """
+        await table.execute(sql)
+
+
+    @classmethod
     async def remove_channel(
         cls,
         table_column: Columns,
         channel_id: int,
-        guild_id: int,
+        guild_id: int | None,
     ):
         """
         Removes the <channel_id> from the channels, where my bot sends frequently content to
@@ -170,4 +183,3 @@ class DailyContentChannels:
             mapping = {r["guild_id"]: channels}
             mappings.append(mapping)
         return mappings
-
