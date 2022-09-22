@@ -607,7 +607,7 @@ async def tag_add_alias(ctx: Context):
     if not record:
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.aliases.append(f"{ctx.options.alias.strip()}")
+    tag.aliases.add(f"{ctx.options.alias.strip()}")
     await tag.save()
     await ctx.respond(
         f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`"
@@ -634,7 +634,7 @@ async def tag_remove_alias(ctx: Context):
         return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
-        tag.aliases.append(f"{ctx.options.alias.strip()}")
+        tag.aliases.add(f"{ctx.options.alias.strip()}")
     except ValueError:
         return await ctx.respond(f"This tag don't have an ailias called `{ctx.options.alias.strip()}` which I could remove")
     await tag.save()
