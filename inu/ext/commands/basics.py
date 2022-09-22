@@ -421,7 +421,15 @@ async def add_alias(ctx: context.UserContext):
             f"I don't have the permissions to edit nicknames. Some permissions are missing.",
             flags=hikari.MessageFlag.EPHEMERAL,
         )       
-        raise e
+        return
+    except hikari.BadRequestError:
+        raise BotResponseError(
+            (
+                "Discord don't accept it.\n"
+                "Maybe the new name is too long?"
+            ),
+            ephemeral=True
+        )
     await ctx.respond(
         f"Added alias `{alias}` to {member.display_name}\nNew name: {nickname} {seperator} {alias}",
         flags=hikari.MessageFlag.EPHEMERAL,
