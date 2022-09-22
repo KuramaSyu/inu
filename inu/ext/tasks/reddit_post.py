@@ -107,7 +107,7 @@ async def pics_of_hour():
             for guild_id, channel_ids in mapping.items():
                 for channel_id in channel_ids:
                     try:
-                        task = asyncio.create_task(send_top_x_pics(subreddit, channel_id))
+                        task = asyncio.create_task(send_top_x_pics(subreddit, channel_id, guild_id))
                         tasks.append(task)
                     except Exception:
                         await DailyContentChannels.remove_channel(Col.CHANNEL_IDS, channel_id, guild_id)
@@ -118,7 +118,7 @@ async def pics_of_hour():
     except Exception:
         log.critical(traceback.format_exc())
 
-async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 3):
+async def send_top_x_pics(subreddit: str, channel_id: int, guild_id: int, count: int = 3):
     hours = int(tm.strftime("%H", tm.localtime()))
     try:
         posts = await Reddit.get_posts(
@@ -137,10 +137,20 @@ async def send_top_x_pics(subreddit: str, channel_id: int, count: int = 3):
             embed.set_image(posts[x].url)
             embed.description = f'[{posts[x].subreddit_name_prefixed}](https://www.reddit.com/{posts[x].subreddit._path})'
             log.debug(channel_id)
-            await plugin.bot.rest.create_message(channel_id, embed=embed)
+            try:
+                await plugin.bot.rest.create_message(channel_id, embed=embed)
+            except hikari.ForbiddenError:
+                log.debug(f"remove channel: {channel_id}")
+                await DailyContentChannels.remove_channel(Col.CHANNEL_IDS, channel_id, guild_id)
     except Exception as e:
         log.critical(traceback.format_exc())
         raise e
+
+
+@plugin.listener(hikari.GuildLeaveEvent)
+async def on_guild_leave(event: hikari.GuildLeaveEvent):
+    await DailyContentChannels.remove_guild(event.guild_id)
+
 
 # DISABLED - WILL BE REMOVED
 @plugin.listener(hikari.ReactionAddEvent)
