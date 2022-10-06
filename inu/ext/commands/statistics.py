@@ -131,7 +131,7 @@ async def current_games(ctx: Context):
     timedelta_ = timedelta(seconds=seconds)
     show_only_games = ctx.options.show_only_games
     remove_apps: List[str] = []
-    coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode"]
+    coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
     double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
     remove_apps.extend(double_games)
