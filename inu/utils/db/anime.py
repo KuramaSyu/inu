@@ -98,48 +98,6 @@ class Anime:
         self.__dict__.update(new_anime.__dict__)
         self._details_loaded = True
         return self
-    
-    # def _load_detail_response(self, response: Dict[str, Any]) -> "Anime":
-    #     """deserielizes response into self"""
-    #     self.resp = response
-    #     self._details_loaded = True
-    #     self._title = self.resp.get('title')
-    #     self._id = self.resp.get('id')
-    #     self.alternative_titles = self.resp.get('alternative_titles')
-    #     if self.alternative_titles:
-    #         self.title_synonyms = self.alternative_titles.get('synonyms')
-    #     self.average_episode_duration = self.resp.get('average_episode_duration')
-    #     self.background = self.resp.get('background', "")
-    #     self.broadcast = self.resp.get('broadcast')
-    #     self._created_at = self.resp.get('created_at')
-    #     self._end_date = self.resp.get('end_date')
-    #     self.ending_themes = self.resp.get('ending_themes', [])
-    #     self.genres = self.resp.get('genres', [])
-    #     self._id = self.resp.get('id')
-    #     self.main_picture = self.resp.get('main_picture')
-    #     self.mean_score = self.resp.get('mean')
-    #     self.media_type = self.resp.get('media_type')
-    #     self.nsfw= self.resp.get('nsfw')
-    #     self.num_episodes= self.resp.get('num_episodes')
-    #     self.num_list_users = self.resp.get('num_list_users')
-    #     self.num_scoring_users = self.resp.get('num_scoring_users')
-    #     self.opening_themes = self.resp.get('opening_themes', [])
-    #     self.pictures = self.resp.get('pictures')
-    #     self.popularity = self.resp.get('popularity')
-    #     self.rank = self.resp.get('rank')
-    #     self._rating = self.resp.get('rating', "")
-    #     self.recommendations = self.resp.get('recommendations')
-    #     self.related_anime = self.resp.get('related_anime')
-    #     self.related_manga = self.resp.get('related_manga')
-    #     self._source = self.resp['source']
-    #     self.start_date = self.resp.get('start_date')
-    #     self.start_season = self.resp.get('start_season')
-    #     self._statistics = self.resp.get('statistics')
-    #     self.status = self.resp['status']
-    #     self.studios = self.resp.get('studios', [])
-    #     self.synopsis = self.resp.get('synopsis', "")
-    #     self._updated_at = self.resp.get('updated_at')
-    #     return self
 
 
     @property
@@ -185,6 +143,7 @@ class Anime:
 
     @property
     def rating(self) -> str:
+        """the age rating as string"""
         try:
             r = self._rating.replace("+", "_plus")
             return MALRatings[r].value
@@ -225,12 +184,27 @@ class Anime:
             - it'll cache until 9999/12/31 if the anime is finsished. 
               Otherwise obout 1 month (given from jikan meta data)
          """
+        if not self.airing_stop and datetime.now() - self.airing_stop < timedelta(weeks=12):
+            # is currently airing and younger than 12 weeks -> typical anime release shedule -> update 1/day
+            return datetime.now() + timedelta(days=1)
         if not self.airing_stop:
-            return datetime.now() + timedelta(days=15)
+            # is currently airing in an non typical shedule -> update 1/week
+            return datetime.now() + timedelta(days=7)
         elif datetime.now().year - self.airing_stop.year > 15:
+            # older than 15 years
             return datetime.now() + timedelta(days=360)
         elif datetime.now().year - self.airing_stop.year > 10:
+            # older than 10 years
             return datetime.now() + timedelta(days=90)
+        elif datetime.now() - self.airing_stop < timedelta(weeks=4):
+            # younger than 4 weeks
+            return datetime.now() + timedelta(days=1)
+        elif datetime.now() - self.airing_stop < timedelta(weeks=12):
+            # younger than 12 weeks
+            return datetime.now() + timedelta(days=4)
+        elif datetime.now() - self.airing_stop < timedelta(weeks=24):
+            # younger than 24 weeks
+            return datetime.now() + timedelta(days=10)
         else:
             return datetime.now() + timedelta(days=30)
     
