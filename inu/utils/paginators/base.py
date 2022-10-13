@@ -585,6 +585,7 @@ class Paginator():
             kwargs["components"] = self.components
         if (download := self.download):
             kwargs["attachment"] = hikari.Bytes(download, self._download_name)
+        kwargs.update(self._first_message_kwargs)
         if isinstance(self.pages[self._default_site], Embed):
             msg_proxy = await ctx.respond(
                 embed=self.pages[0],
