@@ -6,7 +6,7 @@ import random
 import traceback
 from pprint import pformat
 import re
-from copy import deepcopy
+from copy import deepcopy, copy
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
@@ -174,7 +174,7 @@ class AnimePaginator(Paginator):
         elif custom_id == "btn_anime_iterate_recommended":
             # send new message with all recommendations 
             anime = await self._fetch_current_anime()
-            results: Dict[str, Dict[str, int]] = anime._recommendations
+            results: Dict[str, Dict[str, int]] = copy(anime._recommendations)
             anime_recommended_pag = AnimePaginator(
                 with_refresh_btn=False,
                 first_message_kwargs={"content": f"Recommendations for `{anime.title}`"}
