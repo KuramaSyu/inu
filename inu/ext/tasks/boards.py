@@ -58,7 +58,8 @@ async def clean_boards():
             f"WHERE created_at < $1"
         ), max_age
     )
-    log.info(f"deleted {Human.plural_('board-entry', len(records), with_number=True)}")
+    if records:
+        log.info(f"deleted {Human.plural_('board-entry', len(records), with_number=True)}")
 
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):
