@@ -1,3 +1,4 @@
+from this import d
 from typing import *
 from enum import Enum
 from pprint import pprint
@@ -55,6 +56,7 @@ class AnimePaginator(Paginator):
         self,
         with_refresh_btn: bool = False,
         old_message = None,
+        **kwargs
     ):
         self._old_message = old_message
         self._with_refresh_btn = with_refresh_btn
@@ -65,12 +67,13 @@ class AnimePaginator(Paginator):
         self._current_has_sequel: bool = False
         self._max_openings: int = 4
         self._max_endings: int = 4
+        self._detailed: bool = False
+        self._base_init_kwargs = kwargs or {}
 
         # re-init in start - just leave it
         super().__init__(
             page_s=["None"], 
-            timeout=60*2, 
-            disable_paginator_when_one_site=False,
+            timeout=60*2,
         )
         
 
@@ -79,7 +82,7 @@ class AnimePaginator(Paginator):
         if not isinstance(components, list):
             return components
         # components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort by score").add_to_container()
-        components = [*components, ActionRowBuilder()]
+        components: List[ActionRowBuilder] = [*components, ActionRowBuilder()]
         if len(self._pages) == 1:
             # remove pagination if there is only one page
             components.pop(0)
@@ -96,13 +99,13 @@ class AnimePaginator(Paginator):
             components[-1] = (
                 components[-1]
                 .add_button(ButtonStyle.SECONDARY, "btn_anime_openings")
-                .set_label("openings").add_to_container()
+                .set_label("⤵️ openings").add_to_container()
             )
         if self.has_too_many_openings:
             components[-1] = (
                 components[-1]
                 .add_button(ButtonStyle.SECONDARY, "btn_anime_endings")
-                .set_label("endings").add_to_container()
+                .set_label("⤵️ endings").add_to_container()
             )     
         if self.has_prequel:
             components[-1] = (
@@ -116,6 +119,16 @@ class AnimePaginator(Paginator):
                 .add_button(ButtonStyle.SECONDARY, "btn_anime_sequel")
                 .set_label("Sequel ⏩").add_to_container()
             )
+
+        if self._detailed:
+            # check length of last component
+            if len(components[-1]._components) >= 5:
+                components.append(ActionRowBuilder())
+            components[-1] = (
+                components[-1]
+                .add_button(ButtonStyle.SECONDARY, "btn_anime_iterate_recommended")
+                .set_label("⤵️ recommendations").add_to_container()
+            )
         return components
     
     @listener(hikari.InteractionCreateEvent)
@@ -123,6 +136,7 @@ class AnimePaginator(Paginator):
         if not isinstance(event.interaction, ComponentInteraction):
             return
         custom_id = event.interaction.custom_id
+        i = event.interaction
         if event.interaction.custom_id == "btn_anime_sort":
             self._sort_embeds(SortTypes.BY_SCORE)
             self._position = 0
@@ -157,21 +171,61 @@ class AnimePaginator(Paginator):
             self._set_anime_id_as_next_item(self.sequel_id)
             self._position += 1
             await self._update_position(event.interaction)
+        elif custom_id == "btn_anime_iterate_recommended":
+            # send new message with all recommendations 
+            anime = await self._fetch_current_anime()
+            results: Dict[str, Dict[str, int]] = anime._recommendations
+            anime_recommended_pag = AnimePaginator(
+                with_refresh_btn=False,
+                first_message_kwargs={"content": f"Recommendations for `{anime.title}`"}
+            )
+            try:
+                # reset interaction
+                self.ctx._interaction = i
+                self.ctx._responded = False
+            except AttributeError:
+                pass
+            await anime_recommended_pag.start(
+                self.ctx,
+                anime_name=None,
+                results=results
+            )
         
 
     def _sort_embeds(self, sort_by: SortTypes):
         self._pages = sort_by(self._pages)
 
-    async def start(self, ctx: Context, anime_name: str) -> hikari.Message:
+    async def start(self, ctx: Context, anime_name: str | None, results: List[Dict[str, Dict[str, int]]] | None = None) -> hikari.Message:
+        """
+        entry point for paginator
+
+        Args:
+        ----
+        ctx : lightbulb.Context
+            The context to use to send the initial message
+        anime_name : str | None
+            the name of the anime which should be searched
+        results : List[Dict[str, Dict[str, int]]] | None
+            results, if already given.
+            Must use following structure:
+                [
+                    {"node": 
+                        {"id": int}
+                    }
+                ]
+        """
+        if not anime_name and not results:
+            raise RuntimeError("Either `anime_name` or `results` needs to be given. Use anime_name, when you want to search. Use results if you already have results")
         self.ctx = ctx
-        self._pages = await self._search_anime(anime_name)
+        self._pages = await self._search_anime(anime_name, results)
         self._position = 0
         await self._load_details()
         super().__init__(
             page_s=self._pages, 
-            timeout=10*8, 
+            timeout=60*4, 
             disable_paginator_when_one_site=False,
             disable_search_btn=True,
+            **self._base_init_kwargs
         )
         return await super().start(ctx)
 
@@ -182,7 +236,10 @@ class AnimePaginator(Paginator):
         self._current_has_prequel = False
         self._current_has_sequel = False
         await self._load_details(detailed=detailed)
-        return await super()._update_position(interaction)
+        if detailed:
+            self._detailed = True
+        await super()._update_position(interaction)
+        self._detailed = False
 
     def _fuzzy_sort_results(self, compare_name: str):
         """fuzzy sort the anime result titles of  `self._results` by given name"""
@@ -195,8 +252,25 @@ class AnimePaginator(Paginator):
         close_matches.sort(key=lambda anime: anime["fuzz_ratio"], reverse=True)
         self._results = [*close_matches, *self._results]
 
-    async def _search_anime(self, search: str) -> List[hikari.Embed]:
-        """Search <`search`> anime, and set results to `self._results`. These have less information"""
+
+    async def _search_anime(self, search: str | None, results: List[Dict[str, Dict[str, int]]] | None = None) -> List[hikari.Embed]:
+        """
+        Search <`search`> anime, and set results to `self._results`. These have less information
+        
+        Args:
+        ----
+        search : str | None
+            the name of the anime to get results from.
+            None if <`results`> are given
+        results : List[Dict[str, Dict[str, int]]] | None
+            results, if already given.
+            Must use following structure:
+                [
+                    {"node": 
+                        {"id": int}
+                    }
+                ]
+        """
         def build_embeds(search_title: str, results: Dict):
             animes: List[Dict[str, Any]] = []
 
@@ -208,8 +282,9 @@ class AnimePaginator(Paginator):
                     or name in anime["node"]["alternative_titles"].get("ja", "").lower()
                     or [title for title in anime["node"]["alternative_titles"].get("synonyms", []) if name in title.lower()]
                 ):
+                    # add search result if name is similar with user given name
                     animes.append(anime)
-
+            # if no results, start more complex search
             if animes == []:
                 animes = results
 
@@ -225,20 +300,33 @@ class AnimePaginator(Paginator):
                     )
                 )
             return embeds
-
-        results = await MyAnimeList.search_anime(query=search)
-        # store result list
-        self._results = results["data"]
-        # sort the list by comparing with given name
-        self._fuzzy_sort_results(search)
-        # build embeds out of 
-        embeds = build_embeds(search, self._results)
+        if results:
+            self._results = results
+            # create embed spaceholders
+            embeds = [Embed(title="spaceholder") for _ in range(len(results))]
+        else:
+            results = await MyAnimeList.search_anime(query=search)
+            # store result list
+            self._results = results["data"]
+            # sort the list by comparing with given name
+            self._fuzzy_sort_results(search)
+            # build embeds out of results
+            embeds = build_embeds(search, self._results)
         if not embeds:
             return [hikari.Embed(title="Nothing found")]
         return embeds
 
     async def _fetch_current_anime(self) -> Anime:
-        """Fetches or returns already fetched anime"""
+        """
+        Fetches or returns already fetched anime
+
+        Given MAL Dict (stored in `self._results`) needs following structure:
+        [
+            {"node": 
+                {"id": int}
+            }
+        ]
+        """
         # fetch anime if not done yet
         mal_id = self._results[self._position]["node"]["id"]
         anime: Anime
