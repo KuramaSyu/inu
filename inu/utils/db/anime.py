@@ -184,7 +184,7 @@ class Anime:
             - it'll cache until 9999/12/31 if the anime is finsished. 
               Otherwise obout 1 month (given from jikan meta data)
          """
-        if not self.airing_stop and datetime.now() - self.airing_stop < timedelta(weeks=12):
+        if not self.airing_stop and datetime.now() - self.airing_start < timedelta(weeks=12):
             # is currently airing and younger than 12 weeks -> typical anime release shedule -> update 1/day
             return datetime.now() + timedelta(days=1)
         if not self.airing_stop:
