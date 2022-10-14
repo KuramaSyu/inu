@@ -85,6 +85,10 @@ class Anime:
             self._recommendations = []
         else:
             self._recommendations = recommendations
+        if cached_until:
+            self._cached_until = cached_until
+        else:
+            self._cached_until = self.create_cached_until
         if cached_for:
             self._cached_for: int = cached_for
         else:
@@ -178,13 +182,17 @@ class Anime:
 
     @property
     def cached_until(self) -> datetime:
+        return self._cached_until
+
+    @property
+    def create_cached_until(self) -> datetime:
         """
         Note:
         -----
             - it'll cache until 9999/12/31 if the anime is finsished. 
               Otherwise obout 1 month (given from jikan meta data)
          """
-        if not self.airing_stop and datetime.now() - self.airing_start < timedelta(weeks=12):
+        if not self.airing_stop and self.airing_start and datetime.now() - self.airing_start < timedelta(weeks=12):
             # is currently airing and younger than 12 weeks -> typical anime release shedule -> update 1/day
             return datetime.now() + timedelta(days=1)
         if not self.airing_stop:
@@ -445,7 +453,7 @@ class Anime:
         """
         ### wether or not the anime needs an update (related to `cached_until`)
         """
-        if self.cached_until < datetime.now():
+        if self.create_cached_until < datetime.now():
             return True
         return False
 
@@ -552,7 +560,7 @@ class MyAnimeList:
                 anime.status,
                 anime.airing_start, anime.airing_stop, anime.image_url,
                 [json.dumps(x) for x in anime.studios], 
-                anime.cached_until, json.dumps(anime._statistics), 
+                anime.create_cached_until, json.dumps(anime._statistics), 
                 [json.dumps(r) for r in anime._recommendations]
             ]
         )
