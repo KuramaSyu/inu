@@ -453,7 +453,7 @@ class Anime:
         """
         ### wether or not the anime needs an update (related to `cached_until`)
         """
-        if self.create_cached_until < datetime.now():
+        if self.cached_until < datetime.now():
             return True
         return False
 
