@@ -1,6 +1,8 @@
 CREATE TABLE IF NOT EXISTS guilds (
     guild_id BIGINT NOT NULL PRIMARY KEY,
-    prefixes TEXT [] DEFAULT '{"%s"}'
+    prefixes TEXT [] DEFAULT '{"%s"}',
+    activity_tracking BOOLEAN NOT NULL DEFAULT FALSE,
+    activity_tracking_duration INTERVAL NOT NULL DEFAULT '90 days'::INTERVAL
 );
 
 CREATE TABLE IF NOT EXISTS music_history (
