@@ -10,3 +10,4 @@ from .activity_statistics import *
 from .timezone import *
 from .polls import *
 from .boards import *
+from .settings import *
