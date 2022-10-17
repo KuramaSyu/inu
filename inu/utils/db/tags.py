@@ -277,7 +277,7 @@ class Tag():
 
     def __str__(self) -> str:
         msg = (
-            f"your tag is: {'local' if self._is_local else 'global'}\n"
+            f"your tag is: {'local' if self.is_local else 'global'}\n"
             f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
             f"is the tag stored: {Human.bool_(self.is_stored)}\n"
             f"available for guilds: {', '.join(str(id) for id in self.guild_ids)}\n"
