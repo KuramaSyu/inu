@@ -53,6 +53,7 @@ from utils import (
     crumble,
     CurrentGamesManager,
     TimezoneManager,
+    SettingsManager
 )
 from core import (
     BotResponseError, 
@@ -66,7 +67,17 @@ register_matplotlib_converters()
 plugin = lightbulb.Plugin("Statistics", "Shows statistics about the server")
 bot: Inu
 
-
+async def maybe_raise_activity_tracking_disabled(guild_id: int):
+    """Raises BotResponseError when guilds activity is not tracked"""
+    if not await SettingsManager.fetch_activity_tracking(guild_id):
+        raise BotResponseError(
+            (
+                "Activity tracking is disabled.\nTo enable it, execute this command:\n"
+                "`/settings activity-tracking enable:True`\nOR use\n"
+                "`/settings menu`, go to Activity tracking and disable it"
+            ),
+            ephemeral=True
+        )
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
@@ -79,6 +90,7 @@ bot: Inu
 @lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def week_activity(ctx: Context):
+    await maybe_raise_activity_tracking_disabled(ctx.guild_id)
     seconds = timeparse(ctx.options.time)
     if not seconds:
         return await ctx.respond(
@@ -117,6 +129,7 @@ async def week_activity(ctx: Context):
 @lightbulb.implements(commands.SlashCommand)
 async def current_games(ctx: Context):
     # constants
+    await maybe_raise_activity_tracking_disabled(ctx.guild_id)
     seconds = timeparse(ctx.options.time)
     if not seconds:
         raise BotResponseError(
