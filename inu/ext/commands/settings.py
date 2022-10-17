@@ -24,9 +24,9 @@ from lightbulb import SlashContext, commands
 import miru
 
 from core import Inu, Table, BotResponseError
-from utils import DailyContentChannels, PrefixManager, TimezoneManager
+from utils import DailyContentChannels, PrefixManager, TimezoneManager, Colors
 from utils.db.r_channel_manager import Columns as Col
-from utils.db import BoardManager
+from utils.db import BoardManager, SettingsManager
 
 from core import getLogger, Inu
 
@@ -215,6 +215,30 @@ class TimezoneView(SettingsMenuView):
         )
         return embed
 
+class ActivityLoggingView(SettingsMenuView):
+    name = "Guild activity statistics"
+    @miru.button(label="enable", style=hikari.ButtonStyle.SUCCESS)
+    async def set_true(self, button: miru.Button, ctx: miru.Context) -> None:
+        embed = await update_activity_logging(ctx.guild_id, True)
+        await ctx.respond(embed=embed)
+
+    @miru.button(label="disable", style=hikari.ButtonStyle.DANGER)
+    async def set_false(self, button: miru.Button, ctx: miru.Context) -> None:
+        embed = await update_activity_logging(ctx.guild_id, False)
+        await ctx.respond(embed=embed)
+
+    async def to_embed(self):
+        embed = hikari.Embed(
+            title=self.total_name, 
+            description=(
+                "Here you can enable or disable activity logging\n"
+                "So if you want to use commands like `/current-games` or `/week-activity` "
+                "than you need to enable it. WHEN **ENABLED** ALL THIS GUILDS **ACTIVITIES WILL BE TRACKED**! (but anonymously)\n\n"
+                f"Currently: {'ENABLED' if await SettingsManager.fetch_activity_tracking(self.lightbulb_ctx.guild_id) else 'DISABLED'}"
+            )
+        )
+        return embed
+
 
 
 
@@ -229,8 +253,12 @@ class MainView(SettingsMenuView):
         await RedditView(old_view=self, ctx=self.lightbulb_ctx).async_start(self._message)
 
     @miru.button(label="Timezone", emoji=chr(9986), style=hikari.ButtonStyle.PRIMARY)
-    async def scissors_button(self, button: miru.Button, ctx: miru.Context):
+    async def timezone_button(self, button: miru.Button, ctx: miru.Context):
         await TimezoneView(old_view=self, ctx=self.lightbulb_ctx).async_start(self._message)
+
+    @miru.button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY)
+    async def activity_logging_button(self, button: miru.Button, ctx: miru.Context):
+        await ActivityLoggingView(old_view=self, ctx=self.lightbulb_ctx).async_start(self._message)
 
     async def to_embed(self) -> hikari.Embed:
         embed = hikari.Embed(
@@ -261,6 +289,30 @@ async def settings(ctx: Context):
     # main_view = MainView(old_view=None, ctx=ctx)
     # message = await ctx.respond("settings")
     # await main_view.async_start(await message.message())
+
+@settings.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.option("enable", "True = Yes; False = No", type=bool)
+@lightbulb.command("activity-tracking", "Enable (True) or disable (False) activity logging")
+@lightbulb.implements(commands.SlashSubCommand)
+async def set_activity_logging(ctx: SlashContext):
+    embed = await update_activity_logging(ctx.guild_id, ctx.options.enable)
+    await ctx.respond(embed=embed)
+
+
+
+async def update_activity_logging(guild_id: int, enable: bool) -> hikari.Embed:
+    await SettingsManager.update_activity_tracking(guild_id, enable)
+    embed = hikari.Embed(title="Activity tracking for statistics")
+    if enable:
+        embed.description = "Is now enabled"
+        embed.color = Colors.from_name("green")
+    else:
+        embed.description = "Is now disabled"
+        embed.color = Colors.from_name("red")
+    return embed
+
+
 
 @settings.child
 @lightbulb.add_checks(lightbulb.guild_only)
