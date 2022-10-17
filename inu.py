@@ -22,9 +22,9 @@ def _version_callback(value: bool) -> None:
 
 def backup_callback(v):
     """make a backup"""
+    file_name = f"pg_dump-{now.year}-{now.month}-{now.day}T{now.hour}-{now.minute}-{now.second}.sql"
     typer.secho(f"Creating backup: {BACKUP_FOLDER}/{file_name}", fg="green")
     now = datetime.now()
-    file_name = f"pg_dump-{now.year}-{now.month}-{now.day}T{now.hour}-{now.minute}-{now.second}.sql"
     try:
         os.mkdir(f"{BACKUP_FOLDER}")
         open(f"{BACKUP_FOLDER}/{file_name}", 'a').close()
