@@ -22,7 +22,7 @@ def _version_callback(value: bool) -> None:
 
 def backup_callback(v):
     """make a backup"""
-    typer.secho("Creating backup...")
+    typer.secho(f"Creating backup: {BACKUP_FOLDER}/{file_name}", fg="green")
     now = datetime.now()
     file_name = f"pg_dump-{now.year}-{now.month}-{now.day}T{now.hour}-{now.minute}-{now.second}.sql"
     try:
@@ -33,9 +33,7 @@ def backup_callback(v):
     cmd = f"docker exec -t postgresql pg_dumpall -c -U inu > {BACKUP_FOLDER}/{file_name}".split()
     p = subprocess.Popen(cmd, stdout=subprocess.PIPE)
     out, err = p.communicate()
-    if err:
-    #os.system(f"docker exec -t postgresql pg_dumpall -c -U inu > {BACKUP_FOLDER}/{file_name}")
-        typer.secho(f"Backup created: {BACKUP_FOLDER}/{file_name}", fg="green")
+        
 
 
 
@@ -61,7 +59,4 @@ def main(
 
 if __name__ == "__main__":
     #app(prog_name="inu-cli")
-    if not os.geteuid() == 0:
-        print("You need root")
-        exit()
     typer.run(main)
