@@ -9,16 +9,21 @@ from core import Table
 class TimezoneManager:
 
     @staticmethod
-    def dst(dt: Optional[datetime] = None, tz: Union[str, timezone] = "Europe/Berlin") -> int:
+    def dst(dt: Optional[datetime] = None, tz: str = "Europe/Berlin") -> int:
         """Returns the DST offset in seconds"""
         timezone = pytz.timezone(tz)
-        if dt is None:
-            dt = datetime.now(tz=timezone)
-        if dt.tzinfo is None:
-            tz_aware_dt = timezone.localize(dt, is_dst=None)
+        # if dt is None:
+        dt = datetime.now(timezone)
+        td = dt.tzinfo.dst(dt)
+        if not isinstance(td, timedelta):
+            return 0
         else:
-            tz_aware_dt = dt.astimezone(timezone)
-        return tz_aware_dt.tzinfo._dst.seconds
+            return int(td.total_seconds())
+        # if dt.tzinfo is None:
+        #     tz_aware_dt = timezone.localize(dt, is_dst=None)
+        # else:
+        #     tz_aware_dt = dt.astimezone(timezone)
+        # return tz_aware_dt.tzinfo._dst.seconds
 
     @classmethod
     def is_dst(cls, dt=None, timezone='Europe/Berlin'):
