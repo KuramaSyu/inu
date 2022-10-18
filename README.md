@@ -30,10 +30,14 @@ to move docker-compose into the background:
 to backup the database:
 
 `docker exec -t <postgres-container-id> pg_dumpall -c -U inu > dump_file.sql`
+`docker exec -t postgresql pg_dumpall -c -U inu > dump_file.sql`
 
 to restore the dump:
 
 `cat dump_file.sql | docker exec -i <postgres-container-id> psql -U inu inu_db`
 
 "postgresql" can also be used instead of the id, hence it's the containers name
+
+to backup from ssh:
+`ssh host@IP "docker exec -t postgresql pg_dumpall -c -U inu" > dump_file.sql`
 
