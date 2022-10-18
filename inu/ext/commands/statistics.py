@@ -115,15 +115,21 @@ async def week_activity(ctx: Context):
     default=None,
 )
 @lightbulb.option(
+    "clean-colors",
+    "Use distinguishable colors (clear color difference)",
+    default=False,
+    type=bool,
+)
+@lightbulb.option(
+    "show-all",
+    "[Yes | No] wether you see everyting (not only games). Default is No",
+    default=False,
+    type=bool,
+)
+@lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
     default="9 days"
-)
-@lightbulb.option(
-    "show_only_games",
-    "[Yes | No] wether you see only games or not. Default is Yes",
-    default=True,
-    type=bool,
 )
 @lightbulb.command("current-games", "Shows, which games are played in which guild")
 @lightbulb.implements(commands.SlashCommand)
@@ -142,7 +148,7 @@ async def current_games(ctx: Context):
             ephemeral=True,
         )
     timedelta_ = timedelta(seconds=seconds)
-    show_only_games = ctx.options.show_only_games
+    show_only_games = ctx.options["show-all"]
     remove_apps: List[str] = []
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
@@ -254,6 +260,7 @@ async def current_games(ctx: Context):
         ctx.guild_id, 
         since=timedelta_,
         activities=apps,
+        distinguishable_colors=ctx.options["clean-colors"]
     )
     await ctx.respond(attachment=picture_buffer)
     pag = Paginator(
@@ -268,6 +275,7 @@ async def build_activity_graph(
     guild_id: int,
     since: timedelta,
     activities: List[str],
+    distinguishable_colors: bool = False,
 ) -> Tuple[BytesIO, Dataset]:
 
     picture_buffer = BytesIO()
@@ -279,18 +287,18 @@ async def build_activity_graph(
     )
     old_row_amount = len(df.index)
     # drop NaN values (r_timestamp bc of rounding issues)
-    df.dropna(axis=0, how='any', subset=None, inplace=True) #thresh=None, 
-    # log.debug(df.to_string())
+    df.dropna(axis=0, how='any', subset=None, inplace=True)
     df.set_index(keys="r_timestamp", inplace=True)
     if old_row_amount != (new_row_amount := len(df.index)):
         log.waring(f"missing rows ({old_row_amount - new_row_amount}) in guild {guild_id}")
     
     since: datetime = df.index.min()
     until: datetime = df.index.max()
-    # log.debug(f"since: {str(since)}, until: {str(until)}\n{df.head(10)}\n{df.tail(10)}")
     df_timedelta: timedelta = until - since
-    # log.debug(f"{df_timedelta=}")
-    if df_timedelta >= timedelta(days=5):
+   
+    if df_timedelta >= timedelta(days=20):
+        resample_delta = df_timedelta / 15
+    elif df_timedelta >= timedelta(days=5):
         resample_delta = timedelta(days=1)
     else:
         resample_delta = df_timedelta / 20 
@@ -302,7 +310,7 @@ async def build_activity_graph(
     # and resample hours to `resample_delta` and sum them up
     activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized = activity_series.to_frame().reset_index()
-    # log.debug(f"df not corrected:\n{df_summarized.to_string()}")
+
     # set before and after game to 0
     games = set(df_summarized["game"])
     last_date = max(df_summarized["r_timestamp"])
@@ -333,11 +341,9 @@ async def build_activity_graph(
                 added_zero = False
             prev_date = date
         if last_date - prev_date >= resample_delta:
-            # log.debug(f"add last entry for {game_name}")
             add_row()
         else:
             pass
-            # log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
         df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
 
     min_date = min(df_summarized["r_timestamp"])
@@ -380,9 +386,9 @@ async def build_activity_graph(
 
     df_summarized.reset_index(inplace=True)
 
-    # log.debug(f"df sum corrected:\n{df_summarized.to_string()}")
-
-    color_paletes = ["magma_r", "rocket_r", "mako_r"] #  , None, "Pastel1", "Spectral", "Set3", "Set2", "Paired", 
+    color_paletes = ["magma_r", "rocket_r", "mako_r"]
+    clean_color_paletes = ["Set3", "Set2"]
+    color = random.choice(clean_color_paletes) if distinguishable_colors else random.choice(color_paletes)
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
     sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
@@ -399,7 +405,7 @@ async def build_activity_graph(
         hue="game", 
         legend="full", 
         markers=False,
-        palette=random.choice(color_paletes),
+        palette=color,
         ax=ax1,
     )
 
