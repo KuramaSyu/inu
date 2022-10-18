@@ -279,7 +279,7 @@ async def build_activity_graph(
     )
     old_row_amount = len(df.index)
     # drop NaN values (r_timestamp bc of rounding issues)
-    df.dropna(axis=0, how='any', thresh=None, subset=None, inplace=True)
+    df.dropna(axis=0, how='any', subset=None, inplace=True) #thresh=None, 
     # log.debug(df.to_string())
     df.set_index(keys="r_timestamp", inplace=True)
     if old_row_amount != (new_row_amount := len(df.index)):
