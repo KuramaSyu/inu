@@ -170,7 +170,13 @@ def clean(
         "-d",
         "--only-default",
         help=f"Clean only default dumps starting with `{DEFAULT_NAME}`"
-    )
+    ),
+    when_contains: Optional[str] = typer.Option(
+        None,
+        "-c",
+        "--contains",
+        help=f"Clean only default dumps starting with `{DEFAULT_NAME}`"
+    ),
 
 ):
     """restore a backup"""
@@ -179,6 +185,9 @@ def clean(
     
     if only_default_dumps:
         files = [f for f in files if f.startswith(DEFAULT_NAME)]
+
+    if when_contains:
+        files = [f for f in files if when_contains in f]
 
     if keep_newest_n:
         files.sort(key=lambda f: os.path.getmtime(os.path.join(backup_folder, f)), reverse=True)
