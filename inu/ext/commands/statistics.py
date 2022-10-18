@@ -148,7 +148,7 @@ async def current_games(ctx: Context):
             ephemeral=True,
         )
     timedelta_ = timedelta(seconds=seconds)
-    show_only_games = ctx.options["show-all"]
+    show_only_games = not ctx.options["show-all"]
     remove_apps: List[str] = []
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
