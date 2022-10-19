@@ -1,4 +1,5 @@
 import datetime
+from datetime import timedelta
 from typing import *
 from enum import Enum
 import yaml
@@ -455,8 +456,6 @@ class MultilangProxy:
             return obj
 
 
-
-
 class MultiLang:
     def __init__(
         self,
@@ -524,6 +523,17 @@ class MultiLang:
 
     def __repr__(self) -> str:
         return f"<`{self.__class__.__name__}` {self._proxy}>"
+
+
+
+def get_date_format_by_timedelta(delta: timedelta) -> str:
+    if delta < timedelta(days=5):
+        date_format = "%a %H:%M"
+    elif delta < timedelta(days=15):
+        date_format = "%a %d.%m"
+    else:
+        date_format = "%d.%m"
+    return date_format
 
 
         
