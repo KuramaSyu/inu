@@ -261,7 +261,7 @@ class CurrentGamesManager:
         """
         table = Table("current_games")
         additional_filter = f"AND game != ALL($4)" if remove_activities else ""
-        optional_arg = [remove_activities] or []
+        optional_arg = [remove_activities] if remove_activities else []
         sql = (
             f"SELECT game, SUM(user_amount) AS amount\n"
             f"FROM {table.name}\n"
