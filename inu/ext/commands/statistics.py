@@ -417,7 +417,15 @@ async def build_activity_graph(
     date_format = "%a %H:%M" if df_timedelta < timedelta(days=5) else "%a %d.%m"
     tz = await TimezoneManager.fetch_timezone(guild_or_author_id=guild_id)
     date_form = DateFormatter(date_format, tz=tz)
+
+    # set Locator
     ax.xaxis.set_major_formatter(date_form)
+    X_LABLE_AMOUNT: int = 20  # about
+    base = round(df_timedelta.days / X_LABLE_AMOUNT, 0)  # base have to be .0, otherwise not matching with plot peaks
+    base = 1 if base < 1 else base
+    loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
+    ax.xaxis.set_major_locator(loc)
+    ax.figure.autofmt_xdate(rotation=45)
     
     
 
@@ -440,18 +448,25 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
     # mean hours total
     df['mean'] = mean_hours
 
-    # # mean hours per <rolling_mean_days>
-    # df['rolling mean hours'] = df['hours'].rolling(rolling_mean_days).mean()
+    # mean hours per <rolling_mean_days>
+    df_dt_range = df['datetime'].max() - df['datetime'].min()
+    cols = ['mean', 'hours']
+    if since >= timedelta(days=40):
+        rolling_mean = int(df_dt_range.days / 12)
+        df['dynamic mean'] = df['hours'].rolling(window=rolling_mean, center=True).mean()
+        df['dynamic mean'].interpolate(inplace=True)
+        df['dynamic mean'].fillna(value=mean_hours, inplace=True)
+        cols.append('dynamic mean')
+        # df["dynamic mean"] = df["hours"].resample(df_dt_range / 8)
 
-    # # fill in NaN values with total mean
-    # df['rolling mean hours'] = df['rolling mean hours'].fillna(mean_hours)
+    # fill in NaN values with total mean
+
 
     # melt dataframe, that seaplot can plot all lines together
-    df = df.melt(id_vars =['datetime'], value_vars =['mean', 'hours'], var_name ='line kind')
+    df = df.melt(id_vars =['datetime'], value_vars =cols, var_name ='line kind')
 
     # sort by datetime column
     df.sort_values(by='datetime', inplace=True)
-    df_dt_range = df['datetime'].max() - df['datetime'].min()
 
     # style preparations
     color_paletes = ["magma", "rocket", "mako"]
@@ -469,23 +484,19 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
         x = "datetime", 
         y = 'value', 
         data = df,
-        palette = random.choice(color_paletes),
-        # ci = 'sd',   
+        palette = random.choice(color_paletes),  
         ax=ax1,
         hue="line kind",
         legend="brief",
     )
 
-    # set X labels and titles and apply effects
-    if df_dt_range <= timedelta(days=20):
-        loc = plticker.MultipleLocator(base=1.0) # this locator puts ticks at regular intervals
-    elif df_dt_range <= timedelta(days=40):
-        loc = plticker.MultipleLocator(base=2.0)
-    else:
-        loc = None
-    if loc:
-        ax.xaxis.set_major_locator(loc)
-    ax.set_xticklabels(ax.get_xticklabels(),rotation = 45)
+    X_LABLE_AMOUNT: int = 20  # about
+    base = round(df_dt_range.days / X_LABLE_AMOUNT, 0)  # base have to be .0, otherwise not matching with plot peaks
+    base = 1 if base < 1 else base
+    loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
+    ax.xaxis.set_major_locator(loc)
+    ax.figure.autofmt_xdate(rotation=45)
+
     mplcyberpunk.add_glow_effects(ax=ax)
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
