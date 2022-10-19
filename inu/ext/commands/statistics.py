@@ -53,7 +53,8 @@ from utils import (
     crumble,
     CurrentGamesManager,
     TimezoneManager,
-    SettingsManager
+    SettingsManager,
+    get_date_format_by_timedelta
 )
 from core import (
     BotResponseError, 
@@ -66,6 +67,9 @@ log = getLogger(__name__)
 register_matplotlib_converters()
 plugin = lightbulb.Plugin("Statistics", "Shows statistics about the server")
 bot: Inu
+
+# mapping from guild to list with top games in it
+top_games_cache = {}
 
 async def maybe_raise_activity_tracking_disabled(guild_id: int):
     """Raises BotResponseError when guilds activity is not tracked"""
@@ -113,6 +117,7 @@ async def week_activity(ctx: Context):
     "apps", 
     "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
     default=None,
+    autocomplete=True,
 )
 @lightbulb.option(
     "clean-colors",
@@ -150,6 +155,7 @@ async def current_games(ctx: Context):
     timedelta_ = timedelta(seconds=seconds)
     show_only_games = not ctx.options["show-all"]
     remove_apps: List[str] = []
+    apps = [app.strip() for app in ctx.options.apps.split(",")] if ctx.options.apps else None
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
     double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
@@ -168,6 +174,10 @@ async def current_games(ctx: Context):
             datetime.now() - timedelta_
         )
         activity_records.sort(key=lambda g: g['amount'], reverse=True)
+        
+        # set cache
+        global top_games_cache
+        top_games_cache[guild.id] = [g["game"] for g in activity_records[:24]]
 
         # get smallest first_occurrence
         first_occurrence = datetime.now()
@@ -186,7 +196,10 @@ async def current_games(ctx: Context):
         embeds.append(embed)
 
         # enuerate all games
-        game_records = [g for g in activity_records if g['game'] not in remove_apps]
+        if apps:
+            game_records = [g for g in activity_records if g['game'] in apps]
+        else:
+            game_records = [g for g in activity_records if g['game'] not in remove_apps]
         for i, game in enumerate(game_records):
             if i > 150:
                 break
@@ -239,9 +252,7 @@ async def current_games(ctx: Context):
         return embeds
     # prepare apps to fetch
     custom_time: datetime = datetime.now() - timedelta_
-    if ctx.options.apps:
-        apps = [app.strip() for app in ctx.options.apps.split(",")]
-    else:
+    if not apps:
         apps = [
             list(d.keys())[0]
             for d in
@@ -256,12 +267,20 @@ async def current_games(ctx: Context):
             raise BotResponseError(
                 f"There were no games played in the last {humanize.naturaldelta(timedelta_)}."
             )
-    picture_buffer, _ = await build_activity_graph(
-        ctx.guild_id, 
-        since=timedelta_,
-        activities=apps,
-        distinguishable_colors=ctx.options["clean-colors"]
-    )
+    try:
+        picture_buffer, _ = await build_activity_graph(
+            ctx.guild_id, 
+            since=timedelta_,
+            activities=apps,
+            distinguishable_colors=ctx.options["clean-colors"]
+        )
+    except Exception as e:
+        if not ctx.options.apps:
+            raise e
+        raise BotResponseError(
+            "Something went wrong. Are you sure, that your game exists?",
+            ephemeral=True,
+        )
     await ctx.respond(attachment=picture_buffer)
     pag = Paginator(
         page_s=await build_embeds(),
@@ -269,6 +288,28 @@ async def current_games(ctx: Context):
         download_name="current-games.png",
     )
     await pag.start(ctx)
+
+
+
+
+@current_games.autocomplete("apps")
+async def tag_name_auto_complete(
+    option: hikari.AutocompleteInteractionOption, 
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    if not isinstance(interaction.guild_id, int):
+        return []
+    games = top_games_cache.get(interaction.guild_id, [])
+    if not games:
+        dicts = await CurrentGamesManager.fetch_top_games(
+            interaction.guild_id, 
+            datetime.now() - timedelta(days=3), 
+            limit=24
+        )
+        games = [list(d.keys())[0] for d in dicts]
+        top_games_cache[interaction.guild_id] = games
+    return games
+
 
 
 async def build_activity_graph(
@@ -414,18 +455,20 @@ async def build_activity_graph(
     #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
-    date_format = "%a %H:%M" if df_timedelta < timedelta(days=5) else "%a %d.%m"
+
+    date_format = get_date_format_by_timedelta(df_timedelta)
+
     tz = await TimezoneManager.fetch_timezone(guild_or_author_id=guild_id)
     date_form = DateFormatter(date_format, tz=tz)
 
     # set Locator
     ax.xaxis.set_major_formatter(date_form)
-    X_LABLE_AMOUNT: int = 20  # about
+    X_LABLE_AMOUNT: int = 12  # about
     base = round(df_timedelta.days / X_LABLE_AMOUNT, 0)  # base have to be .0, otherwise not matching with plot peaks
     base = 1 if base < 1 else base
     loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
     ax.xaxis.set_major_locator(loc)
-    ax.figure.autofmt_xdate(rotation=45)
+    # ax.figure.autofmt_xdate(rotation=45)
     
     
 
@@ -500,7 +543,7 @@ async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[By
     mplcyberpunk.add_glow_effects(ax=ax)
     ax.set_ylabel("Hours")
     ax.set_xlabel("")
-    date_format = "%a %d.%m"
+    date_format = get_date_format_by_timedelta(df_dt_range)
     date_form = DateFormatter(date_format)
     ax.xaxis.set_major_formatter(date_form)
     
