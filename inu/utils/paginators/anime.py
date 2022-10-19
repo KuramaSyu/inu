@@ -1,4 +1,4 @@
-from this import d
+import asyncio
 from typing import *
 from enum import Enum
 from pprint import pprint
@@ -176,7 +176,6 @@ class AnimePaginator(Paginator):
             anime = await self._fetch_current_anime()
             results: Dict[str, Dict[str, int]] = copy(anime._recommendations)
             anime_recommended_pag = AnimePaginator(
-                with_refresh_btn=False,
                 first_message_kwargs={"content": f"Recommendations for `{anime.title}`"}
             )
             try:
@@ -185,10 +184,12 @@ class AnimePaginator(Paginator):
                 self.ctx._responded = False
             except AttributeError:
                 pass
-            await anime_recommended_pag.start(
-                self.ctx,
-                anime_name=None,
-                results=results
+            asyncio.create_task(
+                anime_recommended_pag.start(
+                    self.ctx,
+                    anime_name=None,
+                    results=results
+                )
             )
         
 
