@@ -139,7 +139,7 @@ async def week_activity(ctx: Context):
 @lightbulb.command("current-games", "Shows, which games are played in which guild", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand)
 async def current_games(ctx: Context):
-    # constants
+    
     await maybe_raise_activity_tracking_disabled(ctx.guild_id)
     seconds = timeparse(ctx.options.time)
     if not seconds:
@@ -152,6 +152,7 @@ async def current_games(ctx: Context):
             ),
             ephemeral=True,
         )
+    # constants
     timedelta_ = timedelta(seconds=seconds)
     show_only_games = not ctx.options["show-all"]
     remove_apps: List[str] = []
