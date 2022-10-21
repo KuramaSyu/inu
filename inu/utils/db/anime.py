@@ -157,7 +157,7 @@ class Anime:
             return "Unknown"
 
     @property
-    def source(self):
+    def source(self) -> str:
         if self._source is None:
             return "Unknown"
         return self._source.replace("_", " ")
@@ -485,7 +485,7 @@ class MyAnimeList:
         anime = await cls._fetch_anime_by_id_db(mal_id)
         if anime:
             if anime.needs_update:
-                log.debug(f"update anime: {anime}")
+                log.debug(f"update anime cache: {anime}")
                 anime = await cls._fetch_anime_by_id_rest(mal_id)
                 await cls._cache_anime(anime)
         else:
@@ -524,7 +524,7 @@ class MyAnimeList:
         if not record:
             return None
         anime = Anime.from_db_record(record)
-        log.debug(f"fetched anime from db: {anime}")
+        log.debug(f"got anime from DB: {anime}")
         return anime
 
     @classmethod
