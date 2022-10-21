@@ -34,14 +34,10 @@ class StringCutter():
     def crumble(string: str,
         cut_at: int = 1900,
         seperator: str = ' ',
-        clean_code: Any = False
         ) -> List[str]:
         """
         Crubles a string into a list with strings which have a given max length.
         """
-        if clean_code:
-            string.strip()
-
         sliced_list = __class__.slice_by_length(
             string=string,
             seperator=seperator,
@@ -396,9 +392,37 @@ def crumble(
     max_length_per_string: int = 2000,
     seperator: Optional[str] = None,
     clean_code: bool = True,
-    _autochange_seperator = True
-    ) -> List[str]:
-    """Splits a string into strings which length <= max_length is. If seperator is None, the SentenceIterator will be userd"""
+    _autochange_seperator = True,
+) -> List[str]:
+    """
+    Splits a string into strings which length <= max_length is. If seperator is None, 
+    the SentenceIterator (more intelligent splitting) will be userd
+    
+    Args:
+    -----
+    string : str
+        The string which should be crumbled
+    max_length_per_string : int
+        The maximum length per string in the return list. 
+        Default: 2000
+    seperator : str | None
+        The seperator where to cut the string.
+        Default: None
+        If None, then the string will be cutted more human likely
+    clean_code : bool
+        strip string and post corrects code blocks.
+        Default: True
+    _autochange_seperator : bool
+        If seperator is not present, then seperator will be changed to `\n`.
+        Default: True
+
+    Returns:
+    --------
+    List[str] :
+        A list with strings with len <= <max_length_per_string>
+    
+    """
+    crumbled_string: List[str] = []
 
     if clean_code:
         string = string.strip()
@@ -406,100 +430,33 @@ def crumble(
     if len(string) <= max_length_per_string:
         return [string]
     
-    if seperator is None:
-        return [part for part in SentenceInterator(string, max_length_per_string)]
-
-    # some strings only have \n to seperate - not " "
-    if seperator == " " and seperator not in string and _autochange_seperator:
+        # some strings only have \n to seperate - not " "
+    if (
+        seperator 
+        and seperator not in string 
+        and _autochange_seperator
+    ):
         seperator = "\n"
-    return StringCutter.crumble(
-        string=string,
-        cut_at=max_length_per_string,
-        seperator=seperator,
-        clean_code=clean_code,
-    )
+        crumble_string = StringCutter.crumble(
+            string=string,
+            cut_at=max_length_per_string,
+            seperator=seperator,
+        )
+    else:
+        crumble_string = [part for part in SentenceInterator(string, max_length_per_string)]
+    
+    if not clean_code:
+        return crumble_string
+    else:
+        corrected_strings: List[str] = []
+        for string in crumble_string:
+            # string has starting code block but was cut
+            if string.count("```") % 2 != 0:
+                string += "\n```"
+            corrected_strings.append(string)
+        return corrected_strings
+    
 
-if __name__ == "__main__":
-    VPN = """
-Authentication
 
-Tunnel endpoints must be authenticated before secure VPN tunnels can be established. User-created remote-access VPNs may use passwords, biometrics, two-factor authentication or other cryptographic methods. Network-to-network tunnels often use passwords or digital certificates. They permanently store the key to allow the tunnel to establish automatically, without intervention from the administrator.
-Routing
 
-Tunneling protocols can operate in a point-to-point network topology that would theoretically not be considered a VPN because a VPN by definition is expected to support arbitrary and changing sets of network nodes. But since most router implementations support a software-defined tunnel interface, customer-provisioned VPNs often are simply defined tunnels running conventional routing protocols.
-Provider-provisioned VPN building-blocks
-Site-to-Site VPN terminology.
 
-Depending on whether a provider-provisioned VPN (PPVPN) operates in layer 2 or layer 3, the building blocks described below may be L2 only, L3 only, or a combination of both. Multi-protocol label switching (MPLS) functionality blurs the L2-L3 identity.[18][original research?]
-
-RFC 4026 generalized the following terms to cover L2 MPLS VPNs and L3 (BGP) VPNs, but they were introduced in RFC 2547.[19][20]
-
-Customer (C) devices
-
-A device that is within a customer's network and not directly connected to the service provider's network. C devices are not aware of the VPN.
-
-Customer Edge device (CE)
-
-A device at the edge of the customer's network which provides access to the PPVPN. Sometimes it is just a demarcation point between provider and customer responsibility. Other providers allow customers to configure it.
-
-Provider edge device (PE)
-
-A device, or set of devices, at the edge of the provider network which connects to customer networks through CE devices and presents the provider's view of the customer site. PEs are aware of the VPNs that connect through them, and maintain VPN state.
-
-Provider device (P)
-
-A device that operates inside the provider's core network and does not directly interface to any customer endpoint. It might, for example, provide routing for many provider-operated tunnels that belong to different customers' PPVPNs. While the P device is a key part of implementing PPVPNs, it is not itself VPN-aware and does not maintain VPN state. Its principal role is allowing the service provider to scale its PPVPN offerings, for example, by acting as an aggregation point for multiple PEs. P-to-P connections, in such a role, often are high-capacity optical links between major locations of providers.
-User-visible PPVPN services
-OSI Layer 2 services
-
-Virtual LAN
-
-Virtual LAN (VLAN) is a Layer 2 technique that allows for the coexistence of multiple local area network (LAN) broadcast domains interconnected via trunks using the IEEE 802.1Q trunking protocol. Other trunking protocols have been used but have become obsolete, including Inter-Switch Link (ISL), IEEE 802.10 (originally a security protocol but a subset was introduced for trunking), and ATM LAN Emulation (LANE).
-
-Virtual private LAN service (VPLS)
-
-Developed by Institute of Electrical and Electronics Engineers, Virtual LANs (VLANs) allow multiple tagged LANs to share common trunking. VLANs frequently comprise only customer-owned facilities. Whereas VPLS as described in the above section (OSI Layer 1 services) supports emulation of both point-to-point and point-to-multipoint topologies, the method discussed here extends Layer 2 technologies such as 802.1d and 802.1q LAN trunking to run over transports such as Metro Ethernet.
-
-As used in this context, a VPLS is a Layer 2 PPVPN, emulating the full functionality of a traditional LAN. From a user standpoint, a VPLS makes it possible to interconnect several LAN segments over a packet-switched, or optical, provider core, a core transparent to the user, making the remote LAN segments behave as one single LAN.[21]
-
-In a VPLS, the provider network emulates a learning bridge, which optionally may include VLAN service.
-
-Pseudo wire (PW)
-
-PW is similar to VPLS, but it can provide different L2 protocols at both ends. Typically, its interface is a WAN protocol such as Asynchronous Transfer Mode or Frame Relay. In contrast, when aiming to provide the appearance of a LAN contiguous between two or more locations, the Virtual Private LAN service or IPLS would be appropriate.
-
-Ethernet over IP tunneling
-
-EtherIP (RFC 3378)[22] is an Ethernet over IP tunneling protocol specification. EtherIP has only packet encapsulation mechanism. It has no confidentiality nor message integrity protection. EtherIP was introduced in the FreeBSD network stack[23] and the SoftEther VPN[24] server program.
-
-IP-only LAN-like service (IPLS)
-
-A subset of VPLS, the CE devices must have Layer 3 capabilities; the IPLS presents packets rather than frames. It may support IPv4 or IPv6.
-OSI Layer 3 PPVPN architectures
-
-This section discusses the main architectures for PPVPNs, one where the PE disambiguates duplicate addresses in a single routing instance, and the other, virtual router, in which the PE contains a virtual router instance per VPN. The former approach, and its variants, have gained the most attention.
-
-One of the challenges of PPVPNs involves different customers using the same address space, especially the IPv4 private address space.[25] The provider must be able to disambiguate overlapping addresses in the multiple customers' PPVPNs.
-
-BGP/MPLS PPVPN
-
-In the method defined by RFC 2547, BGP extensions advertise routes in the IPv4 VPN address family, which are of the form of 12-byte strings, beginning with an 8-byte route distinguisher (RD) and ending with a 4-byte IPv4 address. RDs disambiguate otherwise duplicate addresses in the same PE.
-
-PEs understand the topology of each VPN, which are interconnected with MPLS tunnels either directly or via P routers. In MPLS terminology, the P routers are Label Switch Routers without awareness of VPNs.
-
-Virtual router PPVPN
-
-The virtual router architecture,[26][27] as opposed to BGP/MPLS techniques, requires no modification to existing routing protocols such as BGP. By the provisioning of logically independent routing domains, the customer operating a VPN is completely responsible for the address space. In the various MPLS tunnels, the different PPVPNs are disambiguated by their label but do not need routing distinguishers.
-Unencrypted tunnels
-
-Some virtual networks use tunneling protocols without encryption for protecting the privacy of data. While VPNs often do provide security, an unencrypted overlay network does not neatly fit within the secure or trusted categorization.[28] For example, a tunnel set up between two hosts with Generic Routing Encapsulation (GRE) is a virtual private network but is neither secure nor trusted.[29][30]
-
-Native plaintext tunneling protocols include Layer 2 Tunneling Protocol (L2TP) when it is set up without IPsec and Point-to-Point Tunneling Protocol (PPTP) or Microsoft Point-to-Point Encryption (MPPE).[31] 
-    """
-    # for item in SentenceInterator(to_iter = VPN, max_size = 1900):
-    #     print(item, len(item))
-    #     x = input()
-
-if __name__ == "__main__":
-    strs = crumble(str("q \n\n\n\n qqqqqqqqqqqq fsldf; " * 10000), 2000)
-    [print(len(s)) for s in strs]
