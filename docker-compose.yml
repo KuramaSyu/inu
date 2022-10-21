@@ -3,7 +3,7 @@ services:
   db:
     container_name: postgresql
     image: postgres
-    restart: always
+    restart: "unless-stopped"
     environment:
       POSTGRES_USER: inu
       POSTGRES_PASSWORD: secr33t
@@ -16,11 +16,11 @@ services:
       - lava
       - db
     build: .
-    restart: always
+    restart: "unless-stopped"
   lava:
     container_name: lavalink
     build: ./dependencies/fredboat/
-    restart: always
+    restart: "unless-stopped"
     # image: fredboat/lavalink:dev
     # configs:
     # - source: my_config
