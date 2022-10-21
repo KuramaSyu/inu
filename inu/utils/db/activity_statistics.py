@@ -51,6 +51,8 @@ class GameCategories:
         """
         ...
 
+
+
 class CurrentGamesManager:
 
     @classmethod
