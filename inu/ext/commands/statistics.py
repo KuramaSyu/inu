@@ -466,9 +466,9 @@ async def build_activity_graph(
     ax.xaxis.set_major_formatter(date_form)
     X_LABLE_AMOUNT: int = 12  # about
     base = round(df_timedelta.days / X_LABLE_AMOUNT, 0)  # base have to be .0, otherwise not matching with plot peaks
-    base = 1 if base < 1 else base
-    loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
-    ax.xaxis.set_major_locator(loc)
+    if base > 0:
+        loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
+        ax.xaxis.set_major_locator(loc)
     # ax.figure.autofmt_xdate(rotation=45)
     
     
