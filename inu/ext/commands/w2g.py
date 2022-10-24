@@ -47,7 +47,6 @@ from core import (
 )
 
 log = getLogger(__name__)
-
 plugin = lightbulb.Plugin("API Stuff", "API commands")
 bot: Inu
 
@@ -58,10 +57,9 @@ bot: Inu
 async def make_w2g_link(ctx: context.Context):
     resp = await Watch2Gether.fetch_link(ctx.options.link)
     await ctx.respond(
-        # embed=Embed(title="Your link"),
         component=(
             ActionRowBuilder()
-            .add_button(ButtonStyle.LINK, f"https://w2g.tv/rooms/{resp['streamkey']}")
+            .add_button(ButtonStyle.LINK, f"{bot.conf.w2g.API_URL}/rooms/{resp['streamkey']}")
             .set_label("Watch2Gether Room") 
             .add_to_container()
         )

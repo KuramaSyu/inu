@@ -19,9 +19,9 @@ class Watch2Gether:
         'Accept': 'application/json',
         'Content-Type': 'application/json'   
     }
-    # Satisfactory OST
-    _default_link = "https://www.youtube.com/watch?v=67jNiQ6xhnU"
+    
     _conf: ConfigProxy = ConfigProxy()
+    _default_link = _conf.w2g.default_link
 
     @classmethod
     def _make_body(cls, link: Optional[str]) -> Dict[str, str]:
@@ -35,10 +35,24 @@ class Watch2Gether:
         return b
 
     @classmethod
-    async def fetch_link(cls, link: Optional[str] = None):
+    async def fetch_link(cls, link: Optional[str] = None) -> Dict[str, str]:
+        """
+        Creates a watch2gether room
+
+        Args:
+        -----
+        link : str | None
+            The default video for the room
+            Default: None
+        
+        Returns:
+        --------
+        Dict[str, str] :
+            the response. Dict contains key "streamkey" which is the url for the room
+        """
         async with aiohttp.ClientSession() as session:
             async with session.post(
-                "https://w2g.tv/rooms/create.json", 
+                f"{cls._conf.w2g.api_url}/rooms/create.json", 
                 data=json.dumps(cls._make_body(link)), 
                 headers=cls._headers
             ) as resp:
