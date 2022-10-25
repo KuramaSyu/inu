@@ -340,7 +340,7 @@ async def build_activity_graph(
    
     if df_timedelta >= timedelta(days=20):
         resample_delta = df_timedelta / 15
-    elif df_timedelta >= timedelta(days=5):
+    elif df_timedelta >= timedelta(days=4.5):
         resample_delta = timedelta(days=1)
     else:
         resample_delta = df_timedelta / 20 
@@ -471,8 +471,6 @@ async def build_activity_graph(
         ax.xaxis.set_major_locator(loc)
     # ax.figure.autofmt_xdate(rotation=45)
     
-    
-
     # save chart
     figure = fig.get_figure()    
     figure.savefig(picture_buffer, dpi=100)
