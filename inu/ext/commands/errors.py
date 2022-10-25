@@ -14,7 +14,7 @@ from core import Inu
 from utils.language import Human
 from .help import OutsideHelp
 
-from core import getLogger, BotResponseError, Inu
+from core import getLogger, BotResponseError, Inu, InteractionContext
 
 log = getLogger(__name__)
 pl = lightbulb.Plugin("Error Handler")
@@ -46,8 +46,6 @@ async def on_error(event: events.CommandErrorEvent):
             log.debug(f"Exception uncaught: {event.__class__}")
             return
         error = event.exception
-        log.debug(f"{dir(event)}")
-        log.debug(f"{dir(error)}")
         async def message_dialog(error_embed: hikari.Embed):
             error_id = f"{bot.restart_num}-{bot.id_creator.create_id()}-{bot.me.username[0]}"
             component=(
@@ -103,14 +101,35 @@ async def on_error(event: events.CommandErrorEvent):
                 name=f'{str(error.__class__)[8:-2]}',
                 value=f'Error:\n{error}'[:1024],
             )
+            i = 0
             for index, tb in enumerate(traceback_list):
-                if index % 20 == 0 and index != 0:
+                if embeds[-1].total_length() > 6000:
+                    field = embeds[-1]._fields.pop(-1)
+                    embeds.append(Embed(description=f"Bug #{error_id}"))
+                    embeds[-1]._fields.append(field)
+                    i = 0
+                if i % 20 == 0 and i != 0:
                     embeds.append(Embed(description=f"Bug #{error_id}"))
                 embeds[-1].add_field(
                     name=f'Traceback - layer {index + 1}',
                     value=f'```python\n{Human.short_text_from_center(tb, 1000)}```',
                     inline=False
                 )
+                i += 1
+            messages: List[List[Embed]] = [[]]
+            message_len = 0
+            for e in embeds:
+                if message_len == 0:
+                    messages[-1].append(e)
+                    message_len += e.total_length()
+                else:
+                    if message_len + e.total_length() > 6000:
+                        messages.append([e])
+                        message_len = e.total_length()
+                    else:
+                        messages[-1].append(e)
+                        message_len += e.total_length()
+
             kwargs: Dict[str, Any] = {"embeds": embeds}
             answer = ""
             if custom_id == "error_show":
@@ -130,13 +149,23 @@ async def on_error(event: events.CommandErrorEvent):
                     answer = ""
 
             kwargs["content"] = f"**{40*'#'}\nBug #{error_id}\n{40*'#'}**\n\n\n{Human.short_text(answer, 1930)}"
-
-            message = await bot.rest.create_message(
-                channel=bot.conf.bot.bug_channel_id,
-                **kwargs
-            )
+            del kwargs["embeds"]
             if interaction:
-                await interaction.create_initial_response(
+                ictx = InteractionContext(interaction, ephemeral=True, auto_deferr=True)
+            for i, embeds in enumerate(messages):
+                if i == 0:
+                    message = await bot.rest.create_message(
+                        channel=bot.conf.bot.bug_channel_id,
+                        embeds=embeds,
+                        **kwargs
+                    )
+                else:
+                    message = await bot.rest.create_message(
+                        channel=bot.conf.bot.bug_channel_id,
+                        embeds=embeds,
+                    )
+            if interaction:
+                await ictx.respond(
                     content=(
                         f"**Bug #{error_id}** has been reported.\n"
                         f"You can find the bug report [here]({message.make_link(message.guild_id)})\n"
@@ -145,11 +174,9 @@ async def on_error(event: events.CommandErrorEvent):
 
                     ),
                     flags=hikari.MessageFlag.EPHEMERAL,
-                    response_type=hikari.ResponseType.MESSAGE_CREATE
                 )
             # elif str(e.emoji_name) == '❔':
             #     await OutsideHelp.search(ctx.invoked_with, ctx)
-            #     await message.remove_all_reactions()
             return
 
         # errors which will be handled also without prefix
