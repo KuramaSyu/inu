@@ -50,7 +50,7 @@ class MusicHistoryPaginator(Paginator):
         for x in range(self.items_per_site):
             try:
                 menu.add_option(
-                    f"{x+start} | {self.song_list[x+start]['title']}",
+                    f"{x+start} | {self.song_list[x+start]['title']}"[:100],
                     str(int(x+start))
                 ).add_to_menu()
             except IndexError:
