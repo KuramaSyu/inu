@@ -112,7 +112,10 @@ class AkinatorSI(Paginator):
             elif answer == "aki_end":
                 break
             else:
-                question = await self.aki.answer(translate_answer[answer])
+                try:
+                    question = await self.aki.answer(translate_answer[answer])
+                except Exception:
+                    pass
             i += 1
         if self.aki.progression >= 80:
             await self.aki.win()
