@@ -26,7 +26,7 @@ class InteractionContext:
     ):
         self._interaction = interaction
         self.responded = False
-        self.message: hikari.Message
+        self.message: hikari.Message | None = None
         self._ephemeral = ephemeral
         self._create = not update
         self._upadate = update
@@ -107,18 +107,23 @@ class InteractionContext:
     
     async def execute(self, delete_after: int | None = None, ensure_return: bool = False, **kwargs) -> hikari.messages.Message | None:
         if not self.responded:
+            # make inital response instead
             await self.respond(**kwargs)
             if delete_after:
+                # start delete timeer
                 asyncio.create_task(self.delete_initial_response(after=delete_after))
             if ensure_return:
+                # ensure, that a message and not None is returned
                 return await self.i.fetch_initial_response()
         else:
+            # initial response was made -> actually execute the webhook
             msg = await self.i.execute(**kwargs)
             if delete_after:
+                # start delete timer
                 asyncio.create_task(self.delete_webhook_message(msg, after=delete_after))
             return msg
 
-    def interaction_kwargs(self, with_response_type: bool = False) -> Dict[str, Any]:
+    def interaction_kwargs(self, with_response_type: bool = False, update: bool = False) -> Dict[str, Any]:
         kwargs: Dict[str, Any] = {}
         if self.embeds:
             kwargs["embeds"] = self.embeds
@@ -127,14 +132,11 @@ class InteractionContext:
         if self._content:
             kwargs["content"] = self._content
 
-        resp_type: hikari.ResponseType | None = None
         if with_response_type or (not self.responded and not self._deferred and self.is_valid):
-            if self._create:
-                resp_type = ResponseType.MESSAGE_CREATE
-            if self._upadate:
-                resp_type = ResponseType.MESSAGE_UPDATE
-        if resp_type:
-            kwargs["response_type"] = resp_type  #type: ignore
+            if self._upadate or update:
+                kwargs["response_type"] = ResponseType.MESSAGE_UPDATE
+            else:
+                kwargs["response_type"] = ResponseType.MESSAGE_CREATE
         print(f"{kwargs =}")
         return kwargs
 
@@ -172,8 +174,12 @@ class InteractionContext:
 
     async def respond(self, update: bool = False, **kwargs) -> None | hikari.Message:
         if not self.is_valid:
+            # webhook is unvalid due to older than 15 min
             print("unvalid")
-            if self._upadate or update:
+            if update:
+                # update message with REST call
+                if not self.message:
+                    raise RuntimeError("Can't update message. `message` attr is None")
                 return await self.i.app.rest.edit_message(
                     channel=self.channel_id,
                     message=self.message.id,
@@ -182,38 +188,49 @@ class InteractionContext:
                     **kwargs
                 )
             else:
-                self.i.app.rest.create_message(
+                # create message with REST call
+                self.message = await self.i.app.rest.create_message(
                     channel=self.channel_id,
                     **self.interaction_kwargs(), 
                     **self._extra_respond_kwargs,
                     **kwargs
                 )
+                return self.message
         if not self.responded:
-            default_state, self._upadate = self._upadate, update
+            # webhook is valid
+            # make initial response
             self.responded = True
-            print("create")
+            print(f"create {update=}")
             await self.i.create_initial_response(
-                **self.interaction_kwargs(with_response_type=True), 
+                **self.interaction_kwargs(with_response_type=True, update=update), 
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
-            self._upadate = default_state
             asyncio.create_task(self._cache_initial_response())
             return None
         if update:
+            # webhook is valid
+            # inital response was already made
+            # update existing inital response
             print("update")
             await self.i.edit_initial_response(
                 **self.interaction_kwargs(), 
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
+            # cache message
+            asyncio.create_task(self._cache_initial_response())
             return None
         else:
+            # webhook is valid
+            # inital response was made
+            # update is False
+            # -> execute webhook
             print("execute")
             return await self.execute(**kwargs)
 
-    async def initial_response_create(**kwargs):
-        if not deferred:
+    async def initial_response_create(self, **kwargs):
+        if not self._deferred:
             await self.i.create_initial_response(
                 response_type=ResponseType.MESSAGE_CREATE, 
                 **self._extra_respond_kwargs, 
@@ -224,13 +241,20 @@ class InteractionContext:
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
-        asyncio.create_task(self.fetch_initial_response())
+        self.responded = True
+        asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
         self.message = await self.i.fetch_initial_response()
 
-    async def initial_response_update(**kwargs):
-        if not deferred:
+    async def fetch_response(self):
+        """message from initial response or the last execute"""
+        if not self.message:
+            await self._cache_initial_response()
+        return self.message
+
+    async def initial_response_update(self, **kwargs):
+        if not self._deferred:
             await self.i.create_initial_response(
                 response_type=ResponseType.MESSAGE_UPDATE, 
                 **self._extra_respond_kwargs, 
@@ -241,7 +265,8 @@ class InteractionContext:
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
-        asyncio.create_task(self.fetch_initial_response())
+        self.responded = True
+        asyncio.create_task(self._cache_initial_response())
 
             
 
