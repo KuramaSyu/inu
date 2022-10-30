@@ -119,6 +119,9 @@ async def on_error(event: events.CommandErrorEvent):
             messages: List[List[Embed]] = [[]]
             message_len = 0
             for e in embeds:
+                for field in e._fields:
+                    if not field.value:
+                        field.value = "-"
                 if message_len == 0:
                     messages[-1].append(e)
                     message_len += e.total_length()
