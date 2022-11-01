@@ -108,7 +108,8 @@ CREATE TABLE IF NOT EXISTS polls (
     starts TIMESTAMP,
     expires TIMESTAMP NOT NULL,
     "anonymous" BOOLEAN NOT NULL,
-    poll_type INTEGER NOT NULL
+    poll_type INTEGER NOT NULL,
+    CONSTRAINT unique_message_id UNIQUE(message_id)
 );
 
 CREATE TABLE IF NOT EXISTS poll_votes (
