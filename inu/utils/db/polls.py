@@ -126,14 +126,40 @@ class PollManager:
         return record
 
     @classmethod
-    async def remove_poll(cls, poll_id: int, message_id: int):
-        """remove poll from db"""
+    async def remove_poll(cls, poll_id: int | None = None, message_id: int | None = None):
+        """
+        remove poll from db
+
+        Args:
+        -----
+        poll_id : int | None
+            the poll id
+        message_id : int | None
+            the message id of the poll
+
+        Raises:
+        ------
+        RuntimeError :
+            When neither poll_id nor message_id where given
+        
+        """
         table = Table("polls")
-        await table.delete(
-            columns=["poll_id"],
-            matching_values=[poll_id]
+        cols = []
+        vals = []
+        if poll_id:
+            cols.append("poll_id")
+            vals.append(poll_id)
+        if message_id:
+            cols.append("message_id")
+            vals.append(message_id)
+        if not cols:
+            raise RuntimeError("Either message_id or poll_id arg is needed. No args were given")
+        poll_records = await table.delete(
+            columns=cols,
+            matching_values=vals
         )
-        cls.message_id_cache.remove(message_id)
+        for p in poll_records:
+            cls.message_id_cache.remove(p["message_id"])
 
     @classmethod
     async def add_vote(cls, poll_id: int, user_id: int, option_id: str):
