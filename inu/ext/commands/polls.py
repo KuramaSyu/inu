@@ -67,9 +67,6 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     if not option_id:
         return
     await PollManager.remove_vote(record["poll_id"], event.user_id)
-    
-
-
     # check if option in fetched record
     # if yes update poll and insert to votes
     await PollManager.add_vote(
@@ -81,6 +78,16 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
     await poll.fetch()
     await poll.dispatch_embed(bot)
     await bot.rest.delete_reaction(event.channel_id, event.message_id, event.user_id, event.emoji_name)
+
+
+
+@plugin.listener(hikari.MessageDeleteEvent)
+async def on_message_delete(event: hikari.MessageDeleteEvent):
+    if not event.message_id in PollManager.message_id_cache:
+        return
+    log = getLogger(__name__, "ON MESSAGE DELETE")
+    log.debug(f"remove message with id {event.message_id}")
+    await PollManager.remove_poll(event.message_id)
         
 
 @plugin.command
