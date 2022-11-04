@@ -388,7 +388,7 @@ class Poll():
         legend = ""
         for color, emoji, option in zip(PIE_CHART_COLORS, COLOR_TO_EMOJI, self.options):
             color = emoji or color
-            legend += f"\n{color} --> {option['description']}"
+            legend += f"\n{color} --> {option['name']}"
         embed.add_field("Legend", legend, inline=False)
         embed.set_image(self._make_pie_chart())
         return embed
