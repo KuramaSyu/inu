@@ -28,7 +28,7 @@ PIE_CHART_COLORS = [
     "tab:red", "tab:purple", "tab:brown",
     "tab:pink", "tab:gray", "tab:olive", "tab:cyan"
 ]
-COLOR_TO_EMOJI: List[str, None] = ["🔵", "🟠", "🟢", "🔴", "🟣", "🟤", *[None for _ in range(1, 100)]]
+COLOR_TO_EMOJI: List[str | None] = ["🔵", "🟠", "🟢", "🔴", "🟣", "🟤", *[None for _ in range(1, 100)]]
 
 
 
