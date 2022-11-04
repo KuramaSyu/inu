@@ -9,6 +9,7 @@ from io import BytesIO
 import numpy as np
 
 import hikari
+from hikari import ButtonStyle
 import lightbulb
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -17,11 +18,17 @@ import mplcyberpunk
 
 from utils.db import PollManager
 from utils import Colors
-from core import Table, Inu, getLogger, ConfigProxy, ConfigType
+from core import Table, Inu, getLogger, ConfigProxy, ConfigType, InteractionContext
 
 log = getLogger(__name__)
 conf = ConfigProxy(ConfigType.YAML)
 POLL_SYNC_TIME = conf.commands.poll_sync_time
+PIE_CHART_COLORS = [
+    "tab:blue", "tab:orange", "tab:green",
+    "tab:red", "tab:purple", "tab:brown",
+    "tab:pink", "tab:gray", "tab:olive", "tab:cyan"
+]
+COLOR_TO_EMOJI: List[str, None] = ["🔵", "🟠", "🟢", "🔴", "🟣", "🟤", *[None for _ in range(1, 100)]]
 
 
 
@@ -212,6 +219,31 @@ class Poll():
 
 
         # f"{int(time.time)}{ctx.author.id}{ctx.guild_id}"
+    @property 
+    def options(self) -> List[Dict[str, int | str]]:
+        """
+        Returns:
+        --------
+        List[Dict[str, int | str]] :
+            A List with mappings with keys:
+            - id : int
+                the id of the option
+            - name : str
+                the description of the option
+            - reaction : str
+                the reaction or letter for interaction for this option
+        """
+        options = []
+        for id, name in self._options.items():
+            reaction = self._id_reaction.get(id)
+            options.append(
+                {
+                    "id": id,
+                    "name": name,
+                    "reaction": reaction,
+                }
+            )
+        return options
 
     @property
     def expires(self) -> datetime:
@@ -321,6 +353,27 @@ class Poll():
         return embed
 
     @property
+    def components(self) -> List[hikari.impl.ActionRowBuilder]:
+        options = self.options
+        components = []
+        if len(options) <= 10:
+            # use buttons
+            row = hikari.impl.ActionRowBuilder()
+            for i, option in enumerate(options):
+                if i % 5 == 0 and i:
+                    components.append(row)
+                    row = hikari.impl.ActionRowBuilder()
+                row = row.add_button(ButtonStyle.PRIMARY, f"vote_add_{option['reaction']}").set_label(str(option['name'])).add_to_container()
+            components.append(row)
+        else:
+            menu = hikari.impl.ActionRowBuilder().add_select_menu("vote_add_menu")
+            for option in options:
+                menu.add_option(str(option.get("name", "Unknown")), f"vote_add_{option['reaction']}").add_to_menu()
+            menu = menu.add_to_container()
+            components.append(menu)
+        return components
+
+    @property
     def final_embed(self):
         embed = self.embed
         embed.description = ""
@@ -332,6 +385,11 @@ class Poll():
             text=f"Poll created by {self.bot.cache.get_member(self.guild_id, self.creator_id).display_name}",
             icon=self.bot.cache.get_member(self.guild_id, self.creator_id).avatar_url,
         )
+        legend = ""
+        for color, emoji, option in zip(PIE_CHART_COLORS, COLOR_TO_EMOJI, self.options):
+            color = emoji or color
+            legend += f"\n{color} --> {option['description']}"
+        embed.add_field("Legend", legend, inline=False)
         embed.set_image(self._make_pie_chart())
         return embed
 
@@ -374,7 +432,7 @@ class Poll():
         return self._reaction_letter.get(self._reaction_by_id(id), "None")
 
     async def fetch(self) -> None:
-
+        """updates `self` with the current poll values"""
         option_table = Table("poll_options")
         vote_table = Table("poll_votes")
 
@@ -396,39 +454,29 @@ class Poll():
 
     async def dispatch_embed(
         self, 
-        bot: Inu, 
+        ictx: InteractionContext,
         edit: bool = True, 
-        add_reactions: bool = False,
         embed: Optional[hikari.Embed] = None,
         **kwargs,
     ) -> hikari.Message:
 
-        if edit:
-            message = await bot.rest.edit_message(
-                channel=self._channel_id,
-                message=self._message_id,
-                embed=embed or self.embed,
-                **kwargs,
-            )
-        else:
-            message = await bot.rest.create_message(
-                channel=self._channel_id,
-                embed=embed or self.embed,
-                **kwargs,
-            )
-            
-        if not add_reactions:
-            return message
+        await ictx.respond(
+            update=edit, 
+            embed=embed or self.embed, 
+            components=self.components, 
+            **kwargs
+        )
+        message = await ictx.fetch_response()
 
-        letter_emojis = [
-                "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", 
-                "🇭", "🇮", "🇯", "🇰", "🇱", "🇲", "🇳", 
-                "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", 
-                "🇻", "🇼", "🇽", "🇾", "🇿"
-            ]
+        # letter_emojis = [
+        #         "🇦", "🇧", "🇨", "🇩", "🇪", "🇫", "🇬", 
+        #         "🇭", "🇮", "🇯", "🇰", "🇱", "🇲", "🇳", 
+        #         "🇴", "🇵", "🇶", "🇷", "🇸", "🇹", "🇺", 
+        #         "🇻", "🇼", "🇽", "🇾", "🇿"
+        #     ]
 
-        for i in range(len(self._options)):
-            await message.add_reaction(letter_emojis[i])
+        # for i in range(len(self._options)):
+        #     await message.add_reaction(letter_emojis[i])
         return message
 
     async def finalize(self) -> None:
@@ -444,10 +492,9 @@ class Poll():
         self.__class__._finalizing.add(self.id)
         await asyncio.sleep(self.expires.timestamp() - tm.time())
         await self.fetch()
-        await self.dispatch_embed(
-            self.bot, 
-            edit=False, 
-            content="Results", 
+        await self.bot.rest.create_message(
+            channel=self.channel_id,
+            content="Results",
             embed=self.final_embed
         )
         await PollManager.remove_poll(self.id, self.message_id)
@@ -469,9 +516,10 @@ class Poll():
                 labels.append(labal)
                 data.append(len(value[1]))
                 reaction_letters.append(self._letter_by_id(value[0]))
-        #chart.set_tight_layout(True)
+        chart.set_tight_layout(True)
         wedges, texts = ax.pie(
             x=data, 
+            colors=PIE_CHART_COLORS[:len(labels)],
             # autopct="%.1f%%", 
             autopct=None,
             explode=[0.05]*len(labels), 
