@@ -162,7 +162,15 @@ class InteractionContext:
 
     @property
     def custom_id(self) -> str:
+        # if isinstance(self.i, hikari.CommandInteraction):
+        #     raise RuntimeError(f"type {type(self.i)} has no attribute custom_id")
         return self.i.custom_id
+
+    @property
+    def message_id(self) -> int:
+        # if isinstance(self.i, hikari.CommandInteraction):
+        #     raise RuntimeError(f"type {type(self.i)} has no attribute message_id")
+        return self.i.message.id
 
     @property
     def values(self) -> List[str]:
