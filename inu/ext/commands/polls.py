@@ -26,7 +26,7 @@ from pytimeparse.timeparse import timeparse
 from hikari import TextInputStyle
 
 from utils import Colors, Human, Paginator, crumble, Poll, PollManager
-from core import getLogger, Inu, Table, BotResponseError
+from core import getLogger, Inu, Table, BotResponseError, InteractionContext
 # import Dataset
 
 
@@ -45,44 +45,57 @@ letter_emojis =             [
             ]
 # at start init from database
 
-
-@plugin.listener(hikari.GuildReactionAddEvent)
-async def on_reaction_add(event: hikari.GuildReactionAddEvent):
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_interaction_create(event: hikari.InteractionCreateEvent):
+    """handler for poll interactions"""
     # change letter_emojis to the actual emoji
-    if event.user_id == bot.me.id:
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    if event.emoji_name not in letter_emojis:
+    ictx = InteractionContext(event.interaction)
+    log = getLogger(__name__, "INTERACTION RECEIVE")
+    if ictx.user.id == bot.me.id:
         return
-    if not event.message_id in PollManager.message_id_cache:
+    if not (custom_id := ictx.i.custom_id).startswith("vote_add"):
+        log.debug("customid is not for polls")
+        return
+    letter = custom_id[-1]
+    if not ictx.message_id in PollManager.message_id_cache:
+        log.debug("message id not in cache")
         return
 
-    record = await PollManager.fetch_poll(message_id=event.message_id)
+    record = await PollManager.fetch_poll(message_id=ictx.message_id)
     if not record:
+        log.debug("no poll record found")
         return
 
     option_id = await PollManager.fetch_option_id(
         record["poll_id"], 
-        event.emoji_name
+        letter
     )
     if not option_id:
+        log.debug("no option id found")
         return
-    await PollManager.remove_vote(record["poll_id"], event.user_id)
+    
+    await PollManager.remove_vote(record["poll_id"], ictx.user_id)
     # check if option in fetched record
     # if yes update poll and insert to votes
     await PollManager.add_vote(
         poll_id=record["poll_id"], 
-        user_id=event.user_id, 
+        user_id=ictx.user_id, 
         option_id=option_id,
     )
+    # create poll object
     poll = Poll(record, bot)
+    # update all poll values to the current status
     await poll.fetch()
-    await poll.dispatch_embed(bot)
-    await bot.rest.delete_reaction(event.channel_id, event.message_id, event.user_id, event.emoji_name)
+    # dispatch the message
+    await poll.dispatch_embed(ictx)
 
 
 
 @plugin.listener(hikari.MessageDeleteEvent)
 async def on_message_delete(event: hikari.MessageDeleteEvent):
+    """delete poll from db"""
     if not event.message_id in PollManager.message_id_cache:
         return
     log = getLogger(__name__, "ON MESSAGE DELETE")
@@ -179,6 +192,11 @@ async def make_poll(ctx: context.SlashContext):
             f"You enter a maximum of 15 options.\nYou have entered {Human.plural_('option', len(options), with_number=True)}.",
             ephemeral=True,
         )
+    for option in options:
+        if len(option) > 80:
+            raise BotResponseError((
+                f"Your option `{option}` is longer than 80 characters. Make sure, it's 80 or below"
+            ))
     if dummy_record["expires"] <= datetime.now() + timedelta(seconds=9):  # type: ignore
         raise BotResponseError(
             f"You need to enter a duration that is longer than 9 seconds",
@@ -194,11 +212,17 @@ async def make_poll(ctx: context.SlashContext):
     dummy_record["message_id"] = message.id
 
     record = await PollManager.add_poll(**dummy_record)
-    for letter, option in zip(letter_emojis, options):
-        await PollManager.add_poll_option(record["poll_id"], letter, option)
+    for letter, option in zip("ABCDEFGHIJKLMNOPQRSTUVWXYZ", options):
+        await PollManager.add_poll_option(
+            poll_id=record["poll_id"], 
+            reaction=letter, 
+            description=option
+        )
     poll = Poll(record, bot)
     await poll.fetch()
-    await poll.dispatch_embed(bot, add_reactions=True, content="")
+    ictx = InteractionContext(ctx.interaction)
+    ictx.responded = True
+    await poll.dispatch_embed(ictx, content="")
     if poll.expires < datetime.now() + timedelta(seconds=POLL_SYNC_TIME):
         await poll.finalize()
 
