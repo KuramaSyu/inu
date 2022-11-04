@@ -202,6 +202,7 @@ class Poll():
         self._poll: Dict[int, List[int]] = {}
         # mapping from option id to the option title
         self._options: Dict[int, str] = {}
+        # mapping from option id to reaction/letter/partial custom id e.g. 1 -> A
         self._id_reaction: Dict[int, str] = {}
 
         self._title = record["title"]
@@ -232,6 +233,10 @@ class Poll():
                 the description of the option
             - reaction : str
                 the reaction or letter for interaction for this option
+            - votes : List[int]
+                user_ids of people who voted
+            - color : str
+                the color as emoji, color name or "/"
         """
         options = []
         for id, name in self._options.items():
@@ -241,8 +246,13 @@ class Poll():
                     "id": id,
                     "name": name,
                     "reaction": reaction,
+                    "votes": self._poll[id],
                 }
             )
+        options.sort(key=lambda d: d["votes"], reverse=True)
+        for option, _, emoji_or_name in zip(options, PIE_CHART_COLORS, COLOR_TO_EMOJI):
+            option["color"] = emoji_or_name or "/"
+
         return options
 
     @property
@@ -338,17 +348,17 @@ class Poll():
         if self.anonymous:
             vote_result = ""
             for option_id, o_votes in self._poll.items():
-                vote_result += f"**{self._reaction_by_id(option_id)}** _{self._options[option_id]}_\n{self._amount_to_str(option_id)}\n\n"
+                vote_result += f"{self._options[option_id]}\n{self._amount_to_str(option_id)}\n\n"
             embed.add_field("Results", vote_result)
         else:
-            for option_id, o_votes in self._poll.items():
+            for option in self.options:
                 value = "\n".join(
                     self.bot.cache.get_member(self.guild_id, m).display_name 
-                    for m in o_votes
-                ) if len(o_votes) > 0 else "/" #r"¯\_(ツ)_/¯"
+                    for m in option['votes']
+                ) if len(option['votes']) > 0 else "/" #r"¯\_(ツ)_/¯"
                 embed.add_field(
-                    f"**{self._reaction_by_id(option_id)}** | {self._amount_to_str(option_id)}",
-                    f"_{self._options[option_id]}_\n>>> {value}",
+                    f"{self._amount_to_str(option['id'])}",
+                    f"**{option['name']}**\n>>> {value}",
                 )
         return embed
 
@@ -374,6 +384,16 @@ class Poll():
         return components
 
     @property
+    def legend(self) -> str:
+        legend = ""
+        for option in self.options:
+            if len(option["votes"]) <= 0:
+                continue
+            legend += f"\n{option['color']} --> {option['name']}"
+        return legend or "/"
+
+
+    @property
     def final_embed(self):
         embed = self.embed
         embed.description = ""
@@ -385,11 +405,9 @@ class Poll():
             text=f"Poll created by {self.bot.cache.get_member(self.guild_id, self.creator_id).display_name}",
             icon=self.bot.cache.get_member(self.guild_id, self.creator_id).avatar_url,
         )
-        legend = ""
-        for color, emoji, option in zip(PIE_CHART_COLORS, COLOR_TO_EMOJI, self.options):
-            color = emoji or color
-            legend += f"\n{color} --> {option['name']}"
-        embed.add_field("Legend", legend, inline=False)
+
+
+        embed.add_field("Legend", self.legend, inline=False)
         embed.set_image(self._make_pie_chart())
         return embed
 
@@ -524,7 +542,7 @@ class Poll():
             autopct=None,
             explode=[0.05]*len(labels), 
             wedgeprops=dict(width=0.4),
-            labels=reaction_letters, 
+            labels=None, 
             # pctdistance=0.5,
             labeldistance=0.7,
             startangle=-40
