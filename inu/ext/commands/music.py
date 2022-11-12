@@ -456,7 +456,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         return
     if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.user_id)):
         return
-    if ctx.i.message_id != message.id:
+    if ctx.message_id != message.id:
         # music message is different from message where interaction comes from
         # disable buttons from that different message
         await ctx.initial_response_update(
