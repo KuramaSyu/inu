@@ -445,6 +445,7 @@ MENU_CUSTOM_IDS = [
 ]
 @music.listener(hikari.InteractionCreateEvent)
 async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
+    pass
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     ctx = InteractionContext(event.interaction, update=True)
