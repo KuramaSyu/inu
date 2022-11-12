@@ -86,6 +86,9 @@ class InteractionContext:
     def i(self) -> hikari.ComponentInteraction | hikari.CommandInteraction:
         return self._interaction
 
+    @property
+    def author(self) -> hikari.User:
+        self.i.user
 
     @property
     def respond_kwargs(self) -> Dict[str, Any]:
