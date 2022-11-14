@@ -220,8 +220,8 @@ async def make_poll(ctx: context.SlashContext):
         )
     poll = Poll(record, bot)
     await poll.fetch()
-    ictx = InteractionContext(ctx.interaction)
-    ictx.responded = True
+    ictx = InteractionContext(ctx.event, bot)
+    ictx._responded = True
     await poll.dispatch_embed(ictx, content="")
     if poll.expires < datetime.now() + timedelta(seconds=POLL_SYNC_TIME):
         await poll.finalize()
