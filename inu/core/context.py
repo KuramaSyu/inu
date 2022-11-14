@@ -1,53 +1,233 @@
 import asyncio
 from typing import *
 from datetime import datetime, timedelta
+import abc
+import functools
 
 import hikari
 from hikari import ComponentInteraction, ResponseType
 from ._logging import getLogger
+
+import lightbulb
+from lightbulb.context.base import Context, ResponseProxy
 
 log = getLogger(__name__)
 
 
 REST_SENDING_MARGIN = 0.5 #seconds
 
-class InteractionContext:
+
+
+class _InteractionContext(Context, abc.ABC):
+    __slots__ = ("_event", "_interaction")
+
+    def __init__(
+        self, app: lightbulb.app.BotApp, event: hikari.InteractionCreateEvent
+    ) -> None:
+        super().__init__(app)
+        self._event = event
+        assert isinstance(event. interaction, hikari.ComponentInteraction)
+        self._interaction: hikari.ComponentInteraction = event.interaction
+        self._default_ephemeral: bool = False
+
+    @property
+    def app(self) -> lightbulb.app.BotApp:
+        return self._app
+    @property
+    def event(self) -> hikari.InteractionCreateEvent:
+        return self._event
+
+    @property
+    def interaction(self) -> hikari.ComponentInteraction:  #type: ignore
+        return self._interaction
+
+    @property
+    def channel_id(self) -> hikari.Snowflakeish:
+        return self._interaction.channel_id
+
+    @property
+    def guild_id(self) -> Optional[hikari.Snowflakeish]:
+        return self._interaction.guild_id
+
+    @property
+    def attachments(self) -> Sequence[hikari.Attachment]:
+        return []
+
+    @property
+    def member(self) -> Optional[hikari.Member]:
+        return self._interaction.member
+
+    @property
+    def author(self) -> hikari.User:
+        return self._interaction.user
+
+    def get_channel(self) -> Optional[Union[hikari.GuildChannel, hikari.Snowflake]]:
+        if self.guild_id is not None:
+            return self.app.cache.get_guild_channel(self.channel_id)
+        return self.app.cache.get_dm_channel_id(self.user)
+
+    async def respond(
+        self, *args: Any, delete_after: Union[int, float, None] = None, update: bool = False, **kwargs: Any
+    ) -> ResponseProxy:
+        """
+        Create a response for this context. The first time this method is called, the initial
+        interaction response will be created by calling
+        :obj:`~hikari.interactions.command_interactions.CommandInteraction.create_initial_response` with the response
+        type set to :obj:`~hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE` if not otherwise
+        specified.
+
+        Subsequent calls will instead create followup responses to the interaction by calling
+        :obj:`~hikari.interactions.command_interactions.CommandInteraction.execute`.
+
+        Args:
+            *args (Any): Positional arguments passed to ``CommandInteraction.create_initial_response`` or
+                ``CommandInteraction.execute``.
+            delete_after (Union[:obj:`int`, :obj:`float`, ``None``]): The number of seconds to wait before deleting this response.
+            **kwargs: Keyword arguments passed to ``CommandInteraction.create_initial_response`` or
+                ``CommandInteraction.execute``.
+
+        Returns:
+            :obj:`~ResponseProxy`: Proxy wrapping the response of the ``respond`` call.
+
+        .. versionadded:: 2.2.0
+            ``delete_after`` kwarg.
+        """
+
+        async def _cleanup(timeout: Union[int, float], proxy_: ResponseProxy) -> None:
+            await asyncio.sleep(timeout)
+
+            try:
+                await proxy_.delete()
+            except hikari.NotFoundError:
+                pass
+
+        includes_ephemeral: Callable[[Union[hikari.MessageFlag, int],], bool] = (
+            lambda flags: (hikari.MessageFlag.EPHEMERAL & flags) == hikari.MessageFlag.EPHEMERAL
+        )
+
+        kwargs.pop("reply", None)
+        kwargs.pop("mentions_reply", None)
+        kwargs.pop("nonce", None)
+
+        if self._default_ephemeral:
+            kwargs.setdefault("flags", hikari.MessageFlag.EPHEMERAL)
+
+        if self._responded:
+            kwargs.pop("response_type", None)
+            if args and isinstance(args[0], hikari.ResponseType):
+                args = args[1:]
+
+            async def _ephemeral_followup_editor(
+                _: ResponseProxy,
+                *args_: Any,
+                _wh_id: hikari.Snowflake,
+                _tkn: str,
+                _m_id: hikari.Snowflake,
+                **kwargs_: Any,
+            ) -> hikari.Message:
+                return await self.app.rest.edit_webhook_message(_wh_id, _tkn, _m_id, *args_, **kwargs_)
+            if update:
+                proxy = self._responses[-1]
+                await proxy.edit(*args, **kwargs)
+            else:
+                message = await self._interaction.execute(*args, **kwargs)
+                proxy = ResponseProxy(
+                    message,
+                    editor=functools.partial(
+                        _ephemeral_followup_editor,
+                        _wh_id=self._interaction.webhook_id,
+                        _tkn=self._interaction.token,
+                        _m_id=message.id,
+                    ),
+                    deleteable=not includes_ephemeral(kwargs.get("flags", hikari.MessageFlag.NONE)),
+                )
+                self._responses.append(proxy)
+                self._deferred = False
+
+            if delete_after is not None:
+                self.app.create_task(_cleanup(delete_after, proxy))
+
+            return self._responses[-1]
+
+        if args:
+            if not isinstance(args[0], hikari.ResponseType):
+                kwargs["content"] = args[0]
+                kwargs.setdefault("response_type", hikari.ResponseType.MESSAGE_CREATE)
+            else:
+                kwargs["response_type"] = args[0]
+                if len(args) > 1:
+                    kwargs.setdefault("content", args[1])
+        else:
+            kwargs.setdefault("response_type", hikari.ResponseType.MESSAGE_CREATE)
+
+        await self._interaction.create_initial_response(**kwargs)
+
+        # Initial responses are special and need their own edit method defined
+        # so that they work as expected for when the responses are ephemeral
+        async def _editor(
+            rp: ResponseProxy, *args_: Any, inter: hikari.CommandInteraction, **kwargs_: Any
+        ) -> hikari.Message:
+            await inter.edit_initial_response(*args_, **kwargs_)
+            return await rp.message()
+
+        proxy = ResponseProxy(
+            fetcher=self._interaction.fetch_initial_response,
+            editor=functools.partial(_editor, inter=self._interaction)
+            if includes_ephemeral(kwargs.get("flags", hikari.MessageFlag.NONE))
+            else None,
+        )
+        self._responses.append(proxy)
+        self._responded = True
+
+        if kwargs["response_type"] in (
+            hikari.ResponseType.DEFERRED_MESSAGE_CREATE,
+            hikari.ResponseType.DEFERRED_MESSAGE_UPDATE,
+        ):
+            self._deferred = True
+
+        if delete_after is not None:
+            self.app.create_task(_cleanup(delete_after, proxy))
+
+        return self._responses[-1]
+
+
+class InteractionContext(_InteractionContext):
     """
     A wrapper for `hikari.ComponentInteraction`
     """
     def __init__(
         self, 
-        interaction: ComponentInteraction, 
+        event: hikari.InteractionCreateEvent,
+        app: lightbulb.app.BotApp,
         ephemeral: bool = False,
-        update: bool = False,
-        deferr: bool = False,
-        auto_deferr: bool = False,
-        update_on_changes: bool = False,
+        defer: bool = False,
+        auto_defer: bool = False,
     ):
-        self._interaction = interaction
-        self.responded = False
+        super().__init__(event=event, app=app)
+        self._interaction = event.interaction
+        self._responded = False
         self.message: hikari.Message | None = None
-        self._ephemeral = ephemeral
-        self._create = not update
-        self._upadate = update
-        self._embeds: List[hikari.Embed] | None = None
-        self._content: str | None = None
-        self._update_on_changes: bool = update_on_changes
-        self._extra_respond_kwargs: Dict[str, Any] = {}
-        self._deferred: bool = False
+        self._default_ephemeral = ephemeral
+        self._deferred: bool = defer
         self._parent_message: hikari.Message | None = None
-        if deferr:
+        self._auto_defer: bool = auto_defer
+        if defer:
             asyncio.create_task(self._ack_interaction())
-        if auto_deferr:
+        if auto_defer:
             asyncio.create_task(self._deferr_on_timelimit())
+
+
+    async def _maybe_defer(self) -> None:
+        if self._auto_defer:
+            await self.respond(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
 
     async def _deferr_on_timelimit(self):
         respond_at = self.i.created_at + timedelta(seconds=(3 - REST_SENDING_MARGIN))  
-        respond_at = respond_at.replace(tzinfo=None)
+        respond_at = respond_areplace(tzinfo=None)
         await asyncio.sleep(
             (respond_at - datetime.utcnow()).total_seconds()
         )
-        if not self.responded:
+        if not self._responded:
             await self._ack_interaction()
 
     async def fetch_parent_message(self):
@@ -61,42 +241,14 @@ class InteractionContext:
         else:
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
         self._deferred = True
-    
-    @property
-    def embed(self) -> hikari.Embed | None:
-        if not self._embeds:
-            return None
-        return self._embeds[0]
-
-    @embed.setter
-    def embed(self, embed: hikari.Embed) -> None:
-        if not self._embeds:
-            self._embeds = []
-        self._embeds[0] = embed
 
     @property
-    def embeds(self) -> List[hikari.Embed] | None:
-        return self._embeds
-
-    @embeds.setter
-    def embeds(self, embeds: List[hikari.Embed]) -> None:
-        self._embeds = embeds
-
-    @property
-    def i(self) -> hikari.ComponentInteraction | hikari.CommandInteraction:
+    def i(self) -> hikari.ComponentInteraction:
         return self._interaction
 
     @property
     def author(self) -> hikari.User:
-        return self.i.user
-
-    @property
-    def respond_kwargs(self) -> Dict[str, Any]:
-        return self._extra_respond_kwargs
-
-    @respond_kwargs.setter
-    def respond_kwargs(self, value: Dict[str, Any]) -> None:
-        self._extra_respond_kwargs = value
+        return self.interaction.user
 
     async def delete_initial_response(self, after: int | None = None):
         if after:
@@ -108,16 +260,16 @@ class InteractionContext:
             await asyncio.sleep(after)
         return await self.i.delete_message(message)
     
-    async def execute(self, delete_after: int | None = None, ensure_return: bool = False, **kwargs) -> hikari.messages.Message | None:
-        if not self.responded:
+    async def execute(self, delete_after: int | None = None, **kwargs) -> hikari.Message:
+        if not self._responded:
             # make inital response instead
             await self.respond(**kwargs)
             if delete_after:
                 # start delete timeer
                 asyncio.create_task(self.delete_initial_response(after=delete_after))
-            if ensure_return:
-                # ensure, that a message and not None is returned
-                return await self.i.fetch_initial_response()
+            # if ensure_return:
+            #     # ensure, that a message and not None is returned
+            return await self.i.fetch_initial_response()
         else:
             # initial response was made -> actually execute the webhook
             msg = await self.i.execute(**kwargs)
@@ -126,119 +278,33 @@ class InteractionContext:
                 asyncio.create_task(self.delete_webhook_message(msg, after=delete_after))
             return msg
 
-    def interaction_kwargs(self, with_response_type: bool = False, update: bool = False) -> Dict[str, Any]:
-        kwargs: Dict[str, Any] = {}
-        if self.embeds:
-            kwargs["embeds"] = self.embeds
-        elif self.embed:
-            kwargs["embeds"] = [self.embed]
-        if self._content:
-            kwargs["content"] = self._content
-
-        if with_response_type or (not self.responded and not self._deferred and self.is_valid):
-            if self._upadate or update:
-                kwargs["response_type"] = ResponseType.MESSAGE_UPDATE
-            else:
-                kwargs["response_type"] = ResponseType.MESSAGE_CREATE
-        print(f"{kwargs =}")
-        return kwargs
+    @property
+    def custom_id(self) -> str:
+        return self.interaction.custom_id
 
     @property
-    def user(self) -> hikari.User:
-        return self.i.user
-
-    @property
-    def user_id(self) -> hikari.Snowflake:
-        return self.user.id
+    def values(self) -> Sequence[str]:
+        return self.interaction.values
 
     @property
     def created_at(self) -> datetime:
-        return self.i.created_at.replace(tzinfo=None)
-
-    @property
-    def channel_id(self) -> hikari.Snowflake:
-        return self.i.channel_id
-
-    @property
-    def guild_id(self) -> hikari.Snowflake | None:
-        return self.i.guild_id
-
-    @property
-    def custom_id(self) -> str:
-        # if isinstance(self.i, hikari.CommandInteraction):
-        #     raise RuntimeError(f"type {type(self.i)} has no attribute custom_id")
-        return self.i.custom_id
-
-    @property
-    def message_id(self) -> int:
-        # if isinstance(self.i, hikari.CommandInteraction):
-        #     raise RuntimeError(f"type {type(self.i)} has no attribute message_id")
-        return self.i.message.id
-
-    @property
-    def values(self) -> List[str]:
-        return self.i.values
+        return self.interaction.created_at
 
     @property
     def is_valid(self) -> bool:
         return datetime.now() < (self.created_at + timedelta(minutes=15))
 
-    async def respond(self, update: bool = False, **kwargs) -> None | hikari.Message:
-        if not self.is_valid:
-            # webhook is unvalid due to older than 15 min
-            print("unvalid")
-            if update:
-                # update message with REST call
-                if not self.message:
-                    raise RuntimeError("Can't update message. `message` attr is None")
-                return await self.i.app.rest.edit_message(
-                    channel=self.channel_id,
-                    message=self.message.id,
-                    **self.interaction_kwargs(), 
-                    **self._extra_respond_kwargs,
-                    **kwargs
-                )
-            else:
-                # create message with REST call
-                self.message = await self.i.app.rest.create_message(
-                    channel=self.channel_id,
-                    **self.interaction_kwargs(), 
-                    **self._extra_respond_kwargs,
-                    **kwargs
-                )
-                return self.message
-        if not self.responded:
-            # webhook is valid
-            # make initial response
-            self.responded = True
-            print(f"create {update=}")
-            await self.i.create_initial_response(
-                **self.interaction_kwargs(with_response_type=True, update=update), 
-                **self._extra_respond_kwargs, 
-                **kwargs
-            )
-            asyncio.create_task(self._cache_initial_response())
-            return None
-        if update:
-            # webhook is valid
-            # inital response was already made
-            # update existing inital response
-            print("update")
-            await self.i.edit_initial_response(
-                **self.interaction_kwargs(), 
-                **self._extra_respond_kwargs, 
-                **kwargs
-            )
-            # cache message
-            asyncio.create_task(self._cache_initial_response())
-            return None
-        else:
-            # webhook is valid
-            # inital response was made
-            # update is False
-            # -> execute webhook
-            print("execute")
-            return await self.execute(**kwargs)
+    @property
+    def command(self) -> None:
+        return None
+    
+    @property
+    def prefix(self) -> None:  # type: ignore
+        return None
+
+    @property
+    def invoked_with(self) -> None:  #type: ignore
+        return None
 
     async def initial_response_create(self, **kwargs):
         if not self._deferred:
@@ -252,7 +318,7 @@ class InteractionContext:
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
-        self.responded = True
+        self._responded = True
         asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
@@ -276,7 +342,7 @@ class InteractionContext:
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
-        self.responded = True
+        self._responded = True
         asyncio.create_task(self._cache_initial_response())
 
             
