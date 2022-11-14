@@ -447,7 +447,7 @@ MENU_CUSTOM_IDS = [
 async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    ctx = InteractionContext(event.interaction, update=True)
+    ctx = InteractionContext(event, bot)
     if not any([custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id in custom_id]):
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
@@ -781,7 +781,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     """
     if not ctx.guild_id or not ctx.member:
         return False # just for pylance
-    ictx = InteractionContext(ctx.interaction)
+    ictx = InteractionContext(ctx.event, bot)
     ictx.responded = ctx._responded
     music.d.last_context[ctx.guild_id] = ictx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
@@ -1074,7 +1074,7 @@ async def pause(ctx: SlashContext) -> None:
     if not ctx.guild_id:
         return
     await _pause(ctx.guild_id)
-    await queue(InteractionContext(ctx.interaction))
+    await queue(InteractionContext(ctx.event, bot))
 
 async def _pause(guild_id: int):
     await lavalink.pause(guild_id)
@@ -1089,7 +1089,7 @@ async def resume(ctx: SlashContext) -> None:
     if not ctx.guild_id:
         return
     await _resume(ctx.guild_id)
-    await queue(InteractionContext(ctx.interaction))
+    await queue(InteractionContext(ctx.event, bot))
 
 async def _resume(guild_id: int):
     await lavalink.resume(guild_id)
