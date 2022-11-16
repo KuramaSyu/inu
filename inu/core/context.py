@@ -14,25 +14,30 @@ from lightbulb.context.base import Context, ResponseProxy
 log = getLogger(__name__)
 
 
-REST_SENDING_MARGIN = 0.5 #seconds
+REST_SENDING_MARGIN = 0.6 #seconds
 
 
 
 class _InteractionContext(Context, abc.ABC):
-    __slots__ = ("_event", "_interaction")
+    __slots__ = ("_event", "_interaction", "_default_ephemeral")
 
     def __init__(
         self, app: lightbulb.app.BotApp, event: hikari.InteractionCreateEvent
     ) -> None:
         super().__init__(app)
         self._event = event
-        assert isinstance(event. interaction, hikari.ComponentInteraction)
+        # assert isinstance(event.interaction, hikari.ComponentInteraction)
         self._interaction: hikari.ComponentInteraction = event.interaction
         self._default_ephemeral: bool = False
+        self._defer_in_progress_event: asyncio.Event | None = None
 
     @property
     def app(self) -> lightbulb.app.BotApp:
         return self._app
+
+    @property
+    def message(self) -> hikari.Message:
+        return self.event.interaction.message
     @property
     def event(self) -> hikari.InteractionCreateEvent:
         return self._event
@@ -92,7 +97,7 @@ class _InteractionContext(Context, abc.ABC):
         .. versionadded:: 2.2.0
             ``delete_after`` kwarg.
         """
-
+        print("IN RESPOND")
         async def _cleanup(timeout: Union[int, float], proxy_: ResponseProxy) -> None:
             await asyncio.sleep(timeout)
 
@@ -128,21 +133,21 @@ class _InteractionContext(Context, abc.ABC):
                 return await self.app.rest.edit_webhook_message(_wh_id, _tkn, _m_id, *args_, **kwargs_)
             if update:
                 proxy = self._responses[-1]
-                await proxy.edit(*args, **kwargs)
+                message = await proxy.edit(*args, **kwargs)
             else:
                 message = await self._interaction.execute(*args, **kwargs)
-                proxy = ResponseProxy(
-                    message,
-                    editor=functools.partial(
-                        _ephemeral_followup_editor,
-                        _wh_id=self._interaction.webhook_id,
-                        _tkn=self._interaction.token,
-                        _m_id=message.id,
-                    ),
-                    deleteable=not includes_ephemeral(kwargs.get("flags", hikari.MessageFlag.NONE)),
-                )
-                self._responses.append(proxy)
-                self._deferred = False
+            proxy = ResponseProxy(
+                message,
+                editor=functools.partial(
+                    _ephemeral_followup_editor,
+                    _wh_id=self._interaction.webhook_id,
+                    _tkn=self._interaction.token,
+                    _m_id=message.id,
+                ),
+                deleteable=not includes_ephemeral(kwargs.get("flags", hikari.MessageFlag.NONE)),
+            )
+            self._responses.append(proxy)
+            self._deferred = False
 
             if delete_after is not None:
                 self.app.create_task(_cleanup(delete_after, proxy))
@@ -159,7 +164,10 @@ class _InteractionContext(Context, abc.ABC):
                     kwargs.setdefault("content", args[1])
         else:
             kwargs.setdefault("response_type", hikari.ResponseType.MESSAGE_CREATE)
-
+        if update:
+            kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
+        print(kwargs)
+        self._responded = True
         await self._interaction.create_initial_response(**kwargs)
 
         # Initial responses are special and need their own edit method defined
@@ -202,45 +210,63 @@ class InteractionContext(_InteractionContext):
         ephemeral: bool = False,
         defer: bool = False,
         auto_defer: bool = False,
+        update: bool = False,
     ):
         super().__init__(event=event, app=app)
         self._interaction = event.interaction
         self._responded = False
-        self.message: hikari.Message | None = None
         self._default_ephemeral = ephemeral
         self._deferred: bool = defer
         self._parent_message: hikari.Message | None = None
         self._auto_defer: bool = auto_defer
+        self.d: Dict[Any, Any] = {}
+        self._update = update
+        self._message: hikari.Message | None = None
+        
+
         if defer:
             asyncio.create_task(self._ack_interaction())
         if auto_defer:
-            asyncio.create_task(self._deferr_on_timelimit())
+            asyncio.create_task(self._defer_on_timelimit())
 
+    async def _maybe_wait_defer_complete(self):
+        """"""
+        if self._defer_in_progress_event:
+            await self._defer_in_progress_event.wait()
+            self._defer_in_progress_event = None
 
     async def _maybe_defer(self) -> None:
         if self._auto_defer:
             await self.respond(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
 
-    async def _deferr_on_timelimit(self):
+    async def _defer_on_timelimit(self):
         respond_at = self.i.created_at + timedelta(seconds=(3 - REST_SENDING_MARGIN))  
-        respond_at = respond_areplace(tzinfo=None)
+        respond_at = respond_at.replace(tzinfo=None)
+        log.debug(f"maybe defer in {(respond_at - datetime.utcnow()).total_seconds()}")
         await asyncio.sleep(
             (respond_at - datetime.utcnow()).total_seconds()
         )
         if not self._responded:
+            
+            self._deferred = True
+            log.debug(f"defer interaction")
             await self._ack_interaction()
-
+            
+            
     async def fetch_parent_message(self):
         self.i.delete
         if not self._parent_message:
             self._parent_message = await self.i.fetch_parent_message()
 
     async def _ack_interaction(self):
-        if self._upadate:
+        self._defer_in_progress_event = asyncio.Event()
+        self._responded = True
+        if self._update:
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         else:
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
-        self._deferred = True
+        self._defer_in_progress_event.set()
+        
 
     @property
     def i(self) -> hikari.ComponentInteraction:
@@ -288,7 +314,7 @@ class InteractionContext(_InteractionContext):
 
     @property
     def created_at(self) -> datetime:
-        return self.interaction.created_at
+        return self.interaction.created_at.replace(tzinfo=None)
 
     @property
     def is_valid(self) -> bool:
@@ -307,6 +333,7 @@ class InteractionContext(_InteractionContext):
         return None
 
     async def initial_response_create(self, **kwargs):
+        self._responded = True
         if not self._deferred:
             await self.i.create_initial_response(
                 response_type=ResponseType.MESSAGE_CREATE, 
@@ -318,19 +345,20 @@ class InteractionContext(_InteractionContext):
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
-        self._responded = True
+        
         asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
-        self.message = await self.i.fetch_initial_response()
+        self._message = await self.i.fetch_initial_response()
 
     async def fetch_response(self):
         """message from initial response or the last execute"""
-        if not self.message:
+        if not self._message:
             await self._cache_initial_response()
-        return self.message
+        return self._message
 
     async def initial_response_update(self, **kwargs):
+        self._responded = True
         if not self._deferred:
             await self.i.create_initial_response(
                 response_type=ResponseType.MESSAGE_UPDATE, 
@@ -342,8 +370,21 @@ class InteractionContext(_InteractionContext):
                 **self._extra_respond_kwargs, 
                 **kwargs
             )
-        self._responded = True
+        
         asyncio.create_task(self._cache_initial_response())
+
+    async def respond(self, *args, update: bool = False, **kwargs) -> ResponseProxy:
+        if self.is_valid and self._deferred:
+            await self._maybe_wait_defer_complete()
+            if update:
+                return await self.initial_response_create(**kwargs)
+            else:
+                return await self.initial_response_update(**kwargs)
+        old_responded = self._responded
+        ret_val = await super().respond(*args, update=update, **kwargs)
+        if old_responded == False and self._responded == True:
+            asyncio.create_task(self._cache_initial_response())
+        return ret_val
 
             
 
