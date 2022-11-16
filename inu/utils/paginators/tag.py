@@ -489,6 +489,7 @@ class TagHandler(Paginator):
         await self.load_tag(tag, author)
 
     async def _wait_for_link_button(self, tag: Tag) -> None:
+        return
         if not tag.tag_links:
             return
         tag_link, event, interaction = await self.bot.wait_for_interaction(
