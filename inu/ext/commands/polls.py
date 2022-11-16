@@ -51,7 +51,7 @@ async def on_interaction_create(event: hikari.InteractionCreateEvent):
     # change letter_emojis to the actual emoji
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    ictx = InteractionContext(event.interaction)
+    ictx = InteractionContext(event, app=bot)
     log = getLogger(__name__, "INTERACTION RECEIVE")
     if ictx.user.id == bot.me.id:
         return
