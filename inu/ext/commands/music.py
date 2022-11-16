@@ -447,19 +447,22 @@ MENU_CUSTOM_IDS = [
 async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
+    
     ctx = InteractionContext(event, bot)
     if not any([custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id in custom_id]):
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
+    log.debug(dir(event.interaction.message))
     if (message := music.d.music_message.get(ctx.guild_id)) is None:
         log.debug("no music message -> return")
         return
-    if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.user_id)):
+    if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.author.id)):
         return
-    if ctx.message_id != message.id:
+    log.debug(f"music message={type(message)}")
+    if ctx.message.id != message.id:
         # music message is different from message where interaction comes from
         # disable buttons from that different message
-        await ctx.initial_response_update(
+        await ctx.respond(
             embeds=ctx.i.message.embeds, 
             components=build_music_components(disable_all=True, guild_id=ctx.guild_id)
         )
@@ -781,8 +784,8 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     """
     if not ctx.guild_id or not ctx.member:
         return False # just for pylance
-    ictx = InteractionContext(ctx.event, bot)
-    ictx.responded = ctx._responded
+    ictx = InteractionContext(ctx.event, bot, defer=True)
+    ictx._responded = ctx._responded
     music.d.last_context[ctx.guild_id] = ictx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
     # Join the user's voice channel if the bot is not in one.
@@ -1013,6 +1016,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
 @lightbulb.implements(commands.SlashCommand)
 async def play_normal(ctx: context.Context) -> None:
     #await ctx.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
+    SlashContext
     await _play(ctx, ctx.options.query)
 
 @music.command
@@ -1326,8 +1330,7 @@ async def queue(
     if music_msg is None or force_resend:
         #await ctx.interaction.execute(embed=music_embed)
         msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node))
-        if not msg:
-            msg = await ctx.fetch_response()
+        msg = await ctx.fetch_response()
         music.d.music_message[ctx.guild_id] = msg
         #asyncio.create_task(add_music_reactions(music.d.music_message[guild_id]))
         return
@@ -1353,7 +1356,7 @@ async def queue(
                     components=await build_music_components(node=node), 
                     update=False
                 )
-                music.d.music_message[ctx.guild_id] = msg
+                music.d.music_message[ctx.guild_id] = await msg.message()
                 return
     except Exception as e:
         log.error(traceback.format_exc())
