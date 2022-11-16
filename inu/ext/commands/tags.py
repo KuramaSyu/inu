@@ -27,7 +27,7 @@ from utils import Paginator
 from utils.paginators.base import navigation_row
 from utils.paginators.tag import TagHandler, Tag
 
-from core import getLogger, BotResponseError
+from core import getLogger, BotResponseError, InteractionContext
 
 log = getLogger(__name__)
 
@@ -270,6 +270,25 @@ async def no_tag_found_msg(
 
 tags = lightbulb.Plugin("Tags", "Commands all arround tags")
 bot: Inu
+lightbulb.context
+
+
+@tags.listener(hikari.InteractionCreateEvent)
+async def on_interaction(event: hikari.InteractionCreateEvent):
+    i = event.interaction
+    log = getLogger(__name__, "tag link interaction")
+    if not isinstance(i, hikari.ComponentInteraction):
+        return
+    ctx = InteractionContext(event, app=bot)
+    if not ctx.custom_id.startswith("tag://"):
+        return
+    tag = await Tag.fetch_tag_from_link(ctx.custom_id)
+    if not tag:
+        log.debug("interaction custom_id is unvalid")
+        return
+
+    await show_record(tag=tag, record=None, ctx=ctx)
+    
 
 @tags.listener(hikari.ShardReadyEvent)
 async def on_ready(_):
@@ -526,7 +545,13 @@ async def tag_append(ctx: Context):
     tag.value[-1] += f"\n{ctx.options.text.lstrip()}"
     await tag.save()
     await ctx.respond(
-        f"Done."
+        f"Done.",
+        component=(
+            hikari.impl.ActionRowBuilder()
+            .add_button(ButtonStyle.PRIMARY, f"tag://{key}.local")
+            .set_label(f"show tag")
+            .add_to_container()
+        )
     )
 
 
