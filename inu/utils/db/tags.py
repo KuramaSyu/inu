@@ -148,6 +148,16 @@ class Tag():
     async def fetch_tag_from_link(cls, link: str, current_guild: int) -> Optional["Tag"]:
         """
         Fetches a tag from a link.
+        
+        Returns:
+        -------
+        Tag | None:
+            returns Tag if link is valid and None if it isn't a tag link
+        
+        Raises:
+        -------
+        BotResoponseError :
+            when tag link is correct, but tag was not found
         """
         try:
             tag_info = cls._get_links(link)[0]
