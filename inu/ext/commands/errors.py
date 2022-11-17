@@ -153,8 +153,6 @@ async def on_error(event: events.CommandErrorEvent):
 
             kwargs["content"] = f"**{40*'#'}\nBug #{error_id}\n{40*'#'}**\n\n\n{Human.short_text(answer, 1930)}"
             del kwargs["embeds"]
-            # if interaction:
-            #     ictx = InteractionContext(event, app=bot, ephemeral=True, auto_defer=True)
             for i, embeds in enumerate(messages):
                 if i == 0:
                     message = await bot.rest.create_message(
@@ -167,20 +165,19 @@ async def on_error(event: events.CommandErrorEvent):
                         channel=bot.conf.bot.bug_channel_id,
                         embeds=embeds,
                     )
-            # if interaction:
-            #     pass
-            #     await ictx.respond(
-            #         content=(
-            #             f"**Bug #{error_id}** has been reported.\n"
-            #             f"You can find the bug report [here]({message.make_link(message.guild_id)})\n"
-            #             f"If you can't go to this message, or need additional help,\n"
-            #             f"consider to join the [help server]({bot.conf.bot.guild_invite_url})"
+            if interaction:
+                with suppress():
+                    await interaction.create_initial_response(
+                        hikari.ResponseType.MESSAGE_CREATE,
+                        content=(
+                            f"**Bug #{error_id}** has been reported.\n"
+                            f"You can find the bug report [here]({message.make_link(message.guild_id)})\n"
+                            f"If you can't go to this message, or need additional help,\n"
+                            f"consider to join the [help server]({bot.conf.bot.guild_invite_url})"
 
-            #         ),
-            #         flags=hikari.MessageFlag.EPHEMERAL,
-            #     )
-            # elif str(e.emoji_name) == '❔':
-            #     await OutsideHelp.search(ctx.invoked_with, ctx)
+                        ),
+                        flags=hikari.MessageFlag.EPHEMERAL,
+                    )
             return
 
         # errors which will be handled also without prefix
