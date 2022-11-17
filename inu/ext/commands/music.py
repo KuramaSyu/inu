@@ -448,11 +448,10 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     
-    ctx = InteractionContext(event, bot)
+    ctx = InteractionContext(event, bot, auto_defer=True)
     if not any([custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id in custom_id]):
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
-    log.debug(dir(event.interaction.message))
     if (message := music.d.music_message.get(ctx.guild_id)) is None:
         log.debug("no music message -> return")
         return
@@ -500,7 +499,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
         await _pause(guild_id)
     elif custom_id == 'music_stop':
-        await message.respond(
+        await ctx.respond(
             embed=(
                 Embed(title="🛑 music stopped")
                 .set_footer(text=f"music was stopped by {member.display_name}", icon=member.avatar_url)
