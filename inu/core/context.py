@@ -221,6 +221,7 @@ class InteractionContext(_InteractionContext):
         self._auto_defer: bool = auto_defer
         self.d: Dict[Any, Any] = {}
         self._update = update
+        # this is the last sended message and not the same as self.message
         self._message: hikari.Message | None = None
         
 
@@ -350,6 +351,7 @@ class InteractionContext(_InteractionContext):
     
     async def _cache_initial_response(self) -> None:
         self._message = await self.i.fetch_initial_response()
+        log.debug(f"{self.__class__.__name__} cached message with id: {self._message.id}")
 
     async def fetch_response(self):
         """message from initial response or the last execute"""
@@ -374,12 +376,31 @@ class InteractionContext(_InteractionContext):
         asyncio.create_task(self._cache_initial_response())
 
     async def respond(self, *args, update: bool = False, **kwargs) -> ResponseProxy:
+        log = getLogger(__name__, self.__class__.__name__)
+        if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):
+            kwargs["content"] = args[0]
         if self.is_valid and self._deferred:
+            log.debug("wait for defer complete")
             await self._maybe_wait_defer_complete()
             if update:
+                log.debug("deferred message create")
                 return await self.initial_response_create(**kwargs)
             else:
+                log.debug("deferred message update")
                 return await self.initial_response_update(**kwargs)
+        #
+        if not self.is_valid:
+            if update:
+                if not self._message:
+                    raise RuntimeError("Interaction run out of time. no message to edit")
+                log.debug("edit response with rest")
+                self._message = await self.app.rest.edit_message(self.channel_id, self._message.id, **kwargs)
+            else:
+                log.debug("create response with rest")
+                self._message = await self.app.rest.create_message(self.channel_id, **kwargs)
+            return ResponseProxy(
+                self._message,
+            )
         old_responded = self._responded
         ret_val = await super().respond(*args, update=update, **kwargs)
         if old_responded == False and self._responded == True:
