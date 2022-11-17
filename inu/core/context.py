@@ -266,6 +266,7 @@ class InteractionContext(_InteractionContext):
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         else:
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
+        log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
         self._defer_in_progress_event.set()
         
 
