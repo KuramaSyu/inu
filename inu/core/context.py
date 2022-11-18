@@ -72,7 +72,13 @@ class _InteractionContext(Context, abc.ABC):
         return self.app.cache.get_dm_channel_id(self.user)
 
     async def respond(
-        self, *args: Any, delete_after: Union[int, float, None] = None, update: bool = False, **kwargs: Any
+        
+        self, 
+        *args: Any, 
+        delete_after: Union[int, float, None] = None, 
+        update: bool = False, 
+        ephemeral: bool = False, 
+        **kwargs: Any
     ) -> ResponseProxy:
         """
         Create a response for this context. The first time this method is called, the initial
@@ -97,7 +103,7 @@ class _InteractionContext(Context, abc.ABC):
         .. versionadded:: 2.2.0
             ``delete_after`` kwarg.
         """
-        print("IN RESPOND")
+        self.log.debug("IN RESPOND")
         async def _cleanup(timeout: Union[int, float], proxy_: ResponseProxy) -> None:
             await asyncio.sleep(timeout)
 
@@ -106,9 +112,13 @@ class _InteractionContext(Context, abc.ABC):
             except hikari.NotFoundError:
                 pass
 
+        if ephemeral:
+            kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
+
         includes_ephemeral: Callable[[Union[hikari.MessageFlag, int],], bool] = (
             lambda flags: (hikari.MessageFlag.EPHEMERAL & flags) == hikari.MessageFlag.EPHEMERAL
         )
+
 
         kwargs.pop("reply", None)
         kwargs.pop("mentions_reply", None)
@@ -198,7 +208,7 @@ class _InteractionContext(Context, abc.ABC):
 
         return self._responses[-1]
 
-
+i = 0
 class InteractionContext(_InteractionContext):
     """
     A wrapper for `hikari.ComponentInteraction`
@@ -223,12 +233,18 @@ class InteractionContext(_InteractionContext):
         self._update = update
         # this is the last sended message and not the same as self.message
         self._message: hikari.Message | None = None
+        global i
+        i += 1
+        self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
         
 
         if defer:
             asyncio.create_task(self._ack_interaction())
         if auto_defer:
-            asyncio.create_task(self._defer_on_timelimit())
+            self.auto_defer()
+
+    def auto_defer(self) -> None:
+        asyncio.create_task(self._defer_on_timelimit())
 
     async def _maybe_wait_defer_complete(self):
         """"""
@@ -243,14 +259,14 @@ class InteractionContext(_InteractionContext):
     async def _defer_on_timelimit(self):
         respond_at = self.i.created_at + timedelta(seconds=(3 - REST_SENDING_MARGIN))  
         respond_at = respond_at.replace(tzinfo=None)
-        log.debug(f"maybe defer in {(respond_at - datetime.utcnow()).total_seconds()}")
+        self.log.debug(f"maybe defer in {(respond_at - datetime.utcnow()).total_seconds()}")
         await asyncio.sleep(
             (respond_at - datetime.utcnow()).total_seconds()
         )
         if not self._responded:
             
             self._deferred = True
-            log.debug(f"defer interaction")
+            self.log.debug(f"defer interaction")
             await self._ack_interaction()
             
             
@@ -266,7 +282,7 @@ class InteractionContext(_InteractionContext):
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         else:
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
-        log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
+        self.log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
         self._defer_in_progress_event.set()
         
 
@@ -352,7 +368,7 @@ class InteractionContext(_InteractionContext):
     
     async def _cache_initial_response(self) -> None:
         self._message = await self.i.fetch_initial_response()
-        log.debug(f"{self.__class__.__name__} cached message with id: {self._message.id}")
+        self.log.debug(f"{self.__class__.__name__} cached message with id: {self._message.id}")
 
     async def fetch_response(self):
         """message from initial response or the last execute"""
@@ -381,28 +397,29 @@ class InteractionContext(_InteractionContext):
         if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):
             kwargs["content"] = args[0]
         if self.is_valid and self._deferred:
-            log.debug("wait for defer complete")
+            self.log.debug("wait for defer complete")
             await self._maybe_wait_defer_complete()
             if update:
-                log.debug("deferred message create")
+                self.log.debug("deferred message create")
                 return await self.initial_response_create(**kwargs)
             else:
-                log.debug("deferred message update")
+                self.log.debug("deferred message update")
                 return await self.initial_response_update(**kwargs)
         #
         if not self.is_valid:
             if update:
                 if not self._message:
                     raise RuntimeError("Interaction run out of time. no message to edit")
-                log.debug("edit response with rest")
+                self.log.debug("edit response with rest")
                 self._message = await self.app.rest.edit_message(self.channel_id, self._message.id, **kwargs)
             else:
-                log.debug("create response with rest")
+                self.log.debug("create response with rest")
                 self._message = await self.app.rest.create_message(self.channel_id, **kwargs)
             return ResponseProxy(
                 self._message,
             )
         old_responded = self._responded
+        self.log.debug("call respond")
         ret_val = await super().respond(*args, update=update, **kwargs)
         if old_responded == False and self._responded == True:
             asyncio.create_task(self._cache_initial_response())
