@@ -15,12 +15,14 @@ from lightbulb import errors
 from lightbulb import events
 from lightbulb.commands import OptionModifier as OM
 
-from core import getLogger
-from utils import crumble, BoredAPI, BoredIdea
+from .tags import tag_name_auto_complete
+from core import getLogger, Inu
+from utils import crumble, BoredAPI, BoredIdea, Tag
 
 log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Random Commands", "Extends the commands with commands all about randomness")
+bot: Inu
 
 
 @plugin.command
@@ -35,11 +37,33 @@ async def rnd(ctx: Context):
     pass
 
 @rnd.child
-@lightbulb.option("list", 'the list I should shuffle\nNOTE: seperate with comma ","', modifier=OM.CONSUME_REST)
+@lightbulb.option("tag-with-list", "a tag which contains the list", autocomplete=True, default=None)
+@lightbulb.option("list", 'seperate with comma -- eg: apple, kiwi, tree, stone', modifier=OM.CONSUME_REST, default=None)
 @lightbulb.command("list", "shuffles a given list", aliases=["l", "facts"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def list_(ctx: Context):
-    fact_list: List[str] = ctx.options.list.split(",")
+    SPLIT = ","
+
+    # no options given
+    if not ctx.options.list and not ctx.options["tag-with-list"]:
+        try:
+            facts, i, _ = await bot.shortcuts.ask_with_modal(
+                "Enter a list", 
+                "List:", 
+                placeholder_s="Kiwi, tree, stone, strawberries, teamspeak",
+                interaction=ctx.interaction
+            )
+        except Exception:
+            return
+        ctx._interaction = i
+        fact_list: List[str] = facts.split(SPLIT)
+    # tag given
+    elif ctx.options["tag-with-list"]:
+        tag = await Tag.fetch_tag_from_link(f"tag://{ctx.options['tag-with-list']}.local", ctx.guild_id)
+        fact_list = ("".join(tag.value)).split(SPLIT)
+    # list given
+    else:
+        fact_list = ctx.options.list.split(SPLIT)
     if fact_list[-1] in ["", " "]:
         fact_list.pop(-1)
     fact_list = [fact.strip() for fact in fact_list]
@@ -242,5 +266,13 @@ async def bored(ctx: Context) -> None:
     await ctx.respond(embed=(await BoredAPI.fetch_idea()).embed, )
 
 
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(plugin)
+
+@list_.autocomplete("tag-with-list")
+async def tag_autocomplete(*args, **kwargs):
+    return await tag_name_auto_complete(*args, **kwargs)
+
+
+def load(inu: lightbulb.BotApp):
+    global bot
+    bot = inu
+    inu.add_plugin(plugin)
