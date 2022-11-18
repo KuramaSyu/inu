@@ -448,15 +448,15 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     
-    ctx = InteractionContext(event, bot, auto_defer=True)
+    ctx = InteractionContext(event, bot)
     if not any([custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id in custom_id]):
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
     if (message := music.d.music_message.get(ctx.guild_id)) is None:
-        log.debug("no music message -> return")
         return
     if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.author.id)):
         return
+    ctx.auto_defer()
     log.debug(f"music message={type(message)}")
     if ctx.message.id != message.id:
         # music message is different from message where interaction comes from
