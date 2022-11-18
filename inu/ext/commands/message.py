@@ -29,6 +29,9 @@ log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
 
+# storing the last answers of users, that it can be used later
+last_ans = {}
+
 @plugin.listener(hikari.MessageCreateEvent)
 async def on_message_create(event: hikari.MessageCreateEvent):
     await on_message(event.message)
@@ -52,30 +55,26 @@ async def artur_ist_dumm(message: hikari.PartialMessage):
         await message.respond(f"Ich weiß\n{txt}")
 
 async def calc_msg(message: hikari.PartialMessage):
-    # text = str(message.content)
-    # try:
-    #     text = (
-    #         text
-    #         .lower()
-    #         .replace("x", "*")
-    #         .replace(" ", "")
-    #         .replace(":", "/")
-    #         .replace(",", ".")
-    #     )
-    #     if text.startswith("="):
-    #         text = text[1:]
-    #     calculator = NumericStringParser()
-    #     result = Human.number(str(calculator.eval(text)))
-    #     result = result[:-2] if result.endswith(".0") and not "," in result else result
+    if not message.content.startswith("="):
+        return
     try:
-        result = await calc(message.content)
+        query = message.content
+        if (last_answer := last_ans.get(message.author.id)):
+            query = query.replace("ans", str(last_answer))
+        else:
+            query = query.replace("ans", "0")
+            
+        result = await calc(query)
+        log.debug(result)
+        if (ans := re.findall("(\d+(?:\.\d+)?)", result.replace("'", ""))[0]):
+            last_ans[message.author.id] = ans
         if len(result) > 100:
             await message.respond(
                 hikari.Embed(description=result)
             )
         else:
             await message.respond(
-                hikari.Embed(title=result, description=f"```py\n{message.content}```"),
+                hikari.Embed(title=result, description=f"```py\n{(message.content[1:]).strip()}```"),
             )
     except:
         return
