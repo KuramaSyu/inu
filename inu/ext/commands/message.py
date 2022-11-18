@@ -65,7 +65,6 @@ async def calc_msg(message: hikari.PartialMessage):
             query = query.replace("ans", "0")
             
         result = await calc(query)
-        log.debug(result)
         if (ans := re.findall("(\d+(?:\.\d+)?)", result.replace("'", ""))[0]):
             last_ans[message.author.id] = ans
         if len(result) > 100:
