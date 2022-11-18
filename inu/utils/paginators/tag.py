@@ -95,7 +95,7 @@ class TagHandler(Paginator):
             self.log.error(traceback.format_exc())
 
     async def post_start(self, ctx: Context):
-        self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
+        # self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
         await super().post_start(ctx)
 
     async def update_page(self, interaction: ComponentInteraction, update_value: bool = False):
@@ -125,10 +125,10 @@ class TagHandler(Paginator):
         # these can always change
         self._additional_components = self.tag.components
 
-        if self.tag.tag_link_infos:
-            if self._tag_link_task:
-                self._tag_link_task.cancel()
-            self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
+        # if self.tag.tag_link_infos:
+        #     if self._tag_link_task:
+        #         self._tag_link_task.cancel()
+        #     self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
 
         # self._pages[0].edit_field(0, "Info", str(self.tag))
         # await self._message.edit(
@@ -332,7 +332,6 @@ class TagHandler(Paginator):
         if not value:
             return
         values = crumble(value, 2000)
-        log.debug(values)
         if append and self.tag.value:
             self.tag.value = [*self.tag.value[:self._position], *crumble(self.tag.value[self._position]+values[0], 2000), *values[1:], *self.tag.value[self._position+1:]]
         else:
@@ -487,35 +486,6 @@ class TagHandler(Paginator):
         self.tag = tag
 
         await self.load_tag(tag, author)
-
-    async def _wait_for_link_button(self, tag: Tag) -> None:
-        return
-        if not tag.tag_links:
-            return
-        tag_link, event, interaction = await self.bot.wait_for_interaction(
-            custom_ids=tag.component_custom_ids, 
-            user_id =self.ctx.author.id, 
-            channel_id=self.ctx.channel_id,
-            message_id=self._message.id,
-        )
-        if tag_link is None:
-            # timeout
-            self._tag_link_task = None
-            return None
-
-        self.ctx._interaction = interaction
-        self.ctx._responded = False
-        try:
-            new_tag = await tag.fetch_tag_from_link(tag_link, current_guild=self.ctx.guild_id or 0)
-        except BotResponseError as e:
-            # inform the user about the mistake
-            return await self.ctx.respond(**e.kwargs)
-        finally:
-            # wait for more button interactions
-            self._tag_link_task = asyncio.create_task(self._wait_for_link_button(tag))
-        # show selected tag
-        asyncio.create_task(self.show_record(name=new_tag.name, tag=new_tag))
-        # wait for other button reactions
         
 
     async def show_record(
@@ -563,8 +533,8 @@ class TagHandler(Paginator):
             disable_component=True,
         )
         asyncio.create_task(pag.start(self.ctx))
-        if tag.tag_links:
-            asyncio.create_task(self._wait_for_link_button(tag))
+        # if tag.tag_links:
+        #     asyncio.create_task(self._wait_for_link_button(tag))
 
 
 
