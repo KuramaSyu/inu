@@ -41,8 +41,6 @@ class TagPaginator(Paginator):
             timeout=15*60,
         )
     async def post_start(self: Paginator, ctx: Context):
-        if self.tag.tag_links:
-            asyncio.create_task(show_linked_tag(ctx=ctx, tag=self.tag, message_id=self._message.id))
         await super().post_start(ctx)
 
 
@@ -156,10 +154,7 @@ async def show_record(
         except RuntimeError as e:
             raise BotResponseError(e.args[0], emphemeral=True)
     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
-    if record is None:
-        await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id)
-        # await ctx.respond(f"I can't find a tag named `{key}` in my storage")
-        return
+
     messages = []
     add_title = True
     for page in tag.value:
@@ -188,50 +183,6 @@ async def show_record(
     )
     asyncio.create_task(pag.start(ctx))
         
-
-async def show_linked_tag(ctx: Context, tag: Tag, message_id: int | None = None) -> None:
-    """
-    Is called when:
-    -----------
-    When a tag is called and it contains a link to another tag, for every link in this tag,
-    this function will be called, to wait for the button interaction and then show the linked tag
-
-    Args
-    ----
-    ctx : `Context`
-        The context of the initial interaction from the user. Will be used to filter out the tag link button interaction
-    tag : `Tag`
-        The tag, which contains the links to other tags
-    message_id : `int` | `None`
-        an optional message id, which will be used to filter out the tag link button interaction
-
-    Returns:
-    -------
-    None
-    """
-    tag_link, event, interaction = await bot.wait_for_interaction(
-        custom_ids=tag.component_custom_ids, 
-        user_id =ctx.author.id, 
-        channel_id=ctx.channel_id,
-        message_id=message_id,
-    )
-    if tag_link is None:
-        # timeout
-        return None
-    # overriding the interaction with the new interaction
-    ctx._interaction = interaction
-    ctx._responded = False
-    try:
-        new_tag = await tag.fetch_tag_from_link(tag_link, current_guild=ctx.guild_id or 0)
-    except BotResponseError as e:
-        # inform the user about the mistake
-        await ctx.respond(**e.kwargs)
-        return
-    finally:
-        # wait for other button reactions
-        asyncio.create_task(show_linked_tag(ctx=ctx, tag=tag, message_id=message_id))
-    # show selected tag
-    asyncio.create_task(show_record({}, ctx, new_tag.name, tag=new_tag))
     
 
 def records_to_embed(
@@ -275,19 +226,24 @@ lightbulb.context
 
 @tags.listener(hikari.InteractionCreateEvent)
 async def on_interaction(event: hikari.InteractionCreateEvent):
+    """
+    Handler for Button/Menu Interactions 
+    """
+    # menus dont work
     i = event.interaction
     log = getLogger(__name__, "tag link interaction")
     if not isinstance(i, hikari.ComponentInteraction):
         return
     ctx = InteractionContext(event, app=bot)
-    if not ctx.custom_id.startswith("tag://"):
+    try:
+        if not ctx.custom_id.startswith("tag://") and not ctx.values[0].startswith("tag://"):
+            return
+    except IndexError:
         return
-    tag = await Tag.fetch_tag_from_link(ctx.custom_id)
+    tag = await Tag.fetch_tag_from_link(ctx.custom_id or ctx.values[0], ctx.guild_id)
     if not tag:
-        log.debug("interaction custom_id is unvalid")
         return
-
-    await show_record(tag=tag, record=None, ctx=ctx)
+    await show_record(tag=tag, record={}, ctx=ctx)
     
 
 @tags.listener(hikari.ShardReadyEvent)
@@ -367,7 +323,10 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         raise BotResponseError("Your tag is already taken", ephemeral=True)
     except RuntimeError as e:
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
-    return await ctx.respond(f"Your tag `{name}` has been added to my storage")
+    return await ctx.respond(
+        f"Your tag `{name}` has been added to my storage",
+        component=ActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label(tag.name).add_to_container()
+    )
 
 
 
@@ -548,8 +507,8 @@ async def tag_append(ctx: Context):
         f"Done.",
         component=(
             hikari.impl.ActionRowBuilder()
-            .add_button(ButtonStyle.PRIMARY, f"tag://{key}.local")
-            .set_label(f"show tag")
+            .add_button(ButtonStyle.SECONDARY, tag.link)
+            .set_label("show tag")
             .add_to_container()
         )
     )
@@ -608,7 +567,10 @@ async def tag_info(ctx: Context):
         f"tag content: ```{Human.short_text(value, 800).replace('`', '')}```\n"
         f"link for this tag: `{tag.link}`"
     )
-    await ctx.respond(message)
+    await ctx.respond(
+        message,
+        component=ActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label("show tag").add_to_container()
+    )
 
     
 
