@@ -182,7 +182,6 @@ class Tag():
                 ),
                 ephemeral=True,
             )
-            
         return await cls.from_record(records[0], db_checks=False)
 
     async def save(self):
@@ -344,7 +343,7 @@ class Tag():
                     .add_to_container()
                 )
         else:
-            action_row = ActionRowBuilder().add_select_menu(f"{self.name}-link-menu")
+            action_row = ActionRowBuilder().add_select_menu(f"tag-link-menu")
             for link in self.tag_link_infos[:24]:
                 action_row = (
                     action_row

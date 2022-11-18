@@ -236,12 +236,19 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
         return
     ctx = InteractionContext(event, app=bot)
     try:
-        if not ctx.custom_id.startswith("tag://") and not ctx.values[0].startswith("tag://"):
+        if not (
+            ctx.custom_id.startswith("tag://")  # button
+            or (ctx.custom_id == "tag-link-menu" and ctx.values[0].startswith("tag://"))  # menu
+        ):
             return
     except IndexError:
         return
-    tag = await Tag.fetch_tag_from_link(ctx.custom_id or ctx.values[0], ctx.guild_id)
-    if not tag:
+    try:
+        tag_link = ctx.custom_id if ctx.custom_id.startswith("tag://") else ctx.values[0]
+        tag = await Tag.fetch_tag_from_link(link=tag_link, current_guild=ctx.guild_id or 0)
+    except BotResponseError as e:
+        # inform the user about the mistake
+        await ctx.respond(**e.kwargs)
         return
     await show_record(tag=tag, record={}, ctx=ctx)
     
