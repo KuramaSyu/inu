@@ -503,7 +503,8 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
             embed=(
                 Embed(title="🛑 music stopped")
                 .set_footer(text=f"music was stopped by {member.display_name}", icon=member.avatar_url)
-            )
+            ),
+            delete_after=30,
         )
         music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
         await _leave(guild_id)
@@ -784,7 +785,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     if not ctx.guild_id or not ctx.member:
         return False # just for pylance
     ictx = InteractionContext(ctx.event, bot, defer=True)
-    ictx._responded = ctx._responded
+    # ictx._responded = ctx._responded
     music.d.last_context[ctx.guild_id] = ictx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
     # Join the user's voice channel if the bot is not in one.
