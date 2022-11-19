@@ -355,20 +355,19 @@ class InteractionContext(_InteractionContext):
         if not self._deferred:
             await self.i.create_initial_response(
                 response_type=ResponseType.MESSAGE_CREATE, 
-                **self._extra_respond_kwargs, 
                 **kwargs
             )
         else:
             await self.i.edit_initial_response(
-                **self._extra_respond_kwargs, 
                 **kwargs
             )
         
         asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
-        self._message = await self.i.fetch_initial_response()
-        self.log.debug(f"{self.__class__.__name__} cached message with id: {self._message.id}")
+        if not self._message:
+            self._message = await self.i.fetch_initial_response()
+            self.log.debug(f"{self.__class__.__name__} cached message with id: {self._message.id}")
 
     async def fetch_response(self):
         """message from initial response or the last execute"""
@@ -381,12 +380,10 @@ class InteractionContext(_InteractionContext):
         if not self._deferred:
             await self.i.create_initial_response(
                 response_type=ResponseType.MESSAGE_UPDATE, 
-                **self._extra_respond_kwargs, 
                 **kwargs
             )
         else:
             await self.i.edit_initial_response(
-                **self._extra_respond_kwargs, 
                 **kwargs
             )
         
