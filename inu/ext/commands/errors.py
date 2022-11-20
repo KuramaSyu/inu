@@ -65,10 +65,17 @@ async def on_error(event: events.CommandErrorEvent):
             #         .set_label("Show error")
             #         .add_to_container()
             #     )
-            message = await (await ctx.respond(
-                embed=error_embed,
-                component=component
-            )).message()
+            try:
+                message = await (await ctx.respond(
+                    embed=error_embed,
+                    component=component
+                )).message()
+            except Exception:
+                message = await bot.rest.create_message(
+                    ctx.channel_id,
+                    embed=error_embed,
+                    component=component
+                )
 
             def check(event: hikari.ReactionAddEvent):
                 if event.user_id != bot.me.id and event.message_id == message.id:
