@@ -72,12 +72,15 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         # log.info("Track started on guild: %s", event.guild_id)
-        asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
-        node = await lavalink.get_guild_node(event.guild_id)
-        if node is None:
-            return
-        track = node.queue[0].track
-        await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
+        try:
+            asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
+            node = await lavalink.get_guild_node(event.guild_id)
+            if node is None:
+                return
+            track = node.queue[0].track
+            await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
+        except Exception:
+            log.error(traceback.format_exc())
 
     async def track_finish(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
         node = await lavalink.get_guild_node(event.guild_id)
@@ -829,7 +832,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         return True
     
     await queue(
-        ctx, 
+        ictx, 
         ctx.guild_id, 
         force_resend=True,
         create_footer_info=True,
