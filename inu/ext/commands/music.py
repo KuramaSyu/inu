@@ -790,14 +790,14 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
     # Join the user's voice channel if the bot is not in one.
     if not con:
-        await _join(ctx)
+        await _join(ictx)
 
     # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
         node = await lavalink.get_guild_node(ctx.guild_id)
         if len(node.queue) < 1:
             prevent_to_queue = True
-        await load_yt_playlist(ctx, query, be_quiet)
+        await load_yt_playlist(ictx, query, be_quiet)
     # not a youtube playlist -> something else
     else:
         # -> track from a playlist was added -> remove playlist info
@@ -809,7 +809,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             query = YouTubeHelper.remove_playlist_info(query)
         # try to add song
         try:
-            track = await search_track(ctx, query, be_quiet)
+            track = await search_track(ictx, query, be_quiet)
         except BotResponseError as e:
             raise e
         except asyncio.TimeoutError:
@@ -959,7 +959,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
     """
 
     query_information = await lavalink.auto_search_tracks(query)
-
+    track = None
     if not query_information.tracks:
         log.debug(f"using fallback youtbue search")
         v = VideosSearch(query, limit = 1)
@@ -972,6 +972,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
         except IndexError:
             return None
 
+    
     if len(query_information.tracks) > 1:
         try:
             track = await music.d.interactive.ask_for_song(ctx, query, query_information=query_information)
