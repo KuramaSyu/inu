@@ -353,12 +353,12 @@ class InteractionContext(_InteractionContext):
     async def initial_response_create(self, **kwargs):
         self._responded = True
         if not self._deferred:
-            await self.i.create_initial_response(
+            await self.interaction.create_initial_response(
                 response_type=ResponseType.MESSAGE_CREATE, 
                 **kwargs
             )
         else:
-            await self.i.edit_initial_response(
+            await self.interaction.edit_initial_response(
                 **kwargs
             )
         
@@ -375,7 +375,7 @@ class InteractionContext(_InteractionContext):
             await self._cache_initial_response()
         return self._message
 
-    async def initial_response_update(self, **kwargs):
+    async def initial_response_update(self, **kwargs) -> ResponseProxy:
         self._responded = True
         if not self._deferred:
             await self.i.create_initial_response(
@@ -398,10 +398,13 @@ class InteractionContext(_InteractionContext):
             await self._maybe_wait_defer_complete()
             if update:
                 self.log.debug("deferred message create")
-                return await self.initial_response_create(**kwargs)
+                await self.initial_response_create(**kwargs)
             else:
                 self.log.debug("deferred message update")
-                return await self.initial_response_update(**kwargs)
+                await self.initial_response_update(**kwargs)
+            return ResponseProxy(
+                await self.fetch_response()
+            ) 
         #
         if not self.is_valid:
             if update:
