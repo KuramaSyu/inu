@@ -59,11 +59,11 @@ async def on_interaction_create(event: hikari.InteractionCreateEvent):
         log.debug("customid is not for polls")
         return
     letter = custom_id[-1]
-    if not ictx.message_id in PollManager.message_id_cache:
+    if not ictx.message.id in PollManager.message_id_cache:
         log.debug("message id not in cache")
         return
 
-    record = await PollManager.fetch_poll(message_id=ictx.message_id)
+    record = await PollManager.fetch_poll(message_id=ictx.message.id)
     if not record:
         log.debug("no poll record found")
         return
@@ -76,12 +76,12 @@ async def on_interaction_create(event: hikari.InteractionCreateEvent):
         log.debug("no option id found")
         return
     
-    await PollManager.remove_vote(record["poll_id"], ictx.user_id)
+    await PollManager.remove_vote(record["poll_id"], ictx.author.id)
     # check if option in fetched record
     # if yes update poll and insert to votes
     await PollManager.add_vote(
         poll_id=record["poll_id"], 
-        user_id=ictx.user_id, 
+        user_id=ictx.author.id, 
         option_id=option_id,
     )
     # create poll object
@@ -208,7 +208,8 @@ async def make_poll(ctx: context.SlashContext):
             ephemeral=True,
         )
 
-    message = await (await ctx.respond("Wait...")).message()
+    ictx = InteractionContext(event, bot)
+    message = await (await ictx.respond("Wait...")).message()
     dummy_record["message_id"] = message.id
 
     record = await PollManager.add_poll(**dummy_record)
@@ -220,8 +221,6 @@ async def make_poll(ctx: context.SlashContext):
         )
     poll = Poll(record, bot)
     await poll.fetch()
-    ictx = InteractionContext(ctx.event, bot)
-    ictx._responded = True
     await poll.dispatch_embed(ictx, content="")
     if poll.expires < datetime.now() + timedelta(seconds=POLL_SYNC_TIME):
         await poll.finalize()
