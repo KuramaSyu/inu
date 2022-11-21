@@ -46,7 +46,8 @@ CREATE TABLE IF NOT EXISTS tags (
     tag_value TEXT[],
     author_ids BIGINT [] NOT NULL,
     guild_ids BIGINT [],
-    aliases TEXT []
+    aliases TEXT [],
+    last_use TIMESTAMP NOT NULL
 
 );
 -- supposed to work as cache, to prevent too many requests 429
