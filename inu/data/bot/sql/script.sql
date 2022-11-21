@@ -172,6 +172,13 @@ CREATE TABLE IF NOT EXISTS board.reactions (
     PRIMARY KEY (message_id, reacter_id, emoji)
 );
 
+CREATE TABLE IF NOT EXISTS facts (
+    facts_id SERIAL PRIMARY KEY,
+    "type" TEXT,
+    fact TEXT,
+    sha256 TEXT UNIQUE  -- ensure, that facts won't be added multiple times 
+);
+
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
