@@ -38,6 +38,7 @@ class _InteractionContext(Context, abc.ABC):
     @property
     def message(self) -> hikari.Message:
         return self.event.interaction.message
+    
     @property
     def event(self) -> hikari.InteractionCreateEvent:
         return self._event
