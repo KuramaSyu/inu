@@ -22,7 +22,7 @@ from lightbulb.context import Context
 from matplotlib.style import available
 from numpy import full, isin
 from typing_extensions import Self
-from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP
+from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP, Facts
 
 log = getLogger(__name__)
 bot: Inu = None
@@ -131,7 +131,7 @@ def ping_to_color_rest(ping: float) -> str:
 
 
 @basics.command
-@lightbulb.command("ping", "is the bot alive?")
+@lightbulb.command("ping", "is the bot alive?", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
     request_start = datetime.now()
@@ -144,9 +144,10 @@ async def ping(ctx: context.Context):
             ),
     )
     msg = await ctx.respond(embed=embed)
+    fact = await Facts.fetch_random_fact()
     rest_delay = datetime.now() - request_start
     embed.description = (
-        f"Bot is alive\n\n"
+        f"{fact or ''}\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
         f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
     )
@@ -179,9 +180,10 @@ async def status(ctx: context.Context):
         RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"]),
         RestDelay("MyAnimeList API").with_coro(MyAnimeList.search_anime, ["naruto"]),
         RestDelay("Bored API").with_coro(BoredAPI.fetch_idea),
+        RestDelay("Facts API").with_coro(Facts._fetch_from_rest)
     ]
     tasks = [asyncio.create_task(api.do_request()) for api in apis]
-    await asyncio.wait(tasks, timeout=8, return_when=asyncio.ALL_COMPLETED)
+    await asyncio.wait(tasks, timeout=20, return_when=asyncio.ALL_COMPLETED)
 
     embed.description = (
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
