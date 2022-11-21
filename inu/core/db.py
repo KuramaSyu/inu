@@ -186,16 +186,14 @@ class KeyValueDB:
 
 
 class Table():
-    do_log = None
-    def __init__(self, table_name: str, debug_log: bool = table_logging):
+    do_log = table_logging
+    def __init__(self, table_name: str, debug_log: bool = table_logging, error_log: bool = True):
         self.name = table_name
         self.db = Database()
-        if self.do_log is None:
-            self.__class__.do_log = self.db.bot.conf.db.SQL_logging
-            log.info(f"set debug table logging to: {self.do_log}")
+        self.do_log = debug_log
         self._executed_sql = ""
         self._as_dataframe: bool = False
-
+        self._error_logging = error_log
     def return_as_dataframe(self, b: bool) -> None:
         self._as_dataframe = b
 
@@ -211,11 +209,12 @@ class Table():
                         log.debug(f"{self._executed_sql}\n->{return_value}")
                     return return_value
                 except Exception as e:
-                    log.error(f"{self._executed_sql}")
-                    log.exception(f"{traceback.format_exc()}")
-                    if reraise_exc:
-                        raise e
-                    return None
+                    if self._error_logging:
+                        log.error(f"{self._executed_sql}")
+                        log.exception(f"{traceback.format_exc()}")
+                        if reraise_exc:
+                            raise e
+                        return None
             return wrapper
         return decorator
 
@@ -245,7 +244,8 @@ class Table():
         self, 
         which_columns: List[str], 
         values: List, 
-        returning: str = "*"
+        returning: str = "*",
+        on_conflict: str = "DO NOTHING",
     ) -> Optional[asyncpg.Record]:
         """
         insert into table <`wihich_columns`> values <`values`> returning <`returning`>
@@ -264,7 +264,9 @@ class Table():
         sql = (
             f"INSERT INTO {self.name} ({', '.join(which_columns)})\n"
             f"VALUES ({', '.join(values_chain)})\n"
+            f"ON CONFLICT {on_conflict}\n" if on_conflict else ""
             f"RETURNING {returning}\n"
+            
         )
         self._create_sql_log_message(sql, values)
         return_values = await self.db.fetch(sql, *values)
