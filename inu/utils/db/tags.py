@@ -9,10 +9,12 @@ from typing import (
     Any,
     Set
 )
+import asyncio
 import typing
 from copy import deepcopy
 from enum import Enum
 import re
+from datetime import datetime
 
 import asyncpg
 from asyncache import cached
@@ -183,6 +185,14 @@ class Tag():
                 ephemeral=True,
             )
         return await cls.from_record(records[0], db_checks=False)
+
+    async def used_now(self):
+        """Adds a asyncio task to update the tag last_use column"""
+        asyncio.create_task(self._wait_used_now())
+    
+    async def _wait_used_now(self):
+        """updates the last_use column and waits until finished"""
+        await TagManager._update_tag_last_use(self.id)
 
     async def save(self):
         """
@@ -396,12 +406,12 @@ class TagManager():
         """
         if len(key) > 255:
             raise RuntimeError(f"`{Human.short_text(key, 255)}` is longer than 255 characters")
-        elif (char := Multiple.startswith_(" ")):
+        elif (char := Multiple.startswith_(key, [" "])):
             raise RuntimeError(f"`{key}` mustn't start with `{char}`")
-        elif (char := Multiple.endswith_(" ")):
+        elif (char := Multiple.endswith_(key, [" "])):
             raise RuntimeError(f"`{key}` mustn't end with `{char}`")
-        elif " " in key:
-            raise RuntimeError(f"`{key}` mustn't contain a space")
+        # elif " " in key:
+        #     raise RuntimeError(f"`{key}` mustn't contain a space")
 
     @classmethod
     def init_db(cls, bot: Inu):
@@ -448,8 +458,8 @@ class TagManager():
             await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(
             """
-            INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases)
-            VALUES($1, $2, $3, $4, $5)
+            INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases, last_use)
+            VALUES($1, $2, $3, $4, $5, $6)
             RETURNING tag_id
             """,
             key,
@@ -457,6 +467,7 @@ class TagManager():
             author_ids,
             guild_ids,
             aliases,
+            datetime.now(),
         )
         return record["tag_id"]
 
@@ -497,6 +508,7 @@ class TagManager():
             await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(sql, tag_id)
         new_record = {k: v for k, v in record.items()}
+        new_record["last_use"] = datetime.now()
         if value:
             new_record["tag_value"] = value
         if author_ids:
@@ -586,8 +598,8 @@ class TagManager():
         """
         sql = """
             UPDATE tags
-            SET (tag_value, tag_key, author_ids, guild_ids, aliases) = ($1, $2, $3, $4, $5)
-            WHERE tag_id = $6
+            SET (tag_value, tag_key, author_ids, guild_ids, aliases, last_use) = ($1, $2, $3, $4, $5, $6)
+            WHERE tag_id = $7
             """
         await cls.db.execute(
             sql,
@@ -596,6 +608,7 @@ class TagManager():
             list(record["author_ids"]),
             list(record["guild_ids"]),
             list(record["aliases"]),
+            record["last_use"],
             record["tag_id"],
         )
 
@@ -706,6 +719,11 @@ class TagManager():
             raise TagIsTakenError(f"Tag `{key}` is global taken")
         if local_taken and guild_id is not None:
             raise TagIsTakenError(f"Tag `{key}` is local taken")
+
+    @classmethod
+    async def _update_tag_last_use(cls, tag_id: int):
+        table = Table("tags")
+        await table.update({"last_use": datetime.now()}, {"tag_id": tag_id})
     
     @classmethod
     async def get_tags(
@@ -713,6 +731,7 @@ class TagManager():
         type: TagType, 
         guild_id: Optional[int] = None, 
         author_id: Optional[int] = None,
+        limit: Optional[int] = None,
     ) -> Optional[List[Dict[str, Any]]]:
         """
         Get all tags of a specific type (you, guild, in scope..)
@@ -733,23 +752,28 @@ class TagManager():
         sql = """
             SELECT * FROM tags
             """
+        after_sql = """
+        ORDER BY last_use DESC
+        """
+        if limit:
+            after_sql += f" LIMIT {limit}"
         if type == TagType.GLOBAL:
-            sql = f"{sql} WHERE 0 = ANY(guild_ids)"
+            sql = f"{sql} WHERE 0 = ANY(guild_ids) {after_sql}"
             return await cls.db.fetch(sql)
         elif type == TagType.GUILD:
             if guild_id is None:
                 raise RuntimeError("Can't fetch tags of a guild without an id (id is None)")
-            sql = f"{sql} WHERE $1 = ANY(guild_ids)"
+            sql = f"{sql} WHERE $1 = ANY(guild_ids) {after_sql}"
             return await cls.db.fetch(sql, guild_id)
         elif type == TagType.YOUR:
             if author_id is None:
                 raise RuntimeError("Can't fetch tags of a creator without an id (id is None)")
-            sql = f"{sql} WHERE $1 = ANY(author_ids)"
+            sql = f"{sql} WHERE $1 = ANY(author_ids) {after_sql}"
             return await cls.db.fetch(sql, author_id)
         elif type == TagType.SCOPE:
             if guild_id is None:
                 raise RuntimeError("Can't fetch tags of a guild without an id (id is None)")
-            sql = f"{sql} WHERE $1 = ANY(guild_ids) OR 0 = ANY(guild_ids)"
+            sql = f"{sql} WHERE $1 = ANY(guild_ids) OR 0 = ANY(guild_ids) {after_sql}"
             return await cls.db.fetch(sql, guild_id)
         raise RuntimeError(f"TagType unmatched - {type}")
     
@@ -817,7 +841,8 @@ class TagManager():
         cls,
         starts_with: str, 
         guild_id: Optional[int], 
-        creator_id: Optional[int] = None
+        creator_id: Optional[int] = None,
+        limit: int = 25,
     ) -> List[Dict[str, Any]]:
         """
         ### searches tags which start with <`start_with`> in every reachable scope
@@ -861,6 +886,8 @@ class TagManager():
                         )
                     )
                 )
+            ORDER BY last_use DESC
+            LIMIT {limit}
             """,
             guild_id, 
             starts_with,
