@@ -181,6 +181,7 @@ async def show_record(
         additional_components=tag.components,
         disable_component=True,
     )
+    await tag.used_now()
     asyncio.create_task(pag.start(ctx))
         
     
@@ -811,6 +812,7 @@ async def tag_name_auto_complete(
             tags = await TagManager.get_tags(
                 type=TagType.SCOPE,
                 guild_id=guild_or_channel,
+                limit=25
             )
             return [tag["tag_key"] for tag in tags][:24]
 
@@ -841,7 +843,7 @@ async def guild_auto_complete(
     if len(value) > 2:
         guilds_sorted: List[Dict[str, Union[int, str]]] = []
         for guild in guilds:
-            guild["ratio"] = fuzz.ratio(value, guild["name"])
+            guild["ratio"] = fuzz.ratio(value[20:], guild["name"])
             guilds_sorted.append(guild)
         guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
         guilds = guilds_sorted[:24]
