@@ -265,11 +265,12 @@ class Table():
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
             f"INSERT INTO {self.name} ({', '.join(which_columns)})\n"
-            f"VALUES ({', '.join(values_chain)})\n"
-            f"ON CONFLICT {on_conflict}\n" if on_conflict else ""
-            f"RETURNING {returning}\n" if returning else ""
-            
+            f"VALUES ({', '.join(values_chain)})\n" 
         )
+        if on_conflict:
+            sql += f"ON CONFLICT {on_conflict}\n"
+        if returning:
+            sql += f"RETURNING {returning}\n"
         self._create_sql_log_message(sql, values)
         return_values = await self.db.fetch(sql, *values)
         return return_values
