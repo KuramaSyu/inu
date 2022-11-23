@@ -245,7 +245,7 @@ class Table():
         which_columns: List[str], 
         values: List, 
         returning: str = "*",
-        on_conflict: str = "DO NOTHING",
+        on_conflict: str = "",
     ) -> Optional[asyncpg.Record]:
         """
         insert into table <`wihich_columns`> values <`values`> returning <`returning`>
@@ -258,6 +258,8 @@ class Table():
             the matching values to which_columns
         returning: `str`
             the column(s) which should be returned
+        on_conflict : `str`
+            DO NOTHING / ''
         
         """
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
