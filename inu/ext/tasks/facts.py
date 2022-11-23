@@ -20,7 +20,7 @@ from utils import Facts
 from core import Table, getLogger, Inu
 
 log = getLogger(__name__)
-METHOD_SYNC_TIME: int = 60*10
+METHOD_SYNC_TIME: int = 60*5
 SYNCING = False
 bot: Inu
 
