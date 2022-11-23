@@ -267,7 +267,7 @@ class Table():
             f"INSERT INTO {self.name} ({', '.join(which_columns)})\n"
             f"VALUES ({', '.join(values_chain)})\n"
             f"ON CONFLICT {on_conflict}\n" if on_conflict else ""
-            f"RETURNING {returning}\n"
+            f"RETURNING {returning}\n" if returning else ""
             
         )
         self._create_sql_log_message(sql, values)
