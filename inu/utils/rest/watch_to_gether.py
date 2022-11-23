@@ -31,7 +31,7 @@ class Watch2Gether:
         "bg_color": Colors.default_color(0.55, True),
         "bg_opacity": "99"      
         }
-        log.debug(f"{b}")
+        ## log.debug(f"{b}")
         return b
 
     @classmethod
@@ -48,7 +48,8 @@ class Watch2Gether:
         Returns:
         --------
         Dict[str, str] :
-            the response. Dict contains key "streamkey" which is the url for the room
+            the response. Dict contains key "streamkey" which is an id for the room.
+            - room-link key will be added in method which is the direct link the the room
         """
         async with aiohttp.ClientSession() as session:
             async with session.post(
@@ -56,4 +57,7 @@ class Watch2Gether:
                 data=json.dumps(cls._make_body(link)), 
                 headers=cls._headers
             ) as resp:
-                return await resp.json()
+                ## log.debug(f"w2g resp: {await resp.json()}")
+                resp_json = await resp.json()
+                resp_json["room-link"] = f"https://w2g.tv/rooms/{resp_json['streamkey']}"  # uses still the old link
+                return resp_json
