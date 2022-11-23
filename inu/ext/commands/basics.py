@@ -134,26 +134,35 @@ def ping_to_color_rest(ping: float) -> str:
 @lightbulb.command("ping", "is the bot alive?", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
-    request_start = datetime.now()
-    embed = Embed(
-            title="Pong",
-            description=(
-                f"Bot is alive\n\n"
-                f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-                f"⚫ REST: .... ms\n\n"
-            ),
-    )
-    msg = await ctx.respond(embed=embed)
+    task = asyncio.create_task(IP.fetch_public_ip())
     fact = await Facts.fetch_random_fact()
+    embed = Embed(title="Pong")
+    embed.description = (
+        f"{fact or ''}\n\n"
+        f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+        f"⚫ REST: .... ms\n\n"
+    )
+    embed.add_field("Public IP", "....", inline=True)
+    if bot.conf.bot.domain:
+        embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
+    
+    request_start = datetime.now()
+    msg = await ctx.respond(embed=embed)
     rest_delay = datetime.now() - request_start
+
+    done, _ = await asyncio.wait([task])
+    ip = done.pop().result()
+    
     embed.description = (
         f"{fact or ''}\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
         f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
     )
-    embed.add_field("Public IP", await IP.fetch_public_ip(), inline=True)
+    # reset fields
+    embed._fields = []
+    embed.add_field("Public IP", ip, inline=True)
     if bot.conf.bot.domain:
-        embed.add_field("Domain:", f"{bot.conf.bot.domain}\n\n(can be used instead of the IP Adress)", inline=True)
+        embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
     await msg.edit(embed=embed)
 
 
