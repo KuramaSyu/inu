@@ -59,7 +59,7 @@ async def make_w2g_link(ctx: context.Context):
     await ctx.respond(
         component=(
             ActionRowBuilder()
-            .add_button(ButtonStyle.LINK, f"{bot.conf.w2g.API_URL}/rooms/{resp['streamkey']}")
+            .add_button(ButtonStyle.LINK, resp['room-link'])
             .set_label("Watch2Gether Room") 
             .add_to_container()
         )
