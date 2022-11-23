@@ -1,4 +1,3 @@
-from ast import Await
 import random
 import re
 import traceback
@@ -309,13 +308,16 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         name = ctx.options.name.strip()
         value = ctx.options.value.strip()
     except:
-        answers, interaction, _ = await bot.shortcuts.ask_with_modal(
-            "Tag", 
-            ["Name:", "Value:"], 
-            interaction=ctx.interaction,
-            input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
-            placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"]
-        )
+        try:
+            answers, interaction, _ = await bot.shortcuts.ask_with_modal(
+                "Tag", 
+                ["Name:", "Value:"], 
+                interaction=ctx.interaction,
+                input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
+                placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"]
+            )
+        except asyncio.TimeoutError:
+            return
         name, value = answers
         ctx._interaction = interaction
         name = name.strip()
