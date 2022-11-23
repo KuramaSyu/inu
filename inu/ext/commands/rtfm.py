@@ -1,4 +1,3 @@
-from ast import alias
 from doctest import DocTestSuite
 import traceback
 import typing
