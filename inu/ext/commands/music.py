@@ -466,7 +466,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         # disable buttons from that different message
         await ctx.respond(
             embeds=ctx.i.message.embeds, 
-            components=build_music_components(disable_all=True, guild_id=ctx.guild_id)
+            components=await build_music_components(disable_all=True, guild_id=ctx.guild_id)
         )
     music.d.last_context[ctx.guild_id] = ctx   
     guild_id = ctx.guild_id
