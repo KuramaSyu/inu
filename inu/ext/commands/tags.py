@@ -304,22 +304,32 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
     interaction = ctx.interaction
+
+    # get args with command
     try:
         name = ctx.options.name.strip()
         value = ctx.options.value.strip()
+    # get args with modal
     except:
         try:
-            answers, interaction, _ = await bot.shortcuts.ask_with_modal(
+            # await ctx.respond(
+            #     "Since you didn't passed name and value with the command, I will ask you with the upcoming box",
+            #     delete_after=20,
+            #     flags=hikari.MessageFlag.EPHEMERAL,
+            # )
+            answers, interaction, event = await bot.shortcuts.ask_with_modal(
                 "Tag", 
                 ["Name:", "Value:"], 
                 interaction=ctx.interaction,
                 input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
-                placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"]
+                placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"],
+                pre_value_s=[ctx.options.name or "", ""],
             )
         except asyncio.TimeoutError:
             return
         name, value = answers
         ctx._interaction = interaction
+        ctx._responded = False
         name = name.strip()
     try:
         tag = Tag(
