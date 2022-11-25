@@ -20,7 +20,7 @@ from jikanpy import AioJikan
 from lightbulb.context import Context
 from fuzzywuzzy import fuzz
 
-from core import getLogger
+from core import getLogger, InteractionContext
 from utils import Human, Colors, MyAnimeList, Anime
 
 log = getLogger(__name__)
