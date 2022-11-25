@@ -34,7 +34,7 @@ from utils import crumble, TagManager
 from utils.language import Human
 from utils.db import Tag
 
-from core import Inu, BotResponseError
+from core import Inu, BotResponseError, InteractionContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -83,7 +83,7 @@ class TagHandler(Paginator):
                 initialized. Creates new tag, if tag is None
         """
         try:
-            self.ctx = ctx
+            self.ctx = InteractionContext(ctx.event, ctx.app)
             self.bot = ctx.bot
             if not tag:
                 await self.prepare_new_tag(ctx.member or ctx.author)
@@ -189,17 +189,16 @@ class TagHandler(Paginator):
                 await self.change_guild_ids(i, set.remove)
             elif custom_id == "add_new_page":
                 if len(self._pages) >= 20:
-                    return await i.create_initial_response(
-                        ResponseType.MESSAGE_CREATE,
-                        f"A tag can't have more then 20 pages"
+                    return await self.ctx.respond(
+                        f"A tag can't have more then 20 pages",
+                        ephemeral=True,
                     )
                 self._pages.insert(self._position+1, Embed(title=self.tag.name))
                 self.tag.value.insert(self._position+1, "")
                 self._position += 1
             elif custom_id == "remove_this_page":
                 if len(self._pages) <= 1:
-                    return await i.create_initial_response(
-                        ResponseType.MESSAGE_CREATE,
+                    return await self.ctx.respond(
                         f"A tag can't have less then 1 page"
                     )
                 self._pages.remove(self._pages[self._position])
