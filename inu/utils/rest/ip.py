@@ -11,16 +11,16 @@ log = getLogger(__name__)
 
 class IP:
     @classmethod
-    async def fetch_public_ip(cls, ssl: bool = True) -> str:
+    async def fetch_public_ip(cls, ssl: bool = True, timeout: int = 4) -> str:
         """Returns the public IP"""
         try:
             async with aiohttp.ClientSession() as session:
-                async with session.get("https://api.ipify.org?format=json", ssl=ssl) as resp:
+                async with session.get("https://api.ipify.org?format=json", ssl=ssl, timeout=timeout) as resp:
                     data = await resp.json()
                     return data["ip"]
         except Exception:
             if ssl:
-                return await cls.fetch_public_ip(ssl=False)
+                return await cls.fetch_public_ip(ssl=False, timeout=2)
             else:
                 log.warning(traceback.format_exc())
                 return "Unknown"
