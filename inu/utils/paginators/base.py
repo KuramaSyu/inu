@@ -28,6 +28,8 @@ from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
 
+from core import InteractionContext
+
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -210,7 +212,7 @@ class Paginator():
         self._first_message_kwargs = first_message_kwargs or {}
         self._additional_components = additional_components or []
         self.bot: lightbulb.BotApp
-        self.ctx: Context
+        self.ctx: InteractionContext
 
         
         self.listener = EventListener(self)
@@ -445,10 +447,7 @@ class Paginator():
         return text
         
     async def defer_initial_response(self):
-        if not self.interaction:
-            return
-        self._interaction_response_status = ResponseType.DEFERRED_MESSAGE_UPDATE
-        await self.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
+        await self.ctx.defer()
 
 
 
@@ -461,23 +460,24 @@ class Paginator():
         
         """
         kwargs: Dict[str, Any] = {}
-        interaction = interaction or self.interaction
-        if interaction:
-            if self._interaction_response_status == ResponseType.DEFERRED_MESSAGE_UPDATE:
-                # message was deferred to update, so now update it
-                update_message = interaction.edit_initial_response
-            else:
-                # message wasn't defered, so create inital response
-                update_message = interaction.create_initial_response
-                kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
-            # update response status
-            self._interaction_response_status = ResponseType.MESSAGE_CREATE
-        else:
-            update_message = self._message.edit
+        # interaction = interaction or self.interaction
+        # if interaction:
+            # if self._interaction_response_status == ResponseType.DEFERRED_MESSAGE_UPDATE:
+            #     # message was deferred to update, so now update it
+            #     update_message = interaction.edit_initial_response
+            # else:
+            #     # message wasn't defered, so create inital response
+            #     update_message = interaction.create_initial_response
+            #     kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
+            # # update response status
+            # self._interaction_response_status = ResponseType.MESSAGE_CREATE
+        # else:
+        #     update_message = self._message.edit
         if not self._disable_component:
             kwargs["component"] = self.component
         elif not self._disable_components:
             kwargs["components"] = self.components
+        
 
         # if self._download:
         #     kwargs["attachments"] = [hikari.Bytes(self.download, "content")]
@@ -489,7 +489,7 @@ class Paginator():
         else:
             raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
         log.debug(f"Sending message: {kwargs}")
-        await update_message(**kwargs)
+        await self.ctx.respond(update=True, **kwargs)
 
     async def create_message(
             self, 
@@ -523,29 +523,24 @@ class Paginator():
         RuntimeError:
             when auto_defer is off and initial response wasn't done yet
         """
-        if not self.responded and auto_defer_update:
-            await self.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
-        if not self.responded:
-            raise RuntimeError(f"can't create a message to a webhook without an initial response.")
         if ephemeral:
             kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
         if content:
             kwargs["content"] = content
         if embed:
             kwargs["embed"] = embed
-        if self._interaction_response_status == hikari.ResponseType.DEFERRED_MESSAGE_CREATE:
-            self.responded = hikari.ResponseType.MESSAGE_CREATE
-        await self.interaction.execute(**kwargs)
+        await self.ctx.respond(update=False, **kwargs)
 
 
     async def stop(self):
         self._stop.set()
         with suppress(NotFoundError, hikari.ForbiddenError):
-            message_edit_method = self._message.edit if not self.interaction else self.interaction.edit_initial_response
+            kwargs = {}
             if self.components:
-                await message_edit_method(components=[])
+                kwargs["components"] = []
             elif self.component:
-                await message_edit_method(component=None)    
+                kwargs["component"] = None
+            await self.ctx.respond(**kwargs, update=True)
             # await self._message.remove_all_reactions()
 
     async def start(self, ctx: Context) -> hikari.Message:
@@ -559,8 +554,10 @@ class Paginator():
         -------
             - (hikari.Message) the message, which was used by the paginator
         """
-        self.ctx = ctx
+        self.ctx = InteractionContext(ctx.event, ctx.app)
+        self.ctx._responded = ctx._responded
         self.bot = ctx.bot
+        ctx = self.ctx
         if len(self.pages) < 1:
             raise RuntimeError("<pages> must have minimum 1 item")
         elif len(self.pages) == 1 and self._disable_paginator_when_one_site and len(self.components) == 0:
@@ -657,6 +654,7 @@ class Paginator():
                     return
                 try:
                     event = done.pop().result()
+                    self.ctx = InteractionContext(event, self.bot, update=True)
                 except Exception:
                     self._stop.set()
                     break
@@ -685,9 +683,6 @@ class Paginator():
                 return
             self._position -= 1
         elif id == "stop":
-            await event.interaction.create_initial_response(
-                ResponseType.MESSAGE_UPDATE
-            )
             await self.delete_presence()
             await self.stop()
         elif id == "next":
@@ -697,9 +692,7 @@ class Paginator():
         elif id == "last":
             self._position = len(self.pages)-1
         elif id == "search":
-            await event.interaction.create_initial_response(
-                ResponseType.DEFERRED_MESSAGE_UPDATE
-            )
+            await self.ctx.defer()
             await self.search()
             return
 
