@@ -15,7 +15,7 @@ log = getLogger(__name__)
 
 
 REST_SENDING_MARGIN = 0.6 #seconds
-
+i = 0
 
 
 class _InteractionContext(Context, abc.ABC):
@@ -30,6 +30,9 @@ class _InteractionContext(Context, abc.ABC):
         self._interaction: hikari.ComponentInteraction = event.interaction
         self._default_ephemeral: bool = False
         self._defer_in_progress_event: asyncio.Event | None = None
+        global i
+        i += 1
+        self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
 
     @property
     def app(self) -> lightbulb.app.BotApp:
@@ -173,11 +176,11 @@ class _InteractionContext(Context, abc.ABC):
                 kwargs["response_type"] = args[0]
                 if len(args) > 1:
                     kwargs.setdefault("content", args[1])
-        else:
-            kwargs.setdefault("response_type", hikari.ResponseType.MESSAGE_CREATE)
+            
         if update:
             kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
-        print(kwargs)
+        kwargs.setdefault("response_type", hikari.ResponseType.MESSAGE_CREATE)
+        self.log.debug(kwargs)
         self._responded = True
         await self._interaction.create_initial_response(**kwargs)
 
@@ -209,7 +212,6 @@ class _InteractionContext(Context, abc.ABC):
 
         return self._responses[-1]
 
-i = 0
 class InteractionContext(_InteractionContext):
     """
     A wrapper for `hikari.ComponentInteraction`
@@ -234,9 +236,6 @@ class InteractionContext(_InteractionContext):
         self._update = update
         # this is the last sended message and not the same as self.message
         self._message: hikari.Message | None = None
-        global i
-        i += 1
-        self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
         
 
         if defer:
@@ -245,10 +244,31 @@ class InteractionContext(_InteractionContext):
             self.auto_defer()
 
     def auto_defer(self) -> None:
+        """
+        Waits the about 3 seconds - REST_SENDING_MARGIN and acks then the
+        interaction.
+
+        Note:
+        -----
+        this runs as task in the background
+        """
         asyncio.create_task(self._defer_on_timelimit())
 
+    async def defer(self) -> None:
+        """
+        Acknowledges the interaction.
+        acknowledge with DEFFERED_MESSAGE_UPDATE if self._update is True,
+        otherwise acknowledge with DEFFERED_MESSAGE_CREATE
+
+        Note:
+        -----
+        A task will be started, so it runs in background and returns instantly
+        """
+        if not self._deferred and not self._responded:
+            asyncio.create_task(self._ack_interaction())
+
     async def _maybe_wait_defer_complete(self):
-        """"""
+        """wait until defer is done, or return instantly"""
         if self._defer_in_progress_event:
             await self._defer_in_progress_event.wait()
             self._defer_in_progress_event = None
@@ -258,6 +278,10 @@ class InteractionContext(_InteractionContext):
             await self.respond(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
 
     async def _defer_on_timelimit(self):
+        """
+        Waits the about 3 seconds - REST_SENDING_MARGIN and acks then the
+        interaction.
+        """
         respond_at = self.i.created_at + timedelta(seconds=(3 - REST_SENDING_MARGIN))  
         respond_at = respond_at.replace(tzinfo=None)
         self.log.debug(f"maybe defer in {(respond_at - datetime.utcnow()).total_seconds()}")
@@ -376,7 +400,7 @@ class InteractionContext(_InteractionContext):
             await self._cache_initial_response()
         return self._message
 
-    async def initial_response_update(self, **kwargs) -> ResponseProxy:
+    async def initial_response_update(self, **kwargs) -> None:
         self._responded = True
         if not self._deferred:
             await self.i.create_initial_response(
@@ -397,7 +421,7 @@ class InteractionContext(_InteractionContext):
         if self.is_valid and self._deferred:
             self.log.debug("wait for defer complete")
             await self._maybe_wait_defer_complete()
-            if update:
+            if not update:
                 self.log.debug("deferred message create")
                 await self.initial_response_create(**kwargs)
             else:
