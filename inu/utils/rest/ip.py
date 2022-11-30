@@ -22,7 +22,7 @@ class IP:
             if ssl:
                 return await cls.fetch_public_ip(ssl=False, timeout=2)
             else:
-                log.warning(traceback.format_exc())
+                # log.warning(traceback.format_exc())
                 return "Unknown"
 
     @staticmethod
