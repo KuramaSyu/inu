@@ -557,18 +557,18 @@ class Paginator():
         self.ctx = InteractionContext(ctx.event, ctx.app)
         self.ctx._responded = ctx._responded
         self.bot = ctx.bot
-        ctx = self.ctx
+
         if len(self.pages) < 1:
             raise RuntimeError("<pages> must have minimum 1 item")
         elif len(self.pages) == 1 and self._disable_paginator_when_one_site and len(self.components) == 0:
             log.debug("<pages> has only one item, and <components> has only one item, so the paginator will exit")
             if isinstance(self.pages[0], Embed):
-                msg_proxy = await ctx.respond(
+                msg_proxy = await self.ctx.respond(
                     embed=self.pages[0],
                     **self._first_message_kwargs
                 )
             else:
-                msg_proxy = await ctx.respond(
+                msg_proxy = await self.ctx.respond(
                     content=self.pages[0],
                     **self._first_message_kwargs
                 )
@@ -584,12 +584,12 @@ class Paginator():
             kwargs["attachment"] = hikari.Bytes(download, self._download_name)
         kwargs.update(self._first_message_kwargs)
         if isinstance(self.pages[self._default_site], Embed):
-            msg_proxy = await ctx.respond(
+            msg_proxy = await self.ctx.respond(
                 embed=self.pages[0],
                 **kwargs
             )
         else:
-            msg_proxy = await ctx.respond(
+            msg_proxy = await self.ctx.respond(
                 content=self.pages[self._default_site],
                 **kwargs
             )
