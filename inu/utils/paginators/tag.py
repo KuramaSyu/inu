@@ -83,7 +83,7 @@ class TagHandler(Paginator):
                 initialized. Creates new tag, if tag is None
         """
         try:
-            self.ctx = InteractionContext(ctx.event, ctx.app)
+            ctx = InteractionContext(ctx.event, ctx.app)
             self.bot = ctx.bot
             if not tag:
                 await self.prepare_new_tag(ctx.member or ctx.author)
@@ -311,7 +311,11 @@ class TagHandler(Paginator):
             max_length_s=256,
             interaction=interaction,
         )
-        self.tag.name = new_name
+        try:
+            self.tag.name = new_name
+        except RuntimeError as e:
+            ctx = InteractionContext(event=event, app=self.bot)
+            await ctx.respond(e.args[0], ephemeral=True)
 
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
