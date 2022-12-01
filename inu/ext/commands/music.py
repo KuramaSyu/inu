@@ -787,7 +787,10 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     """
     if not ctx.guild_id or not ctx.member:
         return False # just for pylance
-    ictx = InteractionContext(ctx.event, bot, defer=True)
+    if not isinstance(ctx, InteractionContext):
+        ictx = InteractionContext(ctx.event, bot, defer=True)
+    else:
+        ictx = ctx
     # ictx._responded = ctx._responded
     music.d.last_context[ctx.guild_id] = ictx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
@@ -818,7 +821,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         except asyncio.TimeoutError:
             return False
         if track is None:
-            await ctx.respond(f"I only found a lot of empty space for `{query}`")
+            await ictx.respond(f"I only found a lot of empty space for `{query}`")
             return False
         await load_track(ictx, track, be_quiet)
 
@@ -873,6 +876,7 @@ async def position(ctx: SlashContext) -> None:
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
     # will be called from event track start
+    ctx = InteractionContext(ctx.event, ctx.app, defer=True)
     node = await lavalink.get_guild_node(ctx.guild_id)
     if not node:
         prevent_to_queue = True
