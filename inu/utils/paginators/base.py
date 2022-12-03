@@ -477,7 +477,6 @@ class Paginator():
         # this way errors would occure, since responses etc would be resetted
         if ctx.interaction.id == self.ctx.interaction.id:
             return
-        print("change ctx")
         self.ctx = ctx
         self.ctx._responses = responses
 
