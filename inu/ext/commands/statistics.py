@@ -89,7 +89,7 @@ async def maybe_raise_activity_tracking_disabled(guild_id: int):
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="10 days"
+    default="9 days"
 )
 @lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
@@ -109,6 +109,8 @@ async def week_activity(ctx: Context):
         f"{ctx.get_guild().name}'s daily activity",  # type: ignore
         attachment=buffer,
     )
+
+
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
@@ -190,13 +192,18 @@ async def current_games(ctx: Context):
             hikari.Embed(
                 title=f"{guild.name}",
             )
-            .set_footer(f"all records I've taken since {first_occurrence.strftime('%d. %B')}")
+            .set_footer((
+
+                f"all records I've taken since {first_occurrence.strftime('%d. %B')} "
+                f"({Human.plural_('day', (datetime.now() - first_occurrence).days, True, 'days')})")
+            )
         )
 
         field_value = ""
         embeds.append(embed)
 
         # enuerate all games
+        # filter apps if these where specified
         if apps:
             game_records = [g for g in activity_records if g['game'] in apps]
         else:
@@ -253,6 +260,11 @@ async def current_games(ctx: Context):
         return embeds
     # prepare apps to fetch
     custom_time: datetime = datetime.now() - timedelta_
+    # build embeds
+    # if apps where specified, only specified will be showen
+    embeds = await build_embeds()
+
+    # apps are needed, so top games will be fetched
     if not apps:
         apps = [
             list(d.keys())[0]
@@ -264,10 +276,12 @@ async def current_games(ctx: Context):
                 remove_activities=remove_apps
             )
         ]
+        # nothing was played during given time
         if not apps:
             raise BotResponseError(
                 f"There were no games played in the last {humanize.naturaldelta(timedelta_)}."
             )
+    # build picture
     try:
         picture_buffer, _ = await build_activity_graph(
             ctx.guild_id, 
@@ -282,11 +296,11 @@ async def current_games(ctx: Context):
             "Something went wrong. Are you sure, that your game exists?",
             ephemeral=True,
         )
-    await ctx.respond(attachment=picture_buffer)
+    # send image and afterwards the 
+    #await ctx.respond(attachment=picture_buffer)
     pag = Paginator(
-        page_s=await build_embeds(),
-        download=picture_buffer,
-        download_name="current-games.png",
+        page_s=embeds,
+        first_message_kwargs={"attachment": picture_buffer}
     )
     await pag.start(ctx)
 
