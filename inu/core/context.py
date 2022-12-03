@@ -32,7 +32,10 @@ class _InteractionContext(Context, abc.ABC):
         self._defer_in_progress_event: asyncio.Event | None = None
         global i
         i += 1
-        self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
+        try:    
+            self.log = getLogger(__name__, self.__class__.__name__, f"[{self.interaction.id}][{i}]")
+        except AttributeError:
+            self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
 
     @property
     def app(self) -> lightbulb.app.BotApp:
