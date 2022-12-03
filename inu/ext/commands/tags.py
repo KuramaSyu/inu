@@ -245,7 +245,7 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
         return
     try:
         tag_link = ctx.custom_id if ctx.custom_id.startswith("tag://") else ctx.values[0]
-        tag = await Tag.fetch_tag_from_link(link=tag_link, current_guild=ctx.guild_id or 0)
+        tag = await Tag.fetch_tag_from_link(link=tag_link, current_guild=ctx.guild_id or ctx.channel_id)
     except BotResponseError as e:
         # inform the user about the mistake
         await ctx.respond(**e.kwargs)
