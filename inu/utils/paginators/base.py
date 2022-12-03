@@ -449,6 +449,37 @@ class Paginator():
     async def defer_initial_response(self):
         await self.ctx.defer()
 
+    def set_context(self, ctx: Context | None = None, event: hikari.Event | None = None) -> None:
+        """
+        create new context object `ctx` of paginator
+
+        Args:
+        ----
+        ctx: lightbulb.Context
+            the context to use for sending messages
+        events: hikari.Event
+            the event to use to create the right ctx
+
+        Raises:
+        ------
+        RuntimeError :
+            - if `ctx` and `event` is None
+            - when type of `event` is not supported
+        """
+        if not ctx and not event:
+            raise RuntimeError("Neither `ctx` nor `event` was given.")
+        if event:
+            if isinstance(event, hikari.events.InteractionCreateEvent):
+                responses = self.ctx._responses
+                ctx = InteractionContext(event=event, app=self.ctx.app, update=True)
+            else:
+                raise RuntimeError(f"Not supported `hikari.Event` given: {type(event)}")
+        # this way errors would occure, since responses etc would be resetted
+        if ctx.interaction.id == self.ctx.interaction.id:
+            return
+        print("change ctx")
+        self.ctx = ctx
+        self.ctx._responses = responses
 
 
     async def send(
@@ -654,7 +685,7 @@ class Paginator():
                     return
                 try:
                     event = done.pop().result()
-                    self.ctx = InteractionContext(event, self.bot, update=True)
+                    self.set_context(event=event)
                 except Exception:
                     self._stop.set()
                     break
@@ -684,7 +715,7 @@ class Paginator():
             self._position -= 1
         elif id == "stop":
             await self.delete_presence()
-            await self.stop()
+            # await self.stop()
         elif id == "next":
             if self._position == (len(self.pages)-1):
                 return
@@ -701,14 +732,18 @@ class Paginator():
 
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
-        if (channel := self.ctx.get_channel()):
-            if isinstance(channel, int):
-                channel = self.bot.cache.get_guild_channel(channel)
-            await channel.delete_messages(
-                [self._message]
-            )
+        if not self.ctx._responded:
+            await self.stop()
+        await self.ctx.interaction.delete_initial_response()
 
-    async def _update_position(self, interaction: ComponentInteraction):
+        # if (channel := self.ctx.get_channel()):
+        #     if isinstance(channel, int):
+        #         channel = self.bot.cache.get_guild_channel(channel)
+        #     await channel.delete_messages(
+        #         [self._message]
+        #     )
+
+    async def _update_position(self, interaction: ComponentInteraction | None = None):
         await self.send(content=self.pages[self._position], interaction=interaction)
         
     async def search(self):
