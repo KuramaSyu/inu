@@ -135,7 +135,7 @@ class TagHandler(Paginator):
         #     embed=self._pages[self._position],
         #     components=self.components
         # )
-        await self._update_position(self.interaction)
+        await self._update_position()
 
 
     @listener(events.InteractionCreateEvent)
@@ -231,6 +231,7 @@ class TagHandler(Paginator):
             interaction=interaction,
             placeholder="something like @user, user#0000 or the ID of the user"
         )
+        self.set_context(event=event)
         try:
             user = await UserConverter(self.ctx).convert(user_str)
         except TypeError:
@@ -259,6 +260,7 @@ class TagHandler(Paginator):
             placeholder_s="something like 1234567890123456789",
             interaction=interaction,
         )
+        self.set_context(event=event)
         try:
             op(self.tag.guild_ids, int(guild_id))
         except ValueError:
@@ -280,6 +282,7 @@ class TagHandler(Paginator):
             "What should be the name of the new alias?",
             interaction=interaction,
         )
+        self.set_context(event=event)
         try:
             op(self.tag.aliases, alias)
         except KeyError:
@@ -311,11 +314,12 @@ class TagHandler(Paginator):
             max_length_s=256,
             interaction=interaction,
         )
+        self.set_context(event=event)
         try:
             self.tag.name = new_name
         except RuntimeError as e:
-            ctx = InteractionContext(event=event, app=self.bot)
-            await ctx.respond(e.args[0], ephemeral=True)
+            #ctx = InteractionContext(event=event, app=self.bot)
+            await self.ctx.respond(e.args[0], ephemeral=True)
 
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
@@ -332,6 +336,7 @@ class TagHandler(Paginator):
                 interaction=interaction,
                 pre_value_s=self.tag.value[self._position] or "",
             )
+        self.set_context(event=event)
         if not value:
             return
         values = crumble(value, 2000)
@@ -384,13 +389,14 @@ class TagHandler(Paginator):
         await self.create_message(
             embed=embed
         )
-        bot_message = await interaction.fetch_initial_response()
+        bot_message = await self.ctx.interaction.fetch_initial_response()
         try:
             event = await self.bot.wait_for(
                 events.MessageCreateEvent,
                 self.timeout,
                 lambda m: m.author_id == interaction.user.id and m.channel_id == interaction.channel_id
             )
+            self.set_context(event)
         except asyncio.TimeoutError:
             await interaction.delete_initial_response()
             return
@@ -404,7 +410,7 @@ class TagHandler(Paginator):
             user = None
 
         if not user:
-            return await event.message.respond(
+            return await self.ctx.respond(
                 "I can't find anyone",
                 reply=event.message,
             )
