@@ -114,21 +114,35 @@ class Human():
         word_s: T_str_list,
         relation: Union[int, bool, float],
         with_number: bool = False,
+        plural_s: str | List[str] | None = None,
     ) -> T_str_list:
         """ 
-        returns
+        returns:
+        --------
             - (str) a word/s plural.
-        word_s: the word or words with will be converted relating to <relation>
-        relation: bool or int -> bool=True == plural; int > 1 = plural,
-        with_number (bool) wether or not to put relation before the word when it is int or float
+
+        Args:
+        -----
+        word_s: str | List[str]
+            the word or words with will be converted relating to <relation>
+        relation: bool or int
+            bool=True == plural; int <> 1 = plural,
+        with_number : bool
+            wether or not to put relation before the word when it is int or float
+        plural_s : str | None
+            sometimes the automatic plural is wrong. For this case pass it with this param in
         """
         if with_number:
             if not isinstance(relation, (int, float)):
                 with_number = False
-        plural = False
+        plural: bool = False
+        # check if word will be plural
         if isinstance(relation, float) and relation != 1:
             plural = True
-        
+        # plural words and words need both to be either str or list
+        if plural_s is not None:
+            assert(type(word_s) == type(plural_s))
+        # check if word will be plural
         if isinstance(relation, int) and relation > 1 or relation == 0:
             plural = True
         elif isinstance(relation, bool):
@@ -148,7 +162,10 @@ class Human():
         
         def mk_plural(word_s: list) -> List[str]:
             pl_word_s = []
-            for w in word_s:
+            for w, w_plural in zip(word_s, plural_s or (None for _ in range(len(word_s)))):
+                if w_plural is not None:
+                    pl_word_s.append(w_plural)
+                    continue
                 if Multiple.endswith_(w, ['s', 'ss', 'sh', 'ch', 'x' 'z']):
                     pl_word_s.append(f'{w}es')
                 elif Multiple.endswith_(w, ['f', 'fe']):
@@ -174,12 +191,15 @@ class Human():
             return pl_word_s
 
         if isinstance(word_s, list):
+            
             words = mk_plural(word_s)
             if with_number:
                 return [f"{relation} {w}" for w in word_s]
             else:
                 return words
         else:
+            # if word_s is str, than plural_s is too
+            plural_s = [plural_s]  #type: ignore
             entry = mk_plural([word_s])[0]
             if with_number:
                 return f"{relation} {entry}"
