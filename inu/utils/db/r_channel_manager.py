@@ -96,7 +96,7 @@ class DailyContentChannels:
         DELETE FROM {table.name}
         WHERE guild_id = $1
         """
-        await table.execute(sql)
+        await table.execute(sql, guild_id)
 
 
     @classmethod
