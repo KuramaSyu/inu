@@ -131,7 +131,7 @@ async def send_top_x_pics(subreddit: str, channel_id: int, guild_id: int, count:
         # url, title = await get_a_pic(subreddit=str(subreddit), post_to_pick=int(x), hot=False, top=True)
         if not posts:
             return
-        for x in range(0, count, 1):
+        for x in range(0, len(posts), 1):
             embed = hikari.Embed()
             embed.title = f'{Human.short_text(posts[x].title, 256)}'
             embed.set_image(posts[x].url)
@@ -142,9 +142,8 @@ async def send_top_x_pics(subreddit: str, channel_id: int, guild_id: int, count:
             except hikari.ForbiddenError:
                 log.debug(f"remove channel: {channel_id}")
                 await DailyContentChannels.remove_channel(Col.CHANNEL_IDS, channel_id, guild_id)
-    except Exception as e:
-        log.critical(traceback.format_exc())
-        raise e
+    except IndexError:
+        pass
 
 
 @plugin.listener(hikari.GuildLeaveEvent)
