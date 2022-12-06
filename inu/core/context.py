@@ -323,16 +323,49 @@ class InteractionContext(_InteractionContext):
         return self.interaction.user
 
     async def delete_initial_response(self, after: int | None = None):
+        """
+        deletes the initial response
+        
+        Args:
+        -----
+        after : int
+            wait <after> seconds until deleting
+        """
         if after:
             await asyncio.sleep(after)
         return await self.i.delete_initial_response()
 
     async def delete_webhook_message(self, message: int | hikari.Message, after: int | None = None):
+        """
+        delete a webhook message
+
+        Args:
+        ----
+        message : int
+            the message to delete. Needs to be created by this interaction
+        after : int
+            wait <after> seconds, until deleting
+        """
         if after:
             await asyncio.sleep(after)
         return await self.i.delete_message(message)
     
     async def execute(self, delete_after: int | None = None, **kwargs) -> hikari.Message:
+        """
+        execute the webhook and create a message with it
+
+        Args:
+        -----
+        delete_after : int
+            <delete_after> seconds
+        **kwargs : Any
+            args for the message to create
+
+        Returns:
+        --------
+        hikari.Message :
+            the message object of the created message
+        """
         if not self._responded:
             # make inital response instead
             await self.respond(**kwargs)
@@ -352,18 +385,22 @@ class InteractionContext(_InteractionContext):
 
     @property
     def custom_id(self) -> str:
+        """the custom_id of the current interaction"""
         return self.interaction.custom_id
 
     @property
     def values(self) -> Sequence[str]:
+        """the values of the current interaction"""
         return self.interaction.values
 
     @property
     def created_at(self) -> datetime:
+        """the datetime when the interaction was created"""
         return self.interaction.created_at.replace(tzinfo=None)
 
     @property
     def is_valid(self) -> bool:
+        """wether or not the interaction is valid (timerange of 15 minutes)"""
         return datetime.now() < (self.created_at + timedelta(minutes=15))
 
     @property
@@ -379,6 +416,7 @@ class InteractionContext(_InteractionContext):
         return None
 
     async def initial_response_create(self, **kwargs):
+        """Create initial response initially or deffered"""
         self._responded = True
         if not self._deferred:
             await self.interaction.create_initial_response(
@@ -393,17 +431,19 @@ class InteractionContext(_InteractionContext):
         asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
+        """cache the initial response message and store it in `self._message`"""
         if not self._message:
             self._message = await self.i.fetch_initial_response()
             self.log.debug(f"{self.__class__.__name__} cached message with id: {self._message.id}")
 
-    async def fetch_response(self):
+    async def fetch_response(self) -> hikari.Message:
         """message from initial response or the last execute"""
         if not self._message:
             await self._cache_initial_response()
         return self._message
 
     async def initial_response_update(self, **kwargs) -> None:
+        """update the initial response"""
         self._responded = True
         if not self._deferred:
             await self.i.create_initial_response(
@@ -418,10 +458,18 @@ class InteractionContext(_InteractionContext):
         asyncio.create_task(self._cache_initial_response())
 
     async def respond(self, *args, update: bool = False, **kwargs) -> ResponseProxy:
+        """
+        creates a message with the interaction or REST
+
+        - creates initial response of it wasn't made
+        - executes the webhook if initial response was made
+        - uses REST to create the message, if the webhook 
+        
+        """
         log = getLogger(__name__, self.__class__.__name__)
-        if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):
+        if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
-        if self.is_valid and self._deferred:
+        if self.is_valid and self._deferred:  # interaction defferd
             self.log.debug("wait for defer complete")
             await self._maybe_wait_defer_complete()
             if not update:
@@ -433,8 +481,7 @@ class InteractionContext(_InteractionContext):
             return ResponseProxy(
                 await self.fetch_response()
             ) 
-        #
-        if not self.is_valid:
+        if not self.is_valid:  # interaction is unvalid
             if update:
                 if not self._message:
                     raise RuntimeError("Interaction run out of time. no message to edit")
