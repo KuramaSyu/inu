@@ -137,7 +137,7 @@ async def log_(ctx: Context):
             append = False
         if append:
             inu_log_filtered += f"{line}\n"
-    shorted = crumble(inu_log_filtered, max_length_per_string=2000, clean_code=True)
+    shorted = crumble(inu_log_filtered, max_length_per_string=1980, clean_code=True)
     shorted.reverse()
     embeds = []
     for i, page in enumerate(shorted):
