@@ -1,3 +1,4 @@
+from typing import *
 import contextlib
 from datetime import datetime
 from inspect import getmembers, getsource
@@ -19,7 +20,7 @@ from utils import crumble
 from utils import Paginator
 from utils.tree import tree as tree_
 from core import Inu
-from utils import BaseReminder, HikariReminder, Reminders, Human
+from utils import BaseReminder, HikariReminder, Reminders, Human, Multiple
 from utils.string_crumbler import NumberWordIterator as NWI
 from core import getLogger
 
@@ -27,12 +28,13 @@ from core import getLogger
 log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Owner", "Commands, which are only accessable to the owner of the bot")
-
+LOG_LEVELS = {"DEBUG":1, "INFO":2, "WARNING":3, "ERROR":4, "CRITICAL":5}
+all_levels = list(LOG_LEVELS.keys())
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("sql", "The sql query you want to execute", modifier=OM.CONSUME_REST)
-@lightbulb.command("sql", "executes SQL. NOTE: seperate sql from args with ';;' and sep. args with ','")
+@lightbulb.command("sql", "executes SQL. NOTE: seperate sql from args with ';;' and sep. args with ','", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def sql(ctx: Context):
     """
@@ -45,13 +47,13 @@ async def sql(ctx: Context):
     -----
         - seperate sql from args with ";;", seperate every arg with ","
     """
-    code = build_sql(ctx.options.sql, "execute")
-    await _execute(ctx, code)
+    pass
+
 
 @sql.child
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("sql", "The SQL query you want to execute. Good for selection querys", modifier=OM.CONSUME_REST)
-@lightbulb.command("return", "executes SQL with return", aliases=["-r", "r", "fetch"])
+@lightbulb.command("return", "executes SQL with return", aliases=["-r", "r", "fetch"], auto_defer=True)
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def fetch(ctx: Context):
     """
@@ -64,9 +66,20 @@ async def fetch(ctx: Context):
     -----
         - seperate sql from args with ";;", seperate every arg with ","
     """
-    sql = ctx.options.sql
-    code = build_sql(sql, "fetch")
-    await _execute(ctx, code)
+    sql_and_values = ctx.options.sql.split(";;")
+    sql = sql_and_values[0]
+    values = ""
+    if len(sql_and_values) > 1:
+        values += f"```\n{sql_and_values[1]}\n```"
+    code = build_sql(ctx.options.sql, "fetch")
+    page_s, ms = await _execute(ctx, code, add_code_to_embed=False)
+    if not page_s[0]._fields:
+        page_s[0]._fields = []
+    page_s[0]._fields.insert(0, hikari.EmbedField(name="SQL", value=f"```sql\n{sql}```"))
+    if values:
+        page_s[0]._fields.insert(1, hikari.EmbedField(name="Values", value=values))
+    pag = Paginator(page_s=page_s)
+    await pag.start(ctx)
 
 
 def build_sql(sql: str, method: str) -> str:
@@ -90,12 +103,23 @@ def build_sql(sql: str, method: str) -> str:
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.command("log", "Shows the log of the entire me")
+@lightbulb.option("level-stop", "the last level to show", default="CRITICAL", autocomplete=True)
+@lightbulb.option("level-start", "the lowest level to show", default="INFO", autocomplete=True)
+@lightbulb.command("log", "Shows the log of the entire me", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def log_(ctx: Context):
     """
     Shows my LOG file
     """
+    
+    
+    levels_to_use = [
+        k for k, v in LOG_LEVELS.items() 
+        if v >= LOG_LEVELS[ctx.options["level-start"]] 
+        and v <= LOG_LEVELS[ctx.options["level-stop"]]
+    ]
+
+
     inu_log_file = open(f"{os.getcwd()}/inu/inu.log", mode="r", encoding="utf-8")
     try:
         inu_log = inu_log_file.read()
@@ -104,8 +128,17 @@ async def log_(ctx: Context):
         log.error(traceback.format_exc())
         return
     inu_log_file.close()
-    shorted = crumble(inu_log, max_length_per_string=1970)
-
+    inu_log_filtered = ""
+    append = False
+    for line in inu_log.split("\n"):
+        if Multiple.startswith_(line, levels_to_use):  # one of the wanted log levels
+            append = True
+        elif Multiple.startswith_(line, all_levels):  # one of the unwanted log levels
+            append = False
+        if append:
+            inu_log_filtered += f"{line}\n"
+    shorted = crumble(inu_log_filtered, max_length_per_string=2000, clean_code=True)
+    shorted.reverse()
     embeds = []
     for i, page in enumerate(shorted):
         description = f"```py\n{page}\n```page {i+1}/{len(shorted)}"
@@ -116,7 +149,7 @@ async def log_(ctx: Context):
 @plugin.command
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("code", "The code I should execute", modifier=OM.CONSUME_REST)
-@lightbulb.command("run", "Executes given Python code", aliases=['py', 'exec', 'execute'])
+@lightbulb.command("run", "Executes given Python code", aliases=['py', 'exec', 'execute'], auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def execute(ctx: Context):
     '''
@@ -125,9 +158,21 @@ async def execute(ctx: Context):
     code: your code to execute
     '''
     code = ctx.options.code
-    await _execute(ctx, code)
+    page_s, ms = await _execute(ctx, code)
+    pag = Paginator(page_s=page_s)
+    await pag.start(ctx)
 
-async def _execute(ctx: Context, code: str):
+async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> Tuple[List[hikari.Embed], float]:
+    """
+    executes the code.
+
+    Returns:
+    -------
+    List[hikari.Embed] :
+        the result of the execution wrapped into hikari.Embeds
+    float :
+        the time it took to execute
+    """
     env = {
         'client': plugin.bot,
         'bot': plugin.bot,
@@ -189,8 +234,9 @@ async def _execute(ctx: Context, code: str):
     finally:
         timedelta = datetime.now() - start
         ms = int(round(timedelta.total_seconds() * 1000))
-
-        basic_message = f'**CODE**\n```py\n{raw_code}```\n'
+        basic_message = ""
+        if add_code_to_embed:
+            basic_message = f'**CODE**\n```py\n{raw_code}```\n'
         if error:
             basic_message += f'\n{error}\n'
         if not output or len(output) < 1800:
@@ -200,9 +246,7 @@ async def _execute(ctx: Context, code: str):
             for page in crumble(basic_message, 1950):
                 em = hikari.Embed(description=page)
                 embeds.append(em)
-            pag = Paginator(embeds)
-            await pag.start(ctx)
-            return
+            return embeds, round(ms, 4)
 
         pages = []
         cutted = crumble(output, max_length_per_string=1800)
@@ -212,11 +256,12 @@ async def _execute(ctx: Context, code: str):
             embed.description = f'**OUTPUT**\n```py\n{part_message}```\n'
 
             if index == 0:
-                embed.add_field(
-                    name='CODE',
-                    value=f'```py\n{raw_code}```\n',
-                    inline=False
-                )
+                if add_code_to_embed:
+                    embed.add_field(
+                        name='CODE',
+                        value=f'```py\n{raw_code}```\n',
+                        inline=False
+                    )
                 if error:
                     embed.add_field(
                         name='ERROR',
@@ -231,8 +276,7 @@ async def _execute(ctx: Context, code: str):
 
             pages.append(embed)
 
-        paginator = Paginator(page_s=pages, timeout=600)
-        await paginator.start(ctx)
+        return pages, round(ms, 4)
 
 
 async def clean_code(code):
@@ -248,6 +292,14 @@ async def wrap_into_async(code):
     func_name = '_to_execute'
     code = "\n".join(f"    {line}" for line in code.splitlines())
     return f"async def {func_name}():\n{code}", func_name
+
+@log_.autocomplete("level-stop")
+@log_.autocomplete("level-start")
+async def tag_name_auto_complete(
+    option: hikari.AutocompleteInteractionOption, 
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    return all_levels
 
 
 
