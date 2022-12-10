@@ -65,7 +65,15 @@ async def calc_msg(message: hikari.PartialMessage):
             query = query.replace("ans", "0")
             
         result = await calc(query)
+        # add result to last_ans
         if (ans := re.findall("(\d+(?:\.\d+)?)", result.replace("'", ""))[0]):
+            if result.strip().endswith("…"):  # result is periodic
+                try:
+                    periodic_part = re.findall("\d+\.(\d+)…", result)[0]  # caputre the periodic part -> "1.333…" matches 333
+                    # add periodic part 20 times
+                    ans += str(periodic_part) * 20 
+                except:
+                    pass
             last_ans[message.author.id] = ans
         if len(result) > 100:
             await message.respond(
@@ -76,7 +84,7 @@ async def calc_msg(message: hikari.PartialMessage):
                 hikari.Embed(title=result, description=f"```py\n{(message.content[1:]).strip()}```"),
             )
     except:
-        return
+        log.debug(traceback.format_exc())
         
 
 def load(bot: lightbulb.BotApp):
