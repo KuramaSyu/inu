@@ -74,7 +74,7 @@ class TagHandler(Paginator):
             disable_paginator_when_one_site=False,
         )
 
-    async def start(self, ctx: Context, tag: Mapping = None):
+    async def start(self, ctx: Context, tag: Mapping = None, **kwargs):
         """
         Starts the paginator and initializes the tag
         Args:
@@ -90,7 +90,7 @@ class TagHandler(Paginator):
             else:
                 await self.load_tag(tag, ctx.member or ctx.author)
             self._additional_components = self.tag.components or []
-            await super().start(ctx)
+            await super().start(ctx, **kwargs)
         except Exception:
             self.log.error(traceback.format_exc())
 
@@ -161,33 +161,33 @@ class TagHandler(Paginator):
                 # interaction was no menu interaction
                 return
 
-            if custom_id == "set_name":
+            if custom_id == "tag_set_name":
                 await self.set_name(event.interaction)
-            elif custom_id == "set_value":
+            elif custom_id == "tag_set_value":
                 await self.set_value(event.interaction)
-            elif custom_id == "extend_value":
+            elif custom_id == "tag_extend_value":
                 await self.extend_value(event.interaction)
-            elif custom_id == "change_visibility":
+            elif custom_id == "tag_change_visibility":
                 await self.change_visibility(event.interaction)
-            elif custom_id == "change_owner":
+            elif custom_id == "tag_change_owner":
                 await self.change_owner(event.interaction)
-            elif custom_id == "finish":
+            elif custom_id == "tag_finish":
                 await self.finish(event.interaction)
-            elif custom_id == "remove_tag":
+            elif custom_id == "tag_remove_tag":
                 await self.delete(event.interaction)
-            elif custom_id == "add_author_id":
+            elif custom_id == "tag_add_author_id":
                 await self.change_creators(i, set.add)
-            elif custom_id == "add_alias":
+            elif custom_id == "tag_add_alias":
                 await self.change_aliases(i, set.add)
-            elif custom_id == "add_guild_id":
+            elif custom_id == "tag_add_guild_id":
                 await self.change_guild_ids(i, set.add)
-            elif custom_id == "remove_author_id":
+            elif custom_id == "tag_remove_author_id":
                 await self.change_creators(i, set.remove)
-            elif custom_id == "remove_alias":
+            elif custom_id == "tag_remove_alias":
                 await self.change_aliases(i, set.remove)
-            elif custom_id == "remove_guild_id":
+            elif custom_id == "tag_remove_guild_id":
                 await self.change_guild_ids(i, set.remove)
-            elif custom_id == "add_new_page":
+            elif custom_id == "tag_add_new_page":
                 if len(self._pages) >= 20:
                     return await self.ctx.respond(
                         f"A tag can't have more then 20 pages",
@@ -196,7 +196,7 @@ class TagHandler(Paginator):
                 self._pages.insert(self._position+1, Embed(title=self.tag.name))
                 self.tag.value.insert(self._position+1, "")
                 self._position += 1
-            elif custom_id == "remove_this_page":
+            elif custom_id == "tag_remove_this_page":
                 if len(self._pages) <= 1:
                     return await self.ctx.respond(
                         f"A tag can't have less then 1 page"
@@ -214,7 +214,7 @@ class TagHandler(Paginator):
                     await self.tag.save()
                 except Exception:
                     pass
-            await self.update_page(update_value=custom_id in ["set_value", "extend_value", "add_new_page"], interaction=i)
+            await self.update_page(update_value=custom_id in ["tag_set_value", "tag_extend_value", "tag_add_new_page"], interaction=i)
             
         except Exception:
             self.log.error(traceback.format_exc())
@@ -426,19 +426,19 @@ class TagHandler(Paginator):
         menu = (
                 ActionRowBuilder()
                 .add_select_menu("tag_options")
-                .add_option("set name", "set_name").add_to_menu()
-                .add_option("set value", "set_value").add_to_menu()
-                .add_option("append to value", "extend_value").add_to_menu()
-                .add_option("add an alias", "add_alias").add_to_menu()
-                .add_option("add a guild", "add_guild_id").add_to_menu()
-                .add_option("add an author", "add_author_id").add_to_menu()
-                .add_option("remove an author", "remove_author_id").add_to_menu()
-                .add_option("remove alias", "remove_alias").add_to_menu()
-                .add_option("remove guild", "remove_guild_id").add_to_menu()
-                .add_option("add new page", "add_new_page").add_to_menu()
-                .add_option("remove current page", "remove_this_page").add_to_menu()
-                .add_option("local / global", "change_visibility").add_to_menu()
-                .add_option("delete tag", "remove_tag").add_to_menu()
+                .add_option("set name", "tag_set_name").add_to_menu()
+                .add_option("set value", "tag_set_value").add_to_menu()
+                .add_option("append to value", "tag_extend_value").add_to_menu()
+                .add_option("add an alias", "tag_add_alias").add_to_menu()
+                .add_option("add a guild", "tag_add_guild_id").add_to_menu()
+                .add_option("add an author", "tag_add_author_id").add_to_menu()
+                .add_option("remove an author", "tag_remove_author_id").add_to_menu()
+                .add_option("remove alias", "tag_remove_alias").add_to_menu()
+                .add_option("remove guild", "tag_remove_guild_id").add_to_menu()
+                .add_option("add new page", "tag_add_new_page").add_to_menu()
+                .add_option("remove current page", "tag_remove_this_page").add_to_menu()
+                .add_option("local / global", "tag_change_visibility").add_to_menu()
+                .add_option("delete tag", "tag_remove_tag").add_to_menu()
                 .add_to_container()
             )
         rows.append(menu)
