@@ -490,19 +490,6 @@ class Paginator():
         
         """
         kwargs: Dict[str, Any] = {}
-        # interaction = interaction or self.interaction
-        # if interaction:
-            # if self._interaction_response_status == ResponseType.DEFERRED_MESSAGE_UPDATE:
-            #     # message was deferred to update, so now update it
-            #     update_message = interaction.edit_initial_response
-            # else:
-            #     # message wasn't defered, so create inital response
-            #     update_message = interaction.create_initial_response
-            #     kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
-            # # update response status
-            # self._interaction_response_status = ResponseType.MESSAGE_CREATE
-        # else:
-        #     update_message = self._message.edit
         if not self._disable_component:
             kwargs["component"] = self.component
         elif not self._disable_components:
@@ -573,10 +560,27 @@ class Paginator():
             await self.ctx.respond(**kwargs, update=True)
             # await self._message.remove_all_reactions()
 
-    async def start(self, ctx: Context) -> hikari.Message:
+    async def start(
+        self, 
+        ctx: Context,
+        message: int | hikari.Message | None = None,
+        one_time_event: hikari.Event | None = None,
+        paginator_config: Dict[str, Any] | None = None,
+    ) -> hikari.Message:
         """
         starts the pagination
         
+        Args:
+        -----
+        ctx : Context
+            the Context to use to send the first message
+        message : int | hikari.Message | None
+            An existing message to edit for the paginator
+        one_time_event : hikari.Event | None
+            Will fire given event in paginator and then exit
+        paginator_config : Dict[str, Any] | None
+            A dict used with one_time_event to define following things:
+            - page: int - current page
         Calls:
         ------
         - `self.post_start` - coro - when start finished
@@ -631,20 +635,25 @@ class Paginator():
             return self._message
         self._position = 0
         self.log.debug("Starting pagination")
-        await self.post_start(ctx)
+        await self.post_start(ctx, one_time_use=one_time_event)
         return self._message
 
-    async def post_start(self, ctx: Context):
+    async def post_start(self, ctx: Context, **kwargs):
+        """
+        dispatches paginator ready event
+        starts the pagination loop
+        """
         try:
             await self.dispatch_event(PaginatorReadyEvent(self.bot))
-            await self.pagination_loop()
+            await self.pagination_loop(**kwargs)
         except Exception:
             self.log.error(traceback.format_exc())
 
-    async def pagination_loop(self):
+    async def pagination_loop(self, one_time_event: hikari.Event | None = None):
         try:
-            # if self.timeout > int(60*15):
-            #     raise RuntimeError("<timeout> has a max time of 15 min")
+            if one_time_event:
+                await self.dispatch_event(one_time_event)
+                return
             def create_event(event, predicate: Callable = None):
                 if predicate:
                     return self.bot.wait_for(
@@ -659,6 +668,8 @@ class Paginator():
                     )
 
             while not self._stop.is_set():
+                if one_time_use:
+                    self._stop.set()
                 self.log.debug("re-enter pagination loop")
                 try:
                     events = [
