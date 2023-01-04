@@ -251,6 +251,15 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
         await ctx.respond(**e.kwargs)
         return
     await show_record(tag=tag, record={}, ctx=ctx)
+
+@tags.listener(hikari.InteractionCreateEvent)
+async def on_paginator_interaction(event: hikari.InteractionCreateEvent):
+    """Handler for Tag one time paginator"""
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    if not event.interaction.custom_id.startswith("tag_options"):
+        return
+    pag = TagPaginator()
     
 
 @tags.listener(hikari.ShardReadyEvent)
