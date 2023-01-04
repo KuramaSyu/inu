@@ -13,6 +13,7 @@ from typing import (
     Final,
     Dict
 )
+import json
 import traceback
 import logging
 from abc import abstractmethod, ABCMeta
@@ -153,29 +154,52 @@ class Paginator():
         download_name: str = "content.txt",
         disable_search_btn: bool = False,
         first_message_kwargs: Dict[str, Any] = {},
+        custom_id_type: str | None = None,
     ):
         """
         ### A Paginator with many options
 
         Args:
         -----
-            - pege_s: (List[Embed] | List[str]) the page*s the Paginator should paginate
-            - timeout: (int, default=120) the seconds the paginator has to be inactive to "shutdown"; maximum is 15*60 min
-            - component_factory: (Callable[[int], ActionRowBuilder], default=None) a custom component builder; the input is the index of the site
-            - components_factory: (Callable[[int], ActionRowBuilder], default=None) a custom components builder; the input is the index of the site
-            - disable_component: (bool, default=False) wether or not the component of the paginator should be disabled
-            - disable_components: (bool, default=False) wether or not the components of the paginator should be disabled
-            - disable_paginator_when_one_site: (bool, default=True) wether or not the pagination should be disabled when the length of the pages is 1
-            - listen_to_events: (List[hikari.Event]) events the bot should listen to. These are needed to use them later with the `listener` decorator
-            - compact: (bool) display only necessary components
-            - download: (str | Callable[[Paginator], str] | bool, default=False)
-                - (str) this will be the content of the file
-                - (Callable[[Paginator], str]) A function, which takes in `self` and returns the file content as string
-                - (bool) If True, the pagination embeds|strings will be automatically convertet into a str; 
-                         If False, deactivate download functionallity at all
-            - first_message_kwargs: (Dict[str, Any], default) kwargs, which should be added to the first created message
-            - disable_search_btn: bool
-                wether or not to disable the search button
+        pege_s: List[Embed] | List[str] 
+            the page*s the Paginator should paginate
+        timeout: int, default=120
+            the seconds the paginator has to be inactive to "shutdown"; maximum is 15*60 min
+        component_factory: Callable[[int], ActionRowBuilder], default=None
+            a custom component builder; the input is the index of the site
+        components_factory: Callable[[int], ActionRowBuilder], default=None
+            a custom components builder; the input is the index of the site
+        disable_component: bool, default=False
+            wether or not the component of the paginator should be disabled
+        disable_components: bool, default=False
+            wether or not the components of the paginator should be disabled
+        disable_paginator_when_one_site: bool, default=True
+            wether or not the pagination should be disabled when the length of the pages is 1
+        listen_to_events: List[hikari.Event]
+            events the bot should listen to. These are needed to use them later with the `listener` decorator
+        compact: bool
+            display only necessary components (previous, stop, next)
+        download: str | Callable[[Paginator], str] | bool, default=False
+            - (str) this will be the content of the file
+            - (Callable[[Paginator], str]) A function, which takes in `self` and returns the file content as string
+            - (bool) If True, the pagination embeds|strings will be automatically convertet into a str; 
+                        If False, deactivate download functionallity at all
+        download_name: str
+            the name of the download file
+        first_message_kwargs: Dict[str, Any], default
+            kwargs, which should be added to the first created message
+        disable_search_btn: bool
+            wether or not to disable the search button
+        custom_id_type: str | None
+            if str:
+                custom_id will be converted to json with following keys:
+                    - type -> `<custom_id_type>`
+                    - custom_id -> the actual custom_id
+                    - author_id -> the id of the person using this paginator
+                    - message_id -> the id of the message of this paginator
+                    **kwargs -> additional self defined keys and values
+            if None:
+                custom_id will be the bare custom_id not converted to json
         Note:
         -----
             - the listener is always listening to 2 events:
@@ -211,6 +235,7 @@ class Paginator():
         self._download_name = download_name
         self._first_message_kwargs = first_message_kwargs or {}
         self._additional_components = additional_components or []
+        self._custom_id_prefix = custom_id_type
         self.bot: lightbulb.BotApp
         self.ctx: InteractionContext
 
@@ -252,6 +277,11 @@ class Paginator():
         self.log.debug(f"set interaction")
         self._interaction = value
         self.responded = None
+    
+    @property
+    def custom_id_prefix(self) -> str:
+        """The prefix which should be added before every custom_id"""
+        return self._custom_id_prefix
 
     @property
     def responded(self) -> bool:
@@ -301,6 +331,26 @@ class Paginator():
                 "Consider passing in a components_factory or set"
                 "a value for `instance`._components"
                 ))
+
+    def _serialize_custom_id(
+        self, 
+        custom_id: str, 
+        with_author_id: bool = True, 
+        with_message_id: bool = True, 
+        **kwargs
+    ) -> str:
+        d = {
+            "custom_id": custom_id, 
+        }
+        if with_author_id:
+            d["author_id"] = self.ctx.author.id
+        if with_message_id:
+            d["message_id"] = self._message.id
+        d.update(kwargs)
+        return json.dumps(d, indent=None, separators=(',', ':'))
+
+
+    
 
     def interaction_pred(self, event: InteractionCreateEvent):
         if not isinstance((i := event.interaction), ComponentInteraction):
@@ -435,6 +485,9 @@ class Paginator():
 
     @staticmethod
     def _embed_to_md(embed: hikari.Embed) -> str:
+        """
+        Converts an Embed to Markdown
+        """
         text = ""
         if embed.title:
             text += f"# {embed.title}"
@@ -581,6 +634,27 @@ class Paginator():
         paginator_config : Dict[str, Any] | None
             A dict used with one_time_event to define following things:
             - page: int - current page
+
+
+        Note:
+        -----
+        Requirements to use one_time_event:
+            all custom_ids need to be converted to json.
+            Following keys are required (*) or optional (-):
+            `* t: str`
+                the type of the custom_id, for example tag
+            `* cid: str`
+                the actual custom_id
+            `* p: int`
+                the page number where the paginator was
+            `- mid: int`
+                the message id of the pagination message used before
+            `- aid: int`
+                the id of the author who used the paginator
+            also, this method should be overwrite to recreate the 
+            messages from the custom id json
+            
+            
         Calls:
         ------
         - `self.post_start` - coro - when start finished
@@ -588,8 +662,11 @@ class Paginator():
         -------
             - (hikari.Message) the message, which was used by the paginator
         """
-        self.ctx = InteractionContext(ctx.event, ctx.app)
-        self.ctx._responded = ctx._responded
+        if ctx:
+            self.ctx = InteractionContext(ctx.event, ctx.app)
+            self.ctx._responded = ctx._responded
+        else:
+            self.ctx = InteractionContext(one_time_event, one_time_event.app)
         self.bot = ctx.bot
 
         if len(self.pages) < 1:
@@ -668,8 +745,6 @@ class Paginator():
                     )
 
             while not self._stop.is_set():
-                if one_time_use:
-                    self._stop.set()
                 self.log.debug("re-enter pagination loop")
                 try:
                     events = [
@@ -714,6 +789,7 @@ class Paginator():
     async def paginate(self, event: InteractionCreateEvent):
         if not isinstance(event.interaction, ComponentInteraction):
             return
+        # TODO:unpack JSON is custom_id is JSON
         id = event.interaction.custom_id or None
         last_position = self._position
 
