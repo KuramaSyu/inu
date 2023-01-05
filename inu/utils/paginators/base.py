@@ -41,7 +41,6 @@ T = TypeVar("T")
 
 count = 0
 
-# I know this is kinda to much just for a paginator - but I want to learn design patterns, so I do it
 class PaginatorReadyEvent(hikari.Event):
     def __init__(self, bot: lightbulb.BotApp):
         self.bot = bot
@@ -134,6 +133,84 @@ def listener(event: Any):
     return decorator
 
 
+
+class CustomID():
+    __slots__ = ["_type", "_custom_id", "_message_id", "_author_id", "_kwargs"]
+    _type: str | None
+    _custom_id: str
+    _message_id: int | None
+    _author_id: int | None
+    _kwargs: Dict[str, str | int]
+
+    def __init__(
+        self,
+        custom_id: str,
+        type: str | None = None,
+        message_id: int | None = None,
+        author_id: int | None = None,
+        **kwargs: Any,
+    ):
+        self._type = type
+        self._custom_id = custom_id
+        self._message_id = message_id
+        self._author_id = author_id
+        self._kwargs = kwargs
+
+    def _raise_none_error(self, var_name: str):
+        raise TypeError(f"`{self.__class__.__name__}.{var_name}` is None. Make sure, to set it!")
+
+    @property
+    def type(self) -> str:
+        if self._type is None:
+            self._raise_none_error("_type")
+        return self._type
+    
+    @property
+    def custom_id(self) -> str:
+        if self._custom_id is None:
+            self._raise_none_error("_custom_id")
+        return self._custom_id
+
+    @property
+    def message_id(self) -> int:
+        if self._message_id is None:
+            self._raise_none_error("_message_id")
+        return self._message_id
+    
+    @property
+    def author_id(self) -> str:
+        if self._author_id is None:
+            self._raise_none_error("_author_id")
+        return self._author_id
+
+    def is_same_user(self, interaction: hikari.ComponentInteraction):
+        """wether or not the interaction user is the prvious paginator user"""
+        return interaction.user.id == self.author_id
+    
+    def is_same_message(self, interaction: hikari.ComponentInteraction):
+        """wether or not the interaction message is the same as the prvious paginator message"""
+        return interaction.message.id == self.message_id
+
+
+    @property
+    @classmethod
+    def from_custom_id(cls, custom_id: str):
+        try:
+            d = json.loads(custom_id)
+            if not isinstance(d, Dict):
+                raise TypeError
+            custom_id = cls(
+                custom_id=d["cid"],
+                type=d.get("t"),
+                message_id=d.get("mid"),
+                author_id=d.get("aid"),
+            )
+            custom_id._kwargs = {k:v for k, v in d.items() if k not in ["t", "cid", "mid", "aid"]}
+            return custom_id
+        
+        except (TypeError, json.JSONDecodeError):
+            return cls(custom_id=custom_id)
+        
 
 class Paginator():
     def __init__(
@@ -235,7 +312,7 @@ class Paginator():
         self._download_name = download_name
         self._first_message_kwargs = first_message_kwargs or {}
         self._additional_components = additional_components or []
-        self._custom_id_prefix = custom_id_type
+        self._custom_id_type = custom_id_type
         self.bot: lightbulb.BotApp
         self.ctx: InteractionContext
 
@@ -332,25 +409,9 @@ class Paginator():
                 "a value for `instance`._components"
                 ))
 
-    def _serialize_custom_id(
-        self, 
-        custom_id: str, 
-        with_author_id: bool = True, 
-        with_message_id: bool = True, 
-        **kwargs
-    ) -> str:
-        d = {
-            "custom_id": custom_id, 
-        }
-        if with_author_id:
-            d["author_id"] = self.ctx.author.id
-        if with_message_id:
-            d["message_id"] = self._message.id
-        d.update(kwargs)
-        return json.dumps(d, indent=None, separators=(',', ':'))
 
 
-    
+
 
     def interaction_pred(self, event: InteractionCreateEvent):
         if not isinstance((i := event.interaction), ComponentInteraction):
@@ -822,13 +883,6 @@ class Paginator():
             await self.stop()
         await self.ctx.interaction.delete_initial_response()
 
-        # if (channel := self.ctx.get_channel()):
-        #     if isinstance(channel, int):
-        #         channel = self.bot.cache.get_guild_channel(channel)
-        #     await channel.delete_messages(
-        #         [self._message]
-        #     )
-
     async def _update_position(self, interaction: ComponentInteraction | None = None):
         await self.send(content=self.pages[self._position], interaction=interaction)
         
@@ -953,3 +1007,88 @@ def navigation_row(
     return action_row
 
 
+class StatelessPaginator(Paginator):
+    """
+    A paginator which recreates the previous state out of the interacion custom_id.
+    """
+    async def start(
+        self,
+        ctx: Context,
+        custom_id: str,
+        event: hikari.Event,
+    ):
+        """
+        Args:
+        -----
+        ctx : Context
+            the context to use to create messages
+        custom_id : str
+            the custom_id json-formatted which provides the information to 
+            recreate the previous state
+        event : hikari.Event
+            the event which should be fired
+
+        Note:
+        ----
+            -   after the event was fired and processed (for example ComponentInteraction -> pagination -> next_page)
+                the paginator will exit. No event listening will be done!
+            -   Subclasses of this class should recreate the embeds here and pass them into set_embeds()
+        """
+        # TODO: set_embeds() method
+        super().start()
+
+    def set_embeds(self, embeds: List[hikari.Embed]):
+        self._pages = embeds
+
+    @property
+    def custom_id(self) -> CustomID:
+        return CustomID.from_custom_id(self.ctx.custom_id)
+
+    def _serialize_custom_id(
+        self, 
+        custom_id: str, 
+        with_author_id: bool = True, 
+        with_message_id: bool = True, 
+        **kwargs
+    ) -> str:
+        """
+        Args:
+        -----
+        custom_id: str
+            the custom id for that component
+        author_id : bool
+            wether or not to include the author id
+        message_id : bool
+            wether or not to include the message id
+        **kwargs : Dict[Any, Any]
+            additional kwargs to add
+
+        Returns:
+        --------
+        str :
+            The jsonified dict with following keys:
+            * `type` str
+                the type which was set in __init__ `custom_id_type` to specify use of paginator
+            * `cid`: str
+                the `<custom_id>` to identify what to do
+            - `aid`: int
+                the `<author_id>` to identify later on the auther who used the interaction
+            - `mid`: int
+                the `<message_id>` to identify later on the message which was used 
+            - `kwargs`: Any
+                optional additional kwargs
+
+        Note:
+        -----
+            - custom_id has a max len of 100 chars
+        """
+        d = {
+            "cid": custom_id, 
+            "t": self._custom_id_type,
+        }
+        if with_author_id:
+            d["aid"] = self.ctx.author.id
+        if with_message_id:
+            d["mid"] = self._message.id
+        d.update(kwargs)
+        return json.dumps(d, indent=None, separators=(',', ':'))
