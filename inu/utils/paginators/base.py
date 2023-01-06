@@ -11,7 +11,7 @@ from typing import (
     Union,
     List,
     Final,
-    Dict
+    Dict,
 )
 import json
 import traceback
@@ -429,7 +429,7 @@ class Paginator():
             and self.ctx.author.id == msg.author.id
         )
 
-    def button_factory(
+    def _button_factory(
         self,
         disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
         label: str = "",
@@ -465,32 +465,32 @@ class Paginator():
 
         action_row = None
         if not self.compact:
-            action_row = self.button_factory(
+            action_row = self._button_factory(
                 custom_id="first", 
                 emoji="⏮", 
                 disable_when_index_is=lambda p: p == 0
             )
-        action_row = self.button_factory(
+        action_row = self._button_factory(
             custom_id="previous",
             emoji="◀",
             action_row_builder=action_row or ActionRowBuilder(),
             disable_when_index_is=lambda p: p == 0,
         )
-        self.button_factory(
+        self._button_factory(
             custom_id="stop",
             emoji="✖",
             label=f"{self._position+1}/{len(self._pages)}",
             action_row_builder=action_row,
             style=ButtonStyle.DANGER,
         )
-        self.button_factory(
+        self._button_factory(
             custom_id="next",
             emoji="▶",
             action_row_builder=action_row,
             disable_when_index_is=lambda p: p == len(self.pages)-1,
         )
         if not self.compact:
-            self.button_factory(
+            self._button_factory(
                 custom_id="last",
                 emoji="⏭",
                 action_row_builder=action_row,
@@ -511,7 +511,7 @@ class Paginator():
             action_rows.append(navi)
         action_row = None
         if not self.compact and not self._disable_search_btn:
-            action_row = self.button_factory(
+            action_row = self._button_factory(
                 custom_id="search",
                 emoji="🔍"
             )
@@ -678,7 +678,7 @@ class Paginator():
         self, 
         ctx: Context,
         message: int | hikari.Message | None = None,
-        one_time_event: hikari.Event | None = None,
+        events: List[hikari.Event] = [],
         paginator_config: Dict[str, Any] | None = None,
     ) -> hikari.Message:
         """
@@ -690,8 +690,8 @@ class Paginator():
             the Context to use to send the first message
         message : int | hikari.Message | None
             An existing message to edit for the paginator
-        one_time_event : hikari.Event | None
-            Will fire given event in paginator and then exit
+        events : List[hikari.Event]
+            Will fire given events in pagination loop and then exit
         paginator_config : Dict[str, Any] | None
             A dict used with one_time_event to define following things:
             - page: int - current page
@@ -723,11 +723,8 @@ class Paginator():
         -------
             - (hikari.Message) the message, which was used by the paginator
         """
-        if ctx:
-            self.ctx = InteractionContext(ctx.event, ctx.app)
-            self.ctx._responded = ctx._responded
-        else:
-            self.ctx = InteractionContext(one_time_event, one_time_event.app)
+        self.ctx = InteractionContext(ctx.event, ctx.app)
+        self.ctx._responded = ctx._responded
         self.bot = ctx.bot
 
         if len(self.pages) < 1:
@@ -773,7 +770,7 @@ class Paginator():
             return self._message
         self._position = 0
         self.log.debug("Starting pagination")
-        await self.post_start(ctx, one_time_use=one_time_event)
+        await self.post_start(ctx, events=events)
         return self._message
 
     async def post_start(self, ctx: Context, **kwargs):
@@ -787,11 +784,8 @@ class Paginator():
         except Exception:
             self.log.error(traceback.format_exc())
 
-    async def pagination_loop(self, one_time_event: hikari.Event | None = None):
+    async def pagination_loop(self, **kwargs):
         try:
-            if one_time_event:
-                await self.dispatch_event(one_time_event)
-                return
             def create_event(event, predicate: Callable = None):
                 if predicate:
                     return self.bot.wait_for(
@@ -844,14 +838,20 @@ class Paginator():
     async def dispatch_event(self, event: Event):
         if isinstance(event, InteractionCreateEvent) and self.interaction_pred(event):
             self.interaction = event.interaction
-            await self.paginate(event)
+            await self.paginate(id=event.interaction.custom_id or None)
         await self.listener.notify(event)
 
-    async def paginate(self, event: InteractionCreateEvent):
-        if not isinstance(event.interaction, ComponentInteraction):
-            return
-        # TODO:unpack JSON is custom_id is JSON
-        id = event.interaction.custom_id or None
+    async def paginate(self, id: str):
+        """
+        paginates the message
+
+        Args:
+        -----
+        id : str
+            [first|previous|stop|next|last|search] -> checks for 
+            these ids. If contained, then execute according method
+
+        """
         last_position = self._position
 
         if id == "first":
@@ -875,7 +875,7 @@ class Paginator():
             return
 
         if last_position != self._position:
-            await self._update_position(interaction=event.interaction)
+            await self._update_position()
 
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
@@ -940,7 +940,23 @@ def navigation_row(
     position: int, 
     len_pages: int,
     compact: bool = False,
+    custom_id_serializer: Callable[[str], str] = lambda c: c,
 ) -> ActionRowBuilder:
+    """
+    Creates the AcionRowBuilder for the navigation row
+
+    Args:
+    ----
+    position : int
+        for current page information and for checking for last or first page
+    len_pages : int
+        for last page information and for checking last page
+    compact : bool
+        wether or not to include last and first button
+    custom_id_serializer : Callable[[str], str]
+        A method which takes in the custom_id and returns the serialized custom_id.
+        Per default the custom_id will be returned as is.
+    """
     def button_factory( 
         disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
         label: str = "",
@@ -956,7 +972,7 @@ def navigation_row(
         if not emoji:
             btn = (
                 action_row_builder
-                .add_button(style, custom_id)
+                .add_button(style, custom_id_serializer(custom_id))
                 .set_is_disabled(state)
                 .set_label(label)
                 .add_to_container()
@@ -964,7 +980,7 @@ def navigation_row(
         else:
             btn = (
                 action_row_builder
-                .add_button(style, custom_id)
+                .add_button(style, custom_id_serializer(custom_id))
                 .set_is_disabled(state)
                 .set_emoji(emoji)
                 .add_to_container()
@@ -1092,3 +1108,77 @@ class StatelessPaginator(Paginator):
             d["mid"] = self._message.id
         d.update(kwargs)
         return json.dumps(d, indent=None, separators=(',', ':'))
+
+    async def dispatch_event(self, event: Event):
+        """
+        Override:
+        ---------
+        - id needs to be passed differently to paginate
+        """
+        if isinstance(event, InteractionCreateEvent) and self.interaction_pred(event):
+            self.interaction = event.interaction
+            await self.paginate(id=self.custom_id.custom_id)
+        await self.listener.notify(event)
+
+    def _button_factory(
+        self,
+        disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
+        label: str = "",
+        style = ButtonStyle.SECONDARY,
+        custom_id: Optional[str] = None,
+        emoji: Optional[str] = None,
+        action_row_builder: Optional[ActionRowBuilder] = None,
+        
+    ) -> ActionRowBuilder:
+        """
+        Builds buttons
+
+        Override:
+        ---------
+        - custom id gets in this paginator serialized to json
+        """
+        if action_row_builder is None:
+            action_row_builder = ActionRowBuilder()
+        state: bool = disable_when_index_is(self._position)
+        if not custom_id:
+            custom_id = label
+    
+        btn = (
+            action_row_builder
+            .add_button(style, self._serialize_custom_id(custom_id))
+            .set_is_disabled(state)
+        )
+        if emoji:
+            btn = btn.set_emoji(emoji)
+
+        if label:
+            btn = btn.set_label(label)
+        btn = btn.add_to_container()
+        return btn
+
+    async def post_start(self, ctx: Context, **kwargs):
+        """
+        Override:
+        ---------
+        - pass event into pagination_loop
+        
+        dispatches paginator ready event
+        starts the pagination loop
+        """
+        try:
+            await self.dispatch_event(PaginatorReadyEvent(self.bot))
+            events = kwargs.get("events")
+            for e in events:
+                await self.pagination_loop(event=e)
+        except Exception:
+            self.log.error(traceback.format_exc())
+
+    async def pagination_loop(self, event: hikari.Event):
+        """
+        Override:
+        --------
+        - event waiting functionality fully removed
+        - only dispatch given event
+        """
+        await self.dispatch_event(event)
+
