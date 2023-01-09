@@ -230,7 +230,7 @@ class AnimePaginator(Paginator):
         )
         return await super().start(ctx)
 
-    async def _update_position(self, interaction: ComponentInteraction, detailed=False):
+    async def _update_position(self, interaction: ComponentInteraction | None = None, detailed=False):
         """
         replaces embed page first with a more detailed one, before sending the message
         """
