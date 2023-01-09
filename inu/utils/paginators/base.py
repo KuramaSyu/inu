@@ -16,7 +16,7 @@ from typing import (
 import json
 import traceback
 import logging
-from abc import abstractmethod, ABCMeta
+from abc import abstractmethod, ABCMeta, ABC
 from copy import deepcopy
 import textwrap
 
@@ -29,8 +29,7 @@ from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
 
-from core import InteractionContext
-
+from core import InteractionContext, RESTContext, InuContext, get_context
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -148,12 +147,14 @@ class CustomID():
         type: str | None = None,
         message_id: int | None = None,
         author_id: int | None = None,
+        page: int | None = None,
         **kwargs: Any,
     ):
         self._type = type
         self._custom_id = custom_id
         self._message_id = message_id
         self._author_id = author_id
+        self._page = page
         self._kwargs = kwargs
 
     def _raise_none_error(self, var_name: str):
@@ -164,6 +165,12 @@ class CustomID():
         if self._type is None:
             self._raise_none_error("_type")
         return self._type
+
+    @property
+    def page(self) -> str:
+        if self._page is None:
+            self._raise_none_error("_page")
+        return self._page
     
     @property
     def custom_id(self) -> str:
@@ -204,6 +211,7 @@ class CustomID():
                 type=d.get("t"),
                 message_id=d.get("mid"),
                 author_id=d.get("aid"),
+                page=d.get("p"),
             )
             custom_id._kwargs = {k:v for k, v in d.items() if k not in ["t", "cid", "mid", "aid"]}
             return custom_id
@@ -770,10 +778,10 @@ class Paginator():
             return self._message
         self._position = 0
         self.log.debug("Starting pagination")
-        await self.post_start(ctx, events=events)
+        await self.post_start(events=events)
         return self._message
 
-    async def post_start(self, ctx: Context, **kwargs):
+    async def post_start(self, **kwargs):
         """
         dispatches paginator ready event
         starts the pagination loop
@@ -1023,15 +1031,32 @@ def navigation_row(
     return action_row
 
 
-class StatelessPaginator(Paginator):
+class StatelessPaginator(Paginator, ABC):
     """
     A paginator which recreates the previous state out of the interacion custom_id.
     """
+    def __init__(
+        self,
+        **kwargs
+
+    ):
+        self._custom_id: str | None = None
+        self._stateless_switch = asyncio.Event()
+        kwargs.setdefault("page_s", [])
+        super().__init__(**kwargs)
+    
+    @property
+    def is_stateless(self) -> bool:
+        return self._stateless_switch.is_set()
+    
+    def _switch_to_stateless(self) -> bool:
+        self._stateless_switch.set()
+
     async def start(
         self,
-        ctx: Context,
-        custom_id: str,
-        event: hikari.Event,
+        ctx: InuContext,
+        custom_id: str | None,
+        event: hikari.Event | None,
     ):
         """
         Args:
@@ -1051,7 +1076,17 @@ class StatelessPaginator(Paginator):
             -   Subclasses of this class should recreate the embeds here and pass them into set_embeds()
         """
         # TODO: set_embeds() method
-        super().start()
+        # custom_id provided -> edit old message
+        if not ctx:
+            if event is None:
+                raise RuntimeError(f"neither `ctx` nor `event` was given. At least one arg is needed")
+            ctx = get_context(event=event)
+            self.set_context(ctx)
+        if custom_id:      
+            self._message = await ctx.original_message
+            return await self.post_start(events=[event])
+        else:
+            return await super().start(ctx)
 
     def set_embeds(self, embeds: List[hikari.Embed]):
         self._pages = embeds
@@ -1059,6 +1094,23 @@ class StatelessPaginator(Paginator):
     @property
     def custom_id(self) -> CustomID:
         return CustomID.from_custom_id(self.ctx.custom_id)
+    
+    @custom_id.setter
+    def custom_id(self, value: str) -> None:
+        self._custom_id = value
+
+    @abstractmethod
+    def _get_custom_id_kwargs(self) -> Dict[str, int|str]:
+        """
+        define a Dict with all needed extra keys and values to recreate the last state
+
+
+        Returns:
+        -------
+        Dict[str, str | int]
+            dict with all needed extra values to recreate the last state. (e.g. tag_id for tags)
+        """
+        ...
 
     def _serialize_custom_id(
         self, 
@@ -1083,14 +1135,16 @@ class StatelessPaginator(Paginator):
         --------
         str :
             The jsonified dict with following keys:
-            * `type` str
+            * `t` str
                 the type which was set in __init__ `custom_id_type` to specify use of paginator
+            * `p` : int
+                current page index
             * `cid`: str
                 the `<custom_id>` to identify what to do
             - `aid`: int
                 the `<author_id>` to identify later on the auther who used the interaction
             - `mid`: int
-                the `<message_id>` to identify later on the message which was used 
+                the `<message_id>` to identify later on the message which was used
             - `kwargs`: Any
                 optional additional kwargs
 
@@ -1101,11 +1155,13 @@ class StatelessPaginator(Paginator):
         d = {
             "cid": custom_id, 
             "t": self._custom_id_type,
+            "p": self._position
         }
         if with_author_id:
             d["aid"] = self.ctx.author.id
-        if with_message_id:
-            d["mid"] = self._message.id
+        d.update(self._get_custom_id_kwargs())
+        # if with_message_id:
+        #     d["mid"] = self._message.id
         d.update(kwargs)
         return json.dumps(d, indent=None, separators=(',', ':'))
 
@@ -1156,8 +1212,14 @@ class StatelessPaginator(Paginator):
         btn = btn.add_to_container()
         return btn
 
-    async def post_start(self, ctx: Context, **kwargs):
+    async def post_start(self, events: List[hikari.Event] = [], **kwargs):
         """
+        Args:
+        -----
+        events : List[hikari.Event]
+            Events to fire in this instance
+
+
         Override:
         ---------
         - pass event into pagination_loop
@@ -1167,7 +1229,6 @@ class StatelessPaginator(Paginator):
         """
         try:
             await self.dispatch_event(PaginatorReadyEvent(self.bot))
-            events = kwargs.get("events")
             for e in events:
                 await self.pagination_loop(event=e)
         except Exception:
@@ -1180,5 +1241,15 @@ class StatelessPaginator(Paginator):
         - event waiting functionality fully removed
         - only dispatch given event
         """
+        #if self.is_stateless:
         await self.dispatch_event(event)
+
+    def set_custom_id(self, custom_id: str) -> "StatelessPaginator":
+        """
+        This is intended to be used as builder method before starting the paginator.
+        e.g. `await (StatelessPaginator().set_custom_id(custom_id)).start(event)`
+        this is needed, that the start() coroutine can already use the custom_id
+        """
+        self.custom_id = custom_id
+        return self
 
