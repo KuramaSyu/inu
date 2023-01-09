@@ -7,11 +7,11 @@ import lightbulb
 from lightbulb.context import Context, ResponseProxy
 from lightbulb.context.prefix import PrefixContext
 
-from . import InuContextProtocol
+from . import InuContextProtocol, InuContext
 
 
 
-class RESTContext(Context):
+class RESTContext(Context, InuContextProtocol, InuContext):
     """
     Class for Context, which is not based on Interactions.
 
@@ -60,6 +60,10 @@ class RESTContext(Context):
     @property
     def command(self) -> None:
         return None
+
+    @property
+    def original_message(self) -> hikari.Message:
+        return self._event.message
 
     def get_channel(self) -> Optional[Union[hikari.GuildChannel, hikari.Snowflake]]:
         if self.guild_id is not None:
@@ -119,3 +123,7 @@ class RESTContext(Context):
         self._responses.append(ResponseProxy(msg))
         self._responded = True
         return self._responses[-1]
+
+    @classmethod
+    def from_event(cls, event: hikari.MessageCreateEvent):
+        cls(app=event.app, event=event)
