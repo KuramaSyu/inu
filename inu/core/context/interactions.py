@@ -10,7 +10,7 @@ from .._logging import getLogger
 import lightbulb
 from lightbulb.context.base import Context, ResponseProxy
 
-from . import InuContextProtocol
+from . import InuContext, InuContextProtocol
 
 log = getLogger(__name__)
 
@@ -19,7 +19,7 @@ REST_SENDING_MARGIN = 0.6 #seconds
 i = 0
 
 
-class _InteractionContext(Context, abc.ABC, InuContextProtocol):
+class _InteractionContext(Context, InuContext, InuContextProtocol):
     __slots__ = ("_event", "_interaction", "_default_ephemeral", "_defer_in_progress_event", "log")
 
     def __init__(
@@ -43,7 +43,7 @@ class _InteractionContext(Context, abc.ABC, InuContextProtocol):
         return self._app
 
     @property
-    def message(self) -> hikari.Message:
+    def original_message(self) -> hikari.Message:
         return self.event.interaction.message
     
     @property
@@ -88,6 +88,10 @@ class _InteractionContext(Context, abc.ABC, InuContextProtocol):
         new_ctx._responses = ctx._responses
         new_ctx._responded = ctx._responded
         return new_ctx
+
+    @classmethod
+    def from_event(cls, event: hikari.InteractionCreateEvent):
+        return cls(app=event.app, event=event)
     
     async def respond(
         
