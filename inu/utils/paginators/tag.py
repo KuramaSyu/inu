@@ -95,7 +95,7 @@ class TagHandler(Paginator):
         except Exception:
             self.log.error(traceback.format_exc())
 
-    async def post_start(self, ctx: Context):
+    async def post_start(self, ctx: Context, **kwargs):
         # self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
         await super().post_start(ctx)
 
