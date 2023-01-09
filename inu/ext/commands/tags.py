@@ -22,7 +22,7 @@ from core import Inu, Table, BotResponseError
 from utils import TagIsTakenError, TagManager, TagType, Human
 from utils import crumble
 from utils.colors import Colors
-from utils import Paginator
+from utils import Paginator, StatelessPaginator
 from utils.paginators.base import navigation_row
 from utils.paginators.tag import TagHandler, Tag
 
@@ -32,15 +32,19 @@ log = getLogger(__name__)
 
 
 
-class TagPaginator(Paginator):
+class TagPaginator(StatelessPaginator):
     def __init__(self, tag: Tag, **kwargs):
         self.tag = tag
         super().__init__(
             **kwargs,
             timeout=15*60,
         )
-    async def post_start(self: Paginator, ctx: Context):
-        await super().post_start(ctx)
+
+    def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
+        return {"tid": self.tag.id}
+
+    async def start(custom_id: str, event: InteractionCreateEvent):
+        ...
 
 
 async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping[str, Any]]:
@@ -125,6 +129,7 @@ async def show_record(
     name: Optional[str] = None,
     force_show_name: bool = False,
     tag: Optional[Tag] = None,
+    event: hikari.Event | None = None,
 ) -> None:
     """
     Sends the given tag(record) into the channel of <ctx>.
@@ -151,7 +156,7 @@ async def show_record(
         try:
             tag = await Tag.from_record(record,  db_checks=False)
         except RuntimeError as e:
-            raise BotResponseError(e.args[0], emphemeral=True)
+            raise BotResponseError(e.args[0], ephemeral=True)
     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
 
     messages = []
@@ -181,7 +186,7 @@ async def show_record(
         disable_component=True,
     )
     await tag.used_now()
-    asyncio.create_task(pag.start(ctx))
+    asyncio.create_task(pag.start(ctx, None, event))
         
     
 
@@ -252,14 +257,14 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
         return
     await show_record(tag=tag, record={}, ctx=ctx)
 
-@tags.listener(hikari.InteractionCreateEvent)
-async def on_paginator_interaction(event: hikari.InteractionCreateEvent):
-    """Handler for Tag one time paginator"""
-    if not isinstance(event.interaction, hikari.ComponentInteraction):
-        return
-    if not event.interaction.custom_id.startswith("tag_options"):
-        return
-    pag = TagPaginator()
+# @tags.listener(hikari.InteractionCreateEvent)
+# async def on_paginator_interaction(event: hikari.InteractionCreateEvent):
+#     """Handler for Tag one time paginator"""
+#     if not isinstance(event.interaction, hikari.ComponentInteraction):
+#         return
+#     if not event.interaction.custom_id.startswith("tag_options"):
+#         return
+#     pag = TagPaginator()
     
 
 @tags.listener(hikari.ShardReadyEvent)
@@ -430,7 +435,7 @@ async def tag_get(ctx: Context):
         - name: the name the tag should have
     """
     record = await get_tag(ctx, ctx.options.name)
-    await show_record(record, ctx, ctx.options.name)
+    await show_record(record, ctx, ctx.options.name, event=ctx.event)
 
 
     
