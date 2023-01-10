@@ -6,6 +6,7 @@ from typing import *
 import logging
 import asyncio
 import textwrap
+import json
 
 import hikari
 from hikari import ComponentInteraction, Embed, InteractionCreateEvent, ResponseType, TextInputStyle
@@ -31,6 +32,10 @@ from core import getLogger, BotResponseError, InteractionContext
 log = getLogger(__name__)
 
 
+tags = lightbulb.Plugin("Tags", "Commands all arround tags")
+bot: Inu
+
+
 
 class TagPaginator(StatelessPaginator):
     def __init__(self, tag: Tag, **kwargs):
@@ -45,6 +50,29 @@ class TagPaginator(StatelessPaginator):
 
     async def start(custom_id: str, event: InteractionCreateEvent):
         await super().start(event=event)
+    
+    @property
+    def custom_id_type(self) -> str:
+        return "stl-tag"  # stateless tag paginator
+
+
+@tags.listener(event=hikari.InteractionCreateEvent)
+async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
+    """
+    Handler for all tag paginator related interactions
+    """
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    
+    tag_id: Optional[int] = None
+    try:
+        custom_id = json.loads(event.interaction.custom_id)
+        assert(custom_id["t"] == "stl-tag")
+        assert (tag_id := custom_id.get("tid") is not None)
+    except:
+        return
+
+
 
 
 async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping[str, Any]]:
@@ -238,15 +266,11 @@ async def no_tag_found_msg(
         await ctx.respond(answer)
 
 
-tags = lightbulb.Plugin("Tags", "Commands all arround tags")
-bot: Inu
-lightbulb.context
-
 
 @tags.listener(hikari.InteractionCreateEvent)
-async def on_interaction(event: hikari.InteractionCreateEvent):
+async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
     """
-    Handler for Button/Menu Interactions 
+    Handler for Button/Menu Interactions with tag links
     """
     # menus dont work
     i = event.interaction
