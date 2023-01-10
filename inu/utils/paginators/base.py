@@ -1054,7 +1054,7 @@ class StatelessPaginator(Paginator, ABC):
 
     async def start(
         self,
-        ctx: InuContext,
+        ctx: InuContext | None,
         custom_id: str | None,
         event: hikari.Event | None,
     ):
@@ -1073,7 +1073,7 @@ class StatelessPaginator(Paginator, ABC):
         ----
             -   after the event was fired and processed (for example ComponentInteraction -> pagination -> next_page)
                 the paginator will exit. No event listening will be done!
-            -   Subclasses of this class should recreate the embeds here and pass them into set_embeds()
+            -   Subclasses of this class should recreate the embeds here and pass them into `set_embeds(embeds: List[hikari.Embed])`
         """
         # TODO: set_embeds() method
         # custom_id provided -> edit old message
