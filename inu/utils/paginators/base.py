@@ -1041,16 +1041,8 @@ class StatelessPaginator(Paginator, ABC):
 
     ):
         self._custom_id: str | None = None
-        self._stateless_switch = asyncio.Event()
         kwargs.setdefault("page_s", [])
         super().__init__(**kwargs)
-    
-    @property
-    def is_stateless(self) -> bool:
-        return self._stateless_switch.is_set()
-    
-    def _switch_to_stateless(self) -> bool:
-        self._stateless_switch.set()
 
     async def start(
         self,
@@ -1111,6 +1103,11 @@ class StatelessPaginator(Paginator, ABC):
             dict with all needed extra values to recreate the last state. (e.g. tag_id for tags)
         """
         ...
+    @property
+    @abstractmethod
+    def custom_id_type(self) -> str:
+        "the custom_id type to sort the custom_ids into a specific category"
+        ...
 
     def _serialize_custom_id(
         self, 
@@ -1154,7 +1151,7 @@ class StatelessPaginator(Paginator, ABC):
         """
         d = {
             "cid": custom_id, 
-            "t": self._custom_id_type,
+            "t": self.custom_id_type,
             "p": self._position
         }
         if with_author_id:
