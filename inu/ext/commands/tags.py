@@ -44,15 +44,17 @@ class TagPaginator(StatelessPaginator):
         return {"tid": self.tag.id}
 
     async def start(custom_id: str, event: InteractionCreateEvent):
-        ...
+        await super().start(event=event)
 
 
 async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping[str, Any]]:
     """
-    Get the tag interactive
+    Get the tag interactive via message menues and interactions
+
+
     Note:
     -----
-        - if there are multiple tags with same name, the user will be asked, which one to use
+    - if there are multiple tags with same name, the user will be asked, which one to use
     """
 
     if key is None:
@@ -138,12 +140,24 @@ async def show_record(
     Args:
     ----
     record : `asyncpg.Record`
-        the record/dict, which should contain the keys `tag_value` and `tag_key`
+        - the record/dict, which should contain the keys `tag_value` and `tag_key`
+        - needed, if `<tag>` is not given
+
     ctx : `Context`
         the context, under wich the message will be sent (important for the channel)
-    key : `str`
-        The key under which the tag was invoked. If key is an alias, the tag key will be
-        displayed, otherwise it wont
+    name : Optional[str]
+        - the name of the tag
+        - used to distingluish if called with alias or real name
+
+    force_show_name : bool = False
+        wether or not the tag name will be in the embed. Default is, that name is removed, if tag is some sort of media like png
+
+    tag : Optional[Tag] = None
+        Tag object, if it was already fetched. Dict is not needed in this case
+
+    event : Optional[hikari.Event] = None
+        The event which will be fired in the StatelessTagPaginator. Default is None, to create the Paginator
+
 
     Raises:
     -------
@@ -186,7 +200,7 @@ async def show_record(
         disable_component=True,
     )
     await tag.used_now()
-    asyncio.create_task(pag.start(ctx, None, event))
+    await pag.start(event)
         
     
 
