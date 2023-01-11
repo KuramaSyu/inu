@@ -96,9 +96,9 @@ class TagHandler(Paginator):
         except Exception:
             self.log.error(traceback.format_exc())
 
-    async def post_start(self, ctx: Context, **kwargs):
+    async def post_start(self, **kwargs):
         # self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
-        await super().post_start(ctx)
+        await super().post_start()
 
     async def update_page(self, interaction: ComponentInteraction, update_value: bool = False):
         """Updates the embed, if the interaction wasn't for pagination"""
