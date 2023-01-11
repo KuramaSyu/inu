@@ -448,7 +448,10 @@ class InteractionContext(_InteractionContext):
     async def _cache_initial_response(self) -> None:
         """cache the initial response message and store it in `self._message`"""
         if not self._message:
-            self._message = await self.i.fetch_initial_response()
+            try:
+                self._message = await self.i.fetch_initial_response()
+            except hikari.NotFoundError:
+                return
             self.log.debug(f"{self.__class__.__name__} cached message with id: {self._message.id}")
 
     async def fetch_response(self) -> hikari.Message:
