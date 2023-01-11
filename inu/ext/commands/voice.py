@@ -36,14 +36,15 @@ plugin = lightbulb.Plugin("Voice commands")
     lightbulb.guild_only,
 )
 @lightbulb.option(
-    "voice_channel", 
-    "the voice channel where you want to move to",
-    modifier=OM.CONSUME_REST
+    "member", 
+    "a person who is in the current voice channel. normally you", 
+    type=hikari.Member,
+    default=None,
 )
 @lightbulb.option(
-    "member", 
-    "a person who is in the current voice channel", 
-    type=hikari.Member,
+    "voice-channel", 
+    "the voice channel where you want to move to",
+    autocomplete=True,
 )
 @lightbulb.command(
     "move-all", 
@@ -68,7 +69,7 @@ async def move_all(ctx: Context):
         target_channel = [
             ch for ch in channels 
             if isinstance(ch, hikari.GuildVoiceChannel) 
-            and ch.name == ctx.options.voice_channel.strip()
+            and ch.id == int(ctx.options["voice-channel"].split("|")[0])
         ][0]
     except IndexError:
         return await ctx.respond(f"No channel with the name `{ctx.options.voice_channel.strip()}`")
@@ -82,10 +83,26 @@ async def move_all(ctx: Context):
         )
         for user_id in user_ids
     ]
-    asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+    await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
     await ctx.respond(
         f"Moved {Human.list_([f'<@{user_id}>' for user_id in user_ids], with_a_or_an=False)} to `{target_channel.name}`"
     )
+
+@move_all.autocomplete("voice-channel")
+async def tag_name_auto_complete(
+    option: hikari.AutocompleteInteractionOption, 
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    vcs = []
+    guild = interaction.get_guild()
+    if not guild:
+        return []
+    for ch in guild.get_channels().values():
+        if not isinstance(ch, hikari.GuildVoiceChannel):
+            continue
+        if lightbulb_utils.permissions_in(ch, interaction.member) & hikari.Permissions.CONNECT:
+            vcs.append(f"{ch.id} | {ch.name}")
+    return vcs[:24]
 
 
 def load(bot: Inu):
