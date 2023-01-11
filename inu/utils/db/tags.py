@@ -266,14 +266,23 @@ class Tag():
         return
 
     @classmethod
-    async def from_id(cls, tag_id: int, user: hikari.Member | hikari.User) -> Optional[Mapping[str, Any]]:
+    async def from_id(cls, tag_id: int, user_id: int, guild_or_channel_id: int = 0) -> Optional[Mapping[str, Any]]:
         """
-        
+        returns a Tag created from the id
+
+        Args:
+        -----
+        tag_id : int
+            the id of the tag
+        user_id : int
+            the id of a user which should be contained in the tag
+        guild_or_channel_id : int = 0
+            the guild or channel id which should be contained in that guild
         """
-        d = await TagManager.get_from_id(tag_id)
+        d = await TagManager.get(tag_id=tag_id, author_id=user_id, guild_id=guild_or_channel_id)
         if not d:
             return None
-        return await cls.from_record(d)
+        return await cls.from_record(d[0])
 
     def get_embed(self) -> hikari.Embed:
         embed = Embed()
@@ -552,7 +561,7 @@ class TagManager():
     @classmethod
     async def get(
         cls,
-        key: str,
+        key: str | None = None,
         guild_id: Optional[int] = 0,
         author_id: Optional[int] = 0,
         only_accessable: bool = True,
@@ -564,10 +573,12 @@ class TagManager():
 
         Args:
         -----
-        key: (str) 
+        key: Optional[str]
             the key to search
-        guild_id: (int) [default None] 
+        guild_id: int = 0
             the guild_id the tag should have
+        authod_id: int = 0
+            an author id which should be contained in the tag
         only_accessable: (bool) 
             wehter or not the function should return only 
             the gobal and/or local one instead of every tag with matching `key`
@@ -576,7 +587,8 @@ class TagManager():
 
         Note:
         -----
-            - 0 is equivilant with `global` tag
+            - either `<key>` or `<tag_id>` is needed
+            - 0 for guild_id is equivilant with `global` tag
         """
         sql = f"""
             SELECT * FROM tags
@@ -587,6 +599,8 @@ class TagManager():
                     OR $3 = ANY(author_ids)
                 )
             """
+        if key is None and tag_id == -1:
+            raise RuntimeError("neither `<tag_id>` nor `<key>` where passed into the function")
         records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id, author_id, tag_id)
         return records or []
         # if not records:
@@ -602,24 +616,6 @@ class TagManager():
         #         filtered_records.append(record)
         # return filtered_records
 
-    @classmethod
-    async def get_from_id(cls, tag_id: int, user_id: int = 0, guild_id: int = 0) -> Optional[Mapping[str, Any]]:
-        """
-        Args:
-        -----
-        tag_id : int
-            id of the tag
-        user_id : int
-            id of the user to check if user has permission
-        guild_id : int
-            id of guild to check if tag is permitted in guild
-        Returns:
-        --------
-        Mapping[str, Any] | None
-            the tag from the id. None, if id was not found
-        """
-        table = Table("tags")
-        return await table.select_row(columns=["tag_id"], matching_values=[tag_id])
 
     @classmethod
     async def sync_record(
