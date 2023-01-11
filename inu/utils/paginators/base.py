@@ -358,12 +358,13 @@ class Paginator():
 
     @property
     def ctx(self) -> InuContext:
-        assert isinstance(self._ctx, InuContext)
+        #assert (isinstance(self._ctx, InuContext) or isinstance(self._ctx, lightbulb.Context))
+        assert self._ctx is not None
         return self._ctx
     
     @ctx.setter
     def ctx(self, ctx: InuContext) -> None:
-        assert isinstance(ctx, InuContext)
+        #assert (isinstance(self._ctx, InuContext) or isinstance(self._ctx, lightbulb.Context))
         self._ctx = ctx
 
     @interaction.setter
