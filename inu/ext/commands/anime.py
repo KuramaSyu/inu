@@ -160,12 +160,10 @@ plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 @lightbulb.command("anime", "get information of an Anime by name", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fetch_anime(ctx: context.Context):
-    try:
-        pag = AnimePaginator()
-    except Exception:
-        log = getLogger(__name__, "fetch_anime")
-        log.debug(traceback.format_exc())
-        return
+    pag = AnimePaginator()
+
+    log = getLogger(__name__, "fetch_anime")
+    log.debug(traceback.format_exc())
     await pag.start(ctx, ctx.options.name)
 
 @fetch_anime.set_error_handler()
