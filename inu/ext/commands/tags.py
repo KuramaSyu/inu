@@ -86,15 +86,14 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
     """
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    
     tag_id: Optional[int] = None
     try:
         custom_id = json.loads(event.interaction.custom_id)
-        assert(custom_id["t"] == "stl-tag")
-        assert (tag_id := custom_id.get("tid") is not None)
+        assert custom_id["t"] == "stl-tag"
+        assert (tag_id := custom_id.get("tid")) is not None
     except:
         return
-
+    
     tag = await Tag.from_id(
         tag_id, 
         user_id=event.interaction.user.id, 
