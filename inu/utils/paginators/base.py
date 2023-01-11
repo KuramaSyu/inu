@@ -12,6 +12,7 @@ from typing import (
     List,
     Final,
     Dict,
+    Generic,
 )
 import json
 import traceback
@@ -134,7 +135,7 @@ def listener(event: Any):
 
 
 class CustomID():
-    __slots__ = ["_type", "_custom_id", "_message_id", "_author_id", "_kwargs"]
+    __slots__ = ["_type", "_custom_id", "_message_id", "_author_id", "_kwargs", "_page"]
     _type: str | None
     _custom_id: str
     _message_id: int | None
@@ -198,8 +199,6 @@ class CustomID():
         """wether or not the interaction message is the same as the prvious paginator message"""
         return interaction.message.id == self.message_id
 
-
-    @property
     @classmethod
     def from_custom_id(cls, custom_id: str):
         try:
@@ -322,7 +321,7 @@ class Paginator():
         self._additional_components = additional_components or []
         self._custom_id_type = custom_id_type
         self.bot: lightbulb.BotApp
-        self.ctx: InteractionContext
+        self._ctx: InteractionContext | None = None
 
         
         self.listener = EventListener(self)
@@ -356,6 +355,16 @@ class Paginator():
     @property
     def interaction(self) -> hikari.ComponentInteraction | None:
         return self._interaction
+
+    @property
+    def ctx(self) -> InuContext:
+        assert isinstance(self._ctx, InuContext)
+        return self._ctx
+    
+    @ctx.setter
+    def ctx(self, ctx: InuContext) -> None:
+        assert isinstance(ctx, InuContext)
+        self._ctx = ctx
 
     @interaction.setter
     def interaction(self, value) -> None:
@@ -592,15 +601,15 @@ class Paginator():
             raise RuntimeError("Neither `ctx` nor `event` was given.")
         if event:
             if isinstance(event, hikari.events.InteractionCreateEvent):
-                responses = self.ctx._responses
+                #responses = self.ctx._responses
                 ctx = InteractionContext(event=event, app=self.ctx.app, update=True)
             else:
                 raise RuntimeError(f"Not supported `hikari.Event` given: {type(event)}")
         # this way errors would occure, since responses etc would be resetted
-        if ctx.interaction.id == self.ctx.interaction.id:
+        if self._ctx and ctx.interaction.id == self.ctx.interaction.id:
             return
         self.ctx = ctx
-        self.ctx._responses = responses
+        #self.ctx._responses = responses
 
 
     async def send(
@@ -1030,6 +1039,8 @@ def navigation_row(
 
     return action_row
 
+PagSelf = TypeVar("PagSelf", bound="StatelessPaginator")
+
 
 class StatelessPaginator(Paginator, ABC):
     """
@@ -1046,9 +1057,9 @@ class StatelessPaginator(Paginator, ABC):
 
     async def start(
         self,
-        ctx: InuContext | None,
         custom_id: str | None,
         event: hikari.Event | None,
+        ctx: InuContext | None = None,
     ):
         """
         Args:
@@ -1065,23 +1076,25 @@ class StatelessPaginator(Paginator, ABC):
         ----
             -   after the event was fired and processed (for example ComponentInteraction -> pagination -> next_page)
                 the paginator will exit. No event listening will be done!
-            -   Subclasses of this class should recreate the embeds here and pass them into `set_embeds(embeds: List[hikari.Embed])`
+            -   Subclasses of this class should recreate the embeds here and pass them into `set_pages(pages: List[hikari.Embed | str])`
         """
-        # TODO: set_embeds() method
         # custom_id provided -> edit old message
         if not ctx:
             if event is None:
                 raise RuntimeError(f"neither `ctx` nor `event` was given. At least one arg is needed")
             ctx = get_context(event=event)
-            self.set_context(ctx)
-        if custom_id:      
-            self._message = await ctx.original_message
+        self.set_context(ctx)
+        self.bot = self.ctx.bot
+        if custom_id:   
+            # self.custom id created aufter set_content; set page
+            self._position = self.custom_id.page   
+            self._message = ctx.original_message
             return await self.post_start(events=[event])
         else:
             return await super().start(ctx)
 
-    def set_embeds(self, embeds: List[hikari.Embed]):
-        self._pages = embeds
+    def set_pages(self, pages: List[hikari.Embed | str]):
+        self._pages = pages
 
     @property
     def custom_id(self) -> CustomID:
@@ -1241,7 +1254,7 @@ class StatelessPaginator(Paginator, ABC):
         #if self.is_stateless:
         await self.dispatch_event(event)
 
-    def set_custom_id(self, custom_id: str) -> "StatelessPaginator":
+    def set_custom_id(self: PagSelf, custom_id: str) -> PagSelf:
         """
         This is intended to be used as builder method before starting the paginator.
         e.g. `await (StatelessPaginator().set_custom_id(custom_id)).start(event)`
