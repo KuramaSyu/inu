@@ -22,6 +22,11 @@ class InuContext(ABC):
     def original_message(self) -> hikari.Message:
         ...
 
+    @property
+    @abstractmethod
+    def bot(self) -> hikari.GatewayBot:
+        ...
+
 
 
 class InuContextProtocol(Protocol[T]):
