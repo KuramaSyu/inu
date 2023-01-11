@@ -20,14 +20,14 @@ import asyncpg
 from fuzzywuzzy import fuzz
 
 from core import Inu, Table, BotResponseError
-from utils import TagIsTakenError, TagManager, TagType, Human
+from utils import TagIsTakenError, TagManager, TagType, Human, get_guild_or_channel_id
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator, StatelessPaginator
 from utils.paginators.base import navigation_row
 from utils.paginators.tag import TagHandler, Tag
 
-from core import getLogger, BotResponseError, InteractionContext
+from core import getLogger, BotResponseError, InteractionContext, get_context
 
 log = getLogger(__name__)
 
@@ -43,13 +43,36 @@ class TagPaginator(StatelessPaginator):
         super().__init__(
             **kwargs,
             timeout=15*60,
+            additional_components=tag.components
         )
 
     def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
         return {"tid": self.tag.id}
 
-    async def start(custom_id: str, event: InteractionCreateEvent):
-        await super().start(event=event)
+    async def start(self, custom_id: str, event: InteractionCreateEvent, name: str | None = None, force_show_name: bool = False):
+        media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
+
+        messages = []
+        add_title = True
+        for page in self.tag.value:
+            for value in crumble(page, 2000):
+                message = ""
+                # if tag isn't just a picture and tag was not invoked with original name,
+                # AND it's the first page of the tag
+                # then append original name at start of message
+                if (
+                    (not (
+                        name == self.tag.name
+                        or re.match(media_regex, "\n".join(self.tag.value).strip())
+                    )
+                    or force_show_name) and add_title
+                ):
+                    message += f"**{self.tag.name}**\n\n"
+                    add_title = False
+                message += value
+                messages.append(message)
+        self.set_pages(messages)
+        await super().start(event=event, custom_id=custom_id)
     
     @property
     def custom_id_type(self) -> str:
@@ -71,6 +94,23 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
         assert (tag_id := custom_id.get("tid") is not None)
     except:
         return
+
+    tag = await Tag.from_id(
+        tag_id, 
+        user_id=event.interaction.user.id, 
+        guild_or_channel_id=get_guild_or_channel_id(event.interaction)
+    )
+    if tag is None:
+        return await no_tag_found_msg(
+            ctx=get_context(event),
+            tag_name=f"id: {tag_id}",
+            guild_id=get_guild_or_channel_id(event.interaction),
+        )
+    pag = TagPaginator(tag).set_custom_id(event.interaction.custom_id)
+    await pag.start(
+        event=event,
+        custom_id=custom_id,
+    )
 
 
 
@@ -199,36 +239,12 @@ async def show_record(
             tag = await Tag.from_record(record,  db_checks=False)
         except RuntimeError as e:
             raise BotResponseError(e.args[0], ephemeral=True)
-    media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
 
-    messages = []
-    add_title = True
-    for page in tag.value:
-        for value in crumble(page, 2000):
-            message = ""
-            # if tag isn't just a picture and tag was not invoked with original name,
-            # AND it's the first page of the tag
-            # then append original name at start of message
-            if (
-                (not (
-                    name == tag.name
-                    or re.match(media_regex, "\n".join(tag.value).strip())
-                )
-                or force_show_name) and add_title
-            ):
-                message += f"**{tag.name}**\n\n"
-                add_title = False
-            message += value
-            messages.append(message)
     pag = TagPaginator(
-        tag=tag,
-        page_s=messages,
-        compact=True,
-        additional_components=tag.components,
-        disable_component=True,
+        tag=tag
     )
     await tag.used_now()
-    await pag.start(event)
+    await pag.start(custom_id=None, event=event, force_show_name=force_show_name, name=name)
         
     
 
