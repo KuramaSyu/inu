@@ -1080,11 +1080,14 @@ class StatelessPaginator(Paginator, ABC):
             -   Subclasses of this class should recreate the embeds here and pass them into `set_pages(pages: List[hikari.Embed | str])`
         """
         # custom_id provided -> edit old message
-        if not ctx:
+        # ctx could have been already set in a overridden subclass
+        if not ctx and not self._ctx:
             if event is None:
                 raise RuntimeError(f"neither `ctx` nor `event` was given. At least one arg is needed")
             ctx = get_context(event=event)
-        self.set_context(ctx)
+        # only set, when not already set from subclass
+        if not self._ctx:
+            self.set_context(ctx)
         self.bot = self.ctx.bot
         if custom_id:   
             # self.custom id created aufter set_content; set page
