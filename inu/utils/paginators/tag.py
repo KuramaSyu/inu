@@ -1,14 +1,7 @@
 from ast import alias
 import traceback
 import typing
-from typing import (
-    Union,
-    Optional,
-    List,
-    Callable,
-    Mapping,
-    Any
-)
+from typing import *
 import asyncio
 import logging
 import re
@@ -42,7 +35,7 @@ log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
 
 
-class TagHandler(Paginator):
+class TagHandler(StatelessPaginator):
     """An interactive handler for new tags"""
     def __init__(
         self,
@@ -74,9 +67,9 @@ class TagHandler(Paginator):
             disable_component=disable_component,
             disable_components=disable_components,
             disable_paginator_when_one_site=False,
-        )
+        ) 
 
-    async def start(self, ctx: Context, tag: Mapping = None, **kwargs):
+    async def start(self, ctx: Context, tag: Mapping = None, custom_id: str | None = None, event: hikari.InteractionCreateEvent | None = None, **kwargs):
         """
         Starts the paginator and initializes the tag
         Args:
@@ -85,23 +78,37 @@ class TagHandler(Paginator):
                 initialized. Creates new tag, if tag is None
         """
         try:
-            ctx = InteractionContext(ctx.event, ctx.app)
-            self.bot = ctx.bot
+            self.set_context(ctx)
+            if custom_id and not tag:
+                tag = await Tag.from_id(self.custom_id._kwargs["tid"])
+            if isinstance(tag, asyncpg.Record):
+                tag = await Tag.from_record(tag, db_checks=False)
             if not tag:
                 await self.prepare_new_tag(ctx.member or ctx.author)
             else:
                 await self.load_tag(tag, ctx.member or ctx.author)
             self._additional_components = self.tag.components or []
-            await super().start(ctx, **kwargs)
+            await super().start(ctx, event=event, custom_id=custom_id, **kwargs)
         except Exception:
             self.log.error(traceback.format_exc())
 
     async def post_start(self, **kwargs):
         # self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
-        await super().post_start()
+        await super().post_start(**kwargs)
 
-    async def update_page(self, interaction: ComponentInteraction, update_value: bool = False):
-        """Updates the embed, if the interaction wasn't for pagination"""
+    async def _rebuild_pages(self, update_value: bool = True):
+        """
+        updates and sends the pages
+        - `self._pages` with the crumbled tag value (`self.tag` is needed)
+        - adds info field to the current position page
+        - sets `self._additional_components` to the tag components (link buttons)
+
+
+        Args:
+        -----
+        update_value : bool
+            wether or not to update and crumble the value
+        """
         if update_value:
             pages: List[Embed] = []
             # crumble only the current page to spare recauses
@@ -117,26 +124,28 @@ class TagHandler(Paginator):
             self._pages = pages # [*self._pages[:self._position], *pages, *self._pages[self._position+1:]]
             self._pages[self._position].add_field(
                 name="Info",
-                value=str(self.tag or "not set")
+                value=str(self.tag or "what's the value? Thats actually a good question")
             )
         # updating embed titles
         for page in self._pages:
-            page.title = self.tag.name or "Name - not set"
-        await self.tag.update()
+            page.title = self.tag.name or "Unnamed"
+        
 
         # these can always change
         self._additional_components = self.tag.components
 
-        # if self.tag.tag_link_infos:
-        #     if self._tag_link_task:
-        #         self._tag_link_task.cancel()
-        #     self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
+    async def update_page(self, interaction: ComponentInteraction, update_value: bool = False):
+        """
+        updates and sends the pages
+        - `self._pages` with the crumbled tag value (`self.tag` is needed)
+        - adds info field to the current position page
+        - sets `self._additional_components` to the tag components (link buttons)
+        --> sends the new pag with `self.send()`
 
-        # self._pages[0].edit_field(0, "Info", str(self.tag))
-        # await self._message.edit(
-        #     embed=self._pages[self._position],
-        #     components=self.components
-        # )
+        
+        """
+        await self._rebuild_pages(update_value=update_value)
+        await self.tag.update()
         await self._update_position()
 
 
@@ -451,7 +460,7 @@ class TagHandler(Paginator):
         return rows
         #return [tag_specific, finish]
 
-    async def load_tag(self, tag: Mapping[str, Any], author: Union[hikari.Member, hikari.User]):
+    async def load_tag(self, tag: Mapping[str, Any] | Tag, author: Union[hikari.Member, hikari.User]):
         """
         loads an existing tag in form of a dict like object into self.tag (`Tag`)
         Args:
@@ -460,21 +469,24 @@ class TagHandler(Paginator):
             - author: (Member, User) the user which stored the tag
         """
 
+        if isinstance(tag, Dict):
+            new_tag = await Tag.from_record(record=tag, author=author)
+            self.tag = new_tag
+        else:
+            self.tag = tag
 
-        new_tag = await Tag.from_record(record=tag, author=author)
-        self.tag = new_tag
-
-        self.embed = Embed()
-        self.embed.title = self.tag.name
-        self.embed.description = self.tag.value[0]
-        self.embed.add_field(name="Status", value=self.tag.__str__())
-        self._pages = [
-            Embed(
-                title=self.tag.name,
-                description=value,
-            ).add_field("Info", str(self.tag))
-            for value in self.tag.value
-        ]
+        # self.embed = Embed()
+        # self.embed.title = self.tag.name
+        # self.embed.description = self.tag.value[0]
+        # self.embed.add_field(name="Status", value=self.tag.__str__())
+        # self._pages = [
+        #     Embed(
+        #         title=self.tag.name,
+        #         description=value,
+        #     ).add_field("Info", str(self.tag))
+        #     for value in self.tag.value
+        # ]
+        await self._rebuild_pages()
         self._default_site = len(self._pages) - 1
 
 
@@ -498,55 +510,64 @@ class TagHandler(Paginator):
         self.tag = tag
 
         await self.load_tag(tag, author)
+
+    def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
+        return {"tid": self.tag.id}
+
+    @property
+    def custom_id_type(self) -> str:
+        return "stl-tag-edit"
+
+    
         
 
-    async def show_record(
-        self,
-        tag: Optional[Tag],
-        name: Optional[str] = None,
-        force_show_name: bool = False,
-    ) -> None:
-        """
-        Sends the given tag(record) into the channel of <ctx>
+    # async def show_record(
+    #     self,
+    #     tag: Optional[Tag],
+    #     name: Optional[str] = None,
+    #     force_show_name: bool = False,
+    # ) -> None:
+    #     """
+    #     Sends the given tag(record) into the channel of <ctx>
         
-        Args:
-        ----
-        record : `asyncpg.Record`
-            the record/dict, which should contain the keys `tag_value` and `tag_key`
-        ctx : `Context`
-            the context, under wich the message will be sent (important for the channel)
-        key : `str`
-            The key under which the tag was invoked. If key is an alias, the tag key will be
-            displayed, otherwise it wont
-        """
+    #     Args:
+    #     ----
+    #     record : `asyncpg.Record`
+    #         the record/dict, which should contain the keys `tag_value` and `tag_key`
+    #     ctx : `Context`
+    #         the context, under wich the message will be sent (important for the channel)
+    #     key : `str`
+    #         The key under which the tag was invoked. If key is an alias, the tag key will be
+    #         displayed, otherwise it wont
+    #     """
 
-        media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
+    #     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
 
-        messages = []
-        for page in tag.value:
-            for value in crumble(page, 1900):
-                message = ""
-                # if tag isn't just a picture and tag was not invoked with original name,
-                # then append original name at start of message
-                if (
-                    not (
-                        name == tag.name
-                        or re.match(media_regex, tag.value[self._position].strip())
-                    )
-                    or force_show_name
-                ):
-                    message += f"**{tag.name}**\n\n"
-                message += value
-                messages.append(message)
-        pag = Paginator(
-            page_s=messages,
-            compact=True,
-            additional_components=tag.components,
-            disable_component=True,
-        )
-        asyncio.create_task(pag.start(self.ctx))
-        # if tag.tag_links:
-        #     asyncio.create_task(self._wait_for_link_button(tag))
+    #     messages = []
+    #     for page in tag.value:
+    #         for value in crumble(page, 1900):
+    #             message = ""
+    #             # if tag isn't just a picture and tag was not invoked with original name,
+    #             # then append original name at start of message
+    #             if (
+    #                 not (
+    #                     name == tag.name
+    #                     or re.match(media_regex, tag.value[self._position].strip())
+    #                 )
+    #                 or force_show_name
+    #             ):
+    #                 message += f"**{tag.name}**\n\n"
+    #             message += value
+    #             messages.append(message)
+    #     pag = Paginator(
+    #         page_s=messages,
+    #         compact=True,
+    #         additional_components=tag.components,
+    #         disable_component=True,
+    #     )
+    #     asyncio.create_task(pag.start(self.ctx))
+    #     # if tag.tag_links:
+    #     #     asyncio.create_task(self._wait_for_link_button(tag))
 
 
 
