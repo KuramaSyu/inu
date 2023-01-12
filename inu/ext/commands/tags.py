@@ -310,14 +310,15 @@ async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
         return
     await show_record(tag=tag, record={}, ctx=ctx)
 
-# @tags.listener(hikari.InteractionCreateEvent)
-# async def on_paginator_interaction(event: hikari.InteractionCreateEvent):
-#     """Handler for Tag one time paginator"""
-#     if not isinstance(event.interaction, hikari.ComponentInteraction):
-#         return
-#     if not event.interaction.custom_id.startswith("tag_options"):
-#         return
-#     pag = TagPaginator()
+@tags.listener(hikari.InteractionCreateEvent)
+async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
+    """Handler for Tag edit one time paginator"""
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    if not event.interaction.custom_id.startswith("tag_options"):
+        return
+    pag = TagHandler()
+    await pag.start(ctx=get_context(event), custom_id=event.interaction.custom_id, event=event)
     
 
 @tags.listener(hikari.ShardReadyEvent)
