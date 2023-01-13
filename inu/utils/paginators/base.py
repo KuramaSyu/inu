@@ -212,7 +212,7 @@ class CustomID():
                 author_id=d.get("aid"),
                 page=d.get("p"),
             )
-            custom_id._kwargs = {k:v for k, v in d.items() if k not in ["t", "cid", "mid", "aid"]}
+            custom_id._kwargs = {k:v for k, v in d.items() if k not in ["t", "cid", "mid", "aid", "p"]}
             return custom_id
         
         except (TypeError, json.JSONDecodeError):
@@ -598,14 +598,8 @@ class Paginator():
             - if `ctx` and `event` is None
             - when type of `event` is not supported
         """
-        if not ctx and not event:
-            raise RuntimeError("Neither `ctx` nor `event` was given.")
-        if event:
-            if isinstance(event, hikari.events.InteractionCreateEvent):
-                #responses = self.ctx._responses
-                ctx = InteractionContext(event=event, app=self.ctx.app, update=True)
-            else:
-                raise RuntimeError(f"Not supported `hikari.Event` given: {type(event)}")
+        if not ctx:
+            ctx = get_context(event)
         # this way errors would occure, since responses etc would be resetted
         if self._ctx and ctx.interaction.id == self.ctx.interaction.id:
             return
@@ -1046,6 +1040,23 @@ PagSelf = TypeVar("PagSelf", bound="StatelessPaginator")
 class StatelessPaginator(Paginator, ABC):
     """
     A paginator which recreates the previous state out of the interacion custom_id.
+    
+    Abstract methods:
+    -----------------
+    `:obj:self._get_custom_id_kwargs(self)` : `Dict[str, int|str]`
+        method which returns importend kwargs which need to be appended in custom_id json
+    `:obj:self._rebuild(self, **kwargs)` : `None`
+        coro which needs to call following methods:
+            `:obj:self.set_pages(self, pages: List[str|Embed])` : `None`
+                to set `self._pages`
+            `:obj:self.set_context(ctx: Cotnext, event: Event)` : `None`
+                to set `self.ctx` and `self.custom_id`
+    
+    Abstract properties:
+    --------------------
+    `:obj:self.custom_id_type` : `str`
+        returns the type of the custom id to destinglish all stl pags
+
     """
     def __init__(
         self,
@@ -1058,20 +1069,13 @@ class StatelessPaginator(Paginator, ABC):
 
     async def start(
         self,
-        custom_id: str | None,
-        event: hikari.Event | None,
-        ctx: InuContext | None = None,
+        ctx: InuContext | Context | None = None,
     ):
         """
         Args:
         -----
         ctx : Context
             the context to use to create messages
-        custom_id : str
-            the custom_id json-formatted which provides the information to 
-            recreate the previous state
-        event : hikari.Event
-            the event which should be fired
 
         Note:
         ----
@@ -1081,28 +1085,17 @@ class StatelessPaginator(Paginator, ABC):
         """
         # custom_id provided -> edit old message
         # ctx could have been already set in a overridden subclass
-        if not ctx and not self._ctx:
-            if event is None:
-                raise RuntimeError(f"neither `ctx` nor `event` was given. At least one arg is needed")
-            ctx = get_context(event=event)
-        # only set, when not already set from subclass
         if not self._ctx:
             self.set_context(ctx)
         self.bot = self.ctx.bot
-        if custom_id:   
-            # self.custom id created aufter set_content; set page
-            self._position = self.custom_id.page   
-            self._message = ctx.original_message
-            return await self.post_start(events=[event])
-        else:
-            return await super().start(ctx)
+        return await super().start(ctx)
 
     def set_pages(self, pages: List[hikari.Embed | str]):
         self._pages = pages
 
     @property
     def custom_id(self) -> CustomID:
-        return CustomID.from_custom_id(self.ctx.custom_id)
+        return CustomID.from_custom_id(self._custom_id or self.ctx.custom_id)
     
     @custom_id.setter
     def custom_id(self, value: str) -> None:
@@ -1256,6 +1249,7 @@ class StatelessPaginator(Paginator, ABC):
         - only dispatch given event
         """
         #if self.is_stateless:
+        log.debug("dispatch event")
         await self.dispatch_event(event)
 
     def set_custom_id(self: PagSelf, custom_id: str) -> PagSelf:
@@ -1266,4 +1260,26 @@ class StatelessPaginator(Paginator, ABC):
         """
         self.custom_id = custom_id
         return self
+
+    @abstractmethod
+    async def _rebuild(self, **kwargs):
+        ...
+
+    async def rebuild(self, event: hikari.Event, **kwargs) -> None:
+        """
+        Args:
+        ----
+        event : hikari.Event
+            the event to fire
+        """
+        await self._rebuild(event=event, **kwargs)
+        assert self._ctx is not None
+        assert self.custom_id is not None
+        assert self.custom_id_type is not None
+        self._message = self.ctx.original_message
+        self._position = self.custom_id.page
+        self.bot = self.ctx.bot
+        await self.post_start(events=[event])
+
+    
 
