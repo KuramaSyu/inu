@@ -1057,6 +1057,17 @@ class StatelessPaginator(Paginator, ABC):
     `:obj:self.custom_id_type` : `str`
         returns the type of the custom id to destinglish all stl pags
 
+    Important methods:
+    ------------------
+    `:obj:self._rebuild()` : None
+        rebuild the paginator pages and ctx with this method
+    `:obj:self.rebuild()` : None
+        use this method from outside to rebuild a paginator
+    `:obj:self.start(self, ctx: Context)` : None
+        method to firstly start the paginator. Override and call super()
+    `:obj:self._serialize_custom_id(self, ...)` : str
+        pass in the normal custom_id and get the json version with all information for stateless rebuilding
+
     """
     def __init__(
         self,
