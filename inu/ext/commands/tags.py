@@ -80,11 +80,10 @@ class TagPaginator(StatelessPaginator):
         self._build_pages(force_show_name=force_show_name, name=name)
         await super().start(ctx)
 
-
-    
     @property
     def custom_id_type(self) -> str:
         return "stl-tag"  # stateless tag paginator
+
 
 
 @tags.listener(event=hikari.InteractionCreateEvent)
@@ -117,7 +116,6 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
     await pag.rebuild(
         event=event,
     )
-
 
 
 
@@ -177,6 +175,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
             return None
             
 
+
 async def get_tag(ctx: Context, name: str) -> Optional[Mapping[str, Any]]:
     """
     Searches the <key> and sends the result into the channel of <ctx>
@@ -197,6 +196,7 @@ async def get_tag(ctx: Context, name: str) -> Optional[Mapping[str, Any]]:
             elif 0 in r["guild_ids"]:
                 record = r
     return record
+
 
 
 async def show_record(
@@ -270,6 +270,7 @@ def records_to_embed(
     return embeds
 
 
+
 async def no_tag_found_msg(
     ctx: Context,
     tag_name: str, 
@@ -318,6 +319,8 @@ async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
         return
     await show_record(tag=tag, record={}, ctx=ctx)
 
+
+
 @tags.listener(hikari.InteractionCreateEvent)
 async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     """Handler for Tag edit one time paginator"""
@@ -331,11 +334,8 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     tag = await Tag.from_id(pag.custom_id._kwargs["tid"], user_id=event.interaction.user.id)
     pag.set_tag(tag)
     await pag.rebuild(event)
-    
 
-@tags.listener(hikari.ShardReadyEvent)
-async def on_ready(_):
-    pass
+
 
 @tags.command
 @lightbulb.option("name", "the name of the tag you want to get", modifier=commands.OptionModifier.CONSUME_REST, default=None) 
@@ -360,7 +360,6 @@ async def tag(ctx: Context):
         return await taghandler.start(ctx)
     record = await get_tag(ctx, name)
     await show_record(record, ctx, name)
-
 
 
 
@@ -392,11 +391,6 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
     # get args with modal
     except:
         try:
-            # await ctx.respond(
-            #     "Since you didn't passed name and value with the command, I will ask you with the upcoming box",
-            #     delete_after=20,
-            #     flags=hikari.MessageFlag.EPHEMERAL,
-            # )
             answers, interaction, event = await bot.shortcuts.ask_with_modal(
                 "Tag", 
                 ["Name:", "Value:"], 
@@ -481,6 +475,7 @@ async def tag_remove(ctx: Context):
     await ctx.respond(
         f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{name}`"
     )
+
 
 
 @tag.child
@@ -756,6 +751,7 @@ async def tag_add_author(ctx: Context):
     )
 
 
+
 @tag.child
 @lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
 @lightbulb.option(
@@ -784,6 +780,7 @@ async def tag_remove_author(ctx: Context):
     await ctx.respond(
         f"Removed {ctx.options.author.username} from the author of `{tag.name}`"
     )
+
 
 
 @tag.child
@@ -854,6 +851,7 @@ async def tag_remove_guild(ctx: Context):
     )
 
 
+
 @tag.child
 @lightbulb.command("random", "Get a random tag from all tags available")
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
@@ -867,6 +865,7 @@ async def tag_random(ctx: Context):
         raise BotResponseError(f"No tags found for the random command")
     random_tag = random.choice(available_tags)
     await show_record(random_tag, ctx, force_show_name=True)
+
 
 
 @tag_remove.autocomplete("name")
@@ -886,6 +885,7 @@ async def tag_name_auto_complete(
     option: hikari.AutocompleteInteractionOption, 
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
+    """autocomplete for tag keys"""
     guild_or_channel = interaction.guild_id or interaction.channel_id
     try:
         if option.value and len(str(option.value)) > 2:
@@ -911,6 +911,7 @@ async def tag_name_auto_complete(
     except:
         log.error(traceback.format_exc())
         return []
+
 
 
 @tag_remove_guild.autocomplete("guild")
@@ -942,8 +943,12 @@ async def guild_auto_complete(
     
     return [f"{guild['id']} | {guild['name']}" for guild in guilds]
 
+
+
 def guild_autocomplete_get_id(value: str) -> int :
     return int(value[:value.find("|")])
+
+
 
 def load(inu: Inu):
     inu.add_plugin(tags)
