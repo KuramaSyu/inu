@@ -27,6 +27,11 @@ class InuContext(ABC):
     def bot(self) -> hikari.GatewayBot:
         ...
 
+    @property
+    @abstractmethod
+    def user(self) -> hikari.User:
+        ...
+
 
 
 class InuContextProtocol(Protocol[T]):
