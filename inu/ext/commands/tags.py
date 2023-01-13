@@ -49,9 +49,12 @@ class TagPaginator(StatelessPaginator):
     def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
         return {"tid": self.tag.id}
 
-    async def start(self, custom_id: str, event: InteractionCreateEvent, name: str | None = None, force_show_name: bool = False):
-        media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
+    async def _rebuild(self, event: hikari.Event, force_show_name: bool = False, name: str = ""):
+        self.set_context(event=event)
+        self._build_pages(force_show_name=force_show_name, name=name)
 
+    def _build_pages(self, force_show_name: bool = False, name: str = ""):
+        media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
         messages = []
         add_title = True
         for page in self.tag.value:
@@ -72,7 +75,12 @@ class TagPaginator(StatelessPaginator):
                 message += value
                 messages.append(message)
         self.set_pages(messages)
-        await super().start(event=event, custom_id=custom_id)
+
+    async def start(self, ctx: Context, force_show_name: bool = False, name: str = ""):
+        self._build_pages(force_show_name=force_show_name, name=name)
+        await super().start(ctx)
+
+
     
     @property
     def custom_id_type(self) -> str:
@@ -106,9 +114,8 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
             guild_id=get_guild_or_channel_id(event.interaction),
         )
     pag = TagPaginator(tag).set_custom_id(event.interaction.custom_id)
-    await pag.start(
+    await pag.rebuild(
         event=event,
-        custom_id=custom_id,
     )
 
 
@@ -238,12 +245,13 @@ async def show_record(
             tag = await Tag.from_record(record,  db_checks=False)
         except RuntimeError as e:
             raise BotResponseError(e.args[0], ephemeral=True)
-
+    if not ctx:
+        ctx = get_context(event)
     pag = TagPaginator(
         tag=tag
     )
     await tag.used_now()
-    await pag.start(custom_id=None, event=event, force_show_name=force_show_name, name=name)
+    await pag.start(ctx, force_show_name=force_show_name, name=name)
         
     
 
@@ -315,10 +323,14 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     """Handler for Tag edit one time paginator"""
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    if not event.interaction.custom_id.startswith("tag_options"):
+    pag = TagHandler().set_custom_id(event.interaction.custom_id)
+    try:
+        assert pag.custom_id.type == "stl-tag-edit"
+    except:
         return
-    pag = TagHandler()
-    await pag.start(ctx=get_context(event), custom_id=event.interaction.custom_id, event=event)
+    tag = await Tag.from_id(pag.custom_id._kwargs["tid"], user_id=event.interaction.user.id)
+    pag.set_tag(tag)
+    await pag.rebuild(event)
     
 
 @tags.listener(hikari.ShardReadyEvent)
