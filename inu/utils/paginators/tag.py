@@ -68,8 +68,11 @@ class TagHandler(StatelessPaginator):
             disable_components=disable_components,
             disable_paginator_when_one_site=False,
         ) 
+    
+    def set_tag(self, tag: Tag) -> None:
+        self.tag = tag
 
-    async def start(self, ctx: Context, tag: Mapping = None, custom_id: str | None = None, event: hikari.InteractionCreateEvent | None = None, **kwargs):
+    async def start(self, ctx: Context, tag: Mapping = None):
         """
         Starts the paginator and initializes the tag
         Args:
@@ -79,18 +82,20 @@ class TagHandler(StatelessPaginator):
         """
         try:
             self.set_context(ctx)
-            if custom_id and not tag:
-                tag = await Tag.from_id(self.custom_id._kwargs["tid"])
-            if isinstance(tag, asyncpg.Record):
+            if tag:
                 tag = await Tag.from_record(tag, db_checks=False)
             if not tag:
                 await self.prepare_new_tag(ctx.member or ctx.author)
             else:
                 await self.load_tag(tag, ctx.member or ctx.author)
             self._additional_components = self.tag.components or []
-            await super().start(ctx, event=event, custom_id=custom_id, **kwargs)
+            await super().start(ctx=ctx)
         except Exception:
             self.log.error(traceback.format_exc())
+
+    async def _rebuild(self, event: hikari.events):
+        await self._rebuild_pages()
+        self.set_context(event=event)
 
     async def post_start(self, **kwargs):
         # self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
@@ -167,8 +172,9 @@ class TagHandler(StatelessPaginator):
                 return
             i = event.interaction
             try:
+                assert self.custom_id.custom_id == "tag_options"
                 custom_id = event.interaction.values[0]
-            except IndexError:
+            except (IndexError, AssertionError):
                 # interaction was no menu interaction
                 return
 
@@ -436,7 +442,7 @@ class TagHandler(StatelessPaginator):
         rows.append(navi)
         menu = (
                 ActionRowBuilder()
-                .add_select_menu("tag_options")
+                .add_select_menu(self._serialize_custom_id("tag_options"))
                 .add_option("set name", "set_name").add_to_menu()
                 .add_option("set value", "set_value").add_to_menu()
                 .add_option("append to value", "extend_value").add_to_menu()
