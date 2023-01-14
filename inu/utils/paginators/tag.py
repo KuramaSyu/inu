@@ -211,7 +211,24 @@ class TagHandler(StatelessPaginator):
                         ephemeral=True,
                     )
                 self._pages.insert(self._position+1, Embed(title=self.tag.name))
-                self.tag.value.insert(self._position+1, "")
+                default_page = """
+This is a new page. 
+
+**To remove it:**
+```
+- edit the tag
+- go to this page (with arrow buttons)
+- select "remove this page" in the menu
+```
+
+**To edit it:**
+```
+- edit the tag
+- go to this page (with arrow buttons)
+- select "set value" in the menu
+```
+                """
+                self.tag.value.insert(self._position+1, default_page)
                 self._position += 1
             elif custom_id == "remove_this_page":
                 if len(self._pages) <= 1:
