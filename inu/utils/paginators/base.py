@@ -30,7 +30,7 @@ from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
 
-from core import InteractionContext, RESTContext, InuContext, get_context
+from core import InteractionContext, RESTContext, InuContext, get_context, BotResponseError
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -1272,6 +1272,16 @@ class StatelessPaginator(Paginator, ABC):
         self.custom_id = custom_id
         return self
 
+    def check_user(self) -> None:
+        """
+        Raises:
+        -------
+        BotResponseError :
+            when the user from the custom_id not matches with the one from the current context
+        """
+        if not self.custom_id.is_same_user(self.ctx.interaction):
+            raise BotResponseError("REJECTED - you are not really the ower of this", ephemeral=True)
+
     @abstractmethod
     async def _rebuild(self, **kwargs):
         ...
@@ -1287,6 +1297,7 @@ class StatelessPaginator(Paginator, ABC):
         assert self._ctx is not None
         assert self.custom_id is not None
         assert self.custom_id_type is not None
+        self.check_user()
         self._message = self.ctx.original_message
         self._position = self.custom_id.page
         self.bot = self.ctx.bot
