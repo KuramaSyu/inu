@@ -332,6 +332,10 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     except:
         return
     tag = await Tag.from_id(pag.custom_id._kwargs["tid"], user_id=event.interaction.user.id)
+    if tag is None:
+        ctx = get_context(event)
+        await ctx.respond("REJECTED - Not your navigator. Did you thought you can trick me? ", ephemeral=True)
+        return
     pag.set_tag(tag)
     await pag.rebuild(event)
 
