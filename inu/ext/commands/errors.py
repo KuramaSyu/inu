@@ -26,7 +26,6 @@ bot: Inu
 async def on_exception(event: hikari.ExceptionEvent):
     # not user related error
     try:
-
         if isinstance(event.exception, events.CommandErrorEvent):
             return
         log.error(f"{''.join(traceback.format_exception(event.exception))}")
@@ -233,7 +232,13 @@ async def on_error(event: events.CommandErrorEvent):
             else:
                 return await ctx.respond(fails.pop())
         elif isinstance(error, errors.CommandInvocationError) and isinstance(error.original, BotResponseError):
-            return await ctx.respond(**error.original.kwargs)
+            try:
+                return await ctx.respond(**error.original.kwargs)
+            except hikari.BadRequestError:
+                # interaction probably already acknowledged
+                # TODO: implement Error handling into InuContext
+                ctx._responded = True
+                return await ctx.respond(**error.original.kwargs)
 
         # errors which will only be handled, if the command was invoked with a prefix
         if not ctx.prefix:
