@@ -10,6 +10,7 @@ from typing import (
 import time as tm
 import random
 import logging
+import traceback
 
 import asyncpraw
 import hikari
@@ -199,6 +200,19 @@ async def hentai(ctx: Context):
 
 
     #await .send_pic(ctx, subreddit, footer=False)
+
+
+@plugin.command
+@lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
+@lightbulb.command("anime-of-the-week", "get information of an Manga by name", auto_defer=True)
+@lightbulb.implements(commands.SlashCommand)
+async def anime_of_the_week(ctx: Context):
+    try:
+        submission = await Reddit.get_anime_of_the_week_post()
+    except Exception:
+        log.error(traceback.format_exc())
+        return await "Well - I didn't found it"
+    await send_pic(ctx=ctx, subreddit="anime", submission=submission, footer=True)
 
 
 @stopwatch(
