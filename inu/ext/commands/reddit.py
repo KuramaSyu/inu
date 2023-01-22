@@ -11,6 +11,7 @@ import time as tm
 import random
 import logging
 import traceback
+from copy import deepcopy
 
 import asyncpraw
 import hikari
@@ -212,7 +213,13 @@ async def anime_of_the_week(ctx: Context):
     except Exception:
         log.error(traceback.format_exc())
         return await "Well - I didn't found it"
-    await send_pic(ctx=ctx, subreddit="anime", submission=submission, footer=True)
+    await send_pic(
+        ctx=ctx, 
+        subreddit="anime", 
+        submission=submission, 
+        footer=True, 
+        embed_template=hikari.Embed(color=hikari.Color.from_hex_code("32acd5"))
+    )
 
 
 @stopwatch(
@@ -260,7 +267,14 @@ async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
     hentai_cache_indexes = {}
     
 
-async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: int=5, submission: asyncpraw.models.Submission | None = None):
+async def send_pic(
+    ctx: Context, 
+    subreddit: str, 
+    footer: bool = True, 
+    amount: int=5, 
+    submission: asyncpraw.models.Submission | None = None, 
+    embed_template: hikari.Embed | None = None
+):
     if not submission:
         posts = await Reddit.get_posts(
             subreddit=subreddit,
@@ -282,7 +296,10 @@ async def send_pic(ctx: Context, subreddit: str, footer: bool = True, amount: in
             f"This is NSFW content. Please post into an according channel for it",
             ephemeral=True
         )
-    embed = hikari.Embed()
+    if embed_template:
+        embed = deepcopy(embed_template)
+    else:
+        embed = hikari.Embed()
     embed.title = post.title
     embed.set_image(post.url)
     if footer:
