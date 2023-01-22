@@ -16,7 +16,8 @@ RUN mkdir .config
 RUN mkdir .config/qalculate
 RUN cp -r dependencies/conf/qalc.cfg /home/inu/.config/qalculate/qalc.cfg
 USER root
-RUN chown -R inu: /home/inu
+RUN chown -R inu: /home/inu/.config
+RUN chown -R inu: /home/inu/inu
 USER inu
 WORKDIR /home/inu
 CMD ["python3", "inu/main.py"]
