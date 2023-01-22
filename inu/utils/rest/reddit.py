@@ -95,9 +95,27 @@ class Reddit():
         minimum: int = 10,
         time_filter: str = 'day',
         media_filter: List[str] | None= ["png", "jpg"],
+        title_filter: Optional[str] = None,
+        skip_stickied: bool = True,
     ) -> List[asyncpraw.models.Submission]:
         """
         Fetch submissions with given settings. No cache implemented
+
+        Args:
+        -----
+        subreddit : str
+            the name of the subreddit
+        hot : bool
+            wether or not to search hot posts
+        top : bool
+            wether or not to search top posts
+        minimum : int = 10
+            the amount of `asyncpraw.reddit.models.Submission`s to return
+        time_fileter : str = day
+            the time filter to apply to the subreddit. [hour,day,week,month,year,all]
+            only used with <`top`> parameter
+        title_filter : Optional[str] = None
+            a required name, which needs to be in the lowercase title of the post
         """
         if not cls.reddit_client:
             raise UnvalidRedditClient
@@ -113,22 +131,47 @@ class Reddit():
                 posts = subreddit.top(time_filter=time_filter)
 
             async for submission in posts:
-                if submission.stickied:
+                if len(post_list) >= minimum:
+                    break
+                if submission in post_list:
                     continue
-                if (
-                    Multiple.endswith_(submission.url, media_filter)
-                    and submission not in post_list
-                ):
-                    if len(post_list) >= minimum:
-                        break
-                    post_list.append(submission)
-
+                if media_filter and not Multiple.endswith_(submission.url, media_filter):
+                    continue
+                if skip_stickied and submission.stickied:
+                    continue
+                if title_filter and not title_filter.lower() in submission.title.lower():
+                    continue
+                post_list.append(submission)
             return post_list
 
         except Exception as e:
             log.error(f'ERROR [utils/get_a_pic - exception] {e}')
             log.error(f'ERROR in utils get_a_pic - exception log {traceback.print_exc()}')
         return []
+
+    @classmethod
+    @cached(TTLCache(int(2 ** 16), float(1*60*60)))
+    async def get_anime_of_the_week_post(
+        cls
+    ) -> asyncpraw.models.Submission:
+        """
+        Fetches the last Submission of the Anime of the Week post
+
+        searches the anime subreddit for the last post starting with 'top 10 anime of the week #' and png as media with 1 week timelimit
+        """
+        try:
+            return (await cls._fetch_posts(
+                subreddit="anime",
+                hot=False,
+                top=True,
+                minimum=1,
+                media_filter="png",
+                time_filter="week",
+                title_filter="top 10 anime of the week #"
+
+            ))[0]
+        except IndexError:
+            raise RuntimeError("Anime of the Week post not found")
 
 
 @dataclass
