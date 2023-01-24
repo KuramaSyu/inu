@@ -20,7 +20,7 @@ import asyncpg
 from fuzzywuzzy import fuzz
 
 from core import Inu, Table, BotResponseError
-from utils import TagIsTakenError, TagManager, TagType, Human, get_guild_or_channel_id
+from utils import TagIsTakenError, TagManager, TagType, Human, get_guild_or_channel_id, guild_name_or_id
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator, StatelessPaginator
@@ -661,9 +661,9 @@ async def tag_info(ctx: Context):
         f"**{record['tag_key']}**\n\n"
         f"tag {Human.plural_('author', len(record['author_ids']))}: "
         f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
-        f"tag guilds/channels: {Human.list_(record['guild_ids'], with_a_or_an=False)}\n"
+        f"tag guilds/channels: {Human.list_([guild_name_or_id(gid, bot) for gid in record['guild_ids']], with_a_or_an=False)}\n"
         f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
-        f"tag content: ```{Human.short_text(value, 800).replace('`', '')}```\n"
+        f"tag content: ```{Human.short_text(value, 1000).replace('`', '')}```\n"
         f"link for this tag: `{tag.link}`"
     )
     await ctx.respond(
