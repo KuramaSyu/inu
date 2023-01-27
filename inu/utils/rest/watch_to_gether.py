@@ -1,4 +1,5 @@
 from typing import Optional
+import random
 
 
 from typing import *
@@ -21,18 +22,16 @@ class Watch2Gether:
     }
     
     _conf: ConfigProxy = ConfigProxy()
-    _default_link = _conf.w2g.default_link
+    _default_links = _conf.w2g.default_links
 
     @classmethod
     def _make_body(cls, link: Optional[str]) -> Dict[str, str]:
-        b = {
+        return {
         "w2g_api_key": cls._conf.w2g.ID,
-        "share": link or cls._default_link,
+        "share": link or random.choice(cls._default_links),
         "bg_color": Colors.default_color(0.55, True),
         "bg_opacity": "99"      
         }
-        ## log.debug(f"{b}")
-        return b
 
     @classmethod
     async def fetch_link(cls, link: Optional[str] = None) -> Dict[str, str]:
