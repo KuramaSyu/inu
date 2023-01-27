@@ -31,5 +31,5 @@ def guild_name_or_id(guild_id: int, bot: hikari.CacheAware) -> str:
         A cache aware bot, to check if guild is in cache
     """
     guild = bot.cache.get_guild(guild_id)
-    return guild.name if guild else guild_id
+    return guild.name if guild else str(guild_id)
 
