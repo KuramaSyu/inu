@@ -16,6 +16,7 @@ from lightbulb.context import Context
 
 from utils.paginators.base import PaginatorReadyEvent, listener, Paginator
 from utils import Colors, Grid
+from core import get_context, InuContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.DEBUG)
@@ -342,6 +343,7 @@ class Connect4Handler(Paginator):
             self.mark2 = random.choice(marks)
             marks.remove(self.mark2)
         extra_marker = random.choice(marks)
+        self._ctx: None | InuContext = None
 
         self.orienation_letter = [f':regional_indicator_{l}:' for l in 'abcdefghijklmnop']
         self.orientation_number = ["1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "6️⃣", "7️⃣", "8️⃣"]  #*️⃣ #*️⃣
@@ -370,17 +372,37 @@ class Connect4Handler(Paginator):
     async def stop(self):
         await super().stop()
         await self._message.remove_all_reactions()
+    
+    @property
+    def message_components(self) -> List[hikari.impl.ActionRowBuilder]:
+        rows = []
+        emoji_rows = [
+            {"1️⃣":"num_1", "2️⃣":"num_2", "3️⃣":"num_3", "4️⃣":"num_4", "🔁": "restart"}, 
+            {"5️⃣": "num_5", "6️⃣":"num_6", "7️⃣":"num_7", "8️⃣":"num_8", "🏳": "surrender"}
+        ]
+        for d in emoji_rows:
+            row = ActionRowBuilder()
+            for emoji, custom_id in d.items():
+                row = (
+                    row
+                    .add_button(hikari.ButtonStyle.SECONDARY, f"connect4_{custom_id}")
+                    .set_emoji(emoji).add_to_container()
+                )
+            rows.append(row)
+        return rows
 
     @listener(PaginatorReadyEvent)
     async def build_up_game(self, _: PaginatorReadyEvent):
-        await self._message.edit(content=None, embed=self.build_embed())
-        for emoji in [*self.orientation_number[:self.game.board.columns], "🏳"]: # "🔁",  can't be used anyway 
-            await self._message.add_reaction(emoji)
+        await self._message.edit(content=None, embed=self.build_embed(), components=self.message_components)
+        #for emoji in [*self.orientation_number[:self.game.board.columns], "🏳"]: # "🔁",  can't be used anyway 
+        #    await self._message.add_reaction(emoji)
         log.debug("return from ready")
         
     async def update_embed(self):
         log.debug("update message")
-        await self._message.edit(embed=self.build_embed())
+        #await self.ctx.respond(embed=self.build_embed, update=True)
+        await self.ctx.respond(embed=self.build_embed(), components=self.message_components, update=True)
+        # await self._message.edit(embed=self.build_embed())
     
     def build_embed(self):
         embed = hikari.Embed()
@@ -409,7 +431,44 @@ class Connect4Handler(Paginator):
             string += f"{self.orienation_letter[self.game.board.rows - i - 1]}{line}\n"
         string += f"*️⃣{''.join(self.orientation_number[:self.game.board.columns])}"
         return string
-    
+
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
+        # predicate
+        if (
+            not isinstance(event.interaction, hikari.ComponentInteraction)
+            or not event.interaction.custom_id.startswith("connect4")
+            or not (event.interaction.user.id in [self.game.player1.user.id, self.game.player2.user.id])
+            or not event.interaction.message.id == self._message.id
+        ):
+            log.debug("predicate not matched")
+            return
+        message = self._message
+        log.debug(f"executing on interaction with pag id: {self.count} | msg id: {message.id}")
+        custom_id = event.interaction.custom_id.replace("connect4_", "", 1)
+        if self.game.player1.name == self.game.player2.name:
+            player = self.game.player_turn
+        else:
+            player = self.game.player1 if self.game.player1.user.id == event.interaction.user.id else self.game.player2
+        
+        if custom_id in [f"num_{x}" for x in range(1,9)]:
+            num = int(custom_id[-1]) -1
+            log.debug(f"custom_id num `{num}` found")
+            await self.do_turn(num, player) #type: ignore
+        elif custom_id == "surrender":
+            self.game.surrender(player)
+            await self.stop()
+        # elif emoji == "⏹":
+        #     pass
+        elif custom_id == "restart":
+            if self.game.game_over:
+                await self.stop()
+                handler = Connect4Handler(self.player1, self.player2)
+                return await handler.start(self.ctx)
+            else:
+                self.game_infos.append("Game isn't over yet!\nFinish it to restart")
+        await self.update_embed()
+
     @listener(hikari.GuildReactionAddEvent)
     async def on_reaction_add(self, event: hikari.ReactionAddEvent):
         # predicate
@@ -485,7 +544,7 @@ class Connect4Handler(Paginator):
         await self.update_embed()
         if self.game.game_over:
             await self.update_embed()
-            await self._message.remove_all_reactions()
+            #await self._message.remove_all_reactions()
             await self.stop()
         
             
