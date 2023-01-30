@@ -7,6 +7,7 @@ import random
 import numpy as np
 from copy import deepcopy
 from enum import Enum
+from collections import OrderedDict
 
 import hikari
 from hikari import Member
@@ -370,16 +371,28 @@ class Connect4Handler(Paginator):
         pass
     
     async def stop(self):
-        await super().stop()
-        await self._message.remove_all_reactions()
+        self._stop.set()
+        restart_btn = ActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, "connect4_start").set_emoji("🔁").add_to_container()
+        log.debug("remove btns")
+        await self.ctx.respond(components=[restart_btn], update=True, embed=self.build_embed())
     
     @property
     def message_components(self) -> List[hikari.impl.ActionRowBuilder]:
         rows = []
-        emoji_rows = [
-            {"1️⃣":"num_1", "2️⃣":"num_2", "3️⃣":"num_3", "4️⃣":"num_4", "🔁": "restart"}, 
-            {"5️⃣": "num_5", "6️⃣":"num_6", "7️⃣":"num_7", "8️⃣":"num_8", "🏳": "surrender"}
-        ]
+        emoji_rows: List[OrderedDict] = []
+        row_index = 5  # to add ordered dict at start of iteration
+        for index, emoji in enumerate(self.orientation_number):
+            if index > self.game.board.rows:
+                break
+            if row_index >= 4:
+                emoji_rows.append(OrderedDict())
+                row_index = 0
+            emoji_rows[-1][emoji] = f"num_{index+1}"
+            row_index += 1
+        while len(emoji_rows) < 2:
+            emoji_rows.append(OrderedDict)
+        # emoji_rows[0]["🔁"] = "restart"
+        emoji_rows[0]["🏳"] = "surrender"
         for d in emoji_rows:
             row = ActionRowBuilder()
             for emoji, custom_id in d.items():
@@ -393,12 +406,14 @@ class Connect4Handler(Paginator):
 
     @listener(PaginatorReadyEvent)
     async def build_up_game(self, _: PaginatorReadyEvent):
-        await self._message.edit(content=None, embed=self.build_embed(), components=self.message_components)
+        await self.ctx.respond(content=None, embed=self.build_embed(), components=self.message_components, update=True)
         #for emoji in [*self.orientation_number[:self.game.board.columns], "🏳"]: # "🔁",  can't be used anyway 
         #    await self._message.add_reaction(emoji)
         log.debug("return from ready")
         
     async def update_embed(self):
+        # if self._stop.is_set:
+        #     return
         log.debug("update message")
         #await self.ctx.respond(embed=self.build_embed, update=True)
         await self.ctx.respond(embed=self.build_embed(), components=self.message_components, update=True)
@@ -458,6 +473,7 @@ class Connect4Handler(Paginator):
         elif custom_id == "surrender":
             self.game.surrender(player)
             await self.stop()
+            return
         # elif emoji == "⏹":
         #     pass
         elif custom_id == "restart":
@@ -469,41 +485,41 @@ class Connect4Handler(Paginator):
                 self.game_infos.append("Game isn't over yet!\nFinish it to restart")
         await self.update_embed()
 
-    @listener(hikari.GuildReactionAddEvent)
-    async def on_reaction_add(self, event: hikari.ReactionAddEvent):
-        # predicate
-        if (
-            not event.message_id == self._message.id
-            or not (emoji := event.emoji_name) in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🏳']
-            or event.user_id == self.bot.get_me().id
-            or not (event.user_id in [self.game.player1.user.id, self.game.player2.user.id])
-        ):
-            return
+    # @listener(hikari.GuildReactionAddEvent)
+    # async def on_reaction_add(self, event: hikari.ReactionAddEvent):
+    #     # predicate
+    #     if (
+    #         not event.message_id == self._message.id
+    #         or not (emoji := event.emoji_name) in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🏳']
+    #         or event.user_id == self.bot.get_me().id
+    #         or not (event.user_id in [self.game.player1.user.id, self.game.player2.user.id])
+    #     ):
+    #         return
 
-        message = self._message
-        log.debug(f"executing on reaction with pag id: {self.count} | msg id: {message.id}")
-        await message.remove_reaction(emoji, user=event.user_id)
-        player = self.game.player1 if self.game.player1.user.id == event.user_id else self.game.player2
+    #     message = self._message
+    #     log.debug(f"executing on reaction with pag id: {self.count} | msg id: {message.id}")
+    #     await message.remove_reaction(emoji, user=event.user_id)
+    #     player = self.game.player1 if self.game.player1.user.id == event.user_id else self.game.player2
         
-        if emoji in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣']:
-            num = 0
-            for i, n in enumerate(self.orientation_number):
-                if n == emoji:
-                    num = i
-            await self.do_turn(num, player) #type: ignore
-        elif emoji == "🏳":
-            self.game.surrender(player)
-            await self.stop()
-        elif emoji == "⏹":
-            pass
-        elif emoji == "🔁":
-            if self.game.game_over:
-                await self.stop()
-                handler = Connect4Handler(self.player1, self.player2)
-                return await handler.start(self.ctx)
-            else:
-                self.game_infos.append("Game isn't over yet!\nFinish it to restart")
-        await self.update_embed()
+    #     if emoji in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣']:
+    #         num = 0
+    #         for i, n in enumerate(self.orientation_number):
+    #             if n == emoji:
+    #                 num = i
+    #         await self.do_turn(num, player) #type: ignore
+    #     elif emoji == "🏳":
+    #         self.game.surrender(player)
+    #         await self.stop()
+    #     elif emoji == "⏹":
+    #         pass
+    #     elif emoji == "🔁":
+    #         if self.game.game_over:
+    #             await self.stop()
+    #             handler = Connect4Handler(self.player1, self.player2)
+    #             return await handler.start(self.ctx)
+    #         else:
+    #             self.game_infos.append("Game isn't over yet!\nFinish it to restart")
+    #     await self.update_embed()
                 
             
             #         elif str(reaction.emoji) == '🏳':
@@ -541,11 +557,13 @@ class Connect4Handler(Paginator):
             self.game_infos.append(e)
         except GameOverError as e:
             self.game_infos.append(e)
-        await self.update_embed()
+        
         if self.game.game_over:
-            await self.update_embed()
+            # await self.update_embed()
             #await self._message.remove_all_reactions()
             await self.stop()
+        else:
+            await self.update_embed()
         
             
         
