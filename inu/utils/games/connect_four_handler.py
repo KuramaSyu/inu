@@ -8,6 +8,7 @@ import numpy as np
 from copy import deepcopy
 from enum import Enum
 from collections import OrderedDict
+import json
 
 import hikari
 from hikari import Member
@@ -360,7 +361,7 @@ class Connect4Handler(Paginator):
             columns=columns,
         )
         
-        self.game_infos = []
+        self.game_infos: List[Exception] = []
         
         self.game_explanation = (
             f"{self.game.player1.token} {self.game.player1.name}\n\n"
@@ -372,7 +373,17 @@ class Connect4Handler(Paginator):
     
     async def stop(self):
         self._stop.set()
-        restart_btn = ActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, "connect4_start").set_emoji("🔁").add_to_container()
+        custom_id = json.dumps(
+            {
+                "type": f"c4-{self.game.board.rows}x{self.game.board.columns}",  # type
+                "p1": self.game.player1.user.id,  # player 2
+                "p2": self.game.player2.user.id,  # player 1
+                "gid": self.game.board.game.player1.user.guild_id  # guild_id
+            },
+            separators=(',', ':'),
+            indent=None,
+        )
+        restart_btn = ActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, custom_id).set_emoji("🔁").add_to_container()
         log.debug("remove btns")
         await self.ctx.respond(components=[restart_btn], update=True, embed=self.build_embed())
     
@@ -390,7 +401,7 @@ class Connect4Handler(Paginator):
             emoji_rows[-1][emoji] = f"num_{index+1}"
             row_index += 1
         while len(emoji_rows) < 2:
-            emoji_rows.append(OrderedDict)
+            emoji_rows.append(OrderedDict())
         # emoji_rows[0]["🔁"] = "restart"
         emoji_rows[0]["🏳"] = "surrender"
         for d in emoji_rows:
@@ -476,14 +487,15 @@ class Connect4Handler(Paginator):
             return
         # elif emoji == "⏹":
         #     pass
-        elif custom_id == "restart":
-            if self.game.game_over:
-                await self.stop()
-                handler = Connect4Handler(self.player1, self.player2)
-                return await handler.start(self.ctx)
-            else:
-                self.game_infos.append("Game isn't over yet!\nFinish it to restart")
-        await self.update_embed()
+        # elif custom_id == "restart":
+        #     if self.game.game_over:
+        #         await self.stop()
+        #         handler = Connect4Handler(self.player1, self.player2, rows)
+        #         return await handler.start(self.ctx)
+        #     else:
+        #         self.game_infos.append("Game isn't over yet!\nFinish it to restart")
+        if not self.game.game_over:
+            await self.update_embed()
 
     # @listener(hikari.GuildReactionAddEvent)
     # async def on_reaction_add(self, event: hikari.ReactionAddEvent):
@@ -563,6 +575,7 @@ class Connect4Handler(Paginator):
             #await self._message.remove_all_reactions()
             await self.stop()
         else:
+            log.debug("call from do turn")
             await self.update_embed()
         
             
