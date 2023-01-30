@@ -51,13 +51,14 @@ async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
 @lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
-@lightbulb.command("connect-4", "starts a Connect 4 game", aliases=["con4", "4-in-a-row", "4inarow"])
+@lightbulb.command("connect-4", "starts a Connect 4 game")
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def connect4(ctx: Context):
-    try:
-        await start_4_in_a_row(ctx, rows=6, columns=7)
-    except Exception:
-        log.error(traceback.format_exc())
+    ...
+    # try:
+    #     await start_4_in_a_row(ctx, rows=6, columns=7)
+    # except Exception:
+    #     log.error(traceback.format_exc())
 
 
 @connect4.child
@@ -77,7 +78,7 @@ async def connect4_classic(ctx: Context):
 @lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
-@lightbulb.command("square", "starts a Connect 4 game", aliases=["8x8"])
+@lightbulb.command("square", "starts a Connect 4 game")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_8by8(ctx: Context):
     await start_4_in_a_row(ctx, rows=8, columns=8)
