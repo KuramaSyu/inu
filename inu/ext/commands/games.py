@@ -1,6 +1,7 @@
 import traceback
 from typing import *
 import asyncio
+import json
 
 import hikari
 import lightbulb
@@ -11,38 +12,44 @@ from lightbulb.commands import OptionModifier as OM
 from utils.games.connect_four_handler import Connect4Handler
 from utils.games import HikariOnu
 from utils import AkinatorSI
-from core import getLogger
+from core import getLogger, Inu, get_context
 
 
 log = getLogger(__name__)
 Context = Union[context.SlashContext, context.PrefixContext]
 plugin = lightbulb.Plugin("Game Commands", "Extends the commands with commands all about games")
 onu_sessions = set()
+bot: Inu
 
 
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_connect4_restart(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    try:
+        custom_id_json = json.loads(event.interaction.custom_id)
+        custom_id: str = custom_id_json["type"]
+        assert custom_id.startswith("c4-") # c4-{rows}x{columns}
+        rxc: List[str] = custom_id.replace("c4-", "").split("x")
+        rows = int(rxc[0])
+        columns = int(rxc[1])
+        guild_id = custom_id_json["gid"]
 
+        p1 = await bot.mrest.fetch_member(guild_id, custom_id_json["p1"])
+        p2 = await bot.mrest.fetch_member(guild_id, custom_id_json["p2"])
+    except:
+        log.debug(traceback.format_exc())
+        return
+    handler = Connect4Handler(p1, p2, rows=rows, columns=columns)
+    await handler.start(ctx=get_context(event))
+
+    
 async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
     if not ctx._options.get("player2"):
         ctx._options["player2"] = ctx.member
     
     h = Connect4Handler(ctx.options.player1, ctx.options.player2, rows=rows, columns=columns)
     msg = await h.start(ctx)
-    # log.debug(msg)
-    # await msg.add_reaction("🔁")
-    # try:
-    #     await plugin.bot.wait_for(
-    #         hikari.ReactionAddEvent,
-    #         timeout=15*60,
-    #         predicate=lambda e: (
-    #                 e.message_id == msg.id
-    #                 and e.user_id in [ctx.options.player1.id, ctx.options.player2.id]
-    #                 and e.emoji_name == "🔁"
-    #         )
-    #     )
-    #     await start_4_in_a_row(ctx, rows=rows, columns=columns)
-    # except asyncio.TimeoutError:
-    #     pass
-    #await msg.remove_all_ reactions()
 
 
 
@@ -130,5 +137,7 @@ async def akinator(ctx: Context):
 
 
 
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(plugin)
+def load(inu: lightbulb.BotApp):
+    global bot
+    bot = inu
+    inu.add_plugin(plugin)
