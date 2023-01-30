@@ -38,7 +38,6 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
         p1 = await bot.mrest.fetch_member(guild_id, custom_id_json["p1"])
         p2 = await bot.mrest.fetch_member(guild_id, custom_id_json["p2"])
     except:
-        log.debug(traceback.format_exc())
         return
     handler = Connect4Handler(p1, p2, rows=rows, columns=columns)
     await handler.start(ctx=get_context(event))
