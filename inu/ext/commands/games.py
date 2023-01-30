@@ -27,22 +27,22 @@ async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
     
     h = Connect4Handler(ctx.options.player1, ctx.options.player2, rows=rows, columns=columns)
     msg = await h.start(ctx)
-    log.debug(msg)
-    await msg.add_reaction("🔁")
-    try:
-        await plugin.bot.wait_for(
-            hikari.ReactionAddEvent,
-            timeout=15*60,
-            predicate=lambda e: (
-                    e.message_id == msg.id
-                    and e.user_id in [ctx.options.player1.id, ctx.options.player2.id]
-                    and e.emoji_name == "🔁"
-            )
-        )
-        await start_4_in_a_row(ctx, rows=rows, columns=columns)
-    except asyncio.TimeoutError:
-        pass
-    await msg.remove_all_reactions()
+    # log.debug(msg)
+    # await msg.add_reaction("🔁")
+    # try:
+    #     await plugin.bot.wait_for(
+    #         hikari.ReactionAddEvent,
+    #         timeout=15*60,
+    #         predicate=lambda e: (
+    #                 e.message_id == msg.id
+    #                 and e.user_id in [ctx.options.player1.id, ctx.options.player2.id]
+    #                 and e.emoji_name == "🔁"
+    #         )
+    #     )
+    #     await start_4_in_a_row(ctx, rows=rows, columns=columns)
+    # except asyncio.TimeoutError:
+    #     pass
+    #await msg.remove_all_ reactions()
 
 
 
@@ -54,8 +54,10 @@ async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
 @lightbulb.command("connect-4", "starts a Connect 4 game", aliases=["con4", "4-in-a-row", "4inarow"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def connect4(ctx: Context):
-    await start_4_in_a_row(ctx, rows=6, columns=7)
-
+    try:
+        await start_4_in_a_row(ctx, rows=6, columns=7)
+    except Exception:
+        log.error(traceback.format_exc())
 
 
 @connect4.child
