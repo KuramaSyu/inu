@@ -264,6 +264,18 @@ class InteractionContext(_InteractionContext):
             asyncio.create_task(self._ack_interaction())
         if auto_defer:
             self.auto_defer()
+    def set(
+        self,
+        **kwargs,
+    ):
+        """
+        kwargs:
+        ----
+        deferred : bool
+            set `self._deferred`
+        """
+        if deferred := kwargs.get("deferred"):
+            self._deferred = deferred
 
     def auto_defer(self) -> None:
         """
@@ -276,18 +288,26 @@ class InteractionContext(_InteractionContext):
         """
         asyncio.create_task(self._defer_on_timelimit())
 
-    async def defer(self) -> None:
+    async def defer(self, background: bool = True) -> None:
         """
         Acknowledges the interaction.
         acknowledge with DEFFERED_MESSAGE_UPDATE if self._update is True,
         otherwise acknowledge with DEFFERED_MESSAGE_CREATE
 
+        Args:
+        -----
+        background : `bool` = True
+            wether or not to defer it as background task
         Note:
         -----
-        A task will be started, so it runs in background and returns instantly
+        A task will be started, so it runs in background and returns instantly.
+        `self.respond` will wait until defer is finished
         """
         if not self._deferred and not self._responded:
-            asyncio.create_task(self._ack_interaction())
+            if background:
+                asyncio.create_task(self._ack_interaction())
+            else:
+                await self._ack_interaction()
 
     async def _maybe_wait_defer_complete(self):
         """wait until defer is done, or return instantly"""
@@ -323,6 +343,10 @@ class InteractionContext(_InteractionContext):
             self._parent_message = await self.i.fetch_parent_message()
 
     async def _ack_interaction(self):
+        """
+        Acknowledges the interaction with deferred update or deferred create,
+        if not already done
+        """
         self._defer_in_progress_event = asyncio.Event()
         self._responded = True
         if self._update:
@@ -453,6 +477,7 @@ class InteractionContext(_InteractionContext):
         """cache the initial response message and store it in `self._message`"""
         if not self._message:
             try:
+                self._message = True  # to not fetch 2x 
                 self._message = await self.i.fetch_initial_response()
             except hikari.NotFoundError:
                 return
@@ -522,6 +547,21 @@ class InteractionContext(_InteractionContext):
         if old_responded == False and self._responded == True:
             asyncio.create_task(self._cache_initial_response())
         return ret_val
+
+class CommandInteractionContext(InteractionContext):
+    async def initial_response_create(self, **kwargs):
+        """Create initial response initially or deffered"""
+        self._responded = True
+        await self.interaction.create_initial_response(
+            response_type=ResponseType.MESSAGE_CREATE, 
+            **kwargs
+        )
+        # else:
+        #     await self.interaction.edit_initial_response(
+        #         **kwargs
+        #     )
+        
+        asyncio.create_task(self._cache_initial_response())
 
             
 
