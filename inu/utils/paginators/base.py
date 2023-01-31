@@ -735,7 +735,10 @@ class Paginator():
         -------
             - (hikari.Message) the message, which was used by the paginator
         """
-        self.ctx = InteractionContext(ctx.event, ctx.app)
+        if not isinstance(ctx, InuContext):
+            self.ctx = get_context(ctx.event)
+        else:
+            self.ctx = ctx
         self.ctx._responded = ctx._responded
         self.bot = ctx.bot
 
