@@ -36,7 +36,7 @@ import lavasnek_rs
 from matplotlib.pyplot import hist
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 
-from core import Inu, getLevel
+from core import Inu, getLevel, get_context, InuContext
 from utils import Paginator, Colors, Human
 from utils import method_logger as logger
 from core.db import Database
@@ -451,7 +451,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     
-    ctx = InteractionContext(event, bot)
+    ctx = get_context(event)
     if not any([custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id in custom_id]):
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
@@ -787,10 +787,9 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     """
     if not ctx.guild_id or not ctx.member:
         return False # just for pylance
-    if not isinstance(ctx, InteractionContext):
-        ictx = InteractionContext(ctx.event, bot, defer=True)
-    else:
-        ictx = ctx
+    ictx = get_context(ctx.event)
+    await ictx.defer()
+    #await ictx.defer()
     # ictx._responded = ctx._responded
     music.d.last_context[ctx.guild_id] = ictx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
@@ -876,7 +875,9 @@ async def position(ctx: SlashContext) -> None:
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
     # will be called from event track start
-    ctx = InteractionContext(ctx.event, ctx.app, defer=True)
+    #ctx = InteractionContext(ctx.event, ctx.app, defer=True)
+    ctx: InuContext = get_context(ctx.event)
+    await ctx.defer()
     node = await lavalink.get_guild_node(ctx.guild_id)
     if not node:
         prevent_to_queue = True
@@ -1086,7 +1087,7 @@ async def pause(ctx: SlashContext) -> None:
     if not ctx.guild_id:
         return
     await _pause(ctx.guild_id)
-    await queue(InteractionContext(ctx.event, bot))
+    await queue(get_context(ctx.event))
 
 async def _pause(guild_id: int):
     await lavalink.pause(guild_id)
@@ -1101,7 +1102,7 @@ async def resume(ctx: SlashContext) -> None:
     if not ctx.guild_id:
         return
     await _resume(ctx.guild_id)
-    await queue(InteractionContext(ctx.event, bot))
+    await queue(get_context(ctx.event))
 
 async def _resume(guild_id: int):
     await lavalink.resume(guild_id)
@@ -1250,7 +1251,7 @@ async def music_search(ctx: context.Context):
 
 
 async def queue(
-    ctx: InteractionContext = None, 
+    ctx: InuContext = None, 
     guild_id: int = None, 
     force_resend: bool = False,
     create_footer_info: bool = True, 
