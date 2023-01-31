@@ -22,7 +22,7 @@ from utils.tree import tree as tree_
 from core import Inu
 from utils import BaseReminder, HikariReminder, Reminders, Human, Multiple
 from utils.string_crumbler import NumberWordIterator as NWI
-from core import getLogger
+from core import getLogger, get_context
 
 
 log = getLogger(__name__)
@@ -105,18 +105,19 @@ def build_sql(sql: str, method: str) -> str:
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("level-stop", "the last level to show", default="CRITICAL", autocomplete=True)
 @lightbulb.option("level-start", "the lowest level to show", default="INFO", autocomplete=True)
-@lightbulb.command("log", "Shows the log of the entire me", auto_defer=True)
+@lightbulb.command("log", "Shows the log of the entire me")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def log_(ctx: Context):
     """
     Shows my LOG file
     """
     
-    
+    options = ctx.options
+    ctx = get_context(ctx.event)
     levels_to_use = [
         k for k, v in LOG_LEVELS.items() 
-        if v >= LOG_LEVELS[ctx.options["level-start"]] 
-        and v <= LOG_LEVELS[ctx.options["level-stop"]]
+        if v >= LOG_LEVELS[options["level-start"]] 
+        and v <= LOG_LEVELS[options["level-stop"]]
     ]
 
 
@@ -149,15 +150,17 @@ async def log_(ctx: Context):
 @plugin.command
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("code", "The code I should execute", modifier=OM.CONSUME_REST)
-@lightbulb.command("run", "Executes given Python code", aliases=['py', 'exec', 'execute'], auto_defer=True)
+@lightbulb.command("run", "Executes given Python code", aliases=['py', 'exec', 'execute'])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def execute(ctx: Context):
+async def execute(_ctx: Context):
     '''
     executes code
     Parameters:
     code: your code to execute
     '''
-    code = ctx.options.code
+    code = _ctx.options.code
+    ctx = get_context(_ctx.event)
+    await ctx.defer()
     page_s, ms = await _execute(ctx, code)
     pag = Paginator(page_s=page_s)
     await pag.start(ctx)
