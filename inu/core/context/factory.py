@@ -10,7 +10,10 @@ from .rest import RESTContext
 
 ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
 
-def get_context(event: ContextEvent) -> InuContextProtocol:
+def get_context(
+    event: ContextEvent, 
+    **kwargs,
+) -> InuContextProtocol:
     """
     Args:
     -----
@@ -24,12 +27,16 @@ def get_context(event: ContextEvent) -> InuContextProtocol:
         - RESTContext when event is MessageCreateEvent
         - InteractionContext when event is InteractionCreateEvent
     """
-    ctx_cls, custom_attrs = builder(event)
+
+    ctx_cls, custom_attrs = builder(event, **kwargs)
     ctx = ctx_cls.from_event(event=event)
     ctx.set(**custom_attrs)
     return ctx
 
-def builder(event: ContextEvent) -> Tuple[InuContext, Dict[str, Any]]:
+def from_context():
+    ...
+
+def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
     if isinstance(event, hikari.MessageCreateEvent):
         return RESTContext, {}
     if isinstance(event, hikari.InteractionCreateEvent):
@@ -37,7 +44,12 @@ def builder(event: ContextEvent) -> Tuple[InuContext, Dict[str, Any]]:
         if isinstance(interaction, hikari.ComponentInteraction):
             return InteractionContext, {}
         elif isinstance(interaction, hikari.CommandInteraction):
-            return CommandInteractionContext, {"deferred": True}  # lightbulb acknowledges them automatically
+            # command interactions from lightbulb are either deferred or responded
+            # when auto_defer is True, then it's responded
+            if not kwargs.get("responded"):
+                #kwargs["deferred"] = True
+                pass
+            return CommandInteractionContext, kwargs  # lightbulb acknowledges them automatically
         else:
             raise TypeError(
                 f"Can't create `InuContext` out of an `InteractionCreateEvent` with `{type(interaction)}` as interaction"
