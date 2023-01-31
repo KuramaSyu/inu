@@ -124,6 +124,10 @@ class RESTContext(Context, InuContextProtocol, InuContext):
         self._responded = True
         return self._responses[-1]
 
+    async def _maybe_defer(self) -> None:
+        """Not needed when using REST"""
+        return
+
     @classmethod
     def from_event(cls, event: hikari.MessageCreateEvent):
-        cls(app=event.app, event=event)
+        return cls(app=event.app, event=event)
