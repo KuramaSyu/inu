@@ -126,7 +126,31 @@ class RESTContext(Context, InuContextProtocol, InuContext):
 
     async def _maybe_defer(self) -> None:
         """Not needed when using REST"""
-        return
+        ...
+
+    async def defer(self, background: bool = True):
+        """
+        Acknowledges interactions.
+
+        Note:
+        -----
+        Not needed with REST based Context 
+        """
+        ...
+    
+    async def auto_defer(self) -> None:
+        """
+        automatically defers interactions
+
+        Note:
+        -----
+        Not needed with RSET based Context
+        """
+        ...
+
+    def set(self, **kwargs):
+        """Not needed"""
+        ...
 
     @classmethod
     def from_event(cls, event: hikari.MessageCreateEvent):
