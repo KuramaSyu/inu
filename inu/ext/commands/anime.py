@@ -15,7 +15,7 @@ from utils import (
     AnimeCharacterPaginator,
     MangaPaginator,
 )
-from core import getLogger
+from core import getLogger, get_context
 
 log = getLogger(__name__)
 
@@ -164,7 +164,7 @@ async def fetch_anime(ctx: context.Context):
 
     log = getLogger(__name__, "fetch_anime")
     log.debug(traceback.format_exc())
-    await pag.start(ctx, ctx.options.name)
+    await pag.start(get_context(ctx.event, responded=True), ctx.options.name)
 
 @fetch_anime.set_error_handler()
 async def anime_on_error(e: lightbulb.CommandErrorEvent):
@@ -172,7 +172,7 @@ async def anime_on_error(e: lightbulb.CommandErrorEvent):
         f"Seems like you haven't typed in something anime like.",
         flags=hikari.MessageFlag.EPHEMERAL
     )
-    return True
+    # return True
 
 
 
