@@ -114,6 +114,7 @@ async def log_(ctx: Context):
     
     options = ctx.options
     ctx = get_context(ctx.event)
+    await ctx.defer()
     levels_to_use = [
         k for k, v in LOG_LEVELS.items() 
         if v >= LOG_LEVELS[options["level-start"]] 
