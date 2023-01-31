@@ -5,7 +5,7 @@ import lightbulb
 from lightbulb.context import *
 
 from .protocols import InuContext, InuContextProtocol
-from .interactions import InteractionContext
+from .interactions import InteractionContext, CommandInteractionContext
 from .rest import RESTContext
 
 ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
@@ -24,14 +24,24 @@ def get_context(event: ContextEvent) -> InuContextProtocol:
         - RESTContext when event is MessageCreateEvent
         - InteractionContext when event is InteractionCreateEvent
     """
-    ctx_cls = builder(event)
-    return ctx_cls.from_event(event=event)
+    ctx_cls, custom_attrs = builder(event)
+    ctx = ctx_cls.from_event(event=event)
+    ctx.set(**custom_attrs)
+    return ctx
 
-def builder(event: ContextEvent) -> InuContext:
+def builder(event: ContextEvent) -> Tuple[InuContext, Dict[str, Any]]:
     if isinstance(event, hikari.MessageCreateEvent):
-        return RESTContext
+        return RESTContext, {}
     if isinstance(event, hikari.InteractionCreateEvent):
-        return InteractionContext
+        interaction = event.interaction
+        if isinstance(interaction, hikari.ComponentInteraction):
+            return InteractionContext, {}
+        elif isinstance(interaction, hikari.CommandInteraction):
+            return CommandInteractionContext, {"deferred": True}  # lightbulb acknowledges them automatically
+        else:
+            raise TypeError(
+                f"Can't create `InuContext` out of an `InteractionCreateEvent` with `{type(interaction)}` as interaction"
+            )
     else:
         raise TypeError(f"Can't create `InuContext` out of event with type `{type(event)}`")
     
