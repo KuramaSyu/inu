@@ -276,6 +276,8 @@ class InteractionContext(_InteractionContext):
         """
         if deferred := kwargs.get("deferred"):
             self._deferred = deferred
+        if responded := kwargs.get("responded"):
+            self._responded = responded
 
     def auto_defer(self) -> None:
         """
@@ -307,6 +309,7 @@ class InteractionContext(_InteractionContext):
             if background:
                 asyncio.create_task(self._ack_interaction())
             else:
+                log.debug("defer interaction")
                 await self._ack_interaction()
 
     async def _maybe_wait_defer_complete(self):
@@ -549,18 +552,21 @@ class InteractionContext(_InteractionContext):
         return ret_val
 
 class CommandInteractionContext(InteractionContext):
+    ...
     async def initial_response_create(self, **kwargs):
         """Create initial response initially or deffered"""
         self._responded = True
-        await self.interaction.create_initial_response(
-            response_type=ResponseType.MESSAGE_CREATE, 
-            **kwargs
-        )
-        # else:
-        #     await self.interaction.edit_initial_response(
-        #         **kwargs
-        #     )
-        
+        #self._deferred = False
+        if self._deferred:
+            await self.interaction.create_initial_response(
+                response_type=ResponseType.MESSAGE_CREATE, 
+                **kwargs
+            )
+        else:
+            await self.interaction.edit_initial_response(
+                **kwargs
+            )
+    
         asyncio.create_task(self._cache_initial_response())
 
             
