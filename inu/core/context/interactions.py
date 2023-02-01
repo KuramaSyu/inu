@@ -30,7 +30,8 @@ class _InteractionContext(Context, InuContext, InuContextProtocol):
         # assert isinstance(event.interaction, hikari.ComponentInteraction)
         self._interaction: hikari.ComponentInteraction = event.interaction
         self._default_ephemeral: bool = False
-        self._defer_in_progress_event: asyncio.Event | None = None
+        self._defer_in_progress_event: asyncio.Event | None = asyncio.Event()
+        self._defer_in_progress_event.set()
         global i
         i += 1
         try:    
@@ -307,17 +308,23 @@ class InteractionContext(_InteractionContext):
         `self.respond` will wait until defer is finished
         """
         if not self._deferred and not self._responded:
+            self.log.debug(f"defer interaction {background=}")
+            self._deferred = True
             if background:
+                self._defer_in_progress_event.clear()
                 asyncio.create_task(self._ack_interaction())
             else:
-                log.debug("defer interaction")
                 await self._ack_interaction()
+        else:
+            self.log.debug("seems to be deferred already - don't defer")
 
     async def _maybe_wait_defer_complete(self):
         """wait until defer is done, or return instantly"""
-        if self._defer_in_progress_event:
-            await self._defer_in_progress_event.wait()
-            self._defer_in_progress_event = None
+        self.log.debug(f"flag status:{self._defer_in_progress_event.is_set()}")
+        await self._defer_in_progress_event.wait()
+        # self._defer_in_progress_event.clear()
+        # else:
+        #     self.log.debug("No defer in progress")
 
     async def _maybe_defer(self) -> None:
         if self._auto_defer:
@@ -351,14 +358,19 @@ class InteractionContext(_InteractionContext):
         Acknowledges the interaction with deferred update or deferred create,
         if not already done
         """
-        self._defer_in_progress_event = asyncio.Event()
-        self._responded = True
+    
+        self._deferred = True
+        self._defer_in_progress_event.clear()
+        self.log.debug(f"cleared event - set to: {self._defer_in_progress_event.is_set()}")
         if self._update:
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
         else:
             await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
-        self.log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
+        
         self._defer_in_progress_event.set()
+        self._responded = True
+        self._deferred = False
+        self.log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
         
 
     @property
@@ -518,6 +530,7 @@ class InteractionContext(_InteractionContext):
         
         """
         log = getLogger(__name__, self.__class__.__name__)
+        log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
         if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
@@ -574,6 +587,18 @@ class CommandInteractionContext(InteractionContext):
         self._deferred = False
     
         asyncio.create_task(self._cache_initial_response())
+
+    # async def _ack_interaction(self):
+    #     """
+    #     Acknowledges the interaction with deferred update or deferred create,
+    #     if not already done
+    #     """
+    #     self._defer_in_progress_event.clear()
+    #     await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
+    #     self.log.debug(f"{self.__class__.__name__} ack for deferred create done")
+    #     self._defer_in_progress_event.set()
+    #     self._responded = True
+        
 
             
 
