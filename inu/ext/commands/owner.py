@@ -34,7 +34,7 @@ all_levels = list(LOG_LEVELS.keys())
 @plugin.command
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("sql", "The sql query you want to execute", modifier=OM.CONSUME_REST)
-@lightbulb.command("sql", "executes SQL. NOTE: seperate sql from args with ';;' and sep. args with ','", auto_defer=True)
+@lightbulb.command("sql", "executes SQL. NOTE: seperate sql from args with ';;' and sep. args with ','")
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def sql(ctx: Context):
     """
@@ -116,7 +116,7 @@ async def log_(ctx: Context):
     
     options = ctx.options
     ctx = get_context(ctx.event)
-    # await ctx.defer()
+    await ctx.defer()
     levels_to_use = [
         k for k, v in LOG_LEVELS.items() 
         if v >= LOG_LEVELS[options["level-start"]] 
@@ -163,7 +163,7 @@ async def execute(_ctx: Context):
     '''
     code = _ctx.options.code
     ctx = get_context(_ctx.event)
-    await ctx.defer()
+    await ctx.defer(background=False)
     page_s, ms = await _execute(ctx, code)
     pag = Paginator(page_s=page_s)
     await pag.start(ctx)
