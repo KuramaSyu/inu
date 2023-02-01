@@ -8,6 +8,7 @@ import traceback
 import typing
 import asyncio
 import logging
+import ast
 
 
 import hikari
@@ -30,6 +31,29 @@ log = getLogger(__name__)
 plugin = lightbulb.Plugin("Owner", "Commands, which are only accessable to the owner of the bot")
 LOG_LEVELS = {"DEBUG":1, "INFO":2, "WARNING":3, "ERROR":4, "CRITICAL":5}
 all_levels = list(LOG_LEVELS.keys())
+
+# from norinorin: https://github.com/norinorin/nokari/blob/kita/nokari/extensions/extras/admin.py#L32-L50
+def insert_returns(body: Union[List[ast.AST], List[ast.stmt]]) -> None:
+    """A static method that prepends a return statement at the last expression."""
+
+    if not body:
+        return
+
+    if isinstance(body[-1], ast.Expr):
+        body[-1] = ast.Return(body[-1].value)
+        ast.fix_missing_locations(body[-1])
+
+    if isinstance(body[-1], ast.If):
+        insert_returns(body[-1].body)
+        insert_returns(body[-1].orelse)
+
+    if isinstance(body[-1], ast.With):
+        insert_returns(body[-1].body)
+
+    if isinstance(body[-1], ast.AsyncWith):
+        insert_returns(body[-1].body)
+
+
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.owner_only)
@@ -211,12 +235,11 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         )
     }
     env.update(globals())
-
-    # cleans code and wraps into async
-    raw_code = await clean_code(code)
-    code, fn_name = await wrap_into_async(await clean_code(code))
+    result = None
+    raw_code = code
+    code, parsed, fn_name = clean_code(code)
     log.warning(f"code gets executed:\n<<<\n{code}\n>>>")
-    exec(compile(code, "<string>", mode='exec'), env)
+    exec(compile(parsed, filename="<eval>", mode='exec'), env)
     func = env[fn_name]
 
     error = None
@@ -227,7 +250,9 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     try:
         with contextlib.redirect_stdout(str_obj):
             start = datetime.now()
-            await func()
+            result = str(await func())
+            if result == "None":
+                result = None
             output = str_obj.getvalue()
 
     except Exception as e:
@@ -243,8 +268,11 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         basic_message = ""
         if add_code_to_embed:
             basic_message = f'**CODE**\n```py\n{raw_code}```\n'
+        if result:
+            basic_message += f"**RETURN VALUE**\n```py\n{result}```\n"
         if error:
             basic_message += f'\n{error}\n'
+
         if not output or len(output) < 1800:
             basic_message += f'**OUTPUT**\n```py\n{output if output else None}```\n'
             basic_message += f'{round(ms, 4)} ms'
@@ -255,6 +283,10 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
             return embeds, round(ms, 4)
 
         pages = []
+        if len(str(result)) > 1000:
+            output = f"**RETURN VALUE**\n\n{result}\n\n"
+            result = None
+
         cutted = crumble(output, max_length_per_string=1800)
         for index, part_message in enumerate(cutted):
             embed = hikari.Embed()
@@ -267,6 +299,12 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
                         name='CODE',
                         value=f'```py\n{raw_code}```\n',
                         inline=False
+                    )
+                if result:
+                    embed.add_field(
+                        name="RETURN VALUE",
+                        value=result,
+                        inline=False,
                     )
                 if error:
                     embed.add_field(
@@ -285,16 +323,22 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         return pages, round(ms, 4)
 
 
-async def clean_code(code):
+def clean_code(code) -> Tuple[str, ast.AST, str]:
     while code.startswith("`"):
         code = code[1:]
     while code.endswith("`"):
         code = code[:-1]
     while code.startswith("py\n"):
         code = code[3:]
-    return code
+    code, fn_name = wrap_into_async(code)
+    # cleans code and wraps into async
+    parsed = ast.parse(code)
+    body = parsed.body[0].body  # type: ignore
+    insert_returns(body)
 
-async def wrap_into_async(code):
+    return code, parsed, fn_name
+
+def wrap_into_async(code):
     func_name = '_to_execute'
     code = "\n".join(f"    {line}" for line in code.splitlines())
     return f"async def {func_name}():\n{code}", func_name
