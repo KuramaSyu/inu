@@ -545,6 +545,7 @@ class InteractionContext(_InteractionContext):
             return ResponseProxy(
                 self._message,
             )
+
         old_responded = self._responded
         self.log.debug("call respond")
         ret_val = await super().respond(*args, update=update, **kwargs)
@@ -552,6 +553,8 @@ class InteractionContext(_InteractionContext):
         if old_responded == False and self._responded == True:
             asyncio.create_task(self._cache_initial_response())
         return ret_val
+
+    respond_with_modal = lightbulb.context.ApplicationContext.respond_with_modal
 
 class CommandInteractionContext(InteractionContext):
     ...
