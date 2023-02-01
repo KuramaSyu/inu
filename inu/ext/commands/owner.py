@@ -53,7 +53,7 @@ async def sql(ctx: Context):
 @sql.child
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.option("sql", "The SQL query you want to execute. Good for selection querys", modifier=OM.CONSUME_REST)
-@lightbulb.command("return", "executes SQL with return", aliases=["-r", "r", "fetch"], auto_defer=True)
+@lightbulb.command("return", "executes SQL with return", aliases=["-r", "r", "fetch"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def fetch(ctx: Context):
     """
@@ -72,6 +72,8 @@ async def fetch(ctx: Context):
     if len(sql_and_values) > 1:
         values += f"```\n{sql_and_values[1]}\n```"
     code = build_sql(ctx.options.sql, "fetch")
+    ctx = get_context(ctx.event)
+    await ctx.defer()
     page_s, ms = await _execute(ctx, code, add_code_to_embed=False)
     if not page_s[0]._fields:
         page_s[0]._fields = []
@@ -114,7 +116,7 @@ async def log_(ctx: Context):
     
     options = ctx.options
     ctx = get_context(ctx.event)
-    await ctx.defer()
+    # await ctx.defer()
     levels_to_use = [
         k for k, v in LOG_LEVELS.items() 
         if v >= LOG_LEVELS[options["level-start"]] 
