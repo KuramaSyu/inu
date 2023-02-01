@@ -152,6 +152,10 @@ class RESTContext(Context, InuContextProtocol, InuContext):
         """Not needed"""
         ...
 
+    def respond_with_modal(self, *args, **kwargs) -> None:
+        raise NotImplementedError(f"`respond_with_modal` does not work with {self.__class__.__name__}")
+        #return await super().respond_with_modal(title, custom_id, component, components)
+
     @classmethod
     def from_event(cls, event: hikari.MessageCreateEvent):
         return cls(app=event.app, event=event)
