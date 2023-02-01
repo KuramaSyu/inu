@@ -2,19 +2,19 @@ from argparse import Action
 from typing import *
 
 import hikari
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 
 class AutoButton:
     def __init__(self) -> None:
-        self._action_rows: List[ActionRowBuilder] = []
+        self._action_rows: List[MessageActionRowBuilder] = []
 
     @property
-    def _last_builder(self) -> ActionRowBuilder:
+    def _last_builder(self) -> MessageActionRowBuilder:
         if not self._action_rows:
-            self._action_rows.append(ActionRowBuilder())
+            self._action_rows.append(MessageActionRowBuilder())
         last_builder = self._action_rows[-1]
         if len(last_builder.components) >= 5:
-            self._action_rows.append(ActionRowBuilder())
+            self._action_rows.append(MessageActionRowBuilder())
         return last_builder
 
     def add_buttons(

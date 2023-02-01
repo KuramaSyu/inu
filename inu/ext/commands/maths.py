@@ -13,7 +13,7 @@ import lightbulb
 from lightbulb import ResponseProxy, commands
 from lightbulb.context import Context
 import hikari
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
 from core.bot import Inu, getLogger
 from utils.language import Human
@@ -281,12 +281,12 @@ active_sessions: Set[hikari.Snowflakeish] = set()
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def calculation_tasks(ctx: Context):
     embed = Embed(title="Calculation tasks")
-    menu = ActionRowBuilder().add_select_menu("calculation_task_menu")
+    menu = MessageActionRowBuilder().add_select_menu("calculation_task_menu")
     for c in stages:
         embed.add_field(f"{c.display_name}", str(c), inline=True)
         menu.add_option(f"{c.display_name.replace('_', '')}", f"{c.name}").add_to_menu()
     menu = menu.add_to_container()
-    buttons = ActionRowBuilder().add_button(ButtonStyle.PRIMARY, "math_highscore_btn").set_label("highscores").add_to_container()
+    buttons = MessageActionRowBuilder().add_button(ButtonStyle.PRIMARY, "math_highscore_btn").set_label("highscores").add_to_container()
     if bot is None:
         raise RuntimeError
     await ctx.respond(embed=embed, components=[menu, buttons])

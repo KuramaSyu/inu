@@ -8,7 +8,7 @@ import asyncio
 import logging
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
-from hikari.messages import ButtonStyle
+from hikari import ButtonStyle
 from hikari.impl.special_endpoints import ActionRowBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb

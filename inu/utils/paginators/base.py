@@ -24,7 +24,7 @@ import textwrap
 import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType
 from hikari.events.base_events import Event
 import lightbulb
@@ -224,9 +224,9 @@ class Paginator():
         self,
         page_s: Union[List[Embed], List[str]],
         timeout: int = 2*60,
-        component_factory: Callable[[int], ActionRowBuilder] = None,
-        components_factory: Callable[[int], List[ActionRowBuilder]] = None,
-        additional_components: List[ActionRowBuilder] = None,
+        component_factory: Callable[[int], MessageActionRowBuilder] = None,
+        components_factory: Callable[[int], List[MessageActionRowBuilder]] = None,
+        additional_components: List[MessageActionRowBuilder] = None,
         disable_pagination: bool = False,
         disable_component: bool = True,
         disable_components: bool = False,
@@ -249,9 +249,9 @@ class Paginator():
             the page*s the Paginator should paginate
         timeout: int, default=120
             the seconds the paginator has to be inactive to "shutdown"; maximum is 15*60 min
-        component_factory: Callable[[int], ActionRowBuilder], default=None
+        component_factory: Callable[[int], MessageActionRowBuilder], default=None
             a custom component builder; the input is the index of the site
-        components_factory: Callable[[int], ActionRowBuilder], default=None
+        components_factory: Callable[[int], MessageActionRowBuilder], default=None
             a custom components builder; the input is the index of the site
         disable_component: bool, default=False
             wether or not the component of the paginator should be disabled
@@ -302,8 +302,8 @@ class Paginator():
         self.count = count
         self._stop: asyncio.Event = asyncio.Event()
         self._pages: Union[List[Embed], List[str]] = page_s
-        self._component: Optional[ActionRowBuilder] = None
-        self._components: Optional[List[ActionRowBuilder]] = None
+        self._component: Optional[MessageActionRowBuilder] = None
+        self._components: Optional[List[MessageActionRowBuilder]] = None
         self._disable_components = disable_components
         self._disable_component = disable_component
         self._disable_search_btn = disable_search_btn
@@ -394,7 +394,7 @@ class Paginator():
         return self._pages
 
     @property
-    def component(self) -> Optional[ActionRowBuilder]:
+    def component(self) -> Optional[MessageActionRowBuilder]:
         if self._disable_component:
             return None
         if self._component_factory is not None:
@@ -411,7 +411,7 @@ class Paginator():
                 ))
 
     @property
-    def components(self) -> List[ActionRowBuilder]:
+    def components(self) -> List[MessageActionRowBuilder]:
         if self._disable_components:
             return []
         if self._components_factory is not None:
@@ -454,11 +454,11 @@ class Paginator():
         style = ButtonStyle.SECONDARY,
         custom_id: Optional[str] = None,
         emoji: Optional[str] = None,
-        action_row_builder: Optional[ActionRowBuilder] = None,
+        action_row_builder: Optional[MessageActionRowBuilder] = None,
         
-    ) -> ActionRowBuilder:
+    ) -> MessageActionRowBuilder:
         if action_row_builder is None:
-            action_row_builder = ActionRowBuilder()
+            action_row_builder = MessageActionRowBuilder()
         state: bool = disable_when_index_is(self._position)
         if not custom_id:
             custom_id = label
@@ -476,7 +476,7 @@ class Paginator():
         btn = btn.add_to_container()
         return btn
 
-    def _navigation_row(self, position = None) -> Optional[ActionRowBuilder]:
+    def _navigation_row(self, position = None) -> Optional[MessageActionRowBuilder]:
         if not self.pagination:
             return None
 
@@ -491,7 +491,7 @@ class Paginator():
         action_row = self._button_factory(
             custom_id="previous",
             emoji="◀",
-            action_row_builder=action_row or ActionRowBuilder(),
+            action_row_builder=action_row or MessageActionRowBuilder(),
             disable_when_index_is=lambda p: p == 0,
         )
         self._button_factory(
@@ -517,12 +517,12 @@ class Paginator():
 
         return action_row
     
-    def build_default_component(self, position=None) -> Optional[ActionRowBuilder]:
+    def build_default_component(self, position=None) -> Optional[MessageActionRowBuilder]:
         if self._disable_paginator_when_one_site and len(self._pages) == 1:
             return None
         return self._navigation_row(position)
     
-    def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
+    def build_default_components(self, position=None) -> Optional[List[Optional[MessageActionRowBuilder]]]:
         navi = self.build_default_component(position)
         action_rows = []
         if navi:
@@ -956,7 +956,7 @@ def navigation_row(
     len_pages: int,
     compact: bool = False,
     custom_id_serializer: Callable[[str], str] = lambda c: c,
-) -> ActionRowBuilder:
+) -> MessageActionRowBuilder:
     """
     Creates the AcionRowBuilder for the navigation row
 
@@ -978,9 +978,9 @@ def navigation_row(
         style = ButtonStyle.SECONDARY,
         custom_id: Optional[str] = None,
         emoji: Optional[str] = None,
-        action_row_builder: ActionRowBuilder = ActionRowBuilder(),
+        action_row_builder: MessageActionRowBuilder = MessageActionRowBuilder(),
         
-    ) -> ActionRowBuilder:
+    ) -> MessageActionRowBuilder:
         state: bool = disable_when_index_is(position)
         if not custom_id:
             custom_id = label
@@ -1012,7 +1012,7 @@ def navigation_row(
     action_row = button_factory(
         custom_id="previous",
         emoji="◀",
-        action_row_builder=action_row or ActionRowBuilder(),
+        action_row_builder=action_row or MessageActionRowBuilder(),
         disable_when_index_is=lambda p: p == 0,
     )
     button_factory(
@@ -1204,9 +1204,9 @@ class StatelessPaginator(Paginator, ABC):
         style = ButtonStyle.SECONDARY,
         custom_id: Optional[str] = None,
         emoji: Optional[str] = None,
-        action_row_builder: Optional[ActionRowBuilder] = None,
+        action_row_builder: Optional[MessageActionRowBuilder] = None,
         
-    ) -> ActionRowBuilder:
+    ) -> MessageActionRowBuilder:
         """
         Builds buttons
 
@@ -1215,7 +1215,7 @@ class StatelessPaginator(Paginator, ABC):
         - custom id gets in this paginator serialized to json
         """
         if action_row_builder is None:
-            action_row_builder = ActionRowBuilder()
+            action_row_builder = MessageActionRowBuilder()
         state: bool = disable_when_index_is(self._position)
         if not custom_id:
             custom_id = label

@@ -9,8 +9,8 @@ import json
 
 import hikari
 from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, events, ResponseType, Embed
-from hikari.messages import ButtonStyle, MessageFlag
-from hikari.impl import ActionRowBuilder
+from hikari import ButtonStyle, MessageFlag
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import MemberConverter, GuildConverter, UserConverter
 from lightbulb.context import Context
@@ -40,8 +40,8 @@ class TagHandler(StatelessPaginator):
     def __init__(
         self,
         timeout: int = 15*60,
-        component_factory: Callable[[int], ActionRowBuilder] = None,
-        components_factory: Callable[[int], List[ActionRowBuilder]] = None,
+        component_factory: Callable[[int], MessageActionRowBuilder] = None,
+        components_factory: Callable[[int], List[MessageActionRowBuilder]] = None,
         disable_pagination: bool = False,
         disable_component: bool = True,
         disable_components: bool = False,
@@ -453,12 +453,12 @@ This is a new page.
         self.tag.owner = user
         # await self.update_page()
 
-    def build_default_components(self, position) -> List[ActionRowBuilder]:
+    def build_default_components(self, position) -> List[MessageActionRowBuilder]:
         rows = []
         navi = super().build_default_component(position)
         rows.append(navi)
         menu = (
-                ActionRowBuilder()
+                MessageActionRowBuilder()
                 .add_select_menu(self._serialize_custom_id("tag_options"))
                 .add_option("set name", "set_name").add_to_menu()
                 .add_option("set value", "set_value").add_to_menu()

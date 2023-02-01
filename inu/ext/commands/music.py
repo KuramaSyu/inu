@@ -27,7 +27,7 @@ from copy import deepcopy
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
@@ -138,7 +138,7 @@ class Interactive:
             query_information = await self.lavalink.auto_search_tracks(query)
         id_ = bot.id_creator.create_id()
         menu = (
-            ActionRowBuilder()
+            MessageActionRowBuilder()
             .add_select_menu(f"query_menu-{id_}")
         )
         embeds: List[Embed] = []
@@ -1381,7 +1381,7 @@ async def build_music_components(
     guild_id: Optional[int] = None,
     node: Optional[lavasnek_rs.Node] = None,
     disable_all: bool = False,
-) -> List[hikari.impl.ActionRowBuilder]:
+) -> List[hikari.impl.MessageActionRowBuilder]:
     if not node and not guild_id:
         raise RuntimeError("Can't build music compoents without guild_id and node. Either one of both needs to be given")
     if not disable_all:
@@ -1390,7 +1390,7 @@ async def build_music_components(
         raise RuntimeError("Can't fetch node")
         
     action_rows = [(
-        ActionRowBuilder()
+        MessageActionRowBuilder()
         .add_button(hikari.ButtonStyle.SECONDARY, "music_skip_1")
             .set_emoji("1️⃣")
             .set_is_disabled(disable_all or node.is_paused)

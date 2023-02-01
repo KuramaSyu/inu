@@ -20,8 +20,8 @@ from hikari import (
     TextInputStyle
 )
 from hikari.events import InteractionCreateEvent
-from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
-from hikari.messages import ButtonStyle
+from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBuilder
+from hikari import ButtonStyle
 from jikanpy import AioJikan
 from lightbulb import OptionModifier as OM
 from lightbulb import commands, context
@@ -58,7 +58,7 @@ async def make_w2g_link(ctx: context.Context):
     resp = await Watch2Gether.fetch_link(ctx.options.link)
     await ctx.respond(
         component=(
-            ActionRowBuilder()
+            MessageActionRowBuilder()
             .add_button(ButtonStyle.LINK, resp['room-link'])
             .set_label("Watch2Gether Room") 
             .add_to_container()

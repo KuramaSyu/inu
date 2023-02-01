@@ -10,7 +10,7 @@ from copy import deepcopy, copy
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from numpy import longdouble, sort
 from pyparsing import CloseMatch
@@ -77,12 +77,12 @@ class AnimePaginator(Paginator):
         )
         
 
-    def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
+    def build_default_components(self, position=None) -> Optional[List[Optional[MessageActionRowBuilder]]]:
         components = super().build_default_components(position)
         if not isinstance(components, list):
             return components
         # components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort by score").add_to_container()
-        components: List[ActionRowBuilder] = [*components, ActionRowBuilder()]
+        components: List[MessageActionRowBuilder] = [*components, MessageActionRowBuilder()]
         if len(self._pages) == 1:
             # remove pagination if there is only one page
             components.pop(0)
@@ -123,7 +123,7 @@ class AnimePaginator(Paginator):
         if self._detailed:
             # check length of last component
             if len(components[-1]._components) >= 5:
-                components.append(ActionRowBuilder())
+                components.append(MessageActionRowBuilder())
             components[-1] = (
                 components[-1]
                 .add_button(ButtonStyle.SECONDARY, "btn_anime_iterate_recommended")

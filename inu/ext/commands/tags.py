@@ -10,8 +10,8 @@ import json
 
 import hikari
 from hikari import ComponentInteraction, Embed, InteractionCreateEvent, ResponseType, TextInputStyle
-from hikari.impl import ActionRowBuilder
-from hikari.messages import ButtonStyle
+from hikari.impl import MessageActionRowBuilder
+from hikari import ButtonStyle
 import lightbulb
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
@@ -153,7 +153,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
             else:
                 records["local"] = record
         menu = (
-            ActionRowBuilder()
+            MessageActionRowBuilder()
             .add_select_menu("menu")
             .add_option(f"{key} - global / everywhere", "global")
             .add_to_menu()
@@ -423,7 +423,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
     return await ctx.respond(
         f"Your tag `{name}` has been added to my storage",
-        component=ActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label(tag.name).add_to_container()
+        component=MessageActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label(tag.name).add_to_container()
     )
 
 
@@ -512,7 +512,7 @@ async def overview(ctx: Context):
 
     """
     menu = (
-        ActionRowBuilder()
+        MessageActionRowBuilder()
         .add_select_menu("overview_menu")
         .add_option("all tags you can use", "all")
         .add_to_menu()
@@ -605,7 +605,7 @@ async def tag_append(ctx: Context):
     await ctx.respond(
         f"Done.",
         component=(
-            hikari.impl.ActionRowBuilder()
+            hikari.impl.MessageActionRowBuilder()
             .add_button(ButtonStyle.SECONDARY, tag.link)
             .set_label("show tag")
             .add_to_container()
@@ -668,7 +668,7 @@ async def tag_info(ctx: Context):
     )
     await ctx.respond(
         message,
-        component=ActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label("show tag").add_to_container()
+        component=MessageActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label("show tag").add_to_container()
     )
 
     

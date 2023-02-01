@@ -12,7 +12,7 @@ import json
 
 import hikari
 from hikari import Member
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context
 
@@ -383,12 +383,12 @@ class Connect4Handler(Paginator):
             separators=(',', ':'),
             indent=None,
         )
-        restart_btn = ActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, custom_id).set_emoji("🔁").add_to_container()
+        restart_btn = MessageActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, custom_id).set_emoji("🔁").add_to_container()
         log.debug("remove btns")
         await self.ctx.respond(components=[restart_btn], update=True, embed=self.build_embed())
     
     @property
-    def message_components(self) -> List[hikari.impl.ActionRowBuilder]:
+    def message_components(self) -> List[hikari.impl.MessageActionRowBuilder]:
         rows = []
         emoji_rows: List[OrderedDict] = []
         row_index = 5  # to add ordered dict at start of iteration
@@ -405,7 +405,7 @@ class Connect4Handler(Paginator):
         # emoji_rows[0]["🔁"] = "restart"
         emoji_rows[0]["🏳"] = "surrender"
         for d in emoji_rows:
-            row = ActionRowBuilder()
+            row = MessageActionRowBuilder()
             for emoji, custom_id in d.items():
                 row = (
                     row

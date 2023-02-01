@@ -21,7 +21,7 @@ from hikari import (
 )
 from hikari.events import InteractionCreateEvent
 from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
-from hikari.messages import ButtonStyle
+from hikari import ButtonStyle
 from jikanpy import AioJikan
 from lightbulb import OptionModifier as OM
 from lightbulb import commands, context

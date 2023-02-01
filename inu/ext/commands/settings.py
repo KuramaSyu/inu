@@ -14,10 +14,10 @@ from datetime import datetime, timedelta, timezone
 from typing_extensions import Self
 
 import hikari
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 from hikari.interactions.base_interactions import ResponseType
 from hikari.interactions.component_interactions import ComponentInteraction
-from hikari.messages import ButtonStyle, ComponentType
+from hikari import ButtonStyle, ComponentType
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import SlashContext, commands
@@ -446,7 +446,7 @@ async def timez(ctx: Context):
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def timez_set(ctx: Context):
     menu = (
-        ActionRowBuilder()
+        MessageActionRowBuilder()
         .add_select_menu("timezone_menu")
     )
     for x in range(-5,6,1):
@@ -478,7 +478,7 @@ async def timez_set(ctx: Context):
             await TimezoneManager.set_timezone(ctx.guild_id, int(event.interaction.values[0]))
             try:
                 btns = (
-                    ActionRowBuilder()
+                    MessageActionRowBuilder()
                     .add_button(ButtonStyle.PRIMARY, "1").set_emoji("✔️").add_to_container()
                     .add_button(ButtonStyle.DANGER, "0").set_emoji("❌").add_to_container()
                 )

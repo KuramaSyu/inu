@@ -363,20 +363,20 @@ class Poll():
         return embed
 
     @property
-    def components(self) -> List[hikari.impl.ActionRowBuilder]:
+    def components(self) -> List[hikari.impl.MessageActionRowBuilder]:
         options = self.options
         components = []
         if len(options) <= 10:
             # use buttons
-            row = hikari.impl.ActionRowBuilder()
+            row = hikari.impl.MessageActionRowBuilder()
             for i, option in enumerate(options):
                 if i % 5 == 0 and i:
                     components.append(row)
-                    row = hikari.impl.ActionRowBuilder()
+                    row = hikari.impl.MessageActionRowBuilder()
                 row = row.add_button(ButtonStyle.PRIMARY, f"vote_add_{option['reaction']}").set_label(str(option['name'])).add_to_container()
             components.append(row)
         else:
-            menu = hikari.impl.ActionRowBuilder().add_select_menu("vote_add_menu")
+            menu = hikari.impl.MessageActionRowBuilder().add_select_menu("vote_add_menu")
             for option in options:
                 menu.add_option(str(option.get("name", "Unknown")), f"vote_add_{option['reaction']}").add_to_menu()
             menu = menu.add_to_container()

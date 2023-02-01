@@ -9,7 +9,7 @@ from async_timeout import asyncio
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from .base import PaginatorReadyEvent, Paginator, listener
 from jikanpy import AioJikan
@@ -60,7 +60,7 @@ class AnimeCharacterPaginator(Paginator):
         super().__init__(page_s=["None"], timeout=10*8)
         
 
-    def build_default_components(self, position=None) -> Optional[List[Optional[ActionRowBuilder]]]:
+    def build_default_components(self, position=None) -> Optional[List[Optional[MessageActionRowBuilder]]]:
         components = super().build_default_components(position)
         if not isinstance(components, list):
             return components

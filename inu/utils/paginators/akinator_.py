@@ -7,7 +7,7 @@ from . import Paginator, listener
 import hikari
 import lightbulb
 from lightbulb.context import Context
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 
 from utils import Human
 from core import Inu, getLogger
@@ -43,7 +43,7 @@ class AkinatorSI(Paginator):
             "aki_end": "X exit"
         }
         components=[
-            ActionRowBuilder()
+            MessageActionRowBuilder()
             .add_button(hikari.ButtonStyle.SUCCESS, "aki_yes")
             .set_label("✔️ Yes")
             .add_to_container()
@@ -59,7 +59,7 @@ class AkinatorSI(Paginator):
             .add_button(hikari.ButtonStyle.SECONDARY, "aki_maybe_no")
             .set_label("I don't think so")
             .add_to_container(),
-            ActionRowBuilder()
+            MessageActionRowBuilder()
             .add_button(hikari.ButtonStyle.PRIMARY, "aki_back")
             .set_label("◀ Back")
             .add_to_container()

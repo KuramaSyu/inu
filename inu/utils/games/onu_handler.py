@@ -5,11 +5,11 @@ import asyncio
 import hikari
 from hikari import Snowflakeish, Embed
 from hikari.events.message_events import MessageCreateEvent
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 from hikari.events.interaction_events import InteractionCreateEvent
 from hikari.interactions.base_interactions import ResponseType
 from hikari.interactions.component_interactions import ComponentInteraction
-from hikari.messages import ButtonStyle
+from hikari import ButtonStyle
 import lightbulb
 from lightbulb.context import Context
 
@@ -268,10 +268,10 @@ class HikariOnu(OnuHandler):
             embed.add_field("Info", info)
         return embed
 
-    def create_player_hand_component(self, hand: Hand) -> List[ActionRowBuilder]:
-        components: List[ActionRowBuilder] = []
+    def create_player_hand_component(self, hand: Hand) -> List[MessageActionRowBuilder]:
+        components: List[MessageActionRowBuilder] = []
         menu = (
-            ActionRowBuilder()
+            MessageActionRowBuilder()
             .add_select_menu("onu_card_menu")
             .add_option(f"Draw cards ({self.onu.cast_off.draw_calue})", "0").add_to_menu()
         )
@@ -285,7 +285,7 @@ class HikariOnu(OnuHandler):
 
             if CardFunctions.CHANGE_COLOR in card.functions:
                 btns = (
-                    ActionRowBuilder()
+                    MessageActionRowBuilder()
                     .add_button(ButtonStyle.SECONDARY, "green").set_emoji("🟢").add_to_container()
                     .add_button(ButtonStyle.SECONDARY, "red").set_emoji("🔴").add_to_container()
                     .add_button(ButtonStyle.SECONDARY, "blue").set_emoji("🔵").add_to_container()

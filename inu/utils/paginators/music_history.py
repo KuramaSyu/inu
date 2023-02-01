@@ -4,7 +4,7 @@ import logging
 
 
 import hikari
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import context
 
@@ -44,7 +44,7 @@ class MusicHistoryPaginator(Paginator):
         # add selection menu
         start = self._position * self.items_per_site
         menu = (
-            ActionRowBuilder()
+            MessageActionRowBuilder()
             .add_select_menu("history menu")
         )
         for x in range(self.items_per_site):

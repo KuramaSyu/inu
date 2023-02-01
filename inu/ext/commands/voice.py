@@ -9,8 +9,8 @@ import logging
 from datetime import datetime
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
-from hikari.messages import ButtonStyle
-from hikari.impl.special_endpoints import ActionRowBuilder, LinkButtonBuilder
+from hikari import ButtonStyle
+from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
 import lightbulb.utils as lightbulb_utils

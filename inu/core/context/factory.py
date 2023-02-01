@@ -46,8 +46,9 @@ def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, 
         elif isinstance(interaction, hikari.CommandInteraction):
             # command interactions from lightbulb are either deferred or responded
             # when auto_defer is True, then it's responded
+            # kwargs["deferred"] = True
             if not kwargs.get("responded"):
-                #kwargs["deferred"] = True
+                # kwargs["deferred"] = True
                 pass
             return CommandInteractionContext, kwargs  # lightbulb acknowledges them automatically
         else:

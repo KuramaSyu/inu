@@ -22,7 +22,7 @@ from cachetools import TTLCache, LRUCache
 import hikari
 from hikari import ButtonStyle, Embed
 from hikari import Snowflake, User, Member
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 from numpy import column_stack
 from asyncache import cached
 from cachetools import TTLCache
@@ -366,14 +366,14 @@ class Tag():
         return
 
     @property
-    def components(self) -> List[ActionRowBuilder] | None:
+    def components(self) -> List[MessageActionRowBuilder] | None:
         """
         Returns a list of components of the tag.
         """
         if not self.tag_link_infos:
             return None
         if len(self.tag_link_infos) < 6:
-            action_row = ActionRowBuilder()
+            action_row = MessageActionRowBuilder()
             for link in self.tag_link_infos:
                 (
                     action_row
@@ -382,7 +382,7 @@ class Tag():
                     .add_to_container()
                 )
         else:
-            action_row = ActionRowBuilder().add_select_menu(f"tag-link-menu")
+            action_row = MessageActionRowBuilder().add_select_menu(f"tag-link-menu")
             for link in self.tag_link_infos[:24]:
                 action_row = (
                     action_row
@@ -401,7 +401,7 @@ class Tag():
 
         c_ids = []
         if len(self.tag_link_infos) < 6:
-            action_row = ActionRowBuilder()
+            action_row = MessageActionRowBuilder()
             for link in self.tag_link_infos:
                 c_ids.append(f"tag://{link['tag_name']}.{link['scope']}")
         else:

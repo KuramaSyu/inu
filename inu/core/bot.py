@@ -17,7 +17,7 @@ import lightbulb
 from lightbulb import context, commands, when_mentioned_or
 import hikari
 from hikari.snowflakes import Snowflakeish
-from hikari.impl import ActionRowBuilder
+from hikari.impl import ModalActionRowBuilder
 from hikari import TextInputStyle
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -594,7 +594,7 @@ class Shortcuts:
         min_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
         pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
         is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
-        components: Optional[List[ActionRowBuilder]] = None,
+        components: Optional[List[ModalActionRowBuilder]] = None,
     ) -> Tuple[List[str], ModalInteraction, InteractionCreateEvent]:
         """
         Asks a question with a modal
@@ -657,7 +657,7 @@ class Shortcuts:
             components = []
             for i, question in enumerate(questions):
                 modal = (
-                    ActionRowBuilder()
+                    ModalActionRowBuilder()
                     .add_text_input(f"modal_answer-{i}", question)
                 )
 

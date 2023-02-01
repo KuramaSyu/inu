@@ -18,8 +18,8 @@ ssl._create_default_https_context = ssl._create_unverified_context
 
 import aiohttp
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
-from hikari.messages import ButtonStyle
-from hikari.impl.special_endpoints import ActionRowBuilder
+from hikari import ButtonStyle
+from hikari.impl.special_endpoints import MessageActionRowBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
 import lightbulb.utils as lightbulb_utils

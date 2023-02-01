@@ -10,7 +10,7 @@ import time
 import re
 
 import hikari
-from hikari.impl import ActionRowBuilder
+from hikari.impl import MessageActionRowBuilder
 from hikari.embeds import Embed
 import lightbulb
 from lightbulb.context import Context
@@ -458,7 +458,7 @@ class HikariReminder(BaseReminder):
             "3 days": 3*24*60*60, "5 days": 5*24*60*60, "1 week": 7*24*60*60,
             "2 weeks": 2*7*24*60*60, "1 month": 4*7*24*60*60,
         }
-        menu = ActionRowBuilder().add_select_menu("snooze_menu")
+        menu = MessageActionRowBuilder().add_select_menu("snooze_menu")
         for name, value in snooze_times.items():
             menu.add_option(f"snooze for {name}", str(value)).add_to_menu()
         menu = menu.add_to_container()

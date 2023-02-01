@@ -171,6 +171,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol):
                 proxy = self._responses[-1]
                 message = await proxy.edit(*args, **kwargs)
             else:
+                log.debug(f"{args=};{kwargs=}")
                 message = await self._interaction.execute(*args, **kwargs)
             proxy = ResponseProxy(
                 message,
@@ -473,7 +474,7 @@ class InteractionContext(_InteractionContext):
             await self.interaction.edit_initial_response(
                 **kwargs
             )
-        
+        self._deferred = False
         asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
@@ -519,6 +520,7 @@ class InteractionContext(_InteractionContext):
         log = getLogger(__name__, self.__class__.__name__)
         if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
+            args = args[1:]
         if self.is_valid and self._deferred:  # interaction defferd
             self.log.debug("wait for defer complete")
             await self._maybe_wait_defer_complete()
@@ -566,6 +568,7 @@ class CommandInteractionContext(InteractionContext):
             await self.interaction.edit_initial_response(
                 **kwargs
             )
+        self._deferred = False
     
         asyncio.create_task(self._cache_initial_response())
 
