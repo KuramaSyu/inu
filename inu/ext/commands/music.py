@@ -624,7 +624,7 @@ async def _join(ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
     assert ctx.guild_id is not None
 
     states = bot.cache.get_voice_states_view_for_guild(ctx.guild_id)
-    voice_state = [state async for state in states.iterator().filter(lambda i: i.user_id == ctx.author.id)]
+    voice_state = [state for state in states.values() if state.user_id == ctx.author.id]
 
     if not voice_state:
         raise BotResponseError("Connect to a voice channel first, please", ephemeral=True)
