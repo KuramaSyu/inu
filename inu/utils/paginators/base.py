@@ -818,7 +818,7 @@ class Paginator():
                 self.log.debug("re-enter pagination loop")
                 try:
                     events = [
-                        create_event(InteractionCreateEvent, self.interaction_pred),
+                        create_event(InteractionCreateEvent),  # , self.interaction_pred
                         create_event(GuildMessageCreateEvent, self.message_pred),
                         self._stop.wait()
                     ]
