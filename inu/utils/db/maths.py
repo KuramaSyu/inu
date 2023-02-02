@@ -17,7 +17,7 @@ class MathScoreManager:
         highscore: int,
     ) -> bool:
         """
-        ### inserts highscore if higher then previous
+        inserts highscore if higher then previous
 
         Returns:
         -------
@@ -57,9 +57,10 @@ class MathScoreManager:
 
         Returns:
         --------
-            - (`Dict[str, List[Dict[int, int]]]`) Mapping form stage to highscore list containing
-              Dict mapping from user_id to highscore
-              -> Dict[stage, ListSortedDown[Dict[user_id, highscore]]]
+        `Dict[str, List[Dict[int, int]]]` 
+            Mapping form stage to highscore list containing
+            Dict mapping from user_id to highscore
+            -> `Dict[stage, ListDesc[Dict[user_id, highscore]]]`
         """
         table = Table("math_scores")
         if type_ == "user":
