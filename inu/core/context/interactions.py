@@ -574,7 +574,6 @@ class CommandInteractionContext(InteractionContext):
     async def initial_response_create(self, **kwargs):
         """Create initial response initially or deffered"""
         self._responded = True
-        #self._deferred = False
         if self._deferred:
             await self.interaction.create_initial_response(
                 response_type=ResponseType.MESSAGE_CREATE, 
