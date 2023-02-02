@@ -172,7 +172,7 @@ async def anime_on_error(e: lightbulb.CommandErrorEvent):
         f"Seems like you haven't typed in something anime like.",
         flags=hikari.MessageFlag.EPHEMERAL
     )
-    # return True
+    return True
 
 
 
