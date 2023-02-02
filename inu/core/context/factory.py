@@ -26,6 +26,8 @@ def get_context(
     InuContextProtocol :
         - RESTContext when event is MessageCreateEvent
         - InteractionContext when event is InteractionCreateEvent
+    **kwargs : Any
+        these kwargs will be passed into InuContext.set() to specify a class
     """
 
     ctx_cls, custom_attrs = builder(event, **kwargs)
@@ -37,6 +39,9 @@ def from_context():
     ...
 
 def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
+    """
+    returns the coresponding class to an event
+    """
     if isinstance(event, hikari.MessageCreateEvent):
         return RESTContext, kwargs
     if isinstance(event, hikari.InteractionCreateEvent):
