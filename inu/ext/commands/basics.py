@@ -164,58 +164,6 @@ async def ping(ctx: context.Context):
         embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
     await msg.edit(embed=embed)
 
-# @basics.command 
-# @lightbulb.add_checks(lightbulb.owner_only)
-# @lightbulb.command("test", "get information to the current status of the bot")
-# @lightbulb.implements(commands.SlashCommandGroup)
-# async def test(ctx: context.Context):
-#     log.debug(ctx._deferred)
-#     # await asyncio.sleep(6)
-#     # await ctx.respond("test")
-
-# @test.child 
-# @lightbulb.add_checks(lightbulb.owner_only)
-# @lightbulb.command("instant", "get information to the current status of the bot")
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashSubCommand)
-# async def test_1(ctx: context.Context):
-#     log.debug(ctx._deferred)
-#     ctx = get_context(ctx.event)
-#     #await ctx.defer()
-#     await ctx.respond("no auto defer and no manual defer")
-#     await ctx.respond("2 no auto defer and no manual defer")
-
-# @test.child 
-# @lightbulb.add_checks(lightbulb.owner_only)
-# @lightbulb.command("deferred-instant", "-")
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashSubCommand)
-# async def test_2(ctx: context.Context):
-#     log.debug(ctx._deferred)
-#     ctx = get_context(ctx.event)
-#     await ctx.defer()
-#     await asyncio.sleep(6)
-#     # await ctx.respond(hikari.ResponseType.DEFERRED_MESSAGE_CREATE)
-#     await ctx.respond("no auto defer but manual defer")
-#     await ctx.respond("2 no auto defer but manual defer")
-
-
-# @test.child 
-# @lightbulb.add_checks(lightbulb.owner_only)
-# @lightbulb.command("auto-defer-instant", "-", auto_defer=True)
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashSubCommand)
-# async def test_3(ctx: context.Context):
-#     log.debug(ctx._deferred)
-#     ctx = get_context(ctx.event, deferred=True)
-#     await ctx.respond("auto defer but no manual defer")
-#     await ctx.respond("2 auto defer but no manual defer")
-# @test.child 
-# @lightbulb.add_checks(lightbulb.owner_only)
-# @lightbulb.command("auto-defer-deferred", "-", auto_defer=True)
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashSubCommand)
-# async def test_4(ctx: context.Context):
-#     log.debug(ctx._deferred)
-#     await asyncio.sleep(6)
-#     await ctx.respond("auto defer")
-#     await ctx.respond("2 auto defer")
 
 @basics.command 
 @lightbulb.add_checks(lightbulb.owner_only)
