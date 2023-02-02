@@ -324,6 +324,20 @@ class BoardManager:
         reacter_id: int,
         emoji: str,
     ):
+        """
+        Adds a reaction
+
+        Args:
+        -----
+        guild_id : `int`
+            the guild_id of the message
+        message_id : `int`
+            the message_id of the reaction
+        reacter_id : `int`
+            the id of the person who added the reaction
+        emoji : `str`
+            the emoji which was added to the message
+        """
         table = Table("board.reactions")
         await table.insert(
             which_columns=["message_id", "reacter_id", "emoji"],
