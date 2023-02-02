@@ -46,6 +46,7 @@ class PollManager:
         
     @classmethod
     async def delete_old_polls(cls):
+        """delete polls older than `datetime.now()`"""
         sql = (
             "DELETE FROM polls "
             "WHERE expires < $1"
@@ -59,6 +60,19 @@ class PollManager:
 
     @classmethod
     async def fetch_poll(cls, message_id: int) -> Optional[Mapping[str, Any]]:
+        """
+        fetch a poll be message_id
+
+        Args:
+        -----
+        message_id : `int`
+            the message id of the poll
+        
+        Returns:
+        --------
+        `Mapping[str, Any] | None`
+            the record or None if not found
+        """
         sql = (
             "SELECT * FROM polls "
             "WHERE message_id = $1"
@@ -69,7 +83,22 @@ class PollManager:
             return None
 
     @classmethod
-    async def fetch_option_id(cls, poll_id: int, reaction_str: str):
+    async def fetch_option_id(cls, poll_id: int, reaction_str: str) -> int | None:
+        """
+        fetch an option id by poll_id and the options reaction
+        
+        Args:
+        ----
+        poll_id : `int`
+            id of the poll where option is in
+        reaction_str : `str`
+            the reaction binded to the option
+
+        Returns:
+        --------
+        `int | None`
+            the poll id or None
+        """
         sql = (
             "SELECT option_id FROM poll_options\n "
             "WHERE poll_id = $1 AND reaction = $2"
