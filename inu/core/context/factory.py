@@ -5,7 +5,7 @@ import lightbulb
 from lightbulb.context import *
 
 from .protocols import InuContext, InuContextProtocol
-from .interactions import InteractionContext, CommandInteractionContext
+from .interactions import InteractionContext, CommandInteractionContext, MessageInteractionContext, ModalInteractionContext
 from .rest import RESTContext
 
 ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
@@ -38,18 +38,14 @@ def from_context():
 
 def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
     if isinstance(event, hikari.MessageCreateEvent):
-        return RESTContext, {}
+        return RESTContext, kwargs
     if isinstance(event, hikari.InteractionCreateEvent):
         interaction = event.interaction
         if isinstance(interaction, hikari.ComponentInteraction):
-            return InteractionContext, {}
+            return InteractionContext, kwargs
+        elif isinstance(interaction, hikari.ModalInteraction):
+            return ModalInteractionContext, kwargs
         elif isinstance(interaction, hikari.CommandInteraction):
-            # command interactions from lightbulb are either deferred or responded
-            # when auto_defer is True, then it's responded
-            # kwargs["deferred"] = True
-            if not kwargs.get("responded"):
-                # kwargs["deferred"] = True
-                pass
             return CommandInteractionContext, kwargs  # lightbulb acknowledges them automatically
         else:
             raise TypeError(
