@@ -588,16 +588,13 @@ class CommandInteractionContext(InteractionContext):
     
         asyncio.create_task(self._cache_initial_response())
 
-    # async def _ack_interaction(self):
-    #     """
-    #     Acknowledges the interaction with deferred update or deferred create,
-    #     if not already done
-    #     """
-    #     self._defer_in_progress_event.clear()
-    #     await self.i.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
-    #     self.log.debug(f"{self.__class__.__name__} ack for deferred create done")
-    #     self._defer_in_progress_event.set()
-    #     self._responded = True
+
+
+class MessageInteractionContext(InteractionContext):
+    ...
+
+class ModalInteractionContext(InteractionContext):
+    ...
         
 
             
