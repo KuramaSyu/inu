@@ -1,9 +1,9 @@
-FROM ubuntu:20.04
+
+
+FROM archlinux:latest
 FROM python:3.10.4
-RUN apt update
-RUN apt upgrade -y
-RUN apt-get install -y rustc sudo
-RUN apt-get install -y qalc
+RUN pacman -Syu
+RUN pacman -S qalc rustc
 RUN useradd -ms /bin/bash inu
 RUN usermod -aG sudo inu
 WORKDIR /home/inu
