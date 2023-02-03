@@ -32,6 +32,16 @@ class InuContext(ABC):
     def user(self) -> hikari.User:
         ...
 
+    @property
+    @abstractmethod
+    def author(self) -> hikari.User:
+        ...
+
+    @property
+    @abstractmethod
+    def channel_id(self) -> int:
+        ...
+
     @abstractmethod
     async def respond(self, *args, **kwargs):
         """
