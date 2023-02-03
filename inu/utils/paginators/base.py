@@ -302,6 +302,7 @@ class Paginator():
         self.count = count
         self._stop: asyncio.Event = asyncio.Event()
         self._pages: Union[List[Embed], List[str]] = page_s
+
         self._component: Optional[MessageActionRowBuilder] = None
         self._components: Optional[List[MessageActionRowBuilder]] = None
         self._disable_components = disable_components
@@ -320,8 +321,11 @@ class Paginator():
         self._first_message_kwargs = first_message_kwargs or {}
         self._additional_components = additional_components or []
         self._custom_id_type = custom_id_type
+
         self.bot: lightbulb.BotApp
         self._ctx: InteractionContext | None = None
+        self._channel_id: int | None = None
+        self._author_id: int | None = None
 
         
         self.listener = EventListener(self)
@@ -352,43 +356,57 @@ class Paginator():
                 copy_obj.name = name
                 copy_obj.paginator = self
                 self.listener.subscribe(copy_obj, copy_obj.event)
+    @staticmethod
+    def raise_or_return(attr: Any, attr_name: str):
+        """raises if <`attr`> is None. Returnes otherwise"""
+        if attr is None:
+            raise TypeError(f"`{attr_name}` is None")
+        return attr
+
     @property
-    def interaction(self) -> hikari.ComponentInteraction | None:
-        return self._interaction
+    def channel_id(self) -> int:
+        return self.raise_or_return(self._channel_id, "self._channel_id")
+
+    @property
+    def author_id(self) -> int:
+        return self.raise_or_return(self._author_id, "self._author_id")
+
+    # @property
+    # def interaction(self) -> hikari.ComponentInteraction | None:
+    #     return self._interaction
 
     @property
     def ctx(self) -> InuContext:
         #assert (isinstance(self._ctx, InuContext) or isinstance(self._ctx, lightbulb.Context))
-        assert self._ctx is not None
-        return self._ctx
+        return self.raise_or_return(self._ctx, "self._ctx")
     
     @ctx.setter
     def ctx(self, ctx: InuContext) -> None:
         #assert (isinstance(self._ctx, InuContext) or isinstance(self._ctx, lightbulb.Context))
         self._ctx = ctx
 
-    @interaction.setter
-    def interaction(self, value) -> None:
-        self.log.debug(f"set interaction")
-        self._interaction = value
-        self.responded = None
+    # @interaction.setter
+    # def interaction(self, value) -> None:
+    #     self.log.debug(f"set interaction")
+    #     self._interaction = value
+    #     self.responded = None
     
     @property
     def custom_id_prefix(self) -> str:
         """The prefix which should be added before every custom_id"""
         return self._custom_id_prefix
 
-    @property
-    def responded(self) -> bool:
-        return self._interaction_response_status is not None
+    # @property
+    # def responded(self) -> bool:
+    #     return self._interaction_response_status is not None
 
-    @responded.setter
-    def responded(self, value) -> None:
-        self.log.debug(f"update responsed to: {value} from {self._interaction_response_status}")
-        self._interaction_response_status = value
+    # @responded.setter
+    # def responded(self, value) -> None:
+    #     self.log.debug(f"update responsed to: {value} from {self._interaction_response_status}")
+    #     self._interaction_response_status = value
 
-    def defered_responded(self) -> bool:
-        return self._interaction_response_status in [hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, hikari.ResponseType.DEFERRED_MESSAGE_CREATE]
+    # def defered_responded(self) -> bool:
+    #     return self._interaction_response_status in [hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, hikari.ResponseType.DEFERRED_MESSAGE_CREATE]
     @property
     def pages(self):
         return self._pages
@@ -436,15 +454,15 @@ class Paginator():
             self.log.debug("False interaction pred")
             return False
         return (
-            i.user.id == self.ctx.author.id
+            i.user.id == self.author_id
             and i.message.id == self._message.id
         )
 
     def message_pred(self, event: MessageCreateEvent):
         msg = event.message
         return (
-            msg.channel_id == self.ctx.channel_id
-            and self.ctx.author.id == msg.author.id
+            msg.channel_id == self.channel_id
+            and self.author_id == msg.author.id
         )
 
     def _button_factory(
@@ -736,11 +754,16 @@ class Paginator():
             - (hikari.Message) the message, which was used by the paginator
         """
         if not isinstance(ctx, InuContext):
+            self.log.debug("get context")
             self.ctx = get_context(ctx.event)
         else:
+            self.log.debug("set context form given")
             self.ctx = ctx
-        self.ctx._responded = ctx._responded
-        self.bot = ctx.bot
+        self._ctx._responded = ctx._responded
+        log.debug(f"{type(self.ctx)}")
+        self.bot = self.ctx.bot
+        self._author_id = self.ctx.author.id
+        self._channel_id = self.ctx.channel_id
 
         if len(self.pages) < 1:
             raise RuntimeError("<pages> must have minimum 1 item")
@@ -851,8 +874,10 @@ class Paginator():
             self.log.error(traceback.format_exc())
             
     async def dispatch_event(self, event: Event):
-        if isinstance(event, InteractionCreateEvent) and self.interaction_pred(event):
-            self.interaction = event.interaction
+        if isinstance(event, InteractionCreateEvent):
+            if not self.interaction_pred(event):
+                await self.ctx.respond("Doesn't really looks like your menu, don't you think?", ephemeral=True)
+                return
             await self.paginate(id=event.interaction.custom_id or None)
         await self.listener.notify(event)
 
@@ -877,7 +902,6 @@ class Paginator():
             self._position -= 1
         elif id == "stop":
             await self.delete_presence()
-            # await self.stop()
         elif id == "next":
             if self._position == (len(self.pages)-1):
                 return
@@ -907,7 +931,7 @@ class Paginator():
             message = await self.bot.wait_for(
                 MessageCreateEvent,
                 90,
-                lambda e: e.author_id == self.ctx.author.id and e.channel_id == self.ctx.channel_id
+                lambda e: e.author_id == self.author.id and e.channel_id == self.ctx.channel_id
             )
             query = str(message.content)
         except:
@@ -1101,6 +1125,8 @@ class StatelessPaginator(Paginator, ABC):
         # ctx could have been already set in a overridden subclass
         if not self._ctx:
             self.set_context(ctx)
+        self._author_id = self.ctx.author.id
+        self._channel_id = self.ctx.channel_id
         self.bot = self.ctx.bot
         return await super().start(ctx)
 
@@ -1193,7 +1219,6 @@ class StatelessPaginator(Paginator, ABC):
         - id needs to be passed differently to paginate
         """
         if isinstance(event, InteractionCreateEvent) and self.interaction_pred(event):
-            self.interaction = event.interaction
             await self.paginate(id=self.custom_id.custom_id)
         await self.listener.notify(event)
 
@@ -1275,15 +1300,16 @@ class StatelessPaginator(Paginator, ABC):
         self.custom_id = custom_id
         return self
 
-    def check_user(self) -> None:
+    async def check_user(self) -> None:
         """
         Raises:
         -------
-        BotResponseError :
+        AssertionError :
             when the user from the custom_id not matches with the one from the current context
         """
         if not self.custom_id.is_same_user(self.ctx.interaction):
-            raise BotResponseError("REJECTED - you are not really the ower of this", ephemeral=True)
+            await self.ctx.respond("REJECTED - you are not really the ower of this", ephemeral=True)
+            raise AssertionError("custom id user is not the same as interaction author")
 
     @abstractmethod
     async def _rebuild(self, **kwargs):
@@ -1291,6 +1317,8 @@ class StatelessPaginator(Paginator, ABC):
 
     async def rebuild(self, event: hikari.Event, **kwargs) -> None:
         """
+        this method is called for restarting stateless pags
+
         Args:
         ----
         event : hikari.Event
@@ -1300,10 +1328,14 @@ class StatelessPaginator(Paginator, ABC):
         assert self._ctx is not None
         assert self.custom_id is not None
         assert self.custom_id_type is not None
-        self.check_user()
+        await self.check_user()
+        log.debug("set attrs")
+        self._channel_id = self.ctx.channel_id
+        self._author_id = self.custom_id.author_id
         self._message = self.ctx.original_message
         self._position = self.custom_id.page
         self.bot = self.ctx.bot
+        log.debug("post start")
         await self.post_start(events=[event])
 
     
