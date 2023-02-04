@@ -242,6 +242,10 @@ class Human():
 
         r: List[Any] = []
         for i, c in enumerate(str(dollars)[::-1]):
+            try:
+                int(c)
+            except:
+                i -= 1
             if i and (not (i % 3)):
                 r.insert(0, SEPERATOR)
             r.insert(0, c)
