@@ -45,7 +45,7 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     await ctx.respond(
         components=[
             MessageActionRowBuilder()
-            .add_button(hikari.ButtonStyle.PRIMARY, ctx.interaction.custom_id)
+            .add_button(hikari.ButtonStyle.PRIMARY, "connect4-activated-restart")
             .set_emoji("🔁").add_to_container()
         ],
         update=True
