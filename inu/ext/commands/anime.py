@@ -157,22 +157,31 @@ plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 @plugin.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.option("name", "the name of the Anime", type=str, modifier=OM.CONSUME_REST)
-@lightbulb.command("anime", "get information of an Anime by name", auto_defer=True)
+@lightbulb.command("anime", "get information of an Anime by name")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def fetch_anime(ctx: context.Context):
+async def fetch_anime(_ctx: context.Context):
     pag = AnimePaginator()
 
     log = getLogger(__name__, "fetch_anime")
     log.debug(traceback.format_exc())
-    await pag.start(get_context(ctx.event, responded=True), ctx.options.name)
+    ctx = get_context(_ctx.event)
+    await ctx.defer()
+    try:
+        await pag.start(ctx, _ctx.options.name)
+    except Exception:
+        await ctx.respond(
+            f"Seems like you haven't typed in something anime like.",
+            ephemeral=True
+        )
 
-@fetch_anime.set_error_handler()
-async def anime_on_error(e: lightbulb.CommandErrorEvent):
-    await e.context.respond(
-        f"Seems like you haven't typed in something anime like.",
-        flags=hikari.MessageFlag.EPHEMERAL
-    )
-    return True
+
+# @fetch_anime.set_error_handler()
+# async def anime_on_error(e: lightbulb.CommandErrorEvent):
+#     await e.context.respond(
+#         f"Seems like you haven't typed in something anime like.",
+#         flags=hikari.MessageFlag.EPHEMERAL
+#     )
+#     return True
 
 
 
