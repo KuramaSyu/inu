@@ -125,25 +125,26 @@ class NumericStringParser(object):
         return val
 
 
-async def calc(calculation: str) -> str:
+async def calc(calculation: str, base: str | None) -> str:
 
     if calculation.startswith("="):
         calculation = calculation[1:]
+    result = await Bash.qalc(calculation, base=base)
 
-    if os.name == 'nt':
-        text = (
-            calculation
-            .lower()
-            .replace("x", "*")
-            .replace(" ", "")
-            .replace(":", "/")
-            .replace(",", ".")
-        )
-        result = Human.number(str(NumericStringParser().eval(text)))
+    # if os.name == 'nt':
+    #     text = (
+    #         calculation
+    #         .lower()
+    #         .replace("x", "*")
+    #         .replace(" ", "")
+    #         .replace(":", "/")
+    #         .replace(",", ".")
+    #     )
+    #     result = Human.number(str(NumericStringParser().eval(text)))
 
-        #return result[:-2] if result.endswith(".0") else result #and not "," in result
-    else:
-        result = await Bash.qalc(calculation)
+    #     #return result[:-2] if result.endswith(".0") else result #and not "," in result
+    # else:
+        
     # simplified_result = ""
     # for i in result:
     #     if i in "1234567890.-+=x":
@@ -157,5 +158,7 @@ async def calc(calculation: str) -> str:
     # if result.endswith("...") and " " in result:
     #     result = result.replace("...", ")...")
     #     result = result.replace(" ", "(")
-    return re.sub(r'[+-]?([0-9]+([.][0-9]*)?([ ]\d+)?|[.][0-9]+)', replace_number, result)
+    if base in [None, "dec", "10"]:
+        return re.sub(r'[+-]?([0-9]+([.][0-9]*)?([ ]\d+)?|[.][0-9]+)', replace_number, result)
+    return result
     #return simplified_result
