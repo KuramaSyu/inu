@@ -392,6 +392,8 @@ class Connect4Handler(Paginator):
         rows = []
         emoji_rows: List[OrderedDict] = []
         row_index = 5  # to add ordered dict at start of iteration
+
+        # add OrderedDict to emoji_row lists - max 4 dicts per list
         for index, emoji in enumerate(self.orientation_number):
             if index > self.game.board.rows:
                 break
@@ -402,8 +404,7 @@ class Connect4Handler(Paginator):
             row_index += 1
         while len(emoji_rows) < 2:
             emoji_rows.append(OrderedDict())
-        # emoji_rows[0]["🔁"] = "restart"
-        emoji_rows[0]["🏳"] = "surrender"
+        emoji_rows[-1]["🏳"] = "surrender"
         for d in emoji_rows:
             row = MessageActionRowBuilder()
             for emoji, custom_id in d.items():
