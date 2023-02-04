@@ -1,9 +1,14 @@
-
-
-FROM archlinux:latest
+FROM ubuntu:lunar
 FROM python:3.10.4
-RUN pacman -Syu
-RUN pacman -S qalc rustc
+RUN apt update
+RUN apt upgrade -y
+RUN apt-get install -y rustc sudo
+
+# manually install qalc since it is used by inu
+RUN wget https://github.com/Qalculate/qalculate-gtk/releases/download/v4.5.1/qalculate-4.5.1-x86_64.tar.xz
+RUN tar -xf qalculate-4.5.1-x86_64.tar.xz
+RUN cp qalculate-4.5.1/qalc /usr/bin/qalc
+
 RUN useradd -ms /bin/bash inu
 RUN usermod -aG sudo inu
 WORKDIR /home/inu
