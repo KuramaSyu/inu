@@ -1335,7 +1335,10 @@ class StatelessPaginator(Paginator, ABC):
         assert self._ctx is not None
         assert self.custom_id is not None
         assert self.custom_id_type is not None
-        await self.check_user()
+        try:
+            await self.check_user()
+        except AssertionError:
+            return
         log.debug("set attrs")
         self._channel_id = self.ctx.channel_id
         self._author_id = self.custom_id.author_id
