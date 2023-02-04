@@ -15,9 +15,7 @@ def get_guild_or_channel_id(interaction: hikari.ComponentInteraction) -> int:
     """
     Returns the guild_id if not None, otherwise the (DM) channel_id 
     """
-    if isinstance(interaction.user, hikari.Member):
-        return interaction.user.guild_id
-    return interaction.channel_id
+    return interaction.guild_id or interaction.channel_id
 
 def guild_name_or_id(guild_id: int, bot: hikari.CacheAware) -> str:
     """
