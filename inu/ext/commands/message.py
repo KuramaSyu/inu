@@ -21,7 +21,7 @@ from lightbulb import commands
 import re
 
 
-from core import getLogger
+from core import getLogger, Inu, get_context, Bash, InuContext
 from utils import Human, calc
 
 log = getLogger(__name__)
@@ -30,42 +30,95 @@ log = getLogger(__name__)
 plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
 
 # storing the last answers of users, that it can be used later
-last_ans = {}
+last_ans: Dict[int, int] = {}
 
 @plugin.listener(hikari.MessageCreateEvent)
 async def on_message_create(event: hikari.MessageCreateEvent):
-    await on_message(event.message)
+    await on_message(event)
     
 @plugin.listener(hikari.MessageUpdateEvent)
 async def on_message_update(event: hikari.MessageUpdateEvent):
-    await on_message(event.message)
+    await on_message(event)
 
-async def on_message(message: hikari.PartialMessage):
+async def on_message(event: hikari.MessageCreateEvent | hikari.MessageUpdateEvent):
+    message = event.message
     text = str(message.content).lower()
     if "artur ist dumm" in str(message.content).lower():
         return await artur_ist_dumm(message)
     elif "arthur ist dumm" in str(message.content).lower():
         return await message.respond("Artur wird ohne h geschrieben")
     elif text.startswith("="):
-        return await calc_msg(message)
+        base = None
+        content = str(event.message.content)
+        log.debug(content)
+        try:
+            # extract base 
+            base = re.findall(r"-(?:b|base)(?:[ ])?(\d|bin|dec|oct|hex)[ ]", content)[0]
+            # remove base option from calculation
+            content = re.sub(r"(-(?:b|base)(?:[ ])?(?:\d|bin|dec|oct|hex)[ ])", "", content, count=1)
+        except (IndexError, TypeError):
+            pass
+        return await calc_msg(get_context(event), content, base)
 
 async def artur_ist_dumm(message: hikari.PartialMessage):
     with open("inu//data/other/users/ar_is_stupid.txt", "r", encoding="utf-8") as file_:
         txt = file_.read()
         await message.respond(f"Ich weiß\n{txt}")
 
-async def calc_msg(message: hikari.PartialMessage):
-    if not message.content.startswith("="):
-        return
-    try:
-        query = message.content
-        if (last_answer := last_ans.get(message.author.id)):
+@plugin.command
+@lightbulb.option("calculation", "e.g. 1+1; 2x + 10 = 40; ...")
+@lightbulb.option("base", "base of the number e.g. bin or 2, oct or 8, hex or 16 etc.", default=None)
+@lightbulb.command("calculate", "advanced calculator")
+@lightbulb.implements(commands.SlashCommand)
+async def qalc(ctx: Context):
+    await calc_msg(
+        ctx=get_context(ctx.event), 
+        calculation=ctx.options["calculation"], 
+        base=ctx.options["base"]
+    )
+    
+
+
+async def calc_msg(ctx: InuContext, calculation: str, base: str | None = None):
+    author_id: int = ctx.author.id
+    calculation = replace_vars(
+        calculation=remove_eqauls_sign(calculation),
+        author_id=author_id,
+    ) 
+    result = await calc(calculation, base=base)
+        # add result to last_ans
+    set_answer(
+        result=result,
+        author_id=author_id,
+    )
+    await send_result(ctx, result, calculation, base=base)
+
+
+def remove_eqauls_sign(calculation: str) -> str:
+    if calculation.startswith("="):
+        calculation = calculation[1:]
+    return calculation
+
+def replace_vars(calculation: str, author_id: int) -> str:
+        query = calculation
+        if (last_answer := last_ans.get(author_id)):
             query = query.replace("ans", str(last_answer))
         else:
             query = query.replace("ans", "0")
-            
-        result = await calc(query)
-        # add result to last_ans
+        return query
+
+async def send_result(ctx: InuContext, result: str, calculation: str, base: str | None):
+    if len(result) > 100:
+        embed = hikari.Embed(description=result)
+
+    else:
+        embed = hikari.Embed(title=result, description=f"```py\n{(calculation).strip()}```")
+    if base:
+        embed.set_footer(f"result with base {base}")
+    await ctx.respond(embed=embed)
+
+def set_answer(result: str, author_id) -> None:
+    try:
         if (ans := re.findall("(\d+(?:\.\d+)?)", result.replace("'", ""))[0]):
             if result.strip().endswith("…"):  # result is periodic
                 try:
@@ -74,18 +127,9 @@ async def calc_msg(message: hikari.PartialMessage):
                     ans += str(periodic_part) * 20 
                 except:
                     pass
-            last_ans[message.author.id] = ans
-        if len(result) > 100:
-            await message.respond(
-                hikari.Embed(description=result)
-            )
-        else:
-            await message.respond(
-                hikari.Embed(title=result, description=f"```py\n{(message.content[1:]).strip()}```"),
-            )
+            last_ans[author_id] = ans
     except:
-        log.debug(traceback.format_exc())
-        
+        pass
 
 def load(bot: lightbulb.BotApp):
     bot.add_plugin(plugin)
