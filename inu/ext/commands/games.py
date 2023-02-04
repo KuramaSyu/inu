@@ -4,6 +4,7 @@ import asyncio
 import json
 
 import hikari
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 import lightbulb.context as context
 from lightbulb import commands
@@ -40,7 +41,16 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     except:
         return
     handler = Connect4Handler(p1, p2, rows=rows, columns=columns)
-    await handler.start(ctx=get_context(event))
+    ctx = get_context(event)
+    await ctx.respond(
+        components=[
+            MessageActionRowBuilder()
+            .add_button(hikari.ButtonStyle.PRIMARY, ctx.interaction.custom_id)
+            .set_emoji("🔁").add_to_container()
+        ],
+        update=True
+    )
+    await handler.start(ctx)
 
     
 async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
