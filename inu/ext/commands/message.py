@@ -80,6 +80,7 @@ async def qalc(ctx: Context):
 
 
 async def calc_msg(ctx: InuContext, calculation: str, base: str | None = None):
+    """base method for editing the calculation, calculating it, setting it as `last_ans` and finally sending it"""
     author_id: int = ctx.author.id
     calculation = replace_vars(
         calculation=remove_eqauls_sign(calculation),
@@ -95,19 +96,22 @@ async def calc_msg(ctx: InuContext, calculation: str, base: str | None = None):
 
 
 def remove_eqauls_sign(calculation: str) -> str:
+    """removes the equals sign at the beginning of the calculation, if there is one"""
     if calculation.startswith("="):
         calculation = calculation[1:]
     return calculation
 
 def replace_vars(calculation: str, author_id: int) -> str:
-        query = calculation
-        if (last_answer := last_ans.get(author_id)):
-            query = query.replace("ans", str(last_answer))
-        else:
-            query = query.replace("ans", "0")
-        return query
+    """replaces the `ans` word with the last answer of that user, taken from `last_ans[author_id]` """
+    query = calculation
+    if (last_answer := last_ans.get(author_id)):
+        query = query.replace("ans", str(last_answer))
+    else:
+        query = query.replace("ans", "0")
+    return query
 
 async def send_result(ctx: InuContext, result: str, calculation: str, base: str | None):
+    """sends the message with the result"""
     if len(result) > 100:
         embed = hikari.Embed(description=result)
 
@@ -118,6 +122,9 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
     await ctx.respond(embed=embed)
 
 def set_answer(result: str, author_id) -> None:
+    """
+    Try to extract number from qalc answer and set it to `last_ans[author_id]`
+    """
     try:
         if (ans := re.findall("(\d+(?:\.\d+)?)", result.replace("'", ""))[0]):
             if result.strip().endswith("…"):  # result is periodic
@@ -125,10 +132,10 @@ def set_answer(result: str, author_id) -> None:
                     periodic_part = re.findall("\d+\.(\d+)…", result)[0]  # caputre the periodic part -> "1.333…" matches 333
                     # add periodic part 20 times
                     ans += str(periodic_part) * 20 
-                except:
+                except Exception:
                     pass
             last_ans[author_id] = ans
-    except:
+    except Exception:
         pass
 
 def load(bot: lightbulb.BotApp):
