@@ -882,7 +882,7 @@ class Paginator():
         if isinstance(event, InteractionCreateEvent):
             if self.wrong_button_click(event):
                 log.debug(self._message.id)
-                await self.ctx.respond("Doesn't really looks like your menu, don't you think?", ephemeral=True)
+                await self.ctx.respond("Doesn't really look like your menu, don't you think?", ephemeral=True)
                 return
             if self.interaction_pred(event):
                 await self.paginate(id=event.interaction.custom_id or None)
