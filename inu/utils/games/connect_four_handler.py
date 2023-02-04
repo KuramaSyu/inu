@@ -461,14 +461,8 @@ class Connect4Handler(Paginator):
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         # predicate
-        # if (
-        #     not isinstance(event.interaction, hikari.ComponentInteraction)
-        #     or not event.interaction.custom_id.startswith("connect4")
-        #     or not (event.interaction.user.id in [self.game.player1.user.id, self.game.player2.user.id])
-        #     or not event.interaction.message.id == self._message.id
-        # ):
-        #     log.debug("predicate not matched")
-        #     return
+        if not self.interaction_pred(event):
+            return
         message = self._message
         log.debug(f"executing on interaction with pag id: {self.count} | msg id: {message.id}")
         custom_id = event.interaction.custom_id.replace("connect4_", "", 1)
