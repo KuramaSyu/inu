@@ -890,7 +890,8 @@ class Paginator():
                 log.debug(self._message.id)
                 await self.ctx.respond("Doesn't really looks like your menu, don't you think?", ephemeral=True)
                 return
-            await self.paginate(id=event.interaction.custom_id or None)
+            if self.interaction_pred(event):
+                await self.paginate(id=event.interaction.custom_id or None)
         await self.listener.notify(event)
 
     async def paginate(self, id: str):
