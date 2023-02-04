@@ -594,32 +594,26 @@ class TagManager():
             - either `<key>` or `<tag_id>` is needed
             - 0 for guild_id is equivilant with `global` tag
         """
+        table = Table("tags")
         sql = f"""
             SELECT * FROM tags
-            WHERE (tag_key = $1 OR $1 = ANY(aliases) OR $4 = tag_id) 
-            AND (
-                    ($2::BIGINT = ANY(guild_ids) 
-                    OR 0 = ANY(guild_ids)) 
-                    OR $3 = ANY(author_ids)
-                )
+            WHERE
+                ( 
+                    tag_key = $1 
+                    OR $1 = ANY(aliases) 
+                    OR $4::INT = tag_id
+                ) 
+                AND 
+                ( 
+                    $2::BIGINT = ANY(guild_ids) 
+                    OR 0 = ANY(guild_ids)
+                    OR $3::BIGINT = ANY(author_ids)
+                ) 
             """
         if key is None and tag_id == -1:
             raise RuntimeError("neither `<tag_id>` nor `<key>` where passed into the function")
-        records: Optional[List[Mapping[str, Any]]] = await cls.db.fetch(sql, key, guild_id, author_id, tag_id)
+        records: Optional[List[Mapping[str, Any]]] = await table.fetch(sql, key, guild_id, author_id, tag_id)
         return records or []
-        # if not records:
-        #     return []
-        # if not only_accessable:
-        #     return records
-        # filtered_records = []
-        # for record in records:
-        #     if (
-        #         guild_id in record["guild_ids"]
-        #         or None in record["guild_ids"]
-        #     ):
-        #         filtered_records.append(record)
-        # return filtered_records
-
 
     @classmethod
     async def sync_record(
