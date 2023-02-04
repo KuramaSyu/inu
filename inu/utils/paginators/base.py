@@ -458,6 +458,16 @@ class Paginator():
             and i.message.id == self._message.id
         )
 
+    def wrong_button_click(self, event: InteractionCreateEvent):
+        """checks if a user without permission clicked a button of this paginator"""
+        if not isinstance((i := event.interaction), ComponentInteraction):
+            self.log.debug("False interaction pred")
+            return False
+        return (
+            i.user.id != self.author_id
+            and i.message.id == self._message.id
+        )
+
     def message_pred(self, event: MessageCreateEvent):
         msg = event.message
         return (
@@ -808,6 +818,7 @@ class Paginator():
             return self._message
         self._position = 0
         self.log.debug("Starting pagination")
+        self.log.debug(f"{self._message=}")
         await self.post_start(events=events)
         return self._message
 
@@ -875,7 +886,8 @@ class Paginator():
             
     async def dispatch_event(self, event: Event):
         if isinstance(event, InteractionCreateEvent):
-            if not self.interaction_pred(event):
+            if self.wrong_button_click(event):
+                log.debug(self._message.id)
                 await self.ctx.respond("Doesn't really looks like your menu, don't you think?", ephemeral=True)
                 return
             await self.paginate(id=event.interaction.custom_id or None)
