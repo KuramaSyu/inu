@@ -29,7 +29,7 @@ class Bash:
         return stdout.decode("utf-8"), stderr.decode("utf-8")
 
     @classmethod
-    async def qalc(cls, query: str, terse: bool = True) -> str:
+    async def qalc(cls, query: str, terse: bool = True, base: str | None = None) -> str:
         """
         tries to calculate a query
 
@@ -50,9 +50,12 @@ class Bash:
         """
         args = ["qalc"]
         #args.append(f"--base={base}")
+        if base:
+            args.append(f"-base")
+            args.append(base)
         if terse:
             args.append("-t")
-        args.append(query)
+        args.append(f"'{query}'")
         out, err = await cls.execute(args) # "-t",
         if err:
             raise ValueError(err)
