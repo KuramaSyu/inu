@@ -460,13 +460,7 @@ class Paginator():
 
     def wrong_button_click(self, event: InteractionCreateEvent):
         """checks if a user without permission clicked a button of this paginator"""
-        if not isinstance((i := event.interaction), ComponentInteraction):
-            self.log.debug("False interaction pred")
-            return False
-        return (
-            i.user.id != self.author_id
-            and i.message.id == self._message.id
-        )
+        return not self.interaction_pred(event) and event.interaction.message.id == self._message.id  # type: ignore
 
     def message_pred(self, event: MessageCreateEvent):
         msg = event.message
