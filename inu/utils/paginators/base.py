@@ -847,7 +847,7 @@ class Paginator():
                 try:
                     events = [
                         create_event(InteractionCreateEvent),  # , self.interaction_pred
-                        create_event(GuildMessageCreateEvent, self.message_pred),
+                        # create_event(GuildMessageCreateEvent, self.message_pred),
                         self._stop.wait()
                     ]
                     # adding user specific events
