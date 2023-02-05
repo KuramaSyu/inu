@@ -333,7 +333,7 @@ class Connect4Handler(Paginator):
             disable_component=True,
             disable_components=True,
             disable_paginator_when_one_site=False,
-            listen_to_events=[hikari.GuildReactionAddEvent]
+            listen_to_events=[hikari.InteractionCreateEvent]
         )
         # generate player marks
         marks = ['🔵','🟣','🔴','🟠','🟢','🟡','🟤'] #,'⚪'
