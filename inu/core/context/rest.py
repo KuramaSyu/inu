@@ -7,11 +7,11 @@ import lightbulb
 from lightbulb.context import Context, ResponseProxy
 from lightbulb.context.prefix import PrefixContext
 
-from . import InuContextProtocol, InuContext
+from . import InuContextProtocol, InuContext, InuContextBase, UniqueContextInstance
 
 
 
-class RESTContext(Context, InuContextProtocol, InuContext):
+class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
     """
     Class for Context, which is not based on Interactions.
 
@@ -20,10 +20,17 @@ class RESTContext(Context, InuContextProtocol, InuContext):
     """
 
     __slots__ = ("_app", "_responses", "_responded", "_deferred", "_invoked", "_event", "_options")
-    def __init__(self, app: lightbulb.BotApp, event: hikari.MessageCreateEvent):
+    def __init__(self, app: hikari.GatewayBot, event: hikari.MessageCreateEvent | hikari.MessageUpdateEvent):
         self._event = event
-        self._options = {}
-        super().__init__(app)
+        self._options: Dict[str, Any] = {}
+        super().__init__(app) # type: ignore
+        self = UniqueContextInstance.get(self)
+
+        
+    @property
+    def id(self):
+        """Bare RESTContext can be created at anytime. There is nothing id like"""
+        return None
 
     @property
     def event(self) -> hikari.MessageCreateEvent:
@@ -152,10 +159,24 @@ class RESTContext(Context, InuContextProtocol, InuContext):
         """Not needed"""
         ...
 
-    def respond_with_modal(self, *args, **kwargs) -> None:
+    async def respond_with_modal(self, *args, **kwargs) -> None:
         raise NotImplementedError(f"`respond_with_modal` does not work with {self.__class__.__name__}")
         #return await super().respond_with_modal(title, custom_id, component, components)
 
     @classmethod
-    def from_event(cls, event: hikari.MessageCreateEvent):
+    def from_event(cls, event: hikari.Event):
+        if not isinstance(event, (hikari.MessageCreateEvent, hikari.MessageUpdateEvent)):
+            raise TypeError(f"Can't create `{cls.__name__}` with `{type(event)}`")
         return cls(app=event.app, event=event)
+
+
+
+# class RESTMessageContext(RESTContext):
+#     def __init__(self, app: hikari.GatewayBot, event: hikari.MessageCreateEvent | hikari.Mess)
+#     @property
+#     def id(self):
+#         """combination of message_id and author_id"""
+#         return int(str(self.event.message_id) + str(self.event.author_id))
+#     @classmethod
+#     def from_event(cls, event: hikari.MessageCreateEvent):
+#         return cls(app=event.app, event=event)
