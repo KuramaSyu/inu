@@ -10,7 +10,7 @@ from .._logging import getLogger
 import lightbulb
 from lightbulb.context.base import Context, ResponseProxy
 
-from . import InuContext, InuContextProtocol
+from . import InuContext, InuContextProtocol, InuContextBase
 
 log = getLogger(__name__)
 
@@ -19,7 +19,7 @@ REST_SENDING_MARGIN = 0.6 #seconds
 i = 0
 
 
-class _InteractionContext(Context, InuContext, InuContextProtocol):
+class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBase):
     __slots__ = ("_event", "_interaction", "_default_ephemeral", "_defer_in_progress_event", "log")
 
     def __init__(
@@ -30,7 +30,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol):
         # assert isinstance(event.interaction, hikari.ComponentInteraction)
         self._interaction: hikari.ComponentInteraction = event.interaction
         self._default_ephemeral: bool = False
-        self._defer_in_progress_event: asyncio.Event | None = asyncio.Event()
+        self._defer_in_progress_event: asyncio.Event = asyncio.Event()
         self._defer_in_progress_event.set()
         global i
         i += 1
@@ -38,6 +38,10 @@ class _InteractionContext(Context, InuContext, InuContextProtocol):
             self.log = getLogger(__name__, self.__class__.__name__, f"[{self.interaction.id}][{i}]")
         except AttributeError:
             self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
+    
+    @property
+    def id(self) -> int:
+        return self.event.interaction.id
 
     @property
     def app(self) -> lightbulb.app.BotApp:
