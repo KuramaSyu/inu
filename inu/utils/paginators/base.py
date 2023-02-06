@@ -870,8 +870,8 @@ class Paginator():
                     event = done.pop().result()
                     self.set_context(event=event)
                 except Exception:
-                    self._stop.set()
-                    break
+                    # break
+                    self.log.error(traceback.format_exc())
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
             await self.stop()
