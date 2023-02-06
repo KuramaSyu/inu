@@ -70,6 +70,11 @@ class InuContext(ABC):
             ``delete_after`` kwarg.
         """
         ...
+    @property
+    @abstractmethod
+    def id(self):
+        """used to Compare `InuContext` classes"""
+        ...
     
     @abstractmethod
     async def defer(self, background: bool = True):
