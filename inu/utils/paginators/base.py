@@ -859,8 +859,9 @@ class Paginator():
                         timeout=self.timeout
                                     )
                 except asyncio.TimeoutError:
+                    self.log.debug("stop because of TimeoutError")
                     self._stop.set()
-                    return
+                    continue
                 # maybe called from outside
                 for e in pending:
                     e.cancel()
