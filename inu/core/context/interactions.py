@@ -10,7 +10,7 @@ from .._logging import getLogger
 import lightbulb
 from lightbulb.context.base import Context, ResponseProxy
 
-from . import InuContext, InuContextProtocol, InuContextBase
+from . import InuContext, InuContextProtocol, InuContextBase, UniqueContextInstance
 
 log = getLogger(__name__)
 
@@ -38,7 +38,8 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
             self.log = getLogger(__name__, self.__class__.__name__, f"[{self.interaction.id}][{i}]")
         except AttributeError:
             self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
-    
+        self = UniqueContextInstance.get(self)
+        
     @property
     def id(self) -> int:
         return self.event.interaction.id
