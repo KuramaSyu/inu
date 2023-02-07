@@ -603,13 +603,13 @@ class Paginator():
     async def defer_initial_response(self):
         await self.ctx.defer()
 
-    def set_context(self, ctx: Context | None = None, event: hikari.Event | None = None) -> None:
+    def set_context(self, ctx: InuContext | None = None, event: hikari.Event | None = None) -> None:
         """
         create new context object `ctx` of paginator
 
         Args:
         ----
-        ctx: lightbulb.Context
+        ctx: InuContext
             the context to use for sending messages
         events: hikari.Event
             the event to use to create the right ctx
@@ -621,9 +621,10 @@ class Paginator():
             - when type of `event` is not supported
         """
         if not ctx:
+            self.log.debug(f"fetch context for event {repr(event)}")
             ctx = get_context(event)
         # this way errors would occure, since responses etc would be resetted
-        if self._ctx and ctx.interaction.id == self.ctx.interaction.id:
+        if self._ctx and ctx.id == self.ctx.id:
             return
         self.ctx = ctx
         #self.ctx._responses = responses
@@ -886,6 +887,7 @@ class Paginator():
                 await self.ctx.respond("Doesn't really look like your menu, don't you think?", ephemeral=True)
                 return
             if self.interaction_pred(event):
+                # paginate if paginator predicate is True
                 await self.paginate(id=event.interaction.custom_id or None)
         await self.listener.notify(event)
 
