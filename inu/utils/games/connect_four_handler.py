@@ -114,7 +114,7 @@ class Board:
         first_free_slot = 0
         for i, cell in enumerate(col):
             if i == 0 and not cell.marker is None:
-                raise ColumnError(f"Column: {column} has no free slots anymore")
+                raise ColumnError(f"Column {column+1} has no free slots anymore")
             if cell.marker is None:
                 first_free_slot = i
             else:
@@ -419,17 +419,11 @@ class Connect4Handler(Paginator):
     @listener(PaginatorReadyEvent)
     async def build_up_game(self, _: PaginatorReadyEvent):
         await self.ctx.respond(content=None, embed=self.build_embed(), components=self.message_components, update=True)
-        #for emoji in [*self.orientation_number[:self.game.board.columns], "🏳"]: # "🔁",  can't be used anyway 
-        #    await self._message.add_reaction(emoji)
         log.debug("return from ready")
         
     async def update_embed(self):
-        # if self._stop.is_set:
-        #     return
         log.debug("update message")
-        #await self.ctx.respond(embed=self.build_embed, update=True)
         await self.ctx.respond(embed=self.build_embed(), components=self.message_components, update=True)
-        # await self._message.edit(embed=self.build_embed())
     
     def build_embed(self):
         embed = hikari.Embed()
