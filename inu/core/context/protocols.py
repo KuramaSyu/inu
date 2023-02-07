@@ -107,6 +107,11 @@ class InuContext(ABC):
         """
         ...
 
+    @property
+    def is_hashable(self) -> bool:
+        """wether or not __hash__ will result in an error"""
+        return self.id is not None
+
 
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
