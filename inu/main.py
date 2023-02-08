@@ -20,7 +20,8 @@ from utils import (
     Urban, 
     MyAnimeListAIOClient,
     CurrentGamesManager,
-    BoardManager
+    BoardManager,
+    set_bot
 )
 import lavasnek_rs
 from core import getLogger
@@ -64,6 +65,7 @@ def main():
             Urban.init_bot(inu)
             await BoardManager.init_bot(inu)
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
+            set_bot(inu)
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
