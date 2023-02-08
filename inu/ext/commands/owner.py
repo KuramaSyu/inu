@@ -166,12 +166,11 @@ async def log_(ctx: Context):
         if append:
             inu_log_filtered += f"{line}\n"
     shorted = crumble(inu_log_filtered, max_length_per_string=1980, clean_code=True)
-    shorted.reverse()
     embeds = []
     for i, page in enumerate(shorted):
         description = f"```py\n{page}\n```page {i+1}/{len(shorted)}"
         embeds.append(description)
-    paginator = Paginator(page_s=embeds, timeout=10*60, download=inu_log)
+    paginator = Paginator(page_s=embeds, timeout=10*60, download=inu_log, default_page_index=-1)
     await paginator.start(ctx)
 
 @plugin.command
