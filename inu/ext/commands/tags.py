@@ -661,9 +661,10 @@ async def tag_info(ctx: Context):
         f"**{record['tag_key']}**\n\n"
         f"tag {Human.plural_('author', len(record['author_ids']))}: "
         f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
-        f"tag guilds/channels: {Human.list_([guild_name_or_id(gid, bot) for gid in record['guild_ids']], with_a_or_an=False)}\n"
+        f"tag guilds/channels: {Human.list_([guild_name_or_id(gid) for gid in record['guild_ids']], with_a_or_an=False)}\n"
         f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
         f"tag content: ```{Human.short_text(value, 1000).replace('`', '')}```\n"
+        f"tag ID: {record['tag_id']}\n"
         f"link for this tag: `{tag.link}`"
     )
     await ctx.respond(
@@ -890,7 +891,7 @@ async def tag_name_auto_complete(
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
     """autocomplete for tag keys"""
-    guild_or_channel = interaction.guild_id or interaction.channel_id
+    guild_or_channel = get_guild_or_channel_id(interaction)
     try:
         if option.value and len(str(option.value)) > 2:
             tags = await TagManager.find_similar(option.value, guild_id=guild_or_channel)

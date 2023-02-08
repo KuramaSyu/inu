@@ -328,7 +328,7 @@ class Tag():
             f"your tag is: {'local' if self.is_local else 'global'}\n"
             f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
             f"is the tag stored: {Human.bool_(self.is_stored)}\n"
-            f"available for guilds: {', '.join(guild_name_or_id(id, TagManager.bot) for id in self.guild_ids)}\n"
+            f"available for guilds: {', '.join(guild_name_or_id(id) for id in self.guild_ids)}\n"
             f"is the tag name local available: {Human.bool_(self.is_local_available)}\n"
             f"is the tag name global available: {Human.bool_(self.is_global_available)}\n"
         )
