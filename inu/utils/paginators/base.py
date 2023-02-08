@@ -19,6 +19,8 @@ import traceback
 import logging
 from abc import abstractmethod, ABCMeta, ABC
 from copy import deepcopy
+import random
+
 import textwrap
 
 import hikari
@@ -40,6 +42,16 @@ _Sendable = Union[Embed, str]
 T = TypeVar("T")
 
 count = 0
+REJECTION_MESSAGES = [
+    "Doesn't really look like your menu, don't you think?",
+    "_beep beeeeep_ 405 MeTHoD noT ALLowED - \
+    ToUChInG oTHeRS PRoPErtY iS  PrOHiBiTeD. OnLY tHOUCHinG YoUr PROPerTY IS ALLOwED",
+    "_beep beeeeep_ 403 VOrBiDDeN - \
+    nOt YOuR mEnU",
+    "_beep beeeeep_ 401 UnAUTHoRiZED - \
+    lAcK oN PerMISsIoNS TO cLIcK tHaT BuTToN",
+    "Never heard of [privacy](https://en.wikipedia.org/wiki/Privacy)?"
+]
 
 class PaginatorReadyEvent(hikari.Event):
     def __init__(self, bot: lightbulb.BotApp):
@@ -333,7 +345,7 @@ class Paginator():
         self.timeout = timeout
         self.listen_to_events = listen_to_events
         self._interaction_response_status: hikari.ResponseType | None = None
-        self._interaction: hikari.ComponentInteraction | None = None
+        self._interaction: hikari.ComponentInteraction | None = None                      
 
         # paginator configuration
         self.pagination = not disable_pagination
@@ -460,7 +472,11 @@ class Paginator():
 
     def wrong_button_click(self, event: InteractionCreateEvent):
         """checks if a user without permission clicked a button of this paginator"""
-        return not self.interaction_pred(event) and event.interaction.message.id == self._message.id  # type: ignore
+        return (
+            isinstance(event.interaction, hikari.ComponentInteraction)  # is a button or menu
+            and not self.interaction_pred(event)  # e.g. wrong author
+            and event.interaction.message.id == self._message.id  # type: ignore # same message
+        )
 
     def message_pred(self, event: MessageCreateEvent):
         msg = event.message
@@ -636,7 +652,7 @@ class Paginator():
         interaction: Optional[ComponentInteraction] = None, 
     ):
         """
-        
+        sends a message with current context and adds it's component(s)
         """
         kwargs: Dict[str, Any] = {}
         if not self._disable_component:
@@ -830,7 +846,7 @@ class Paginator():
 
     async def pagination_loop(self, **kwargs):
         try:
-            def create_event(event, predicate: Callable = None):
+            def create_event(event, predicate: Callable | None = None):
                 if predicate:
                     return self.bot.wait_for(
                         event,
@@ -846,6 +862,7 @@ class Paginator():
             while not self._stop.is_set():
                 self.log.debug("re-enter pagination loop")
                 try:
+                    # default events
                     events = [
                         create_event(InteractionCreateEvent),  # , self.interaction_pred
                         # create_event(GuildMessageCreateEvent, self.message_pred),
@@ -858,7 +875,7 @@ class Paginator():
                         [asyncio.create_task(task) for task in events],
                         return_when=asyncio.FIRST_COMPLETED,
                         timeout=self.timeout
-                                    )
+                    )
                 except asyncio.TimeoutError:
                     self.log.debug("stop because of TimeoutError")
                     self._stop.set()
@@ -871,9 +888,12 @@ class Paginator():
                 try:
                     event = done.pop().result()
                     self.set_context(event=event)
+                except KeyError:
+                    continue
                 except Exception:
                     # break
                     self.log.error(traceback.format_exc())
+
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
             await self.stop()
@@ -883,8 +903,9 @@ class Paginator():
     async def dispatch_event(self, event: Event):
         if isinstance(event, InteractionCreateEvent):
             if self.wrong_button_click(event):
-                log.debug(self._message.id)
-                await self.ctx.respond("Doesn't really look like your menu, don't you think?", ephemeral=True)
+                await self.ctx.respond(
+                    random.choice(REJECTION_MESSAGES), ephemeral=True
+                )
                 return
             if self.interaction_pred(event):
                 # paginate if paginator predicate is True
@@ -933,6 +954,7 @@ class Paginator():
         await self.ctx.interaction.delete_initial_response()
 
     async def _update_position(self, interaction: ComponentInteraction | None = None):
+        """sends the page with the current `self._position` index"""
         await self.send(content=self.pages[self._position], interaction=interaction)
         
     async def search(self):
@@ -1318,7 +1340,7 @@ class StatelessPaginator(Paginator, ABC):
             when the user from the custom_id not matches with the one from the current context
         """
         if not self.custom_id.is_same_user(self.ctx.interaction):
-            await self.ctx.respond("REJECTED - you are not really the ower of this", ephemeral=True)
+            await self.ctx.respond(random.choice(REJECTION_MESSAGES), ephemeral=True)
             raise AssertionError("custom id user is not the same as interaction author")
 
     @abstractmethod
