@@ -27,7 +27,6 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
     ) -> None:
         super().__init__(app)
         self._event = event
-        # assert isinstance(event.interaction, hikari.ComponentInteraction)
         self._interaction: hikari.ComponentInteraction = event.interaction
         self._default_ephemeral: bool = False
         self._defer_in_progress_event: asyncio.Event = asyncio.Event()
