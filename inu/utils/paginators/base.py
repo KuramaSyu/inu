@@ -44,12 +44,12 @@ T = TypeVar("T")
 count = 0
 REJECTION_MESSAGES = [
     "Doesn't really look like your menu, don't you think?",
-    "_beep beeeeep_ 405 MeTHoD noT ALLowED - \
-    ToUChInG oTHeRS PRoPErtY iS  PrOHiBiTeD. OnLY tHOUCHinG YoUr PROPerTY IS ALLOwED",
-    "_beep beeeeep_ 403 VOrBiDDeN - \
-    nOt YOuR mEnU",
-    "_beep beeeeep_ 401 UnAUTHoRiZED - \
-    lAcK oN PerMISsIoNS TO cLIcK tHaT BuTToN",
+    "_beep beeeeep_ 405 METHOD NOT ALLOWED - "
+    "touching others property is prohibited. Only touching yours is allowed",
+    "_beep beeeeep_ 403 VORBIDDEN - "
+    "not your menu",
+    "_beep beeeeep_ 401 UNAUTHORIZED - "
+    "you lack on permissions to click this",
     "Never heard of [privacy](https://en.wikipedia.org/wiki/Privacy)?"
 ]
 
@@ -68,15 +68,15 @@ class BaseListener(metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def subscribe(self):
+    def subscribe(self, observer: "EventObserver", event: Event):
         pass
     
     @abstractmethod
-    def unsubscribe(self):
+    def unsubscribe(self, observer: "EventObserver", event: Event):
         pass
 
     @abstractmethod
-    async def notify(self):
+    async def notify(self, event: Event):
         pass
 
 
@@ -177,13 +177,13 @@ class CustomID():
     def type(self) -> str:
         if self._type is None:
             self._raise_none_error("_type")
-        return self._type
+        return self._type  #type: ignore
 
     @property
-    def page(self) -> str:
+    def page(self) -> int:
         if self._page is None:
             self._raise_none_error("_page")
-        return self._page
+        return self._page  #type: ignore
     
     @property
     def custom_id(self) -> str:
@@ -195,13 +195,13 @@ class CustomID():
     def message_id(self) -> int:
         if self._message_id is None:
             self._raise_none_error("_message_id")
-        return self._message_id
+        return self._message_id  #type: ignore
     
     @property
-    def author_id(self) -> str:
+    def author_id(self) -> int:
         if self._author_id is None:
             self._raise_none_error("_author_id")
-        return self._author_id
+        return self._author_id  #type: ignore
 
     def is_same_user(self, interaction: hikari.ComponentInteraction):
         """wether or not the interaction user is the prvious paginator user"""
@@ -217,15 +217,15 @@ class CustomID():
             d = json.loads(custom_id)
             if not isinstance(d, Dict):
                 raise TypeError
-            custom_id = cls(
+            custom_id_inst = cls(
                 custom_id=d["cid"],
                 type=d.get("t"),
                 message_id=d.get("mid"),
                 author_id=d.get("aid"),
                 page=d.get("p"),
             )
-            custom_id._kwargs = {k:v for k, v in d.items() if k not in ["t", "cid", "mid", "aid", "p"]}
-            return custom_id
+            custom_id_inst._kwargs = {k:v for k, v in d.items() if k not in ["t", "cid", "mid", "aid", "p"]}
+            return custom_id_inst
         
         except (TypeError, json.JSONDecodeError):
             return cls(custom_id=custom_id)
@@ -236,16 +236,16 @@ class Paginator():
         self,
         page_s: Union[List[Embed], List[str]],
         timeout: int = 2*60,
-        component_factory: Callable[[int], MessageActionRowBuilder] = None,
-        components_factory: Callable[[int], List[MessageActionRowBuilder]] = None,
-        additional_components: List[MessageActionRowBuilder] = None,
+        component_factory: Callable[[int], MessageActionRowBuilder] | None = None,
+        components_factory: Callable[[int], List[MessageActionRowBuilder]] | None = None,
+        additional_components: List[MessageActionRowBuilder] | None = None,
         disable_pagination: bool = False,
         disable_component: bool = True,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
         listen_to_events: List[Any] = [],
         compact: Optional[bool] = None,
-        default_site: Optional[int] = 0,
+        default_page_index: int = 0,
         download: Union[Callable[["Paginator"], str], str, bool] = False,
         download_name: str = "content.txt",
         disable_search_btn: bool = False,
@@ -327,7 +327,7 @@ class Paginator():
         self._message: Message
         self._component_factory = component_factory
         self._components_factory = components_factory
-        self._default_site = default_site
+        self._default_page_index = default_page_index or 0
         self._download: Union[Callable[[Paginator], str], str, None] = download
         self._download_name = download_name
         self._first_message_kwargs = first_message_kwargs or {}
@@ -344,7 +344,6 @@ class Paginator():
         self.log = log
         self.timeout = timeout
         self.listen_to_events = listen_to_events
-        self._interaction_response_status: hikari.ResponseType | None = None
         self._interaction: hikari.ComponentInteraction | None = None                      
 
         # paginator configuration
@@ -358,7 +357,6 @@ class Paginator():
         
 
         # register all listeners
-
         for name, obj in type(self).__dict__.items():
             if isinstance(obj, EventObserver):
                 obj = getattr(self, name)
@@ -383,42 +381,19 @@ class Paginator():
     def author_id(self) -> int:
         return self.raise_or_return(self._author_id, "self._author_id")
 
-    # @property
-    # def interaction(self) -> hikari.ComponentInteraction | None:
-    #     return self._interaction
-
     @property
     def ctx(self) -> InuContext:
-        #assert (isinstance(self._ctx, InuContext) or isinstance(self._ctx, lightbulb.Context))
         return self.raise_or_return(self._ctx, "self._ctx")
     
     @ctx.setter
     def ctx(self, ctx: InuContext) -> None:
-        #assert (isinstance(self._ctx, InuContext) or isinstance(self._ctx, lightbulb.Context))
         self._ctx = ctx
 
-    # @interaction.setter
-    # def interaction(self, value) -> None:
-    #     self.log.debug(f"set interaction")
-    #     self._interaction = value
-    #     self.responded = None
-    
-    @property
-    def custom_id_prefix(self) -> str:
-        """The prefix which should be added before every custom_id"""
-        return self._custom_id_prefix
-
     # @property
-    # def responded(self) -> bool:
-    #     return self._interaction_response_status is not None
+    # def custom_id_prefix(self) -> str:
+    #     """The prefix which should be added before every custom_id"""
+    #     return self._custom_id_prefix
 
-    # @responded.setter
-    # def responded(self, value) -> None:
-    #     self.log.debug(f"update responsed to: {value} from {self._interaction_response_status}")
-    #     self._interaction_response_status = value
-
-    # def defered_responded(self) -> bool:
-    #     return self._interaction_response_status in [hikari.ResponseType.DEFERRED_MESSAGE_UPDATE, hikari.ResponseType.DEFERRED_MESSAGE_CREATE]
     @property
     def pages(self):
         return self._pages
@@ -455,11 +430,7 @@ class Paginator():
                 "Nothing specified for `components`. "
                 "Consider passing in a components_factory or set"
                 "a value for `instance`._components"
-                ))
-
-
-
-
+            ))
 
     def interaction_pred(self, event: InteractionCreateEvent):
         if not isinstance((i := event.interaction), ComponentInteraction):
@@ -560,7 +531,7 @@ class Paginator():
             return None
         return self._navigation_row(position)
     
-    def build_default_components(self, position=None) -> Optional[List[Optional[MessageActionRowBuilder]]]:
+    def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         navi = self.build_default_component(position)
         action_rows = []
         if navi:
@@ -580,7 +551,7 @@ class Paginator():
     def download(self) -> Optional[str]:
         if not self._download:
             return None
-        elif isinstance(self._download, Callable):
+        elif callable(self._download):
             return self._download(self)
         elif isinstance(self._download, str):
             return self._download
@@ -589,10 +560,10 @@ class Paginator():
 
     def _pages_to_str(self) -> str:
         text = ""
-        if isinstance(self._pages, List[Embed]):
+        if isinstance(self._pages[0], hikari.Embed):
             for embed in self._pages:
-                text += self._embed_to_md(embed)
-        elif isinstance(self._pages, List[str]):
+                text += self._embed_to_md(embed)  # type: ignore
+        elif isinstance(self._pages[0], str):
             text = "\n".join(
                 line for page in [textwrap.wrap(text, width=100) for page in self._pages] for line in page
             )
@@ -609,10 +580,10 @@ class Paginator():
         if embed.title:
             text += f"# {embed.title}"
         if embed.description:
-            text += "\n#### ".textwrap.wrap(embed.description, 100)
+            text += "\n".join(textwrap.wrap(embed.description, 100))
         for field in embed.fields:
             text += f"\n## {field.name}"
-            text += "\n#### ".textwrap.wrap(field.value, 100)
+            text += "\n".join(textwrap.wrap(field.value, 100))
         text += "\n----------------------------------------\n"
         return text
         
@@ -727,10 +698,8 @@ class Paginator():
 
     async def start(
         self, 
-        ctx: Context,
-        message: int | hikari.Message | None = None,
-        events: List[hikari.Event] = [],
-        paginator_config: Dict[str, Any] | None = None,
+        ctx: InuContext,
+        **kwargs,
     ) -> hikari.Message:
         """
         starts the pagination
@@ -741,11 +710,6 @@ class Paginator():
             the Context to use to send the first message
         message : int | hikari.Message | None
             An existing message to edit for the paginator
-        events : List[hikari.Event]
-            Will fire given events in pagination loop and then exit
-        paginator_config : Dict[str, Any] | None
-            A dict used with one_time_event to define following things:
-            - page: int - current page
 
 
         Note:
@@ -789,7 +753,7 @@ class Paginator():
         if len(self.pages) < 1:
             raise RuntimeError("<pages> must have minimum 1 item")
         elif len(self.pages) == 1 and self._disable_paginator_when_one_site and len(self.components) == 0:
-            log.debug("<pages> has only one item, and <components> has only one item, so the paginator will exit")
+            self.log.debug("<pages> has only one item, and <components> has only one item, so the paginator will exit")
             if isinstance(self.pages[0], Embed):
                 msg_proxy = await self.ctx.respond(
                     embed=self.pages[0],
@@ -802,7 +766,11 @@ class Paginator():
                 )
             return await msg_proxy.message()
 
-        self._position = 0
+        if self._default_page_index < 0:
+            self._default_page_index = len(self._pages) + self._default_page_index  # otherwise stop btn displays "0/x"
+        self._position = self._default_page_index
+
+        # make kwargs for first message
         kwargs = self._first_message_kwargs
         if not self._disable_component:
             kwargs["component"] = self.component
@@ -811,26 +779,25 @@ class Paginator():
         if (download := self.download):
             kwargs["attachment"] = hikari.Bytes(download, self._download_name)
         kwargs.update(self._first_message_kwargs)
-        if isinstance(self.pages[self._default_site], Embed):
+
+        if isinstance(self.pages[self._default_page_index], Embed):
             msg_proxy = await self.ctx.respond(
                 embed=self.pages[0],
                 **kwargs
             )
         else:
             msg_proxy = await self.ctx.respond(
-                content=self.pages[self._default_site],
+                content=self.pages[self._default_page_index],
                 **kwargs
             )
         self._message = await msg_proxy.message()
-        log.debug(f"Message created: {self._message.id}")
+        self.log.debug(f"Message created: {self._message.id}")
         # check for one extra component - paginator is automatically disabled when there is only one site
         if len(self.pages) == 1 and self._disable_paginator_when_one_site and len(self.components) < 1:
             self.log.debug("Only one page, exiting")
             return self._message
-        self._position = 0
-        self.log.debug("Starting pagination")
-        self.log.debug(f"{self._message=}")
-        await self.post_start(events=events)
+        self.log.debug(f"Starting pagination with message {repr(self._message)}")
+        await self.post_start()
         return self._message
 
     async def post_start(self, **kwargs):
@@ -877,10 +844,11 @@ class Paginator():
                         timeout=self.timeout
                     )
                 except asyncio.TimeoutError:
+                    # maybe called from outside loop while waiting
                     self.log.debug("stop because of TimeoutError")
                     self._stop.set()
                     continue
-                # maybe called from outside
+                
                 for e in pending:
                     e.cancel()
                 if self._stop.is_set():
@@ -901,6 +869,17 @@ class Paginator():
             self.log.error(traceback.format_exc())
             
     async def dispatch_event(self, event: Event):
+        """
+        Args:
+        ----
+        event : `hikari.Event`
+            sends an event to all listeners
+        
+        Note:
+        -----
+        - `ComponentInteraction`s matching the predicate will be used for pagination if custom_id matches
+        - `ComponentInteraction`s with not patching predicate but matching message will be responded with a REJECTION_MESSAGE
+        """
         if isinstance(event, InteractionCreateEvent):
             if self.wrong_button_click(event):
                 await self.ctx.respond(
@@ -909,7 +888,7 @@ class Paginator():
                 return
             if self.interaction_pred(event):
                 # paginate if paginator predicate is True
-                await self.paginate(id=event.interaction.custom_id or None)
+                await self.paginate(id=event.interaction.custom_id or None)  # type: ignore
         await self.listener.notify(event)
 
     async def paginate(self, id: str):
@@ -924,7 +903,7 @@ class Paginator():
 
         """
         last_position = self._position
-
+        self.log.debug(self._position)
         if id == "first":
             self._position = 0
         elif id == "previous":
@@ -1139,8 +1118,9 @@ class StatelessPaginator(Paginator, ABC):
 
     async def start(
         self,
-        ctx: InuContext | Context | None = None,
-    ):
+        ctx: InuContext,
+        **kwargs,
+    ) -> hikari.Message:
         """
         Args:
         -----
@@ -1162,7 +1142,7 @@ class StatelessPaginator(Paginator, ABC):
         self.bot = self.ctx.bot
         return await super().start(ctx)
 
-    def set_pages(self, pages: List[hikari.Embed | str]):
+    def set_pages(self, pages: List[hikari.Embed] | List[str]):
         self._pages = pages
 
     @property
@@ -1329,19 +1309,17 @@ class StatelessPaginator(Paginator, ABC):
         e.g. `await (StatelessPaginator().set_custom_id(custom_id)).start(event)`
         this is needed, that the start() coroutine can already use the custom_id
         """
-        self.custom_id = custom_id
+        self.custom_id = custom_id  # type: ignore
         return self
 
-    async def check_user(self) -> None:
+    async def check_user(self) -> bool:
         """
-        Raises:
-        -------
-        AssertionError :
-            when the user from the custom_id not matches with the one from the current context
+        Returns wether or not the user is allowed to use this
         """
         if not self.custom_id.is_same_user(self.ctx.interaction):
             await self.ctx.respond(random.choice(REJECTION_MESSAGES), ephemeral=True)
-            raise AssertionError("custom id user is not the same as interaction author")
+            return False
+        return True
 
     @abstractmethod
     async def _rebuild(self, **kwargs):
@@ -1357,12 +1335,13 @@ class StatelessPaginator(Paginator, ABC):
             the event to fire
         """
         await self._rebuild(event=event, **kwargs)
-        assert self._ctx is not None
-        assert self.custom_id is not None
-        assert self.custom_id_type is not None
-        try:
-            await self.check_user()
-        except AssertionError:
+        if (
+            self._ctx is None
+            or self.custom_id is None
+            or self.custom_id_type is None
+        ):
+            raise TypeError("Needed attibutes for `StatelessPaginator.rebuild` or` None`") 
+        if not await self.check_user():
             return
         log.debug("set attrs")
         self._channel_id = self.ctx.channel_id
