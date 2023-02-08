@@ -631,8 +631,6 @@ async def _join(ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
 
     channel_id = voice_state[0].channel_id
 
-    assert ctx.guild_id is not None
-
     await bot.update_voice_state(ctx.guild_id, channel_id, self_deaf=True)
     connection_info = await lavalink.wait_for_full_connection_info_insert(ctx.guild_id)
 
