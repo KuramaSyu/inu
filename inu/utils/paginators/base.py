@@ -47,9 +47,9 @@ REJECTION_MESSAGES = [
     "_beep beeeeep_ 405 METHOD NOT ALLOWED - "
     "touching others property is prohibited. Only touching yours is allowed",
     "_beep beeeeep_ 403 VORBIDDEN - "
-    "not your menu",
+    "if it was your menu, you would have been able to click it",
     "_beep beeeeep_ 401 UNAUTHORIZED - "
-    "you lack on permissions to click this",
+    "imagine not even having enough permissions to click a button",
     "Never heard of [privacy](https://en.wikipedia.org/wiki/Privacy)?"
 ]
 
