@@ -2,6 +2,14 @@ from typing import *
 
 import hikari
 
+from core import Inu
+
+bot: Inu
+
+def set_bot(bot_: Inu):
+    global bot
+    bot = bot_
+
 
 def make_message_link(
     guild_id: int,
@@ -17,7 +25,7 @@ def get_guild_or_channel_id(interaction: hikari.ComponentInteraction) -> int:
     """
     return interaction.guild_id or interaction.channel_id
 
-def guild_name_or_id(guild_id: int, bot: hikari.CacheAware) -> str:
+def guild_name_or_id(guild_id: int, *args, **kwargs) -> str:
     """
     returns the name of the guild_id if in cache, otherwise the ID as string
 
