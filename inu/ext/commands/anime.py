@@ -184,20 +184,19 @@ async def fetch_anime(_ctx: context.Context):
 #     return True
 
 
-
-@plugin.command
-@lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
-@lightbulb.option("name", "the name of the Anime character", type=str, modifier=OM.CONSUME_REST)
-@lightbulb.command("anime-character", "get information of an Anime character by name", aliases=["character"], auto_defer=True)
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def fetch_anime_character(ctx: context.Context):
-    try:
-        pag = AnimeCharacterPaginator()
-    except Exception:
-        log = getLogger(__name__, "fetch_anime_character")
-        log.debug(traceback.format_exc())
-        return
-    await pag.start(ctx, ctx.options.name)
+# @plugin.command
+# @lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
+# @lightbulb.option("name", "the name of the Anime character", type=str, modifier=OM.CONSUME_REST)
+# @lightbulb.command("anime-character", "get information of an Anime character by name", aliases=["character"], auto_defer=True)
+# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+# async def fetch_anime_character(ctx: context.Context):
+#     try:
+#         pag = AnimeCharacterPaginator()
+#     except Exception:
+#         log = getLogger(__name__, "fetch_anime_character")
+#         log.debug(traceback.format_exc())
+#         return
+#     await pag.start(ctx, ctx.options.name)
 
 
 
