@@ -53,7 +53,6 @@ plugin = lightbulb.Plugin("Voice commands")
 )
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def move_all(ctx: Context):
-    assert(isinstance(ctx.guild_id, int))
     member = ctx.options.member or ctx.member
     states = ctx.bot.cache.get_voice_states_view_for_guild(ctx.guild_id)
     voice_state = [state async for state in states.iterator().filter(lambda i: i.user_id == member.id)]
