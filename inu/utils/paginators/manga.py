@@ -12,10 +12,10 @@ from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from .base import PaginatorReadyEvent, Paginator, listener
-from jikanpy import AioJikan
+# from jikan4.aiojikan import AioJikan
 from lightbulb.context import Context
 
-from core import getLogger
+from core import getLogger, InuContext
 from utils import Human, Colors
 
 log = getLogger(__name__)
@@ -23,7 +23,7 @@ log = getLogger(__name__)
 
 class SortBy:
     @staticmethod
-    def by_score(embeds: List[Embed]) -> float:
+    def by_score(embeds: List[Embed]) -> List[Embed]:
         def get_embed_score(embed: Embed):
             try:
                 value = [f for f in embed.fields if f.name == "Score"][0].value
@@ -56,11 +56,11 @@ class MangaPaginator(Paginator):
         self._with_refresh_btn = with_refresh_btn
 
         self._results = None
-        self._updated_mal_ids = set()
+        self._updated_mal_ids: Set[int] = set()
         super().__init__(page_s=["None"], timeout=10*8)
         
 
-    def build_default_components(self, position=None) -> Optional[List[Optional[MessageActionRowBuilder]]]:
+    def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         components = super().build_default_components(position)
         if not isinstance(components, list):
             return components
@@ -79,7 +79,7 @@ class MangaPaginator(Paginator):
             await self.send(self._pages[self._position], interaction=event.interaction)
             return
         elif event.interaction.custom_id == "btn_anime_re_search":
-            self._stop = True
+            self._stop.set()
             if self._old_message:
                 await self._old_message.delete()
             await self.bot.rest.delete_messages(self.ctx.channel_id, [self._message.id])
@@ -96,7 +96,7 @@ class MangaPaginator(Paginator):
     def _sort_embeds(self, sort_by: SortTypes):
         self._pages = sort_by(self._pages)
 
-    async def start(self, ctx: Context, character_name: str) -> hikari.Message:
+    async def start(self, ctx: InuContext, character_name: str) -> hikari.Message:
         self.ctx = ctx
         self._pages = await self._search_manga(character_name)
         self._position = 0
@@ -140,7 +140,7 @@ class MangaPaginator(Paginator):
         results = None
 
         async with AioJikan() as aio_jikan:
-            results = await aio_jikan.search(search_type='manga', query=search)
+            aio_jikan.search_anime()  # no character search implemented
         self._results = results["results"]
         embeds = build_embeds(search, results)
         if not embeds:
@@ -149,15 +149,16 @@ class MangaPaginator(Paginator):
 
     async def _fetch_character_by_id(self, mal_id: int) -> Dict:
         """Fetch a detailed manga dict by mal_id"""
-        async with AioJikan() as jikan:
-            result = await asyncio.wait_for(jikan.character(mal_id), 0.9)
-        return result
+        jikan = AioJikan()
+        character = await jikan.get_anime_characters(mal_id)
+        jikan.close()
+        return character
     
 
-        for i, field in enumerate(embed.fields):
-            if not field.value:
-                embed.remove_field(i)
-        embed._footer = old_embed._footer
-        self._pages[self._position] = embed
+        # for i, field in enumerate(embed.fields):
+        #     if not field.value:
+        #         embed.remove_field(i)
+        # embed._footer = old_embed._footer
+        # self._pages[self._position] = embed
 
 
