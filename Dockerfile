@@ -25,4 +25,4 @@ RUN chown -R inu: /home/inu/.config
 RUN chown -R inu: /home/inu/inu
 USER inu
 WORKDIR /home/inu
-CMD ["python3", "inu/main.py"]
+CMD ["python3", "-O", "inu/main.py"]
