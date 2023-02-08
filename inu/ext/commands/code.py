@@ -32,7 +32,7 @@ def get_directory_size(directory: str) -> Tuple[int, int]:
                     Multiple.endswith_(
                         entry.name, 
                         [".png", ".jpg", ".gif", ".exe",
-                            ".bin", ".log", ".mp4", ".mp3", "Lavalink.jar"]
+                            ".bin", ".log", ".mp4", ".mp3", "Lavalink.jar", ".pyc", ".pyo"]
                     )
                 )
             ):
