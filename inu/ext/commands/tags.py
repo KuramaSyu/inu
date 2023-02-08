@@ -96,8 +96,8 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
     tag_id: Optional[int] = None
     try:
         custom_id = json.loads(event.interaction.custom_id)
-        assert custom_id["t"] == "stl-tag"
-        assert (tag_id := custom_id.get("tid")) is not None
+        if not custom_id["t"] == "stl-tag": return
+        if not (tag_id := custom_id.get("tid")) is not None: return
     except:
         return
     
@@ -328,7 +328,7 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
         return
     pag = TagHandler().set_custom_id(event.interaction.custom_id)
     try:
-        assert pag.custom_id.type == "stl-tag-edit"
+        if not pag.custom_id.type == "stl-tag-edit": return
     except:
         return
     tag = await Tag.from_id(pag.custom_id._kwargs["tid"], user_id=event.interaction.user.id)
