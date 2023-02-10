@@ -188,7 +188,12 @@ async def execute(_ctx: Context):
     ctx = get_context(_ctx.event)
     await ctx.defer(background=False)
     page_s, ms = await _execute(ctx, code)
-    pag = Paginator(page_s=page_s)
+    
+    if len(page_s) > 5:
+        kwargs = {"disable_search_btn": True, "compact": False}
+    else:
+        kwargs = {"compact": True}
+    pag = Paginator(page_s=page_s, **kwargs)
     await pag.start(ctx)
 
 async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> Tuple[List[hikari.Embed], float]:
@@ -213,15 +218,14 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         's_dir':
         lambda obj, search: [attr for attr in dir(obj) if search in attr],
         'tree':
-        lambda obj=None, depth=0, search='', docs=False, private=False: print(
+        lambda obj=None, depth=0, search='', docs=False, private=False: 
             tree_(
                 obj=obj,
                 search_for=search, 
                 with_docs=docs, 
                 with_private=private, 
                 depth=depth
-            )
-        ),
+            ),
         's_tree':
         lambda obj=None, search='', depth=0, docs=False, private=False: print(
             tree_(
@@ -238,88 +242,86 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     raw_code = code
     code, parsed, fn_name = clean_code(code)
     log.warning(f"code gets executed:\n<<<\n{code}\n>>>")
-    exec(compile(parsed, filename="<eval>", mode='exec'), env)
-    func = env[fn_name]
+
 
     error = None
     str_obj = io.StringIO()
     start = datetime.now()
     output = None
+    traceback_list = []
 
     try:
+        exec(compile(parsed, filename="<eval>", mode='exec'), env)
+        func = env[fn_name]
+        start = datetime.now()
         with contextlib.redirect_stdout(str_obj):
-            start = datetime.now()
             result = str(await func())
-            if result == "None":
-                result = None
-            output = str_obj.getvalue()
 
-    except Exception as e:
-        error = f"**ERROR**\n```py\n{e.__class__.__name__}: {e}\n```"
-        traceback_list = traceback.format_tb(e.__traceback__)
-        for index, tb in enumerate(traceback_list):
-            error += f'\n_Traceback - layer {index + 1}_\n```python\n{tb}```'
+        if result == "None":
+            result = None
         output = str_obj.getvalue()
 
+    except Exception as e:
+        traceback_list = traceback.format_tb(e.__traceback__)
+        traceback_list.insert(0, f"**ERROR**\n```py\n{e.__class__.__name__}: {e}\n```")
+
+
     finally:
+        embeds: List[hikari.Embed] = []
         timedelta = datetime.now() - start
-        ms = int(round(timedelta.total_seconds() * 1000))
-        basic_message = ""
-        if add_code_to_embed:
-            basic_message = f'**CODE**\n```py\n{raw_code}```\n'
+        ms = int(round(timedelta.total_seconds() * 1000, 2))
+
+        # create duration time str
+        if timedelta.total_seconds() * 1000 < 2:
+            time_str = f"{round(timedelta.total_seconds() * 1000 * 1000)} ns"
+        elif timedelta.total_seconds() < 10:
+            # below 10s
+            time_str = f"{round(timedelta.total_seconds() * 1000, 2)} ms"
+        else:
+            time_str = f"{round(timedelta.total_seconds(), 2)} s"
+
+        # fix output
+        if output is None:
+            output = str_obj.getvalue()
+
+        # add return value
         if result:
-            basic_message += f"**RETURN VALUE**\n```py\n{result}```\n"
-        if error:
-            basic_message += f'\n{error}\n'
-
-        if not output or len(output) < 1800:
-            basic_message += f'**OUTPUT**\n```py\n{output if output else None}```\n'
-            basic_message += f'{round(ms, 4)} ms'
-            embeds = []
-            for page in crumble(basic_message, 1950):
-                em = hikari.Embed(description=page)
+            for partial_result in crumble(result, 1950):
+                em = hikari.Embed(description=f"**RETURNED**\n```py\n{partial_result}```\n")
                 embeds.append(em)
-            return embeds, round(ms, 4)
 
-        pages = []
-        if len(str(result)) > 1000:
-            output = f"**RETURN VALUE**\n\n{result}\n\n"
-            result = None
+        # add code
+        if add_code_to_embed:
+            if (
+                len(raw_code) < 300 and len(embeds) > 0 
+                and len(str(embeds[0].description)) - len(raw_code) < 2000 
+                and str(output) in ["", "None"]
+            ):
+                em = embeds[0]
+                em.description = f'{em.description or ""}**CODE**\n'
+            else:
+                em = hikari.Embed(description="**CODE**\n")
+                embeds.append(em)
+            em.description = f'{em.description or ""}```py\n{raw_code}```\n'
 
-        cutted = crumble(output, max_length_per_string=1800)
-        for index, part_message in enumerate(cutted):
-            embed = hikari.Embed()
-            embed.title = f'Execution {index + 1}/{len(cutted)}'
-            embed.description = f'**OUTPUT**\n```py\n{part_message}```\n'
+        # add stdout
+        if output and str(output) != "None":
+            for partial_output in crumble(output, 1950):
+                em = hikari.Embed(description=f"**OUTPUT**\n```py\n{partial_output}```\n")
+                embeds.insert(-1, em)
 
-            if index == 0:
-                if add_code_to_embed:
-                    embed.add_field(
-                        name='CODE',
-                        value=f'```py\n{raw_code}```\n',
-                        inline=False
-                    )
-                if result:
-                    embed.add_field(
-                        name="RETURN VALUE",
-                        value=result,
-                        inline=False,
-                    )
-                if error:
-                    embed.add_field(
-                        name='ERROR',
-                        value=f'```py\n{error}```\n',
-                        inline=False
-                    )
-                embed.add_field(
-                    name='DURATION',
-                    value=f'{ms} ms',
-                    inline=False
-                )
-
-            pages.append(embed)
-
-        return pages, round(ms, 4)
+        # add errors
+        if traceback_list:
+            for index, tb in enumerate(traceback_list):
+                if index % 20 == 0:
+                    embeds.insert(-1, hikari.Embed(title="ERROR"))
+                embeds[-2].add_field(f"_Traceback - layer {index + 1}_", f'```py\n{tb}```')
+        
+        # add duration
+        if len(embeds) == 0:
+            embeds.append(hikari.Embed())
+        embeds[-1].description = f"{embeds[-1].description or ''} {time_str}"
+        return embeds, round(ms, 4)
 
 
 def clean_code(code) -> Tuple[str, ast.AST, str]:
