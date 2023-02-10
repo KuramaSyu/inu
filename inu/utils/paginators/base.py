@@ -828,39 +828,43 @@ class Paginator():
                     )
 
             while not self._stop.is_set():
-                self.log.debug(f"re-enter pagination loop - status: {self._stop.is_set()}")
+                self.log.debug(f"re-enter pagination loop - status: {self._stop.is_set()}, {self.timeout=}")
                 try:
                     # default events
                     events = [
-                        create_event(InteractionCreateEvent),  # , self.interaction_pred
-                        # create_event(GuildMessageCreateEvent, self.message_pred),
+                        create_event(InteractionCreateEvent),
                         self._stop.wait()
                     ]
                     # adding user specific events
                     for event in self.listen_to_events:
                         events.append(create_event(event))
+                    # wait for first incoming event
                     done, pending = await asyncio.wait(
                         [asyncio.create_task(task) for task in events],
                         return_when=asyncio.FIRST_COMPLETED,
                         timeout=self.timeout
                     )
-                except asyncio.TimeoutError:
-                    # maybe called from outside loop while waiting
-                    self.log.debug("stop because of TimeoutError")
+                except Exception:
+                    log.error(traceback.format_exc())
+                
+                # timeout - no tasks done - stop
+                if len(done) == 0:
+                    log.debug(f"no done tasks - stop")
                     self._stop.set()
                 
+                # cancel all other tasks
                 for e in pending:
                     e.cancel()
                 if self._stop.is_set():
-                    return
-                try:
-                    event = done.pop().result()
-                    self.set_context(event=event)
-                except KeyError:
                     continue
-                except Exception:
-                    # break
-                    self.log.error(traceback.format_exc())
+
+                # unpack Event
+                event = done.pop().result()
+                if not isinstance(event, hikari.Event):
+                    log.error(f"Unknown result - not an instance of `hikari.Event`")
+                    self._stop.set()
+                    continue
+                self.set_context(event=event)
 
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
