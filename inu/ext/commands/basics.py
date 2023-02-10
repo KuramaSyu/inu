@@ -22,6 +22,8 @@ from lightbulb.context import Context
 from matplotlib.style import available
 from numpy import full, isin
 from typing_extensions import Self
+from tmdb import route
+
 from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP, Facts
 log = getLogger(__name__)
 bot: Inu = None
@@ -165,6 +167,13 @@ async def ping(ctx: context.Context):
     await msg.edit(embed=embed)
 
 
+async def tmdb_coro(search: str):
+    show_route = route.Show()
+    show_json = await show_route.search(search)
+    await show_route.session.close()
+
+
+
 @basics.command 
 @lightbulb.add_checks(lightbulb.owner_only)
 @lightbulb.command("status", "get information to the current status of the bot")
@@ -181,13 +190,15 @@ async def status(ctx: context.Context):
     msg = await ctx.respond(embed=embed)
     rest_delay = datetime.now() - request_start
 
+
     apis = [
         RestDelay("Database").with_coro(Table("bot").select_row, [["key"], ["restart_count"]]),
         RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":3, "top":True}),
         RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"]),
         RestDelay("MyAnimeList API").with_coro(MyAnimeList.search_anime, ["naruto"]),
         RestDelay("Bored API").with_coro(BoredAPI.fetch_idea),
-        RestDelay("Facts API").with_coro(Facts._fetch_from_rest)
+        RestDelay("Facts API").with_coro(Facts._fetch_from_rest),
+        RestDelay("TMDB API").with_coro(tmdb_coro, ["game of thrones"])
     ]
     tasks = [asyncio.create_task(api.do_request()) for api in apis]
     await asyncio.wait(tasks, timeout=20, return_when=asyncio.ALL_COMPLETED)
