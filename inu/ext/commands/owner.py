@@ -263,7 +263,7 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
 
     except Exception as e:
         traceback_list = traceback.format_tb(e.__traceback__)
-        traceback_list.insert(0, f"**ERROR**\n```py\n{e.__class__.__name__}: {e}\n```")
+        traceback_list.insert(0, f"{e.__class__.__name__}: {e}")
 
 
     finally:
@@ -320,7 +320,7 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         # add duration
         if len(embeds) == 0:
             embeds.append(hikari.Embed())
-        embeds[-1].description = f"{embeds[-1].description or ''} {time_str}"
+        embeds[0].set_footer(time_str)
         return embeds, round(ms, 4)
 
 
