@@ -21,7 +21,7 @@ from .base import PaginatorReadyEvent, Paginator, listener
 from jikanpy import AioJikan
 from fuzzywuzzy import fuzz
 
-from core import getLogger, InuContext, ConfigProxy, ConfigType
+from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError
 from utils import Human, Colors, MyAnimeList, Anime
 
 log = getLogger(__name__)
@@ -156,13 +156,18 @@ class ShowPaginator(Paginator):
 
     async def _load_details(self) -> None:
         """
-
+        
         """
         if not self._pages[self._position].description == "spaceholder":
             return
-        show_route = route.Show()
-        details = await show_route.details(self._results[self._position]["id"])
-        await show_route.session.close()
+        
+        try:
+            show_route = route.Show()
+            details = await show_route.details(self._results[self._position]["id"])
+        except IndexError:
+            raise BotResponseError("Seems like your given TV show doesn't exist", ephemeral=True)
+        finally:
+            await show_route.session.close()
         
         embed = Embed(description="")
         def add_key_to_field(name: str, key: str, inline=True):
