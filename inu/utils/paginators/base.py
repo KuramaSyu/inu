@@ -687,6 +687,7 @@ class Paginator():
 
     async def stop(self):
         self._stop.set()
+        log.debug("stopping navigator")
         with suppress(NotFoundError, hikari.ForbiddenError):
             kwargs = {}
             if self.components:
@@ -827,7 +828,7 @@ class Paginator():
                     )
 
             while not self._stop.is_set():
-                self.log.debug("re-enter pagination loop")
+                self.log.debug(f"re-enter pagination loop - status: {self._stop.is_set()}")
                 try:
                     # default events
                     events = [
@@ -847,7 +848,6 @@ class Paginator():
                     # maybe called from outside loop while waiting
                     self.log.debug("stop because of TimeoutError")
                     self._stop.set()
-                    continue
                 
                 for e in pending:
                     e.cancel()
@@ -865,6 +865,7 @@ class Paginator():
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
             await self.stop()
+            return
         except Exception:
             self.log.error(traceback.format_exc())
             
