@@ -32,3 +32,5 @@ easydev
 youtube-search-python
 humanize
 qrcode
+tmdb-python
+dacite
