@@ -96,17 +96,17 @@ class LoggingHandler(logging.Logger):
         except Exception:
             message = record.msg
         date = datetime.now()
-        time_stemp = date.strftime("%b %d %H:%M:%S")
+        time_stamp = date.strftime("%b %d %H:%M:%S:%f")
         now = datetime.now()
         print(f"{level_color[level_name]}{level_style[level_name]}{level_name:<8}{Style.RESET_ALL}"
               f" "
-              f"{self._get_color('datetime')}[{time_stemp:<8}]{Style.RESET_ALL} "
+              f"{self._get_color('datetime')}[{time_stamp:<8}]{Style.RESET_ALL} "
               f"{Style.BRIGHT}{self._get_color(module)}{module:<20}{Style.RESET_ALL} " +
               f"» "
               f"{msg_colors[level_name]}{message}{Style.RESET_ALL}")
 
         with open(f"{os.getcwd()}/inu/inu.log", "a", encoding="utf-8") as log_file:
-            log_entry = f"{level_name:<8}[{module:<20}] [{time_stemp:<8}] {str(message)}\n"
+            log_entry = f"{level_name:<8}[{module:<20}] [{time_stamp:<8}] {str(message)}\n"
             log_file.write(log_entry)
 
     # noinspection PyMethodMayBeStatic
