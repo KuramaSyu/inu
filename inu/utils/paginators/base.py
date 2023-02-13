@@ -20,6 +20,7 @@ import logging
 from abc import abstractmethod, ABCMeta, ABC
 from copy import deepcopy
 import random
+import time
 
 import textwrap
 
@@ -32,7 +33,7 @@ from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
 
-from core import InteractionContext, RESTContext, InuContext, get_context, BotResponseError
+from core import InteractionContext, RESTContext, InuContext, get_context, BotResponseError, getLogger
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -341,11 +342,12 @@ class Paginator():
 
         
         self.listener = EventListener(self)
-        self.log = log
+        self.log = getLogger(__name__, str(count))
         self.timeout = timeout
         self.listen_to_events = listen_to_events
         self._interaction: hikari.ComponentInteraction | None = None            
-        self._stopped: bool = False          
+        self._stopped: bool = False         
+        self._last_used: float = time.time()
 
         # paginator configuration
         self.pagination = not disable_pagination
@@ -594,6 +596,7 @@ class Paginator():
     def set_context(self, ctx: InuContext | None = None, event: hikari.Event | None = None) -> None:
         """
         create new context object `ctx` of paginator
+        and resets `self._last_used` and with that the internal timeout
 
         Args:
         ----
@@ -608,6 +611,7 @@ class Paginator():
             - if `ctx` and `event` is None
             - when type of `event` is not supported
         """
+        self._last_used = time.time()
         if not ctx:
             self.log.debug(f"fetch context for event {repr(event)}")
             ctx = get_context(event)
@@ -691,7 +695,7 @@ class Paginator():
             return
         # to prevent from calling again
         self._stopped = True
-        log.debug("stopping navigator")
+        self.log.debug("stopping navigator")
         with suppress(NotFoundError, hikari.ForbiddenError):
             kwargs = {}
             if self.components:
@@ -830,6 +834,7 @@ class Paginator():
                         event,
                         timeout=self.timeout,
                     )
+            
 
             while not self._stop.is_set():
                 self.log.debug(f"re-enter pagination loop - status: {self._stop.is_set()}, {self.timeout=}")
@@ -846,14 +851,14 @@ class Paginator():
                     done, pending = await asyncio.wait(
                         [asyncio.create_task(task) for task in events],
                         return_when=asyncio.FIRST_COMPLETED,
-                        timeout=self.timeout
+                        timeout=self.timeout - (time.time() - self._last_used)
                     )
                 except Exception:
                     log.error(traceback.format_exc())
                 
                 # timeout - no tasks done - stop
                 if len(done) == 0:
-                    log.debug(f"no done tasks - stop")
+                    self.log.debug(f"no done tasks - stop")
                     self._stop.set()
                 
                 # cancel all other tasks
@@ -868,7 +873,16 @@ class Paginator():
                     log.error(f"Unknown result - not an instance of `hikari.Event`")
                     self._stop.set()
                     continue
-                self.set_context(event=event)
+
+                if (
+                    isinstance(event, hikari.InteractionCreateEvent) 
+                    and self.interaction_pred(event)
+                    and event.interaction.custom_id in [
+                        "first", "previous", "search",
+                        "stop", "next", "last"
+                    ]
+                ):
+                    self.set_context(event=event)
 
                 self.log.debug(f"dispatch event | {self.count}")
                 await self.dispatch_event(event)
@@ -1309,7 +1323,7 @@ class StatelessPaginator(Paginator, ABC):
         - only dispatch given event
         """
         #if self.is_stateless:
-        log.debug("dispatch event")
+        self.log.debug("dispatch event")
         await self.dispatch_event(event)
 
     def set_custom_id(self: PagSelf, custom_id: str) -> PagSelf:
@@ -1352,13 +1366,13 @@ class StatelessPaginator(Paginator, ABC):
             raise TypeError("Needed attibutes for `StatelessPaginator.rebuild` or` None`") 
         if not await self.check_user():
             return
-        log.debug("set attrs")
+        self.log.debug("set attrs")
         self._channel_id = self.ctx.channel_id
         self._author_id = self.custom_id.author_id
         self._message = self.ctx.original_message
         self._position = self.custom_id.page
         self.bot = self.ctx.bot
-        log.debug("post start")
+        self.log.debug("post start")
         await self.post_start(events=[event])
 
     
