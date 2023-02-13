@@ -344,7 +344,8 @@ class Paginator():
         self.log = log
         self.timeout = timeout
         self.listen_to_events = listen_to_events
-        self._interaction: hikari.ComponentInteraction | None = None                      
+        self._interaction: hikari.ComponentInteraction | None = None            
+        self._stopped: bool = False          
 
         # paginator configuration
         self.pagination = not disable_pagination
@@ -686,7 +687,10 @@ class Paginator():
 
 
     async def stop(self):
-        self._stop.set()
+        if self._stopped:
+            return
+        # to prevent from calling again
+        self._stopped = True
         log.debug("stopping navigator")
         with suppress(NotFoundError, hikari.ForbiddenError):
             kwargs = {}
