@@ -8,6 +8,7 @@ from pprint import pformat
 import re
 from copy import deepcopy, copy
 from datetime import date, datetime
+from statistics import median
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
@@ -21,7 +22,7 @@ from .base import PaginatorReadyEvent, Paginator, listener
 from jikanpy import AioJikan
 from fuzzywuzzy import fuzz
 
-from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError
+from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
 from utils import Human, Colors, MyAnimeList, Anime
 
 log = getLogger(__name__)
@@ -36,7 +37,7 @@ base.key = config.tmdb.SECRET
 
 class SortBy:
     @staticmethod
-    def by_score(embeds: List[Embed]) -> float:
+    def by_score(embeds: List[Embed]) -> List[Embed]:
         def get_embed_score(embed: Embed):
             try:
                 value = [f for f in embed.fields if f.name == "Score"][0].value
@@ -84,6 +85,13 @@ class ShowPaginator(Paginator):
             timeout=60*2,
         )
 
+    def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
+        components = super().build_default_components(position)
+        components.append(
+            MessageActionRowBuilder()
+            .add_button(ButtonStyle.SECONDARY, "tv_show_seasons").set_label("Seasons").add_to_container()
+        )
+        return components
 
     async def start(self, ctx: InuContext, show_name: str) -> hikari.Message:
         """
@@ -110,24 +118,50 @@ class ShowPaginator(Paginator):
         await self._load_details()
         super().__init__(
             page_s=self._pages, 
-            timeout=60*4, 
+            timeout=4*60, 
             disable_paginator_when_one_site=False,
             disable_search_btn=True,
             **self._base_init_kwargs
         )
         return await super().start(ctx)
 
-    # def _fuzzy_sort_results(self, compare_name: str):
-    #     """fuzzy sort the anime result titles of  `self._results` by given name"""
-    #     close_matches = []
-    #     for anime in self._results.copy():
-    #         anime["fuzz_ratio"] = fuzz.ratio(anime["node"]["title"].lower(), compare_name.lower())
-    #         if anime["fuzz_ratio"] >= 80:
-    #             self._results.remove(anime)
-    #             close_matches.append(anime)
-    #     close_matches.sort(key=lambda anime: anime["fuzz_ratio"], reverse=True)
-    #     self._results = [*close_matches, *self._results]
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction(self, event: hikari.InteractionCreateEvent):
+        if not self.interaction_pred(event):
+            log.debug("pred failed")
+            return
+        i = event.interaction
+        if i.custom_id == "tv_show_seasons":
+            log.debug("start season pag")
+            pag = ShowSeasonPaginator(
+                page_s=["none"], 
+                timeout=4*60, 
+                disable_paginator_when_one_site=True,
+                disable_search_btn=True,
+                first_message_kwargs={
+                    "content": f"{self._results[self._position]['name']} season overview"
+                },
+            )
+            ctx = get_context(event)
+            seasons: Optional[List[Dict[str, str | int]]]= self._results[self._position].get("seasons")
+            if not seasons:
+                return await ctx.respond(
+                    "No seasons to show", ephemeral=True
+                )
+            return await pag.start(
+                ctx, 
+                tv_show_id=self._results[self._position]["id"], 
+                season_response=seasons
+            )
 
+            embeds: List[hikari.Embed] = []
+
+            for season in seasons:
+                embed = Embed(title=season.get("name", "Unknown name"))
+                if (overview := season.get("overview")):
+                    embed.description = Human.short_text(overview, 2000)
+
+            
 
     async def _search_show(self, search: str) -> List[hikari.Embed]:
         """
@@ -169,6 +203,8 @@ class ShowPaginator(Paginator):
         finally:
             await show_route.session.close()
         
+        # otherwise not accessible for season button
+        self._results[self._position] = details
         embed = Embed(description="")
         def add_key_to_field(name: str, key: str, inline=True):
             if (value := details.get(key, "None")):
@@ -218,13 +254,64 @@ class ShowPaginator(Paginator):
         await self._load_details()
         await super()._update_position(interaction)
 
-    def _fuzzy_sort_results(self, compare_name: str):
-        """fuzzy sort the anime result titles of  `self._results` by given name"""
-        close_matches = []
-        for anime in self._results.copy():
-            anime["fuzz_ratio"] = fuzz.ratio(anime["node"]["title"].lower(), compare_name.lower())
-            if anime["fuzz_ratio"] >= 80:
-                self._results.remove(anime)
-                close_matches.append(anime)
-        close_matches.sort(key=lambda anime: anime["fuzz_ratio"], reverse=True)
-        self._results = [*close_matches, *self._results]
+
+
+class ShowSeasonPaginator(Paginator):
+    _results: List[Dict[str, Any]]  # bare season info
+    _tv_show_id: int
+
+    async def start(self, ctx: InuContext, tv_show_id: int, season_response: List[Dict[str, Any]]):
+        self._tv_show_id = tv_show_id
+        self._results = season_response
+        # try:
+        #     show_route = route.Season()
+        #     details = await show_route.details(season_number=self._results[self._position]["season_number"], tv_id=self._tv_show_id)
+        # except IndexError:
+        #     raise BotResponseError("Seems like your given TV show doesn't exist", ephemeral=True)
+        # finally:
+        #     await show_route.session.close()
+        self.ctx = ctx
+        self._position = 0
+        self._pages = [Embed(description="spaceholder") for _ in range(len(self._results) -1)]
+        await self._load_details()
+
+        return await super().start(ctx)
+
+
+    async def _load_details(self) -> None:
+        """
+        
+        """
+        if not self._pages[self._position].description == "spaceholder":
+            return
+        
+        try:
+            show_route = route.Season()
+            details = await show_route.details(self._tv_show_id, self._results[self._position]["season_number"])
+        except IndexError:
+            raise BotResponseError("Seems like your given TV show season doesn't exist", ephemeral=True)
+        finally:
+            await show_route.session.close()
+        
+        embed = Embed(description="")
+        def add_key_to_field(name: str, key: str, inline=True, default=None):
+            if (value := details.get(key, "None")):
+                embed.add_field(name, str(value), inline=inline)
+        
+        embed.title = details["name"]
+        if (overview := details.get("overview")):
+            embed.description = overview
+        add_key_to_field("Season number", "season_number")
+        avg_score = median([e["vote_average"] for e in details.get("episodes", [])] or [0])
+        embed.add_field("Score", f"{avg_score:.2}/10", inline=True)
+        add_key_to_field("Air date", "air_date", default="/")
+        embed.set_image(f"{base_url}{details['poster_path']}")
+        embed._fields = [f for f in embed.fields if f.value and f.name]
+        self._pages[self._position] = embed
+
+    async def _update_position(self, interaction: ComponentInteraction | None = None,):
+        """
+        replaces embed page first with a more detailed one, before sending the message
+        """
+        await self._load_details()
+        await super()._update_position(interaction)
