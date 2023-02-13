@@ -161,14 +161,13 @@ plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def fetch_anime(_ctx: context.Context):
     pag = AnimePaginator()
-
-    log = getLogger(__name__, "fetch_anime")
-    log.debug(traceback.format_exc())
     ctx = get_context(_ctx.event)
     await ctx.defer()
     try:
         await pag.start(ctx, _ctx.options.name)
     except Exception:
+        log = getLogger(__name__, "fetch_anime")
+        log.debug(traceback.format_exc())
         await ctx.respond(
             f"Seems like you haven't typed in something anime like.",
             ephemeral=True
