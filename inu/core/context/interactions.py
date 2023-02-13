@@ -491,7 +491,8 @@ class InteractionContext(_InteractionContext):
                 **kwargs
             )
         self._deferred = False
-        asyncio.create_task(self._cache_initial_response())
+
+        #asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
         """cache the initial response message and store it in `self._message`"""
@@ -522,7 +523,7 @@ class InteractionContext(_InteractionContext):
                 **kwargs
             )
         
-        asyncio.create_task(self._cache_initial_response())
+        #asyncio.create_task(self._cache_initial_response())
 
     async def respond(self, *args, update: bool = False, **kwargs) -> ResponseProxy:
         """
@@ -533,8 +534,7 @@ class InteractionContext(_InteractionContext):
         - uses REST to create the message, if the webhook 
         
         """
-        log = getLogger(__name__, self.__class__.__name__)
-        log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
+        self.log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
         if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
@@ -547,9 +547,24 @@ class InteractionContext(_InteractionContext):
             else:
                 self.log.debug("deferred message update")
                 await self.initial_response_update(**kwargs)
-            return ResponseProxy(
-                await self.fetch_response()
-            ) 
+            async def _editor(
+                rp: ResponseProxy, *args_: Any, inter: hikari.CommandInteraction, **kwargs_: Any
+            ) -> hikari.Message:
+                await inter.edit_initial_response(*args_, **kwargs_)
+                return await rp.message()
+
+            includes_ephemeral: Callable[[Union[hikari.MessageFlag, int],], bool] = (
+                lambda flags: (hikari.MessageFlag.EPHEMERAL & flags) == hikari.MessageFlag.EPHEMERAL
+            )
+
+            proxy = ResponseProxy(
+                fetcher=self._interaction.fetch_initial_response,
+                editor=functools.partial(_editor, inter=self._interaction)
+                if includes_ephemeral(kwargs.get("flags", hikari.MessageFlag.NONE))
+                else None,
+            )
+            self.responses.append(proxy)
+            return proxy
         if not self.is_valid:  # interaction is unvalid
             if update:
                 if not self._message:
@@ -567,8 +582,8 @@ class InteractionContext(_InteractionContext):
         self.log.debug("call respond")
         ret_val = await super().respond(*args, update=update, **kwargs)
         # first response was created
-        if old_responded == False and self._responded == True:
-            asyncio.create_task(self._cache_initial_response())
+        # if old_responded == False and self._responded == True:
+            #asyncio.create_task(self._cache_initial_response())
         return ret_val
 
     respond_with_modal = lightbulb.context.ApplicationContext.respond_with_modal
@@ -589,7 +604,7 @@ class CommandInteractionContext(InteractionContext):
             )
         self._deferred = False
     
-        asyncio.create_task(self._cache_initial_response())
+        #asyncio.create_task(self._cache_initial_response())
 
 
 
