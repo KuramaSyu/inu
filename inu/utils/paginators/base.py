@@ -35,8 +35,9 @@ from lightbulb.context import Context
 
 from core import InteractionContext, RESTContext, InuContext, get_context, BotResponseError, getLogger
 
+LOGLEVEL = logging.WARNING
 log = logging.getLogger(__name__)
-log.setLevel(logging.WARNING)
+log.setLevel(LOGLEVEL)
 
 __all__: Final[List[str]] = ["Paginator", "BaseListener", "BaseObserver", "EventListener", "EventObserver"]
 _Sendable = Union[Embed, str]
@@ -343,6 +344,7 @@ class Paginator():
         
         self.listener = EventListener(self)
         self.log = getLogger(__name__, str(count))
+        self.log.setLevel(LOGLEVEL)
         self.timeout = timeout
         self.listen_to_events = listen_to_events
         self._interaction: hikari.ComponentInteraction | None = None            
