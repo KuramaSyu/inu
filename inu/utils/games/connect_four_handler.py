@@ -107,8 +107,10 @@ class Board:
         
         Args:
         -----
-            - column: (int) th column of the board where you want to drop the token
-            - player: (~.Player) The player who "owns" the "dropped token". 
+        column : int 
+            the column of the board where you want to drop the token
+        player : ~.Player 
+            The player who "owns" the "dropped token". 
         """
         col = Grid.get_cols(self.board)[column]
         first_free_slot = 0
@@ -151,32 +153,42 @@ class Board:
             # I know that this could be shorter
             # but I also want, that when a game is won with more than 4 slots,
             # the system will also display more the 4 slots
+            longest: List[Slot] = []
+            slots: List[Slot] = []
+
+            def set_if_longest():
+                nonlocal longest
+                nonlocal slots
+                if len(slots) > len(longest):
+                    longest = slots
+
             for line in lines:
                 slots = []
-                marker = None
                 for slot in line:
-                    clear = False
-                    add = False
                     if slot.marker is None:
-                        clear = True
-                    elif marker != slot.marker:
-                        clear = True
-                        add = True
-                        marker = slot.marker
-                    else:
+                        # empty slot
+                        set_if_longest()
+                        slots = []
+                    elif slots == []:
+                        # first slot
                         slots.append(slot)
-                    if clear:    
-                        if len(slots) >= 4:
-                            return slots
-                        slots.clear()
-                        if add:
-                            slots.append(slot)
-                if len(slots) >= 4:
-                    return slots
+                    elif slots[-1].marker != slot.marker:
+                        # other slot then before
+                        set_if_longest()
+                        slots = [slot]
+                    else:
+                        # same slot as before
+                        slots.append(slot) 
+                set_if_longest()
+
+            if len(longest) >= 4:
+                return longest
             return []
 
+        # test rows, cols and diagonals and backward diagonals
+        # for a +4 row
         for slots in [
-            self.board, 
+            self.board,
             Grid.get_cols(self.board), 
             Grid.get_backward_diagonals(self.board), 
             Grid.get_forward_diagonals(self.board)
