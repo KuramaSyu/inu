@@ -317,6 +317,9 @@ class BaseConnect4:
         
 
 class Connect4Handler(Paginator):
+    """
+    A handler which connects Connect4 with hikari/discord
+    """
     def __init__(
         self,
         player1: hikari.Member,
@@ -331,9 +334,9 @@ class Connect4Handler(Paginator):
             timeout=10*60,
             disable_pagination=True,
             disable_component=True,
-            disable_components=True,
+            disable_components=False,
             disable_paginator_when_one_site=False,
-            listen_to_events=[hikari.InteractionCreateEvent]
+            listen_to_events=[hikari.InteractionCreateEvent],
         )
         # generate player marks
         marks = ['🔵','🟣','🔴','🟠','🟢','🟡','🟤'] #,'⚪'
@@ -361,18 +364,34 @@ class Connect4Handler(Paginator):
             columns=columns,
         )
         
+        # these Errors will be displayed to the players
+        # these should contain why a player can't make a specific move etc.
         self.game_infos: List[Exception] = []
         
+        # a legend for the board
         self.game_explanation = (
             f"{self.game.player1.token} {self.game.player1.name}\n\n"
             f"{self.game.player2.token} {self.game.player2.name}\n\n"
             f"{self.game.board.marker} System"
         )
-    def out_put(self):
-        pass
+
+
+    async def start(self, ctx: InuContext):
+        """sets the game embed into `self._pages`"""
+        self._pages = [self.build_embed()]
+        self.set_context(ctx)
+        await super().start(ctx)
     
     async def stop(self):
+        """
+        end of game - called from base class
+        -> create embed with
+        stateless restart button
+        """
         self._stop.set()
+        self._stopped = True
+
+        # make stateless restart button
         custom_id = json.dumps(
             {
                 "type": f"c4-{self.game.board.rows}x{self.game.board.columns}",  # type
@@ -384,11 +403,20 @@ class Connect4Handler(Paginator):
             indent=None,
         )
         restart_btn = MessageActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, custom_id).set_emoji("🔁").add_to_container()
-        log.debug("remove btns")
+
         await self.ctx.respond(components=[restart_btn], update=True, embed=self.build_embed())
+
+
+    def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
+        """needed for `super().start` to make the right components instantly"""
+        return self.message_components
     
+
     @property
     def message_components(self) -> List[hikari.impl.MessageActionRowBuilder]:
+        """
+        Number buttons and surrender button for connect 4
+        """
         rows = []
         emoji_rows: List[OrderedDict] = []
         row_index = 5  # to add ordered dict at start of iteration
@@ -416,21 +444,21 @@ class Connect4Handler(Paginator):
             rows.append(row)
         return rows
 
-    @listener(PaginatorReadyEvent)
-    async def build_up_game(self, _: PaginatorReadyEvent):
-        await self.ctx.respond(content=None, embed=self.build_embed(), components=self.message_components, update=True)
-        log.debug("return from ready")
         
     async def update_embed(self):
+        """sends a message with an embed representing this game"""
         log.debug("update message")
         await self.ctx.respond(embed=self.build_embed(), components=self.message_components, update=True)
     
+
     def build_embed(self):
+        """represents the current game as an embed"""
         embed = hikari.Embed()
         embed.title = f"{'- '*4} Connect 4 {'- '*4}"
         embed.add_field(f"turn {self.game.turn}", self.board_to_str(), inline=True)
         embed.add_field("explanation", f"\n\n{self.game_explanation}", inline=True)
         if self.game.game_over:
+            # game is over -> check why it is over
             if self.game.status == GameStatus.OVER:
                 embed.set_footer(f"{self.game.game_winner.name} has won the game", icon=self.game.game_winner.user.avatar_url)  # type: ignore
             elif self.game.status == GameStatus.SURRENDERED:
@@ -444,7 +472,9 @@ class Connect4Handler(Paginator):
             embed.add_field('Be aware:', "\n\n".join(str(info) for info in self.game_infos))
         return embed
     
+
     def board_to_str(self) -> str:
+        """Adds column and row indicators to the board string"""
         string = ""
         b = str(self.game.board)
         lines = b.split("\n")
@@ -453,15 +483,23 @@ class Connect4Handler(Paginator):
         string += f"*️⃣{''.join(self.orientation_number[:self.game.board.columns])}"
         return string
 
+
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
+        """triggered, when player presses a button"""
         # predicate
         if not self.interaction_pred(event):
             return
         message = self._message
         log.debug(f"executing on interaction with pag id: {self.count} | msg id: {message.id}")
+
+        # this is a valid interaction for this game, so set context
+        self.set_context(event=event)
+
+        # extract the element from the custom_id e.g. num_{num} | surrender
         custom_id = event.interaction.custom_id.replace("connect4_", "", 1)
         if self.game.player1.name == self.game.player2.name:
+            # possibility to play against yourself
             player = self.game.player_turn
         else:
             player = self.game.player1 if self.game.player1.user.id == event.interaction.user.id else self.game.player2
@@ -469,82 +507,27 @@ class Connect4Handler(Paginator):
         if custom_id in [f"num_{x}" for x in range(1,9)]:
             num = int(custom_id[-1]) -1
             log.debug(f"custom_id num `{num}` found")
-            await self.do_turn(num, player) #type: ignore
+            await self.do_turn(num, player) #type: ignore  # this sends the message
         elif custom_id == "surrender":
             self.game.surrender(player)
-            await self.stop()
-            return
-        # elif emoji == "⏹":
-        #     pass
-        # elif custom_id == "restart":
-        #     if self.game.game_over:
-        #         await self.stop()
-        #         handler = Connect4Handler(self.player1, self.player2, rows)
-        #         return await handler.start(self.ctx)
-        #     else:
-        #         self.game_infos.append("Game isn't over yet!\nFinish it to restart")
-        if not self.game.game_over:
-            await self.update_embed()
+            self._stop.set()  # base class will call stop() and create with it the final message
 
-    # @listener(hikari.GuildReactionAddEvent)
-    # async def on_reaction_add(self, event: hikari.ReactionAddEvent):
-    #     # predicate
-    #     if (
-    #         not event.message_id == self._message.id
-    #         or not (emoji := event.emoji_name) in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🏳']
-    #         or event.user_id == self.bot.get_me().id
-    #         or not (event.user_id in [self.game.player1.user.id, self.game.player2.user.id])
-    #     ):
-    #         return
-
-    #     message = self._message
-    #     log.debug(f"executing on reaction with pag id: {self.count} | msg id: {message.id}")
-    #     await message.remove_reaction(emoji, user=event.user_id)
-    #     player = self.game.player1 if self.game.player1.user.id == event.user_id else self.game.player2
-        
-    #     if emoji in ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣']:
-    #         num = 0
-    #         for i, n in enumerate(self.orientation_number):
-    #             if n == emoji:
-    #                 num = i
-    #         await self.do_turn(num, player) #type: ignore
-    #     elif emoji == "🏳":
-    #         self.game.surrender(player)
-    #         await self.stop()
-    #     elif emoji == "⏹":
-    #         pass
-    #     elif emoji == "🔁":
-    #         if self.game.game_over:
-    #             await self.stop()
-    #             handler = Connect4Handler(self.player1, self.player2)
-    #             return await handler.start(self.ctx)
-    #         else:
-    #             self.game_infos.append("Game isn't over yet!\nFinish it to restart")
-    #     await self.update_embed()
-                
-            
-            #         elif str(reaction.emoji) == '🏳':
-            #             self.board_description = 'Spiel beendet'
-            #             self.value1_title = f'Zug {self.turn_count}'
-            #             self.board_footer = f'{str(user)[0:-5]} hat aufgegeben'
-            #             await self.create_board()
-            #             await self.reset_variables()
-            #     if reaction.message.id == self.board_message_id and str(user) != "Inu#3395" and str(user) in [str(self.player1),str(self.player2)] and self.gameOver == False: 
-            #         if str(reaction.emoji) == '⏹':
-            #             pass
-            # elif reaction.message.id == self.old_board_message_id and str(user) != "Inu#3395" and self.gameOver == True:
-            #     if str(reaction.emoji) == '🔁':
-            #         await self.four_wins_managemet(self.last_ctx, self.old_player1, self.old_player2)
-            #         await reaction.message.remove_reaction('🔁', user)
-            # elif reaction.message.id == self.board_message_id and str(user) != "Inu#3395" and (str(user) in [str(self.player1),str(self.player2)]) and self.gameOver == False:
-            #     if str(reaction.emoji) == '🏳':
-            #         self.board_description = 'Spiel beendet'
-            #         self.value1_title = f'Zug {self.turn_count}'
-            #         self.board_footer = f'{str(user)[0:-5]} hat aufgegeben'
-            #         await self.create_board()
-            #         await self.reset_variables()
             
     async def do_turn(self, column: int, user: HikariPlayer):
+        """handles the game logic and stops the game
+        
+        Args:
+        ----
+        column : int
+            the column (0 is first) where <user> placed his token
+        user : HikariPlayer
+            the user who has placed a token in <column>
+
+        Note:
+        -----
+        Game logic errors will be added to `self.game_infos`
+        to show it to the player. These will be cleared one round later
+        """
         self.game_infos.clear()
         try:
             self.game.do_turn(column, user)
@@ -560,14 +543,20 @@ class Connect4Handler(Paginator):
             self.game_infos.append(e)
         
         if self.game.game_over:
-            # await self.update_embed()
-            #await self._message.remove_all_reactions()
-            await self.stop()
+            log.debug("call stop from do turn")
+            self._stop.set()  # stop() will be called from the base class in pagination loop
         else:
             log.debug("call from do turn")
             await self.update_embed()
 
+
     def interaction_pred(self, event: hikari.InteractionCreateEvent):
+        """
+        predicate for `hikari.ComponentInteraction` 
+        when user is one of the 2 players 
+        and the interaction message is this message 
+        and custom_id starts with `connect4`
+        """
         if (
             not isinstance(event.interaction, hikari.ComponentInteraction)
             or not event.interaction.custom_id.startswith("connect4")
