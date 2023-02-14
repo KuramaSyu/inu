@@ -275,17 +275,15 @@ class ShowSeasonPaginator(Paginator):
         """
         
         """
-        if not self._pages[self._position].description == "spaceholder":
-            return
-        
         try:
+            if not self._pages[self._position].description == "spaceholder":
+                return
             show_route = route.Season()
             details = await show_route.details(self._tv_show_id, self._results[self._position]["season_number"])
-        except IndexError:
-            raise BotResponseError("Seems like your given TV show season doesn't exist", ephemeral=True)
-        finally:
             await show_route.session.close()
-        
+        except IndexError:
+            return await self.ctx.respond("Seems like there is no season preview for this TV show", ephemeral=True)
+            
         embed = Embed(description="")
         def add_key_to_field(name: str, key: str, inline=True, default=None):
             if (value := details.get(key, "None")):
