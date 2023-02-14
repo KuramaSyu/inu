@@ -23,24 +23,35 @@ from core import get_context, InuContext
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
 
+
+
 class WrongPlayerError(Exception):
     pass
-        
+
+
+
 class ColumnNotInFieldError(Exception):
     pass
+
+
 
 class ColumnError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
         
+
+
 class GameOverError(Exception):
     def __init__(self, *args: object) -> None:
         super().__init__(*args)
     
 
+
 class PlayerData:
     def __init__(self):
         pass
+
+
 
 class Player:
     
@@ -69,6 +80,8 @@ class HikariPlayer(Player):
         self.token = token
         self.user = user
 
+
+
 class Slot:
     """Represents one solt of the board"""
     def __init__(self, row: int, column: int, marker: Optional[str] = None):
@@ -77,7 +90,9 @@ class Slot:
         self.marker = marker   
 
 
+
 class GameStatus(Enum):
+    """Represents the game status"""
     OVER = 0
     RUNNING = 1
     SURRENDERED = 2
@@ -89,7 +104,8 @@ class Board:
         """
         Args:
         -----
-            - marker: (str) the emoji which should be used in __str__ to highlight the game over coordinates
+        marker : str
+            the emoji which should be used in __str__ to highlight the game over coordinates
         """
         self.game = game
         self.board: List[List[Slot]] = [[Slot(r, c) for c in range(columns)] for r in range(rows)]
@@ -101,6 +117,7 @@ class Board:
         self.rows = rows
         self.columns = columns
         
+
     def drop_token(self, column: int, player: Player):
         """
         Drops a token into the board.
@@ -123,6 +140,7 @@ class Board:
                 break
         self.board[first_free_slot][column].marker = player.token
 
+
     def check_for_game_draw(self):
         """checks if game is a draw
 
@@ -138,10 +156,6 @@ class Board:
         if valid_marker_count == int(self.rows * self.columns):
             self.game.status = GameStatus.DRAW
 
-    class GameOverCoordinate:
-        def __init__(self, row: int, column: int):
-            self.row = row
-            self.col = column
         
     def check_for_game_over(self):
         """
@@ -199,6 +213,7 @@ class Board:
                 self.game.status = GameStatus.OVER
                 break
             
+
     def __str__(self) -> str:
         lines = []
         part = ""
@@ -217,29 +232,12 @@ class Board:
             part = ""       
         return "\n".join(lines)
 
+
     def marked_slots_board(self) -> str:
-        lines = []
-        part = ""
-        board = deepcopy(self.board)
-        if self.game_over_slots:
-            for slot in self.game_over_slots:
-                board[slot.row][slot.column].marker = self.marker
-            
-        for line in board:
-            for slot in line:
-                if slot.marker:
-                    part += slot.marker
-                else:
-                    part += self.bg_color
-            lines.append(part)
-            part = ""       
-        return "\n".join(lines)
+        return str(self)
                     
                 
                 
-
-            
-        
 class BaseConnect4:
     def __init__(
         self,
@@ -254,7 +252,6 @@ class BaseConnect4:
         self.player_turn: Player
         self.game_winner: Optional[Player] = None
         self.game_over = True
-        self.surrendered: bool = False
         self.status = GameStatus.RUNNING
         self.board = Board(
             game=self,
@@ -264,11 +261,23 @@ class BaseConnect4:
         )
         self.start()
         self.turn: int = 1
+
+
+    @property
+    def surrendered(self) -> bool:
+        """wether or not a player has surrendered"""
+        return self.status == GameStatus.RUNNING
+
         
     def start(self):
+        """
+        sets `self.game_over` to False
+        and chooses a player randomly
+        """
         self.game_over = False
         self.player_turn = random.choice([self.player1, self.player2])
         
+
     def do_turn(self, column: int,  player: Optional[Player] = None):
         """
         Make a turn for a player.
@@ -312,20 +321,27 @@ class BaseConnect4:
         self.cycle_players()
         self.turn += 1
    
+
     def cycle_players(self):
         if self.player_turn == self.player1:
             self.player_turn = self.player2
         else:
             self.player_turn = self.player1
             
+
     def surrender(self, player: Player):
+        """
+        end game if player has surrendered a game
+
+        Args:
+        -----
+        player : ~.Player
+            the player who surrendered
+        """
         self.game_over = True
-        self.surrendered = True
         self.status = GameStatus.SURRENDERED
         self.game_winner = self.player1 if player == self.player2 else self.player2
         
-        
-
         
 
 class Connect4Handler(Paginator):
