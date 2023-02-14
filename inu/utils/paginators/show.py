@@ -267,6 +267,8 @@ class ShowSeasonPaginator(Paginator):
         self._position = 0
         self._pages = [Embed(description="spaceholder") for _ in range(len(self._results) -1)]
         await self._load_details()
+        if not self._pages:
+            return
 
         return await super().start(ctx)
 
