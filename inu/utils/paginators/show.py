@@ -56,8 +56,10 @@ class SortBy:
         return embeds
 
 
+
 class SortTypes(Enum):
     BY_SCORE = SortBy.by_score
+
 
 
 class ShowPaginator(Paginator):
@@ -85,6 +87,7 @@ class ShowPaginator(Paginator):
             timeout=60*2,
         )
 
+
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         components = super().build_default_components(position)
         components.append(
@@ -92,6 +95,7 @@ class ShowPaginator(Paginator):
             .add_button(ButtonStyle.SECONDARY, "tv_show_seasons").set_label("Seasons").add_to_container()
         )
         return components
+
 
     async def start(self, ctx: InuContext, show_name: str) -> hikari.Message:
         """
@@ -125,6 +129,7 @@ class ShowPaginator(Paginator):
         )
         return await super().start(ctx)
 
+
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
         if not self.interaction_pred(event):
@@ -154,13 +159,6 @@ class ShowPaginator(Paginator):
                 season_response=seasons
             )
 
-            embeds: List[hikari.Embed] = []
-
-            for season in seasons:
-                embed = Embed(title=season.get("name", "Unknown name"))
-                if (overview := season.get("overview")):
-                    embed.description = Human.short_text(overview, 2000)
-
             
 
     async def _search_show(self, search: str) -> List[hikari.Embed]:
@@ -187,6 +185,7 @@ class ShowPaginator(Paginator):
         embeds = [Embed(description="spaceholder") for _ in range(len(show_json) -1)]
         self._results = show_json["results"]
         return embeds
+
 
     async def _load_details(self) -> None:
         """
@@ -239,13 +238,14 @@ class ShowPaginator(Paginator):
                 except:
                     aired = "/"
                 season_overview += f'{season.get("name", "None"):<14}{season.get("episode_count", "None"):<12}{aired}\n'
-            embed.add_field("Season Overview", f"```\n{season_overview}```", inline=False)
+            embed.add_field("Season Overview", f"```\n{Human.short_text_from_center(season_overview, 1000)}```", inline=False)
 
         embed.set_image(f"{base_url}{details['poster_path']}")
 
         
         embed._fields = [f for f in embed.fields if f.value and f.name]
         self._pages[self._position] = embed
+
 
     async def _update_position(self, interaction: ComponentInteraction | None = None,):
         """
@@ -263,13 +263,6 @@ class ShowSeasonPaginator(Paginator):
     async def start(self, ctx: InuContext, tv_show_id: int, season_response: List[Dict[str, Any]]):
         self._tv_show_id = tv_show_id
         self._results = season_response
-        # try:
-        #     show_route = route.Season()
-        #     details = await show_route.details(season_number=self._results[self._position]["season_number"], tv_id=self._tv_show_id)
-        # except IndexError:
-        #     raise BotResponseError("Seems like your given TV show doesn't exist", ephemeral=True)
-        # finally:
-        #     await show_route.session.close()
         self.ctx = ctx
         self._position = 0
         self._pages = [Embed(description="spaceholder") for _ in range(len(self._results) -1)]
