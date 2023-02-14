@@ -137,6 +137,7 @@ class AnimePaginator(Paginator):
             return
         custom_id = event.interaction.custom_id
         i = event.interaction
+        self.set_context(event=event)
         if event.interaction.custom_id == "btn_anime_sort":
             self._sort_embeds(SortTypes.BY_SCORE)
             self._position = 0

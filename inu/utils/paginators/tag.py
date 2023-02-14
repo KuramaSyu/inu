@@ -172,12 +172,13 @@ class TagHandler(StatelessPaginator):
                 return
             i = event.interaction
             try:
-                assert self.custom_id.custom_id == "tag_options"
+                if not self.custom_id.custom_id == "tag_options":
+                    return
                 custom_id = event.interaction.values[0]
             except (IndexError, AssertionError):
                 # interaction was no menu interaction
                 return
-
+            self.set_context(event=event)
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
             elif custom_id == "set_value":
