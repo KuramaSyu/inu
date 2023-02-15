@@ -10,7 +10,7 @@ import lightbulb.context as context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 
-from utils.games.connect_four_handler import Connect4Handler
+from utils.games.connect_four_handler import Connect4Handler, Connect4FallingRowsHandler
 from utils.games import HikariOnu
 from utils import AkinatorSI
 from core import getLogger, Inu, get_context
@@ -53,11 +53,13 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     await handler.start(ctx)
 
     
-async def start_4_in_a_row(ctx: Context, rows: int, columns: int):
+async def start_4_in_a_row(ctx: Context, rows: int, columns: int, handler: Type[Connect4Handler] | None = None):
     if not ctx._options.get("player2"):
         ctx._options["player2"] = ctx.member
+
+    handler = handler or Connect4Handler
     
-    h = Connect4Handler(ctx.options.player1, ctx.options.player2, rows=rows, columns=columns)
+    h = handler(ctx.options.player1, ctx.options.player2, rows=rows, columns=columns)
     msg = await h.start(ctx)
 
 
@@ -98,6 +100,18 @@ async def connect4_classic(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_8by8(ctx: Context):
     await start_4_in_a_row(ctx, rows=8, columns=8)
+
+
+
+@connect4.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
+@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
+@lightbulb.command("falling-rows", "starts a Connect 4 game")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def connect4_falling_rows(ctx: Context):
+    await start_4_in_a_row(ctx, rows=4, columns=4, handler=Connect4FallingRowsHandler)
 
 
 
