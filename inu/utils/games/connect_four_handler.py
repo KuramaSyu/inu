@@ -21,7 +21,7 @@ from utils import Colors, Grid
 from core import get_context, InuContext
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.WARNING)
+log.setLevel(logging.DEBUG)
 
 
 
@@ -89,6 +89,11 @@ class Slot:
         self.column = column
         self.marker = marker   
 
+    @property
+    def is_used(self) -> bool:
+        """Wether or not a token has fallen into this slot"""
+        return not self.marker is None
+
 
 
 class GameStatus(Enum):
@@ -108,6 +113,7 @@ class Board:
             the emoji which should be used in __str__ to highlight the game over coordinates
         """
         self.game = game
+        # List[RowList[Slot]]
         self.board: List[List[Slot]] = [[Slot(r, c) for c in range(columns)] for r in range(rows)]
         # game is over when these are set
         # int, int = row, column
@@ -116,6 +122,16 @@ class Board:
         self.bg_color = "⬛"
         self.rows = rows
         self.columns = columns
+
+    
+    @property
+    def total_slots(self) -> int:
+        return self.rows * self.columns
+    
+
+    @property
+    def used_slots(self) -> int:
+        return sum([1 for line in self.board for slot in line if slot.is_used])
         
 
     def drop_token(self, column: int, player: Player):
@@ -153,7 +169,7 @@ class Board:
             for slot in row:
                 if slot.marker:
                     valid_marker_count += 1
-        if valid_marker_count == int(self.rows * self.columns):
+        if valid_marker_count == self.total_slots:
             self.game.status = GameStatus.DRAW
 
         
@@ -235,6 +251,39 @@ class Board:
 
     def marked_slots_board(self) -> str:
         return str(self)
+    
+
+
+class BoardFallingRows(Board):
+    """A class which represents a connect 4 board"""
+    def __init__(self, game: "BaseConnect4", marker: str, rows: int, columns: int):
+        """
+        Args:
+        -----
+        marker : str
+            the emoji which should be used in __str__ to highlight the game over coordinates
+        """
+        super().__init__(game, marker, rows=rows, columns=columns)
+        self.fill_threshold: float = 0.7
+        
+
+    def drop_token(self, column: int, player: Player):
+        """
+        Drops a token into the board.
+        Removes row 0 if treshold is exceeded
+        
+        Args:
+        -----
+        column : int 
+            the column of the board where you want to drop the token
+        player : ~.Player 
+            The player who "owns" the "dropped token". 
+        """
+        super().drop_token(column, player)
+        if  self.used_slots / self.total_slots >= self.fill_threshold:
+            self.board.pop(0)
+            # todo: resample board - each slot needs new row and column
+            self.board.append([Slot(self.rows-1, c) for c in range(self.columns)])
                     
                 
                 
@@ -341,7 +390,26 @@ class BaseConnect4:
         self.game_over = True
         self.status = GameStatus.SURRENDERED
         self.game_winner = self.player1 if player == self.player2 else self.player2
-        
+
+
+
+class FallingRowsConnect4(BaseConnect4):
+    def __init__(
+        self,
+        player1: Player,
+        player2: Player,
+        extra_marker: str,
+        rows: int,
+        columns: int,
+    ):
+        super().__init__(player1, player2, extra_marker, rows, columns)
+        self.board = BoardFallingRows(
+            game=self,
+            marker=extra_marker,
+            rows=rows,
+            columns=columns,
+        )
+
         
 
 class Connect4Handler(Paginator):
@@ -396,8 +464,11 @@ class Connect4Handler(Paginator):
         # these should contain why a player can't make a specific move etc.
         self.game_infos: List[Exception] = []
         
-        # a legend for the board
-        self.game_explanation = (
+
+    @property
+    def game_explanation(self) -> str:
+        """a legend for the board"""
+        return (
             f"{self.game.player1.token} {self.game.player1.name}\n\n"
             f"{self.game.player2.token} {self.game.player2.name}\n\n"
             f"{self.game.board.marker} System"
@@ -515,6 +586,7 @@ class Connect4Handler(Paginator):
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
+        log.debug(f"interaction receive")
         # predicate
         if not self.interaction_pred(event):
             return
@@ -593,6 +665,69 @@ class Connect4Handler(Paginator):
         ):
             return False
         return True
+    
+
+
+class Connect4FallingRowsHandler(Connect4Handler):
+    """
+    A handler which connects Connect4 with hikari/discord
+    """
+    def __init__(
+        self,
+        player1: hikari.Member,
+        player2: hikari.Member,
+        rows: int,
+        columns: int,
+    ):
+        super().__init__(player1, player2, rows, columns)
+        self.game = FallingRowsConnect4(
+            self.game.player1, 
+            self.game.player2,
+            self.game.board.marker,
+            rows=rows,
+            columns=columns,
+        )
+        
+
+    @property
+    def game_explanation(self) -> str:
+        # a legend for the board
+        return (
+            f"{self.game.player1.token} {self.game.player1.name}\n\n"
+            f"{self.game.player2.token} {self.game.player2.name}\n\n"
+            f"{self.game.board.marker} System\n\n"
+            f"{float(self.game.board.used_slots / self.game.board.total_slots):.1} / {self.game.board.fill_threshold}"
+        )
+    
+
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
+        """triggered, when player presses a button"""
+        log.debug(f"interaction receive")
+        # predicate
+        if not self.interaction_pred(event):
+            return
+        message = self._message
+        log.debug(f"executing on interaction with pag id: {self.count} | msg id: {message.id}")
+
+        # this is a valid interaction for this game, so set context
+        self.set_context(event=event)
+
+        # extract the element from the custom_id e.g. num_{num} | surrender
+        custom_id = event.interaction.custom_id.replace("connect4_", "", 1)
+        if self.game.player1.name == self.game.player2.name:
+            # possibility to play against yourself
+            player = self.game.player_turn
+        else:
+            player = self.game.player1 if self.game.player1.user.id == event.interaction.user.id else self.game.player2
+        
+        if custom_id in [f"num_{x}" for x in range(1,9)]:
+            num = int(custom_id[-1]) -1
+            log.debug(f"custom_id num `{num}` found")
+            await self.do_turn(num, player) #type: ignore  # this sends the message
+        elif custom_id == "surrender":
+            self.game.surrender(player)
+            self._stop.set()  # base class will call stop() and create with it the final message
         
             
         
