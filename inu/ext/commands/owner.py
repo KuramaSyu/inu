@@ -240,9 +240,6 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     env.update(globals())
     result = None
     raw_code = code
-    code, parsed, fn_name = clean_code(code)
-    log.warning(f"code gets executed:\n<<<\n{code}\n>>>")
-
 
     error = None
     str_obj = io.StringIO()
@@ -251,6 +248,8 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     traceback_list = []
 
     try:
+        code, parsed, fn_name = clean_code(code)
+        log.warning(f"code gets executed:\n<<<\n{code}\n>>>")
         exec(compile(parsed, filename="<eval>", mode='exec'), env)
         func = env[fn_name]
         start = datetime.now()
