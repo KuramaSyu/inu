@@ -907,7 +907,8 @@ class Paginator():
         """
         if isinstance(event, InteractionCreateEvent):
             if self.wrong_button_click(event):
-                await self.ctx.respond(
+                ctx = get_context(event)
+                await ctx.respond(
                     random.choice(REJECTION_MESSAGES), ephemeral=True
                 )
                 return
