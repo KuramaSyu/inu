@@ -10,7 +10,7 @@ import lightbulb.context as context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 
-from utils.games.connect_four_handler import Connect4Handler, Connect4FallingRowsHandler
+from utils.games.connect_four_handler import Connect4Handler, Connect4FallingRowsHandler, get_handler_from_letter
 from utils.games import HikariOnu
 from utils import AkinatorSI
 from core import getLogger, Inu, get_context
@@ -25,13 +25,15 @@ bot: Inu
 
 @plugin.listener(hikari.InteractionCreateEvent)
 async def on_connect4_restart(event: hikari.InteractionCreateEvent):
+    game_modifier = ""
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     try:
         custom_id_json = json.loads(event.interaction.custom_id)
         custom_id: str = custom_id_json["type"]
-        assert custom_id.startswith("c4-") # c4-{rows}x{columns}
-        rxc: List[str] = custom_id.replace("c4-", "").split("x")
+        assert custom_id.startswith("c4") # c4{game_letter}-{rows}x{columns}
+        game_modifier = custom_id[2]
+        rxc: List[str] = custom_id[4:].split("x")
         rows = int(rxc[0])
         columns = int(rxc[1])
         guild_id = custom_id_json["gid"]
@@ -40,7 +42,8 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
         p2 = await bot.mrest.fetch_member(guild_id, custom_id_json["p2"])
     except:
         return
-    handler = Connect4Handler(p1, p2, rows=rows, columns=columns)
+    handler_class = get_handler_from_letter(game_modifier)
+    handler = handler_class(p1, p2, rows=rows, columns=columns)
     ctx = get_context(event)
     await ctx.respond(
         components=[
@@ -108,10 +111,10 @@ async def connect4_8by8(ctx: Context):
 @lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
-@lightbulb.command("falling-rows", "starts a Connect 4 game")
+@lightbulb.command("falling-rows", "A game of Connect 4 which drops rows Tetris like")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_falling_rows(ctx: Context):
-    await start_4_in_a_row(ctx, rows=4, columns=4, handler=Connect4FallingRowsHandler)
+    await start_4_in_a_row(ctx, rows=6, columns=7, handler=Connect4FallingRowsHandler)
 
 
 
