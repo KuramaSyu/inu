@@ -13,6 +13,7 @@ from .base import Paginator
 from .base import listener
 
 from utils import Colors
+from core import get_context, InuContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -37,6 +38,7 @@ class MusicHistoryPaginator(Paginator):
         self.not_valid = 0
         self.song_list = history
         self.items_per_site = items_per_site
+        self.play_command = None
     
     def build_default_components(self, position: int):
         # components = [self.build_default_component(position)]
@@ -58,6 +60,11 @@ class MusicHistoryPaginator(Paginator):
         menu = menu.add_to_container()
         components.append(menu)
         return components
+    
+    async def start(self, ctx: InuContext, play_command):
+        self.play = play_command
+        self.set_context(ctx)
+        super().start(ctx)
 
     @listener(PaginatorReadyEvent)
     async def on_start(self, event: PaginatorReadyEvent):
@@ -79,14 +86,11 @@ class MusicHistoryPaginator(Paginator):
             return
         if not event.interaction.message.id == self._message.id:
             return
+        self.set_context(event=event)
         # play the selected song
         uri = self.song_list[int(event.interaction.values[0])]["uri"]
-        await event.interaction.create_initial_response(
-            hikari.ResponseType.DEFERRED_MESSAGE_UPDATE
-        )
-        if isinstance(self.ctx, (context.PrefixContext, context.SlashContext)):
-            self.ctx._options["query"] = uri
-        await self.play(self.ctx)
+        await self.ctx.defer()
+        await self.play(self.ctx, uri)
 
     
     @listener(hikari.GuildMessageCreateEvent)
