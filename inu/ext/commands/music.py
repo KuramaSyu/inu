@@ -179,8 +179,10 @@ class Interactive:
         except asyncio.TimeoutError as e:
             raise e
         await event.interaction.create_initial_response(
-            ResponseType.DEFERRED_MESSAGE_UPDATE
+            ResponseType.MESSAGE_UPDATE,
+            content=f"🗑️ Choose the song which should be added"
         )
+        await event.interaction.delete_initial_response()
         return query_information.tracks[track_num]
 
 
@@ -461,7 +463,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         return
     ctx.auto_defer()
     log.debug(f"music message={type(message)}")
-    if ctx.message.id != message.id:
+    if (await ctx.message()).id != message.id:
         # music message is different from message where interaction comes from
         # disable buttons from that different message
         await ctx.respond(
@@ -1335,29 +1337,29 @@ async def queue(
     # send new message and override
     music_msg = music.d.music_message.get(guild_id, None)
     if music_msg is None or force_resend:
-        #await ctx.interaction.execute(embed=music_embed)
         msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node))
-        msg = await ctx.fetch_response()
-        music.d.music_message[ctx.guild_id] = msg
-        #asyncio.create_task(add_music_reactions(music.d.music_message[guild_id]))
+        if not music_msg is None:
+            await music_msg.delete()
+        music.d.music_message[ctx.guild_id] = await msg.message()
         return
 
     #edit existing message
     try:
         timeout = 4
-        async for m in music.bot.rest.fetch_messages(music.d.music_message[guild_id].channel_id):
+        ctx_message_id = (await ctx.message()).id
+        async for m in music.bot.rest.fetch_messages(ctx.channel_id):
             # edit existing message if in last messages
-            if m.id == music.d.music_message[ctx.guild_id].id:
-                await ctx.respond(embed=music_embed, components=await build_music_components(node=node), update=True)
+            if m.id == ctx_message_id:
+                await ctx.respond(
+                    embed=music_embed, 
+                    components=await build_music_components(node=node), 
+                    update=True
+                )
                 return
             timeout -= 1
             # resend message
             if timeout == 0:
-                await ctx.respond(
-                    # embed=music_embed, 
-                    components=[],
-                    update=True
-                )
+                await ctx.delete_inital_response()
                 msg = await ctx.respond(
                     embed=music_embed, 
                     components=await build_music_components(node=node), 
