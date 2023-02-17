@@ -291,7 +291,7 @@ tvshow_details = {'adult': False,
 
 # async def main():
 #     base = route.Base()
-#     base.key = "26994a075cd0f7c08320f7996b08d796"
+#     base.key = ""
 
 #     show_route = route.Season()
 #     details = await show_route.details(1399, 1)
