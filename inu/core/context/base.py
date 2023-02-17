@@ -39,7 +39,7 @@ class ContextEqualTrait:
         raise NotImplementedError("This method needs to be subclassed")
     def __eq__(self, other: object):
         if not isinstance(other, InuContext):
-            raise TypeError(f"Can't compare {type(self)} from `InuContext` with {type(other)}")
+            return False
         if not type(self) == type(other):
             return False
         if other.id is None:
