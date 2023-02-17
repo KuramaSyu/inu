@@ -51,9 +51,8 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
     def original_message(self) -> hikari.Message:
         return self.event.interaction.message
     
-    @property
-    def message(self) -> hikari.Message:
-        return self.event.interaction.message
+    async def message(self):
+        return self._event.interaction.message
 
     @property
     def event(self) -> hikari.InteractionCreateEvent:
@@ -375,7 +374,10 @@ class InteractionContext(_InteractionContext):
         self._responded = True
         self._deferred = False
         self.log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
-        
+
+    
+    async def delete_inital_response(self) -> None:
+        await self.interaction.delete_initial_response()
 
     @property
     def i(self) -> hikari.ComponentInteraction:
@@ -589,7 +591,11 @@ class InteractionContext(_InteractionContext):
     respond_with_modal = lightbulb.context.ApplicationContext.respond_with_modal
 
 class CommandInteractionContext(InteractionContext):
-    ...
+    def __init__(self, **kwargs):
+        self._initial_response: hikari.Message | None = None
+        super().__init__(**kwargs)
+        
+
     async def initial_response_create(self, **kwargs):
         """Create initial response initially or deffered"""
         self._responded = True
@@ -605,7 +611,16 @@ class CommandInteractionContext(InteractionContext):
         self._deferred = False
     
         #asyncio.create_task(self._cache_initial_response())
+    
+    @property
+    def interaction(self) -> hikari.CommandInteraction:
+        return self._event.interaction
+    
 
+    async def message(self) -> hikari.Message:
+        if not self._initial_response:
+            self._initial_response = await self.interaction.fetch_initial_response()
+        return self._initial_response
 
 
 class MessageInteractionContext(InteractionContext):

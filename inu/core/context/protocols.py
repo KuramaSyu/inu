@@ -111,6 +111,11 @@ class InuContext(ABC):
     def is_hashable(self) -> bool:
         """wether or not __hash__ will result in an error"""
         return self.id is not None
+    
+    
+    @abstractmethod
+    async def delete_inital_response(self) -> None:
+        ...
 
 
 class InuContextProtocol(Protocol[T]):

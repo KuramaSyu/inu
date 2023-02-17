@@ -71,6 +71,10 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
     @property
     def original_message(self) -> hikari.Message:
         return self._event.message
+    
+
+    async def message(self) -> hikari.Message:
+        return self._event.message
 
     def get_channel(self) -> Optional[Union[hikari.GuildChannel, hikari.Snowflake]]:
         if self.guild_id is not None:
@@ -168,6 +172,10 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         if not isinstance(event, (hikari.MessageCreateEvent, hikari.MessageUpdateEvent)):
             raise TypeError(f"Can't create `{cls.__name__}` with `{type(event)}`")
         return cls(app=event.app, event=event)
+    
+
+    async def delete_inital_response(self) -> None:
+        await self.original_message.delete()
 
 
 
