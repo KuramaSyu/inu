@@ -9,6 +9,7 @@ from copy import deepcopy
 from enum import Enum
 from collections import OrderedDict
 import json
+from typing import *
 
 import hikari
 from hikari import Member
@@ -17,11 +18,11 @@ import lightbulb
 from lightbulb.context import Context
 
 from utils.paginators.base import PaginatorReadyEvent, listener, Paginator
-from utils import Colors, Grid
+from utils import Colors, Grid, Human
 from core import get_context, InuContext
 
 log = logging.getLogger(__name__)
-log.setLevel(logging.DEBUG)
+log.setLevel(logging.WARNING)
 
 
 
@@ -93,6 +94,16 @@ class Slot:
     def is_used(self) -> bool:
         """Wether or not a token has fallen into this slot"""
         return not self.marker is None
+
+    def alter_column(self, add: int):
+        self.column += add
+    
+    def alter_row(self, add: int):
+        self.row += add
+
+    def __repr__(self) -> str:
+        return f"Slot<{self.row=}, {self.column=}, {self.marker=}>"
+
 
 
 
@@ -264,8 +275,30 @@ class BoardFallingRows(Board):
             the emoji which should be used in __str__ to highlight the game over coordinates
         """
         super().__init__(game, marker, rows=rows, columns=columns)
-        self.fill_threshold: float = 0.7
-        
+        self.original_threshold = 0.6
+        self.current_threshold = 0
+        self.new_treshold()
+
+
+
+    @property
+    def turns_until_drop(self) -> int:
+        """calculates the amount of turns until threshold is exceeded"""
+        rise_percentage = 100 / self.total_slots
+        current_percentage = self.used_slots * rise_percentage
+        remaining_percentage = self.current_threshold * 100 - current_percentage
+        remaining_slots = remaining_percentage / rise_percentage
+        if remaining_slots > int(remaining_slots):
+            return int(remaining_slots) + 1
+        return int(remaining_slots)
+    
+
+    def new_treshold(self):
+        """recalculate a random new threshold"""
+        self.current_threshold = random.randint(self.original_threshold*100-4, self.original_threshold*100+4) / 100
+        log.debug(f"{self.__class__.__name__} set threshold to {self.current_threshold}")
+
+
 
     def drop_token(self, column: int, player: Player):
         """
@@ -280,10 +313,17 @@ class BoardFallingRows(Board):
             The player who "owns" the "dropped token". 
         """
         super().drop_token(column, player)
-        if  self.used_slots / self.total_slots >= self.fill_threshold:
-            self.board.pop(0)
-            # todo: resample board - each slot needs new row and column
-            self.board.append([Slot(self.rows-1, c) for c in range(self.columns)])
+        if  self.used_slots / self.total_slots >= self.current_threshold:
+            self.new_treshold()
+            # remove bottom row
+            self.board.pop(-1)
+            # move every slot logically 1 down
+            for row in self.board:
+                for slot in row:
+                    slot.alter_row(+1)
+            # add empty row to the top
+            self.board.insert(0, [Slot(0, c) for c in range(self.columns)])
+
                     
                 
                 
@@ -403,7 +443,7 @@ class FallingRowsConnect4(BaseConnect4):
         columns: int,
     ):
         super().__init__(player1, player2, extra_marker, rows, columns)
-        self.board = BoardFallingRows(
+        self.board: BoardFallingRows = BoardFallingRows(
             game=self,
             marker=extra_marker,
             rows=rows,
@@ -493,7 +533,7 @@ class Connect4Handler(Paginator):
         # make stateless restart button
         custom_id = json.dumps(
             {
-                "type": f"c4-{self.game.board.rows}x{self.game.board.columns}",  # type
+                "type": f"c4{self._stateless_type_letter}-{self.game.board.rows}x{self.game.board.columns}",  # type
                 "p1": self.game.player1.user.id,  # player 2
                 "p2": self.game.player2.user.id,  # player 1
                 "gid": self.game.board.game.player1.user.guild_id  # guild_id
@@ -667,6 +707,11 @@ class Connect4Handler(Paginator):
         return True
     
 
+    @property
+    def _stateless_type_letter(self) -> str:
+        """returns one letter used to determine which type of connect 4 it is"""
+        return "D"     
+
 
 class Connect4FallingRowsHandler(Connect4Handler):
     """
@@ -692,12 +737,14 @@ class Connect4FallingRowsHandler(Connect4Handler):
     @property
     def game_explanation(self) -> str:
         # a legend for the board
-        return (
+        legend = (
             f"{self.game.player1.token} {self.game.player1.name}\n\n"
             f"{self.game.player2.token} {self.game.player2.name}\n\n"
             f"{self.game.board.marker} System\n\n"
-            f"{float(self.game.board.used_slots / self.game.board.total_slots):.1} / {self.game.board.fill_threshold}"
         )
+        if (turns := self.game.board.turns_until_drop) < 5:
+            legend += f"{self.orientation_number[turns-1]} {Human.plural_('turn', turns)} remaining"
+        return legend
     
 
     @listener(hikari.InteractionCreateEvent)
@@ -728,7 +775,41 @@ class Connect4FallingRowsHandler(Connect4Handler):
         elif custom_id == "surrender":
             self.game.surrender(player)
             self._stop.set()  # base class will call stop() and create with it the final message
-        
+    
+    
+    def build_embed(self):
+        embed = super().build_embed()
+        embed.title =f"- - Connect 4 Falling Rows - -"
+        return embed
+
+    
+    @property
+    def _stateless_type_letter(self) -> str:
+        """returns one letter used to determine which type of connect 4 it is"""
+        return "F"
+    
+
+
+def get_handler_from_letter(letter: str) -> Type[Connect4Handler]:
+    """
+    Args:
+    -----
+    letter : str
+        the letter to identify the handler to use [D|F]
+    
+    
+    Returns:
+    --------
+    Type[Connect4Handler]
+        Any subclass of `Connect4Handler` or the original
+    """
+    handler = {
+        "D": Connect4Handler,
+        "F": Connect4FallingRowsHandler,
+    }.get(letter)
+    if handler is None:
+        raise TypeError(f"There is no Connect4Handler identified with letter {letter}")
+    return handler  # type: ignore
             
         
     
