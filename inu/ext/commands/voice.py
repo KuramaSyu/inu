@@ -54,15 +54,16 @@ plugin = lightbulb.Plugin("Voice commands")
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def move_all(ctx: Context):
     member = ctx.options.member or ctx.member
+    assert member is not None
     states = ctx.bot.cache.get_voice_states_view_for_guild(ctx.guild_id)
-    voice_state = [state async for state in states.iterator().filter(lambda i: i.user_id == member.id)]
+    voice_state = [state for state in states.values() if state.user_id == member.id]
 
     if not voice_state:
         await ctx.respond(f"{member.display_name} needs to be in a voice channel")
         return None
 
     channel_id = voice_state[0].channel_id
-    user_ids = [state.user_id async for state in states.iterator().filter(lambda i: i.channel_id == channel_id)]
+    user_ids = [state.user_id for state in states.values() if state.channel_id == channel_id]
     channels = await ctx.bot.rest.fetch_guild_channels(ctx.guild_id)
     try:
         target_channel = [
