@@ -16,18 +16,33 @@ from .help import OutsideHelp
 
 from core import getLogger, BotResponseError, Inu, InteractionContext
 
-log = getLogger(__name__)
+log = getLogger("Error Handler")
 pl = lightbulb.Plugin("Error Handler")
 bot: Inu
 
 
+ERROR_JOKES = [
+    "Wait, there was a difference between beta and production?",
+    (
+        '_"NOOoo the bot wasn\'t tested properly" is what you are maybe thinking right now. '
+        "So now is the right moment to say you: _you are the tester_"
+    ),
+    "Seems like someone was to lazy to test me -- _again_",
+    "Y'know: _my_ ordinary life is generating errors",
+    "You expected something else? Oh please. I thought you got it by now",
+    (
+        "Y'know I can smell you disappointment. It's right about here: ```\n"
+        "|--------------------|\n"
+        "                           ^\n```"
+    )
 
-@pl.listener(hikari.ExceptionEvent)
+]
+
+
+
 async def on_exception(event: hikari.ExceptionEvent):
     # not user related error
     try:
-        if isinstance(event.exception, events.CommandErrorEvent):
-            return
         log.error(f"{''.join(traceback.format_exception(event.exception))}")
     except Exception:
         log.critical(traceback.format_exc())
@@ -57,13 +72,6 @@ async def on_error(event: events.CommandErrorEvent):
                 .add_to_container()
 
             )
-            # if pl.bot.conf.bot.owner_id == ctx.user.id:
-            #     component = (
-            #         component
-            #         .add_button(hikari.ButtonStyle.SECONDARY, "error_show")
-            #         .set_label("Show error")
-            #         .add_to_container()
-            #     )
             try:
                 message = await (await ctx.respond(
                     embed=error_embed,
@@ -252,7 +260,7 @@ async def on_error(event: events.CommandErrorEvent):
         else:
             error_embed = hikari.Embed()
             error_embed.title = "Oh no! A bug occurred"
-            error_embed.description = str(error)[:2000]
+            error_embed.description = random.choice(ERROR_JOKES)
             with suppress(hikari.ForbiddenError):
                 await message_dialog(error_embed)
     except Exception:
@@ -263,4 +271,10 @@ async def on_error(event: events.CommandErrorEvent):
 def load(inu: Inu):
     global bot
     bot = inu
+    @bot.listen(hikari.events.ExceptionEvent)
+    async def on_error(event: hikari.events.ExceptionEvent) -> None:
+        try:
+            log.error(f"{''.join(traceback.format_exception(event.exception))}")
+        except Exception:
+            log.critical(traceback.format_exc())
     inu.add_plugin(pl)
