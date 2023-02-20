@@ -64,34 +64,25 @@ class MusicHistoryPaginator(Paginator):
     async def start(self, ctx: InuContext, play_command):
         self.play = play_command
         self.set_context(ctx)
-        super().start(ctx)
+        await super().start(ctx)
 
-    @listener(PaginatorReadyEvent)
-    async def on_start(self, event: PaginatorReadyEvent):
-        try:
-            ext = self.bot.get_plugin("Music")
-            ext.d.last_context[self.ctx.guild_id] = self.ctx 
-            for cmd in ext.all_commands:
-                if cmd.name == "play":
-                    self.play = cmd.callback
-            self.not_valid = 0
-        except:
-            traceback.print_exc()
         
     @listener(hikari.InteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
-        if not isinstance(event.interaction, hikari.ComponentInteraction):
-            return
-        if not event.interaction.custom_id == "history menu":
-            return
-        if not event.interaction.message.id == self._message.id:
-            return
-        self.set_context(event=event)
-        # play the selected song
-        uri = self.song_list[int(event.interaction.values[0])]["uri"]
-        await self.ctx.defer()
-        await self.play(self.ctx, uri)
-
+        try:
+            if not isinstance(event.interaction, hikari.ComponentInteraction):
+                return
+            if not event.interaction.custom_id == "history menu":
+                return
+            if not event.interaction.message.id == self._message.id:
+                return
+            ctx = get_context(event)
+            # play the selected song
+            uri = self.song_list[int(event.interaction.values[0])]["uri"]
+            # await self.ctx.defer()
+            await self.play(ctx, uri)
+        except:
+            log.error(traceback.format_exc())
     
     @listener(hikari.GuildMessageCreateEvent)
     async def on_message(self, event: hikari.MessageCreateEvent):
