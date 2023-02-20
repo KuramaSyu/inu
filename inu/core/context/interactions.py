@@ -372,7 +372,7 @@ class InteractionContext(_InteractionContext):
         
         self._defer_in_progress_event.set()
         self._responded = True
-        self._deferred = False
+        # self._deferred = False
         self.log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
 
     
@@ -483,15 +483,17 @@ class InteractionContext(_InteractionContext):
     async def initial_response_create(self, **kwargs):
         """Create initial response initially or deffered"""
         self._responded = True
-        if not self._deferred:
+        if self._deferred:
+            await self.interaction.edit_initial_response(
+                **kwargs
+            )
+        else:
             await self.interaction.create_initial_response(
                 response_type=ResponseType.MESSAGE_CREATE, 
                 **kwargs
             )
-        else:
-            await self.interaction.edit_initial_response(
-                **kwargs
-            )
+        # else:
+
         self._deferred = False
 
         #asyncio.create_task(self._cache_initial_response())
@@ -540,7 +542,7 @@ class InteractionContext(_InteractionContext):
         if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
-        if self.is_valid and self._deferred:  # interaction defferd
+        if self.is_valid and self._deferred:  # interaction deferred
             self.log.debug("wait for defer complete")
             await self._maybe_wait_defer_complete()
             if not update:
@@ -596,19 +598,19 @@ class CommandInteractionContext(InteractionContext):
         super().__init__(**kwargs)
         
 
-    async def initial_response_create(self, **kwargs):
-        """Create initial response initially or deffered"""
-        self._responded = True
-        if self._deferred:
-            await self.interaction.create_initial_response(
-                response_type=ResponseType.MESSAGE_CREATE, 
-                **kwargs
-            )
-        else:
-            await self.interaction.edit_initial_response(
-                **kwargs
-            )
-        self._deferred = False
+    # async def initial_response_create(self, **kwargs):
+    #     """Create initial response initially or deffered"""
+    #     self._responded = True
+    #     if self._deferred:
+    #         await self.interaction.edit_initial_response(
+    #             **kwargs
+    #         )
+    #     else:
+    #         await self.interaction.create_initial_response(
+    #             response_type=ResponseType.MESSAGE_CREATE, 
+    #             **kwargs
+    #         )
+    #     self._deferred = False
     
         #asyncio.create_task(self._cache_initial_response())
     
