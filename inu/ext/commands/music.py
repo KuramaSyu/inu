@@ -455,9 +455,11 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     
     ctx = get_context(event)
     if not any([custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id in custom_id]):
+        # wrong custom id
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
     if (message := music.d.music_message.get(ctx.guild_id)) is None:
+        await ctx.respond("Seems like nothing is playing right now.", ephemeral=True)
         return
     if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.author.id)):
         return
@@ -468,7 +470,8 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         # disable buttons from that different message
         await ctx.respond(
             embeds=ctx.i.message.embeds, 
-            components=await build_music_components(disable_all=True, guild_id=ctx.guild_id)
+            components=await build_music_components(disable_all=True, guild_id=ctx.guild_id),
+            update=True,
         )
     music.d.last_context[ctx.guild_id] = ctx   
     guild_id = ctx.guild_id
@@ -789,10 +792,8 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         return False # just for pylance
     ictx = get_context(ctx.event)
     await ictx.defer()
-    #await ictx.defer()
-    # ictx._responded = ctx._responded
     music.d.last_context[ctx.guild_id] = ictx
-    con = lavalink.get_guild_gateway_connection_info(ctx.guild_id) # await?
+    con = lavalink.get_guild_gateway_connection_info(ctx.guild_id)
     # Join the user's voice channel if the bot is not in one.
     if not con:
         await _join(ictx)
@@ -1315,8 +1316,6 @@ async def queue(
     music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
     music_embed.add_field(name="Added from:", value=f'{requester.display_name}' , inline=True)
     music_embed.add_field(name = "Duration:", value=f'{current_duration}', inline=False)
-    
-    # music_embed.set_thumbnail(url=f'{video_thumbnail}')
     music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
     kwarg = {"text": f"{queue or '/'}"}
     if create_footer_info:
@@ -1335,18 +1334,26 @@ async def queue(
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
     # send new message and override
-    music_msg = music.d.music_message.get(guild_id, None)
-    if music_msg is None or force_resend:
+    old_music_msg = music.d.music_message.get(guild_id, None)
+    if (
+        old_music_msg is None 
+        or force_resend 
+        or not (music_message := await ctx.message())
+    ):
         msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node))
-        if not music_msg is None:
-            await music_msg.delete()
         music.d.music_message[ctx.guild_id] = await msg.message()
+        try:
+            if not old_music_msg is None:
+                await old_music_msg.delete()
+        except hikari.NotFoundError:
+            pass
         return
 
     #edit existing message
+    # only possible with component interactions
     try:
         timeout = 4
-        ctx_message_id = (await ctx.message()).id
+        ctx_message_id = music_message.id
         async for m in music.bot.rest.fetch_messages(ctx.channel_id):
             # edit existing message if in last messages
             if m.id == ctx_message_id:
