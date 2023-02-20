@@ -13,7 +13,7 @@ from .base import Paginator
 from .base import listener
 
 from utils import Colors
-from core import get_context, InuContext
+from core import get_context, InuContext, BotResponseError
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -69,20 +69,24 @@ class MusicHistoryPaginator(Paginator):
         
     @listener(hikari.InteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
+        if not isinstance(event.interaction, hikari.ComponentInteraction):
+            return
+        if not event.interaction.custom_id == "history menu":
+            return
+        if not event.interaction.message.id == self._message.id:
+            return
+        ctx = get_context(event)
+        # play the selected song
+        uri = self.song_list[int(event.interaction.values[0])]["uri"]
+        # await self.ctx.defer()
         try:
-            if not isinstance(event.interaction, hikari.ComponentInteraction):
-                return
-            if not event.interaction.custom_id == "history menu":
-                return
-            if not event.interaction.message.id == self._message.id:
-                return
-            ctx = get_context(event)
-            # play the selected song
-            uri = self.song_list[int(event.interaction.values[0])]["uri"]
-            # await self.ctx.defer()
             await self.play(ctx, uri)
-        except:
-            log.error(traceback.format_exc())
+        except BotResponseError as e:
+            # needs to be catched manually
+            if (flag := e.kwargs.get("flags")) == hikari.MessageFlag.EPHEMERAL:
+                e.kwargs["ephemeral"] = True
+                del e.kwargs["flags"]
+            await ctx.respond(**e.kwargs)
     
     @listener(hikari.GuildMessageCreateEvent)
     async def on_message(self, event: hikari.MessageCreateEvent):
