@@ -77,6 +77,8 @@ class EventHandler:
             node = await lavalink.get_guild_node(event.guild_id)
             if node is None:
                 return
+            if len(node.queue) in [1, 0]:
+                return  # first element added with /play -> play command will call queue
             track = node.queue[0].track
             await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
         except Exception:
@@ -397,6 +399,7 @@ lavalink: lavasnek_rs.Lavalink = None
 interactive: Interactive = None
 music_helper: MusicHelper = None
 music_messages: Dict[int, Union[hikari.Message, None]] = {}  # guild_id: hikari.Message
+last_context: Dict[int, InuContext] = {}
 
 @music.listener(hikari.ShardReadyEvent)
 async def on_ready(event: hikari.ShardReadyEvent):
@@ -406,8 +409,6 @@ async def on_ready(event: hikari.ShardReadyEvent):
     music.d.log = logging.getLogger(__name__)
     music.d.log.setLevel(logging.DEBUG)
     interactive = Interactive(music.bot)
-    music_messages: Dict[int, hikari.Message] = {}
-    music.d.last_context: Dict[int,Context] = {} # guild_id: lightbulb.Context
     music_helper = MusicHelper()
     await start_lavalink()
 
@@ -465,7 +466,8 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         return
     
     ctx = get_context(event)
-    if not any([custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id in custom_id]):
+    ctx._update =True
+    if not [custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id == custom_id]:
         # wrong custom id
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
@@ -484,9 +486,10 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
             components=await build_music_components(disable_all=True, guild_id=ctx.guild_id),
             update=True,
         )
-    music.d.last_context[ctx.guild_id] = ctx   
+    last_context[ctx.guild_id] = ctx   
     guild_id = ctx.guild_id
     custom_id = ctx.custom_id
+    tasks: List[asyncio.Task] = []
     if not (node := await lavalink.get_guild_node(guild_id)):
         ctx._ephemeral = True
         return await ctx.respond(
@@ -501,22 +504,30 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
     elif custom_id == 'music_resume':
         music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
-        await _resume(guild_id)
+        tasks.append(
+            asyncio.create_task(_resume(guild_id))
+        )
     elif custom_id == 'music_skip_1':
-        await _skip(guild_id, amount = 1)
+        tasks.append(
+            asyncio.create_task(_skip(guild_id, amount = 1))
+        )
         music_helper.add_to_log(
             guild_id = guild_id, 
             entry = f'1️⃣ Music was skipped by {member.display_name} (once)'
         )
     elif custom_id == 'music_skip_2':
-        await _skip(guild_id, amount = 2)
+        tasks.append(
+            asyncio.create_task(_skip(guild_id, amount = 2))
+        )
         music_helper.add_to_log(
             guild_id =guild_id, 
             entry = f'2️⃣ Music was skipped by {member.display_name} (twice)'
         )
     elif custom_id == 'music_pause':
         music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
-        await _pause(guild_id)
+        tasks.append(
+            asyncio.create_task(_pause(guild_id))
+        )
     elif custom_id == 'music_stop':
         await ctx.respond(
             embed=(
@@ -531,6 +542,8 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if "music_skip" in custom_id:
         return # skip gets handled from lavalink on_new_track handler
     log.debug("calling queue")
+    if tasks:
+        await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
     await queue(ctx)
 
 
@@ -702,19 +715,19 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     """
     if not ctx.guild_id or not ctx.member:
         return False # just for pylance
-    ictx = get_context(ctx.event)
-    await ictx.defer()
-    music.d.last_context[ctx.guild_id] = ictx
+    if not isinstance(ctx, InuContext):
+        ictx = get_context(ctx.event)
+    else:
+        ictx = ctx
+    last_context[ctx.guild_id] = ictx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id)
     # Join the user's voice channel if the bot is not in one.
     if not con:
         await _join(ictx)
-
+    await ictx.defer()
     # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
         node = await lavalink.get_guild_node(ctx.guild_id)
-        if len(node.queue) < 1:
-            prevent_to_queue = True
         await load_yt_playlist(ictx, query, be_quiet)
     # not a youtube playlist -> something else
     else:
@@ -737,9 +750,9 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         if track is None:
             await ictx.respond(f"I only found a lot of empty space for `{query}`")
             return False
-        if event is None:
-            raise RuntimeError("event is None but InteractionCreateEvent was expected")
-        ictx = get_context(event=event)
+        if event:
+            # asked with menu - update context
+            ictx = get_context(event=event)
         log.debug(ictx)
         await load_track(ictx, track, be_quiet)
 
@@ -747,11 +760,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         return True
 
     await asyncio.sleep(0.2)
-    node = await lavalink.get_guild_node(ctx.guild_id)
 
-    if len(node.queue) in [1, 0]:
-        return True
-    log.debug(ictx)
     await queue(
         ictx, 
         ctx.guild_id, 
@@ -1130,7 +1139,7 @@ async def history(ctx: Context):
         pages=embeds,
         items_per_site=20,
     )
-    await pag.start(ctx)
+    await pag.start(get_context(ctx.event), _play)
 
 
 
@@ -1187,9 +1196,9 @@ async def queue(
         guild_id = ctx.guild_id
 
     if ctx:
-        music.d.last_context[guild_id] = ctx
+        last_context[guild_id] = ctx
     else:
-        ctx = music.d.last_context[guild_id]
+        ctx = last_context[guild_id]
     if not ctx.guild_id:
         return
 
@@ -1265,6 +1274,7 @@ async def queue(
         or force_resend 
     ):
         kwargs = {"update": True} if music_message else {}
+        log.debug(f"send new message with {kwargs=}")
         msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node), **kwargs)
         music_messages[ctx.guild_id] = await msg.message()
         try:
@@ -1287,10 +1297,12 @@ async def queue(
                     components=await build_music_components(node=node), 
                     update=True
                 )
+                log.debug("update old")
                 return
             timeout -= 1
             # resend message
             if timeout == 0:
+                log.debug("send new")
                 await ctx.delete_inital_response()
                 msg = await ctx.respond(
                     embed=music_embed, 
