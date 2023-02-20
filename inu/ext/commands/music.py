@@ -110,21 +110,29 @@ class Interactive:
         self,
         ctx: Context,
         query: str,
-        displayed_song_count: int = 30,
+        displayed_song_count: int = 24,
         query_information: lavasnek_rs.Tracks = None,
-    ) -> Optional[lavasnek_rs.Track]:
+    ) -> Tuple[Optional[lavasnek_rs.Track], Optional[hikari.InteractionCreateEvent]]:
         """
         Creates an interactive menu for choosing a song
+
+
         Args
         ----
-            - ctx: (Context) the context invoked with
-            - query: (str) the query to search; either an url or just a string
-            - displayed_song_count: (int, default=30) the amount of songs which will be showen in the interactive message
-            - query_information: (lavasnek_rs.Tracks, default=None) existing information to lower footprint
+        ctx: InuContext 
+            the context invoked with
+        query: str 
+            the query to search; either an url or just a string
+        displayed_song_count: int = 24
+            the amount of songs which will be showen in the interactive message
+        query_information: Optional[lavasnek_rs.Tracks] = None 
+            existing information to lower footprint
             
         returns
         -------
-            - (lavasnek_rs.Track | None) the chosen title (is None if timeout or other errors)
+        Optional[lavasnek_rs.Track]
+            the chosen title (is None if timeout or other errors)
+        Optional[hikari.InteractionCreateEvent]
 
         raises
         ------
@@ -132,7 +140,7 @@ class Interactive:
             When no interaction with the menu was made
         """
         if not ctx.guild_id:
-            return None
+            return None, None
         query_print = ""
         if not query_information:
             query_information = await self.lavalink.auto_search_tracks(query)
@@ -160,8 +168,7 @@ class Interactive:
         menu = menu.add_to_container()
         msg_proxy = await ctx.respond(f"Choose the song which should be added", component=menu)
         menu_msg = await msg_proxy.message()
-
-
+        event = None
         try:
             event = await self.bot.wait_for(
                 hikari.InteractionCreateEvent,
@@ -174,16 +181,16 @@ class Interactive:
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
-                return None  # to avoid problems with typecheckers
+                return None, None  # to avoid problems with typecheckers
             track_num = int(event.interaction.values[0])
         except asyncio.TimeoutError as e:
             raise e
-        await event.interaction.create_initial_response(
-            ResponseType.MESSAGE_UPDATE,
-            content=f"🗑️ Choose the song which should be added"
-        )
-        await event.interaction.delete_initial_response()
-        return query_information.tracks[track_num]
+        # await event.interaction.create_initial_response(
+        #     ResponseType.MESSAGE_UPDATE,
+        #     content=f"🗑️ Choose the song which should be added"
+        # )
+        # await event.interaction.delete_initial_response()
+        return query_information.tracks[track_num], event
 
 
 class MusicHelper:
@@ -272,6 +279,7 @@ class YouTubeHelper:
         if end == -1:
             return url
         return url[:end+start]
+
 
 
 class MusicHistoryHandler:
@@ -386,18 +394,21 @@ class MusicLog:
 
 music = lightbulb.Plugin(name="Music", include_datastore=True)
 lavalink: lavasnek_rs.Lavalink = None
-
+interactive: Interactive = None
+music_helper: MusicHelper = None
+music_messages: Dict[int, Union[hikari.Message, None]] = {}  # guild_id: hikari.Message
 
 @music.listener(hikari.ShardReadyEvent)
 async def on_ready(event: hikari.ShardReadyEvent):
+    global interactive, music_helper
     if music.d is None:
         raise RuntimeError("Plugin has no datastore")
     music.d.log = logging.getLogger(__name__)
     music.d.log.setLevel(logging.DEBUG)
-    music.d.interactive = Interactive(music.bot)
-    music.d.music_message: Dict[int, Union[hikari.Message, None]] = {}  # guild_id: hikari.Message
+    interactive = Interactive(music.bot)
+    music_messages: Dict[int, hikari.Message] = {}
     music.d.last_context: Dict[int,Context] = {} # guild_id: lightbulb.Context
-    music.d.music_helper = MusicHelper()
+    music_helper = MusicHelper()
     await start_lavalink()
 
 
@@ -419,7 +430,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             # Destroy nor leave remove the node nor the queue loop, you should do this manually.
             await lavalink.remove_guild_node(event.guild_id)
             await lavalink.remove_guild_from_loops(event.guild_id)
-            music.d.music_message[event.guild_id] = None
+            music_messages[event.guild_id] = None
             
     except Exception:
         log.error(traceback.format_exc())
@@ -458,7 +469,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         # wrong custom id
         return
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
-    if (message := music.d.music_message.get(ctx.guild_id)) is None:
+    if (message := music_messages.get(ctx.guild_id)) is None:
         await ctx.respond("Seems like nothing is playing right now.", ephemeral=True)
         return
     if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.author.id)):
@@ -487,24 +498,24 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         nqueue = [node.queue[0], *nqueue]
         node.queue = nqueue
         await lavalink.set_guild_node(guild_id, node)
-        music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
+        music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
     elif custom_id == 'music_resume':
-        music.d.music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
+        music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
         await _resume(guild_id)
     elif custom_id == 'music_skip_1':
         await _skip(guild_id, amount = 1)
-        music.d.music_helper.add_to_log(
+        music_helper.add_to_log(
             guild_id = guild_id, 
             entry = f'1️⃣ Music was skipped by {member.display_name} (once)'
         )
     elif custom_id == 'music_skip_2':
         await _skip(guild_id, amount = 2)
-        music.d.music_helper.add_to_log(
+        music_helper.add_to_log(
             guild_id =guild_id, 
             entry = f'2️⃣ Music was skipped by {member.display_name} (twice)'
         )
     elif custom_id == 'music_pause':
-        music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
+        music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
         await _pause(guild_id)
     elif custom_id == 'music_stop':
         await ctx.respond(
@@ -514,116 +525,15 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
             ),
             delete_after=30,
         )
-        music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
+        music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
         await _leave(guild_id)
         return
     if "music_skip" in custom_id:
         return # skip gets handled from lavalink on_new_track handler
     log.debug("calling queue")
     await queue(ctx)
-    
 
-@music.listener(hikari.ReactionAddEvent)
-async def on_reaction_add(event: hikari.ReactionAddEvent):
-    try:
-        if event.user_id == music.bot.get_me().id:
-            return
-        if not event.message_id in [m.id for m in music.d.music_message.values() if not m is None]:
-            return
-        try:
-            message = music.bot.cache.get_message(event.message_id)
-            guild_id = message.guild_id  # type: ignore
-            if not isinstance(message, hikari.Message) or guild_id is None:
-                return
-            member = music.bot.cache.get_member(guild_id, event.user_id)
-            if not isinstance(member, hikari.Member):
-                return
-            if not (ctx := music.d.last_context.get(guild_id)):
-                return
-        except AttributeError:
-            return
 
-        emoji = event.emoji_name
-        if emoji == '🔀':
-            node = await lavalink.get_guild_node(guild_id)
-            if node is None:
-                return
-
-            nqueue = node.queue[1:]
-            random.shuffle(nqueue)
-            nqueue = [node.queue[0], *nqueue]
-            node.queue = nqueue
-            await lavalink.set_guild_node(guild_id, node)
-            await message.remove_reaction(emoji, user=event.user_id)
-            music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
-        elif emoji == '▶':
-            music.d.music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
-            await message.remove_reaction(emoji, user=event.user_id)
-            await message.remove_reaction(emoji, user=music.bot.me)
-            await asyncio.sleep(0.1)
-            await message.add_reaction(str('⏸'))
-            await _resume(guild_id)
-        elif emoji == '1️⃣':
-            await _skip(guild_id, amount = 1)
-            await message.remove_reaction(emoji, user=event.user_id)
-            music.d.music_helper.add_to_log(
-                guild_id = guild_id, 
-                entry = f'1️⃣ Music was skipped by {member.display_name} (once)'
-            )
-        elif emoji == '2️⃣':
-            await _skip(guild_id, amount = 2)
-            await message.remove_reaction(emoji, user=event.user_id)
-            music.d.music_helper.add_to_log(
-                guild_id =guild_id, 
-                entry = f'2️⃣ Music was skipped by {member.display_name} (twice)'
-            )
-        elif emoji == '3️⃣':
-            await _skip(guild_id, amount = 3)
-            await message.remove_reaction(emoji, user=event.user_id)
-            music.d.music_helper.add_to_log(
-                guild_id = guild_id, 
-                entry = f'3️⃣ Music was skipped by {member.display_name} (3 times)'
-            )
-        elif emoji == '4️⃣':
-            await _skip(guild_id, amount = 4)
-            await message.remove_reaction(emoji, user=event.user_id)
-            music.d.music_helper.add_to_log(
-                guild_id =guild_id, 
-                entry = f'4️⃣ Music was skipped by {member.display_name} (4 times)'
-            )
-        elif emoji == '⏸':
-            music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
-            await message.remove_reaction(emoji, user=event.user_id)
-            await message.remove_reaction(emoji, user=music.bot.get_me().id)  # type: ignore
-            await asyncio.sleep(0.1)
-            await message.add_reaction(str('▶'))
-            await _pause(guild_id)
-        elif emoji == '🗑':
-            await message.remove_reaction(emoji, user=event.user_id)
-            await message.respond(
-                embed=(
-                    Embed(title="🗑 queue cleared")
-                    .set_footer(text=f"music queue was cleared by {member.display_name}", icon=member.avatar_url)
-                )
-            )
-            music.d.music_helper.add_to_log(guild_id=guild_id, entry=f'🗑 Queue was cleared by {member.display_name}')
-            await _clear(guild_id)
-            if not (ctx := music.d.last_context.get(guild_id)):
-                return
-        elif emoji == '🛑':
-            await message.respond(
-                embed=(
-                    Embed(title="🛑 music stopped")
-                    .set_footer(text=f"music was stopped by {member.display_name}", icon=member.avatar_url)
-                )
-            )
-            music.d.music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
-            await _leave(guild_id)
-            return
-        if emoji in ['🔀','🗑','⏸','▶'] and ctx:
-            await queue(ctx)
-    except Exception:
-        log.error(f"Error reaction_add music:\n{traceback.print_exc()}")
 
 async def _join(ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
     assert ctx.guild_id is not None
@@ -643,6 +553,8 @@ async def _join(ctx: lightbulb.Context) -> Optional[hikari.Snowflake]:
 
     return channel_id
 
+
+
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
     if not music.bot.conf.lavalink.connect:
@@ -661,7 +573,7 @@ async def start_lavalink() -> None:
             )
             builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
-            music.d.interactive.lavalink = lava_client
+            interactive.lavalink = lava_client
             global lavalink
             lavalink = lava_client
             break
@@ -732,7 +644,7 @@ async def _leave(guild_id: int):
     # # Destroy nor leave remove the node nor the queue loop, you should do this manually.
     # await lavalink.remove_guild_node(guild_id)
     # await lavalink.remove_guild_from_loops(guild_id)
-    # music.d.music_message[guild_id] = None
+    # music_messages[guild_id] = None
 
 
 @music.command
@@ -814,8 +726,10 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         ):
             query = YouTubeHelper.remove_playlist_info(query)
         # try to add song
+        event: Optional[hikari.InteractionCreateEvent] = None
         try:
-            track = await search_track(ictx, query, be_quiet)
+            track, event = await search_track(ictx, query, be_quiet)
+            log.debug(event)
         except BotResponseError as e:
             raise e
         except asyncio.TimeoutError:
@@ -823,6 +737,10 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         if track is None:
             await ictx.respond(f"I only found a lot of empty space for `{query}`")
             return False
+        if event is None:
+            raise RuntimeError("event is None but InteractionCreateEvent was expected")
+        ictx = get_context(event=event)
+        log.debug(ictx)
         await load_track(ictx, track, be_quiet)
 
     if prevent_to_queue:
@@ -833,7 +751,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 
     if len(node.queue) in [1, 0]:
         return True
-    
+    log.debug(ictx)
     await queue(
         ictx, 
         ctx.guild_id, 
@@ -942,7 +860,7 @@ async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> 
             title=f'Playlist added',
             description=f'[{tracks.playlist_info.name}]({query})'
         ).set_thumbnail(ctx.member.avatar_url)
-        music.d.music_helper.add_to_log(
+        music_helper.add_to_log(
             ctx.guild_id, 
             str(tracks.playlist_info.name), 
         )
@@ -955,7 +873,7 @@ async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> 
             await ctx.respond(embed=embed)
     return tracks
 
-async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Optional[lavasnek_rs.Track]:
+async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Tuple[Optional[lavasnek_rs.Track], Optional[hikari.InteractionCreateEvent]]:
     """
     searches the query and returns the Track or None
 
@@ -969,6 +887,8 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
 
     query_information = await lavalink.auto_search_tracks(query)
     track = None
+    event = None
+
     if not query_information.tracks:
         log.debug(f"using fallback youtbue search")
         v = VideosSearch(query, limit = 1)
@@ -979,16 +899,20 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
                 result["result"][0]["link"]
             )
         except IndexError:
-            return None
+            return None, None
 
     
     if len(query_information.tracks) > 1:
         try:
-            track = await music.d.interactive.ask_for_song(ctx, query, query_information=query_information)
+            track, event = await interactive.ask_for_song(ctx, query, query_information=query_information)
+            if event is None:
+                # no interaction was done - delete selection menu
+                await ctx.delete_last_response()
+                return None, None
         except asyncio.TimeoutError as e:
             raise e
         except Exception:
-            music.d.log.error(traceback.format_exc())
+            log.error(traceback.format_exc())
     elif len(query_information.tracks) == 0:
         embed = Embed(title="Title not available")
         url_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
@@ -1013,10 +937,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Opti
         raise BotResponseError(embed=embed, ephemeral=True)
     else:
         track = query_information.tracks[0]
-
-    if track is None:
-        return None
-    return track
+    return track, event
 
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
@@ -1134,7 +1055,7 @@ async def music_log(ctx: Context):
     """Sends the music log"""
     if not ctx.guild_id or not ctx.member:
         return
-    if not (log_sites := music.d.music_helper.get_log(ctx.guild_id, 2000)):
+    if not (log_sites := music_helper.get_log(ctx.guild_id, 2000)):
         return
     has_perm = False  
     for role in ctx.member.get_roles():
@@ -1166,11 +1087,11 @@ async def clear(ctx: Context):
         return
 
     await _clear(ctx.guild_id)
-    music.d.music_helper.add_to_log(
+    music_helper.add_to_log(
         ctx.guild_id,
         f"music was cleared by {ctx.member.display_name}"
     )
-    await music.queue(ctx)
+    await _queue(ctx)
 
 async def _clear(guild_id: int):
     node = await lavalink.get_guild_node(guild_id)
@@ -1256,7 +1177,7 @@ async def queue(
     guild_id: int = None, 
     force_resend: bool = False,
     create_footer_info: bool = True, 
-    custom_info: str = ""
+    custom_info: str = "",
 ):
     '''
     refreshes the queue of the player
@@ -1264,12 +1185,14 @@ async def queue(
     '''
     if guild_id is None:
         guild_id = ctx.guild_id
+
     if ctx:
         music.d.last_context[guild_id] = ctx
     else:
         ctx = music.d.last_context[guild_id]
     if not ctx.guild_id:
         return
+
     node = await lavalink.get_guild_node(guild_id)
     if not node:
         music.d.log.warning(f"node is None, in queue command; {guild_id=};")
@@ -1277,6 +1200,7 @@ async def queue(
         await _join(ctx)
         node = await lavalink.get_guild_node(guild_id)
         return
+
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
     for x in range(1,4,1):
@@ -1334,14 +1258,15 @@ async def queue(
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
     # send new message and override
-    old_music_msg = music.d.music_message.get(guild_id, None)
+    old_music_msg = music_messages.get(guild_id, None)
     if (
-        old_music_msg is None 
+        not (music_message := await ctx.message())
+        or old_music_msg is None 
         or force_resend 
-        or not (music_message := await ctx.message())
     ):
-        msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node))
-        music.d.music_message[ctx.guild_id] = await msg.message()
+        kwargs = {"update": True} if music_message else {}
+        msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node), **kwargs)
+        music_messages[ctx.guild_id] = await msg.message()
         try:
             if not old_music_msg is None:
                 await old_music_msg.delete()
@@ -1372,7 +1297,7 @@ async def queue(
                     components=await build_music_components(node=node), 
                     update=False
                 )
-                music.d.music_message[ctx.guild_id] = await msg.message()
+                music_messages[ctx.guild_id] = await msg.message()
                 return
     except Exception as e:
         log.error(traceback.format_exc())
