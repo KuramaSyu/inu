@@ -388,7 +388,7 @@ class WordToBig(Exception):
         return [seperator.join(l) for l in word_list]
 
 def crumble(
-    string: str,
+    text: str | List[str],
     max_length_per_string: int = 2000,
     seperator: Optional[str] = None,
     clean_code: bool = True,
@@ -396,23 +396,24 @@ def crumble(
 ) -> List[str]:
     """
     Splits a string into strings which length <= max_length is. If seperator is None, 
-    the SentenceIterator (more intelligent splitting) will be userd
+    more intelligent splitting will be userd. If a list is passed in, every item will
+    start with a new string in the returning list.
     
     Args:
     -----
-    string : str
+    `text : str | List[str]`
         The string which should be crumbled
-    max_length_per_string : int
+    `max_length_per_string : int`
         The maximum length per string in the return list. 
         Default: 2000
-    seperator : str | None
+    `seperator : str | None`
         The seperator where to cut the string.
         Default: None
         If None, then the string will be cutted more human likely
-    clean_code : bool
+    `clean_code : bool`
         strip string and post corrects code blocks.
         Default: True
-    _autochange_seperator : bool
+    `_autochange_seperator : bool`
         If seperator is not present, then seperator will be changed to `\n`.
         Default: True
 
@@ -423,37 +424,44 @@ def crumble(
     
     """
     crumbled_string: List[str] = []
+    bare_strings = text if isinstance(text, list) else [text] 
 
     if clean_code:
-        string = string.strip()
+        bare_strings = [text.strip() for text in bare_strings]
 
-    if len(string) <= max_length_per_string:
-        return [string]
+    
+    if any([True for text in bare_strings if len(text) <= max_length_per_string]):
+        return bare_strings
     
         # some strings only have \n to seperate - not " "
     if (
         seperator 
-        and seperator not in string 
+        and seperator not in text 
         and _autochange_seperator
     ):
         seperator = "\n"
-        crumble_string = StringCutter.crumble(
-            string=string,
-            cut_at=max_length_per_string,
-            seperator=seperator,
-        )
+
+        for text in bare_strings: 
+            crumble_string = StringCutter.crumble(
+                string=text,
+                cut_at=max_length_per_string,
+                seperator=seperator,
+            )
+            crumbled_string.extend(crumble_string)
     else:
-        crumble_string = [part for part in SentenceInterator(string, max_length_per_string)]
+        for text in bare_strings:
+            crumble_string = [part for part in SentenceInterator(text, max_length_per_string)]
+            crumbled_string.extend(crumble_string)
     
     if not clean_code:
-        return crumble_string
+        return crumbled_string
     else:
         corrected_strings: List[str] = []
-        for string in crumble_string:
+        for text in crumbled_string:
             # string has starting code block but was cut
-            if string.count("```") % 2 != 0:
-                string += "\n```"
-            corrected_strings.append(string)
+            if text.count("```") % 2 != 0:
+                text += "\n```"
+            corrected_strings.append(text)
         return corrected_strings
     
 
