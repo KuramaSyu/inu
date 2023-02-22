@@ -891,31 +891,7 @@ async def tag_name_auto_complete(
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
     """autocomplete for tag keys"""
-    guild_or_channel = get_guild_or_channel_id(interaction)
-    try:
-        if option.value and len(str(option.value)) > 2:
-            tags = await TagManager.find_similar(option.value, guild_id=guild_or_channel)
-            return [tag['tag_key'] for tag in tags][:24]
-        elif option.value and len(str(option.value)) in [1, 2]:
-            tags = await TagManager.startswith(option.value, guild_id=guild_or_channel)
-            return [
-                name for name in 
-                [
-                    *[name for tag in tags for name in tag["aliases"]], 
-                    *[tag['tag_key'] for tag in tags]
-                ] 
-                if name.startswith(option.value) ][:24]
-        else:
-            tags = await TagManager.get_tags(
-                type=TagType.SCOPE,
-                guild_id=guild_or_channel,
-                limit=25
-            )
-            return [tag["tag_key"] for tag in tags][:24]
-
-    except:
-        log.error(traceback.format_exc())
-        return []
+    return await TagManager.tag_name_auto_complete(option, interaction)
 
 
 
