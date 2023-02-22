@@ -15,6 +15,7 @@ from copy import deepcopy
 from enum import Enum
 import re
 from datetime import datetime
+import traceback
 
 import asyncpg
 from asyncache import cached
@@ -27,7 +28,7 @@ from numpy import column_stack
 from asyncache import cached
 from cachetools import TTLCache
 
-from ..shortcuts import guild_name_or_id
+from ..shortcuts import guild_name_or_id, get_guild_or_channel_id
 from ..language import Human, Multiple
 from core.db import Database, Table
 from core import Inu, BotResponseError, getLogger
@@ -622,9 +623,13 @@ class TagManager():
     ):
         """
         Updates a record in the db
+
         Args:
-            record: (Mapping[str, Any]) the record which should be updated
-            old_record: (Mapping[str, Any]) the old record, how it is stored in the db
+        -----
+        `record: Mapping[str, Any] `
+            the record which should be updated
+        `old_record: Mapping[str, Any] `
+            the old record, how it is stored in the db
         
         """
         sql = """
@@ -926,6 +931,39 @@ class TagManager():
         if creator_id:
             return [r for r in records if creator_id in r["author_ids"]]
         return records
+
+    @classmethod
+    async def tag_name_auto_complete(
+        cls,
+        option: hikari.AutocompleteInteractionOption, 
+        interaction: hikari.AutocompleteInteraction
+    ) -> List[str]:
+        """autocomplete for tag keys"""
+        guild_or_channel = get_guild_or_channel_id(interaction)
+        try:
+            if option.value and len(str(option.value)) > 2:
+                tags = await cls.find_similar(option.value, guild_id=guild_or_channel)
+                return [tag['tag_key'] for tag in tags][:24]
+            elif option.value and len(str(option.value)) in [1, 2]:
+                tags = await cls.startswith(option.value, guild_id=guild_or_channel)
+                return [
+                    name for name in 
+                    [
+                        *[name for tag in tags for name in tag["aliases"]], 
+                        *[tag['tag_key'] for tag in tags]
+                    ] 
+                    if name.startswith(option.value) ][:24]
+            else:
+                tags = await cls.get_tags(
+                    type=TagType.SCOPE,
+                    guild_id=guild_or_channel,
+                    limit=25
+                )
+                return [tag["tag_key"] for tag in tags][:24]
+
+        except:
+            log.error(traceback.format_exc())
+            return []
 
 
 class TagIsTakenError(Exception):
