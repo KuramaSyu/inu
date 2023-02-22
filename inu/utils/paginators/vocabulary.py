@@ -1,5 +1,7 @@
 import asyncio
 from typing import *
+import random
+import time
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
@@ -15,7 +17,57 @@ log = getLogger(__name__)
 
 
 config = ConfigProxy(ConfigType.YAML)
-VOCAB_BIAS: int = 2  # a bias for chosing a vocable. the higher the value, the highter the prop of a unknown vocable chosen
+VOCAB_BIAS: float = 1.8  # a bias for chosing a vocable. the higher the value, the highter the prop of a unknown vocable chosen
+STORED_TRIES: int = 5
+
+class Vocable:
+    __slots__: List[str] = ["tries", "key", "value"]
+
+    def __init__(
+            self,
+            key: str,
+            value: str,
+    ):
+        self.tries: List[bool] = []
+        self.key = key
+        self.value = value 
+
+    def add_try(self, guess: bool):
+        self.tries.append(guess)
+        if len(self.tries) > STORED_TRIES+4:
+            self.tries.pop(0)
+    
+    def get_last_tries(self, x: int = STORED_TRIES) -> List[bool]:
+        l = list(reversed(self.tries))
+        return l[:x]
+    
+    def _get_success_rate_of_last_x_tries(self, x: int = STORED_TRIES) -> float:
+        if len(self.tries) < x:
+            x = max(len(self.tries), 1)
+        return (sum(self.get_last_tries(x=len(self.tries)))/x)
+    
+    @property
+    def success_rate(self) -> float:
+        """
+        retruns success rate of last STORED_TRIES tries.
+        0.1 <= successrate < 1
+        """
+        return self._get_success_rate_of_last_x_tries() or 0.1
+    
+    @property
+    def weight(self) -> float:
+        return (1 - self.success_rate) ** VOCAB_BIAS
+    
+    def __str__(self) -> str:
+        return f"**{self.key}**: {self.value}"
+    
+    def __repr__(self) -> str:
+        return f"Vocable<{self.key=},{self.value=},{self.tries},{self.success_rate=},{self.weight=}>"
+    
+    @property
+    def result_str(self) -> str:
+        return f"**{self.key}**: {self.success_rate}"
+
 
 class VocabularyPaginator(Paginator):
     def __init__(
@@ -30,11 +82,11 @@ class VocabularyPaginator(Paginator):
         self.tag = tag
         bare_text = ""
         if self._languages:
-            bare_text += f"**{self._languages[0]}** ---> {self._languages[1]}\n\n"
+            bare_text += f"**{self._languages[0]}** - {self._languages[1]}\n\n"
         for key, value in self._vocabulary.items():
             bare_text += f"**{key}** : {value}\n"
         for part in crumble(bare_text):
-            self._embeds.append(Embed(title=tag.key, description=part))
+            self._embeds.append(Embed(title=tag.name, description=part))
         # re-init in start - just leave it
         super().__init__(
             page_s=self._embeds, 
@@ -45,9 +97,9 @@ class VocabularyPaginator(Paginator):
 
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         components = super().build_default_components(position)
-        (
-            components[-1] 
-            .add_button(ButtonStyle.SUCCESS, "vocabulary_start_training").set_label("learn ⤵️").add_to_container()
+        components.append(
+            MessageActionRowBuilder()
+            .add_button(ButtonStyle.SECONDARY, "vocabulary_start_training").set_label("learn ⤵️").add_to_container()
         )
         return components
 
@@ -76,22 +128,31 @@ class VocabularyPaginator(Paginator):
         task = event.interaction.custom_id.replace(prefix, "")
         if task == "start_training":
             ctx = get_context(event)
-            pag = VocabularyPaginator(self.tag)
-            await pag.start(ctx)
+            pag = TrainingPaginator(page_s=[""])
+            await pag.start(ctx, self.tag)
 
 
 
 
 class TrainingPaginator(Paginator):
-    _results: List[Dict[str, Any]]  # bare season info
-    _tv_show_id: int
-    _rates: List[Dict[str, List[bool] | str]] = []
+    vocables: List[Vocable] = []
+    _current_vocable: Vocable | None = None
+
+    @property
+    def current_vocable(self) -> Vocable:
+        if not self._current_vocable:
+            raise RuntimeError("Vocable is None")
+        return self._current_vocable
+    
+    @current_vocable.setter
+    def current_vocable(self, vocable: Vocable) -> None:
+        self._current_vocable = vocable
 
     async def start(self, ctx: InuContext, tag: Tag):
-        self.ctx = ctx
+        self.set_context(ctx)
         self._position = 0
-        lang, vocab = convert_vocabulary(tag)
-        self._rates = [{"key": k, "value": v, "tries": []} for k, v in vocab.items()]
+        _, vocab = convert_vocabulary(tag)
+        self.vocables = [Vocable(k, v) for k, v in vocab.items()]
         await self._load_details()
         if not self._pages:
             return
@@ -100,36 +161,38 @@ class TrainingPaginator(Paginator):
 
 
     async def _load_details(self) -> None:
-        """
-        
-        """
-        ...
-
-    def _get_rate(self, last_x: int):
-        rates = []
-        for voc in self._rates:
-            l = voc["tries"]
-            k = voc["key"]
-            v = voc["value"]
-            right_guesses = 0
-            for try_ in l:
-                if try_:
-                    right_guesses += 1
-            rates.append(
-                {
-                "key": k, 
-                "success_rate": right_guesses / last_x, 
-                "guess_amount": len(l),
-                "value": v,
-                }
-            )
+        vocable = self._get_vocable()
+        self.current_vocable = vocable
+        embed = Embed(title=vocable.key)
+        embed.description = f"||{vocable.value}||"
+        embed.color = Colors.random_blue()
+        self._pages[0] = embed
     
-    def _get_vocable(self) -> Dict[str, str]:
-        rates = self._get_rate(last_x=4)
-        for rate in rates:
-            if rate["tries"] < 3:
-                ...
+    def _get_vocable(self) -> Vocable:
+        return random.choices(self.vocables, [v.weight for v in self.vocables])[0]
 
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction(self, event: hikari.InteractionCreateEvent):
+        if not self.interaction_pred(event):
+            return
+        prefix = "vocabulary_training_"
+        if not event.interaction.custom_id.startswith(prefix):
+            return
+        task = event.interaction.custom_id.replace(prefix, "")
+        if task == "stop":
+            self.set_context(event=event)
+            await self.delete_presence()
+            self.vocables.sort(key=lambda v: v._get_success_rate_of_last_x_tries(x=len(v.tries)))
+            results = "\n".join(v.result_str for v in self.vocables)
+            await self.ctx.respond(results, ephemeral=True)
+            return
+        if task == "yes":
+            self.set_context(event=event)
+            self.current_vocable.add_try(True)
+        if task == "no":
+            self.set_context(event=event)
+            self.current_vocable.add_try(False)
+        await self._update_position()
 
 
 
@@ -149,7 +212,7 @@ class TrainingPaginator(Paginator):
         )
         additional_row = (
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SUCCESS, "vocabulary_training_stop").set_label("").add_to_container()
+            .add_button(ButtonStyle.SUCCESS, "vocabulary_training_stop").set_label("stop").add_to_container()
         )
         components = [training_row, additional_row]
         return components
@@ -171,7 +234,7 @@ def convert_vocabulary(tag: Tag) -> Tuple[Optional[Tuple[str, str]], Dict[str, s
     `core.BotResponseError:`
         A specific Error for the user
     """
-    return DefaultParser().parse(tag.value)
+    return DefaultParser().parse("\n".join(tag.value))
 
 
 class DefaultParser:
@@ -201,8 +264,8 @@ class DefaultParser:
         lines = value.splitlines()
         first_line = lines[0]
         try:
-            lang_dict = self.separate(self._language_separator_order, first_line)
-            languages = Tuple([lang_dict.keys()[0], lang_dict.values()[0]])
+            lang_dict = self.separate(self._language_separator_order, [first_line])
+            languages = tuple([list(lang_dict.keys())[0], list(lang_dict.values())[0]])
             lines.pop(0)
         except ValueError:
             pass
