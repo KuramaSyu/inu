@@ -311,10 +311,15 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
 
         # add errors
         if traceback_list:
+            error_ems = []
             for index, tb in enumerate(traceback_list):
                 if index % 20 == 0:
-                    embeds.insert(-1, hikari.Embed(title="ERROR"))
-                embeds[-2].add_field(f"_Traceback - layer {index + 1}_", f'```py\n{tb}```')
+                    error_ems.append(hikari.Embed(title="ERROR"))
+                error_ems[-1].add_field(f"_Traceback - layer {index + 1}_", f'```py\n{tb}```')
+            if len(embeds) >= 1:
+                embeds = [*embeds[:-1], *error_ems, embeds[-1]]
+            else:
+                embeds = error_ems
         
         # add duration
         if len(embeds) == 0:
