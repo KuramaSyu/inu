@@ -941,7 +941,7 @@ async def guild_auto_complete(
     if len(value) > 2:
         guilds_sorted: List[Dict[str, Union[int, str]]] = []
         for guild in guilds:
-            guild["ratio"] = fuzz.ratio(value[20:], guild["name"])
+            guild["ratio"] = fuzz.ratio(value, guild["name"])
             guilds_sorted.append(guild)
         guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
         guilds = guilds_sorted[:24]
