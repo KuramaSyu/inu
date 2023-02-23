@@ -44,19 +44,18 @@ class Vocable:
     def _get_success_rate_of_last_x_tries(self, x: int = STORED_TRIES) -> float:
         if len(self.tries) < x:
             x = max(len(self.tries), 1)
-        return (sum(self.get_last_tries(x=len(self.tries)))/x)
+        return (sum(self.get_last_tries(x=x))/x)
     
     @property
     def success_rate(self) -> float:
         """
         retruns success rate of last STORED_TRIES tries.
-        0.1 <= successrate < 1
         """
-        return self._get_success_rate_of_last_x_tries() or 0.1
+        return self._get_success_rate_of_last_x_tries()
     
     @property
     def weight(self) -> float:
-        return (1 - self.success_rate) ** VOCAB_BIAS
+        return (1 - max(min(self.success_rate, 0.9), 0.1)) ** VOCAB_BIAS
     
     def __str__(self) -> str:
         return f"**{self.key}**: {self.value}"
@@ -77,22 +76,27 @@ class VocabularyPaginator(Paginator):
         self._rates:Dict[str, float] = {}
         self._languages: Optional[Tuple[str, str]] = None
         self._vocabulary: Dict[str, str] = {}
-        self._languages, self._vocabulary = convert_vocabulary(tag)
+        
         self._embeds = []
         self.tag = tag
+    
+    async def parse_tag_and_create_embeds(self) -> bool:
+        """
+        wether or not parsing was successfull
+        """
+        try:
+            self._languages, self._vocabulary = convert_vocabulary(self.tag)
+        except BotResponseError as e:
+            await self.ctx.respond(**e.context_kwargs)
+            return False
         bare_text = ""
         if self._languages:
             bare_text += f"**{self._languages[0]}** - {self._languages[1]}\n\n"
         for key, value in self._vocabulary.items():
             bare_text += f"**{key}** : {value}\n"
         for part in crumble(bare_text):
-            self._embeds.append(Embed(title=tag.name, description=part))
-        # re-init in start - just leave it
-        super().__init__(
-            page_s=self._embeds, 
-            timeout=60*15,
-            disable_paginator_when_one_site=False,
-        )
+            self._embeds.append(Embed(title=self.tag.name, description=part))
+        return True
 
 
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
@@ -104,7 +108,7 @@ class VocabularyPaginator(Paginator):
         return components
 
 
-    async def start(self, ctx: InuContext, **kwargs) -> hikari.Message:
+    async def start(self, ctx: InuContext, **kwargs) -> hikari.Message | None:
         """
         entry point for paginator
 
@@ -115,6 +119,10 @@ class VocabularyPaginator(Paginator):
         """
         self.ctx = ctx
         self._position = 0
+        continue_ = await self.parse_tag_and_create_embeds()
+        if not continue_:
+            return None
+        super().__init__(page_s=self._embeds, timeout=14*60, disable_paginator_when_one_site=False)
         return await super().start(ctx)
 
 
@@ -179,19 +187,22 @@ class TrainingPaginator(Paginator):
         if not event.interaction.custom_id.startswith(prefix):
             return
         task = event.interaction.custom_id.replace(prefix, "")
-        if task == "stop":
-            self.set_context(event=event)
-            await self.delete_presence()
-            self.vocables.sort(key=lambda v: v._get_success_rate_of_last_x_tries(x=len(v.tries)))
-            results = "\n".join(v.result_str for v in self.vocables)
-            await self.ctx.respond(results, ephemeral=True)
-            return
-        if task == "yes":
-            self.set_context(event=event)
-            self.current_vocable.add_try(True)
-        if task == "no":
-            self.set_context(event=event)
-            self.current_vocable.add_try(False)
+        try:
+            if task == "stop":
+                self.set_context(event=event)
+                await self.delete_presence()
+                self.vocables.sort(key=lambda v: v._get_success_rate_of_last_x_tries(x=len(v.tries)))
+                results = "\n".join(v.result_str for v in self.vocables)
+                await self.ctx.respond(results, ephemeral=True)
+                return
+            if task == "yes":
+                self.set_context(event=event)
+                self.current_vocable.add_try(True)
+            if task == "no":
+                self.set_context(event=event)
+                self.current_vocable.add_try(False)
+        except BotResponseError as e:
+            self.ctx.respond(**e.context_kwargs)
         await self._update_position()
 
 
@@ -290,7 +301,15 @@ class DefaultParser:
                 if s in line:
                     separator = s
                     break
-            key, value = line.split(separator)
+            values = line.split(separator)
+            if len(values) != 2:
+                raise BotResponseError(
+                    f"```\n{line}```\nI tried to split this line with >`{separator}`<. What I was able to split it into the following"
+                    f""" {len(values)} parts: {Human.list_(values, wrap_word_with="'", with_a_or_an=False)}. What I expected were exactly 2 parts. """
+                    "If you can't split this line with space, you can also use either `,` or `;` to split this line.",
+                    ephemeral=True
+                    )
+            key, value = values
             dictionary[key] = value
         return dictionary
 
