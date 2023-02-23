@@ -52,7 +52,8 @@ async def vocabulary_training(ctx: lightbulb.Context):
     pag = VocabularyPaginator(tag)
     ictx = get_context(ctx.event)
     ictx._responded = ctx._responded
-    await pag.start(ctx)
+    ictx._responses = ctx._responses
+    await pag.start(ictx)
     
 
 
