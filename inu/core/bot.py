@@ -11,7 +11,7 @@ from asyncpraw.config import Config
 from hikari.events.interaction_events import InteractionCreateEvent
 from hikari.interactions.component_interactions import ComponentInteraction
 from hikari import ModalInteraction
-
+from copy import copy
 
 import lightbulb
 from lightbulb import context, commands, when_mentioned_or
@@ -49,6 +49,16 @@ class BotResponseError(Exception):
             self.kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
         self.bot_message = bot_message
         super().__init__()
+
+    @property
+    def context_kwargs(self) -> Dict[str, Any]:
+        context_kwargs = {}
+        context_kwargs.update(self.kwargs)
+        if context_kwargs.get("flags") == hikari.MessageFlag.EPHEMERAL:
+            del context_kwargs["flags"]
+            context_kwargs["ephemeral"] = True
+        return context_kwargs
+
 
 
 class Inu(lightbulb.BotApp):
