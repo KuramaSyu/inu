@@ -56,14 +56,12 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     await handler.start(ctx)
 
     
-async def start_4_in_a_row(ctx: Context, rows: int, columns: int, handler: Type[Connect4Handler] | None = None):
+async def start_4_in_a_row(ctx: Context, rows: int, columns: int, handler: Type[Connect4Handler] | None = None, **kwargs):
     if not ctx._options.get("player2"):
         ctx._options["player2"] = ctx.member
-
     handler = handler or Connect4Handler
-    
-    h = handler(ctx.options.player1, ctx.options.player2, rows=rows, columns=columns)
-    msg = await h.start(ctx)
+    h = handler(ctx.options.player1, ctx.options.player2, rows=rows, columns=columns, **kwargs)
+    await h.start(ctx)
 
 
 
@@ -118,12 +116,13 @@ async def connect4_falling_rows(ctx: Context):
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.option("unmemory-count", "each <unmemory-count> round you will see the normal board", type=int, default=5)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("memory", "A game of Connect 4 where you can't distinguish the tokens")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_falling_rows(ctx: Context):
-    await start_4_in_a_row(ctx, rows=6, columns=7, handler=MemoryConnect4Handler)
+    await start_4_in_a_row(ctx, rows=6, columns=7, handler=MemoryConnect4Handler, unmemory=ctx.options["unmemory-count"])
 
 
 
