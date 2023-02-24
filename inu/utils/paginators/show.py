@@ -1,29 +1,18 @@
 import asyncio
 from typing import *
 from enum import Enum
-from pprint import pprint
-import random
-import traceback
-from pprint import pformat
-import re
-from copy import deepcopy, copy
-from datetime import date, datetime
+from datetime import date
 from statistics import median
 
 import hikari
-from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
+from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import MessageActionRowBuilder
-import lightbulb
-from numpy import longdouble, sort
-from pyparsing import CloseMatch
-from tmdb import route, schema
+from tmdb import route
 
-from .base import PaginatorReadyEvent, Paginator, listener
-from jikanpy import AioJikan
-from fuzzywuzzy import fuzz
+from .base import Paginator, listener
 
 from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
-from utils import Human, Colors, MyAnimeList, Anime
+from utils import Human
 
 log = getLogger(__name__)
 
@@ -103,18 +92,11 @@ class ShowPaginator(Paginator):
 
         Args:
         ----
-        ctx : lightbulb.Context
+        ctx : InuContext
             The context to use to send the initial message
-        anime_name : str | None
-            the name of the anime which should be searched
-        results : List[Dict[str, Dict[str, int]]] | None
-            results, if already given.
-            Must use following structure:
-                [
-                    {"node": 
-                        {"id": int}
-                    }
-                ]
+        show_name : str
+            the name of the show
+        
         """
         self.ctx = ctx
         self._position = 0
@@ -163,21 +145,13 @@ class ShowPaginator(Paginator):
 
     async def _search_show(self, search: str) -> List[hikari.Embed]:
         """
-        Search <`search`> anime, and set results to `self._results`. These have less information
+        Search a tv show. Returned Embeds are apceholders. Acutall pages will be
+        loaded lazy
         
         Args:
         ----
-        search : str | None
-            the name of the anime to get results from.
-            None if <`results`> are given
-        results : List[Dict[str, Dict[str, int]]] | None
-            results, if already given.
-            Must use following structure:
-                [
-                    {"node": 
-                        {"id": int}
-                    }
-                ]
+        search : str
+            the name of the tv show to get results from
         """
         show_route = route.Show()
         show_json = await show_route.search(search)
@@ -189,7 +163,7 @@ class ShowPaginator(Paginator):
 
     async def _load_details(self) -> None:
         """
-        
+        loads details of current tv show into self._page
         """
         if not self._pages[self._position].description == "spaceholder":
             return
@@ -260,7 +234,16 @@ class ShowSeasonPaginator(Paginator):
     _results: List[Dict[str, Any]]  # bare season info
     _tv_show_id: int
 
-    async def start(self, ctx: InuContext, tv_show_id: int, season_response: List[Dict[str, Any]]):
+    async def start(self, ctx: InuContext, tv_show_id: int, season_response: List[Dict[str, Any]], **kwargs):
+        """
+        Args:
+        `ctx : InuContext`
+            the context
+        `tv_show_id : int`
+            id of tv show
+        `season_resposne : List[Dict[str, Any]]`
+            the part of the json resposne containing the season list
+        """
         self._tv_show_id = tv_show_id
         self._results = season_response
         self.ctx = ctx
@@ -275,7 +258,7 @@ class ShowSeasonPaginator(Paginator):
 
     async def _load_details(self) -> None:
         """
-        
+        fetches season information and updates current self._page
         """
         try:
             if not self._pages[self._position].description == "spaceholder":
@@ -304,7 +287,7 @@ class ShowSeasonPaginator(Paginator):
 
     async def _update_position(self, interaction: ComponentInteraction | None = None,):
         """
-        replaces embed page first with a more detailed one, before sending the message
+        replaces the current season page with the rest response. This works lazy
         """
         await self._load_details()
         await super()._update_position(interaction)
