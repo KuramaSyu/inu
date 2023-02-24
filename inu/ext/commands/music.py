@@ -431,7 +431,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             # Destroy nor leave remove the node nor the queue loop, you should do this manually.
             await lavalink.remove_guild_node(event.guild_id)
             await lavalink.remove_guild_from_loops(event.guild_id)
-            music_messages[event.guild_id] = None
+            #music_messages[event.guild_id] = None
             
     except Exception:
         log.error(traceback.format_exc())
@@ -470,13 +470,20 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not [custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id == custom_id]:
         # wrong custom id
         return
+    guild_id = ctx.guild_id
+    custom_id = ctx.custom_id
+    message = music_messages.get(ctx.guild_id)
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
-    if (message := music_messages.get(ctx.guild_id)) is None:
-        await ctx.respond("Seems like nothing is playing right now.", ephemeral=True)
-        return
+    node = await lavalink.get_guild_node(guild_id)
+    if not (message and node and len(node.queue) == 0):
+        ctx._ephemeral = True
+        return await ctx.respond(
+            "How am I supposed to do anything without even an active radio playing music?"
+        )
     if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.author.id)):
         return
     ctx.auto_defer()
+    
     log.debug(f"music message={type(message)}")
     if (await ctx.message()).id != message.id:
         # music message is different from message where interaction comes from
@@ -487,14 +494,8 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
             update=True,
         )
     last_context[ctx.guild_id] = ctx   
-    guild_id = ctx.guild_id
-    custom_id = ctx.custom_id
     tasks: List[asyncio.Task] = []
-    if not (node := await lavalink.get_guild_node(guild_id)):
-        ctx._ephemeral = True
-        return await ctx.respond(
-            "How am I supposed to do anything without even an active radio playing music?"
-        )
+
     if custom_id == 'music_shuffle':
         nqueue = node.queue[1:]
         random.shuffle(nqueue)
