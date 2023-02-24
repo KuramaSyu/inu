@@ -10,7 +10,7 @@ import lightbulb.context as context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 
-from utils.games.connect_four_handler import Connect4Handler, Connect4FallingRowsHandler, get_handler_from_letter
+from utils.games.connect_four_handler import Connect4Handler, Connect4FallingRowsHandler, get_handler_from_letter, MemoryConnect4Handler
 from utils.games import HikariOnu
 from utils import AkinatorSI
 from core import getLogger, Inu, get_context
@@ -76,10 +76,7 @@ async def start_4_in_a_row(ctx: Context, rows: int, columns: int, handler: Type[
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def connect4(ctx: Context):
     ...
-    # try:
-    #     await start_4_in_a_row(ctx, rows=6, columns=7)
-    # except Exception:
-    #     log.error(traceback.format_exc())
+
 
 
 @connect4.child
@@ -115,6 +112,18 @@ async def connect4_8by8(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_falling_rows(ctx: Context):
     await start_4_in_a_row(ctx, rows=6, columns=7, handler=Connect4FallingRowsHandler)
+
+
+
+@connect4.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
+@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
+@lightbulb.command("memory", "A game of Connect 4 where you can't distinguish the tokens")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def connect4_falling_rows(ctx: Context):
+    await start_4_in_a_row(ctx, rows=6, columns=7, handler=MemoryConnect4Handler)
 
 
 
