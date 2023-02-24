@@ -165,6 +165,7 @@ class Board:
                 first_free_slot = i
             else:
                 break
+        # set the marker of the slot to the players token
         self.board[first_free_slot][column].marker = player.token
 
 
@@ -324,6 +325,39 @@ class BoardFallingRows(Board):
             # add empty row to the top
             self.board.insert(0, [Slot(0, c) for c in range(self.columns)])
 
+
+
+class MemoryBoard(Board):
+    def __init__(self, game: "BaseConnect4", marker: str, memory_marker: str, rows: int = 8, columns: int = 8):
+        super().__init__(game, marker, rows, columns)
+        self.memory_marker = memory_marker
+
+    def __str__(self) -> str:
+        lines = []
+        part = ""
+        board = deepcopy(self.board)
+        if self.game_over_slots:
+            for slot in self.game_over_slots:
+                board[slot.row][slot.column].marker = self.marker
+            
+        for line in board:
+            for slot in line:
+                if slot.marker:
+                    if slot.marker == self.marker:
+                        # it's a game_over slot
+                        part += slot.marker
+                    else:
+                        # it's a players slot
+                        part += self.memory_marker
+                else:
+                    part += self.bg_color
+            lines.append(part)
+            part = ""       
+        return "\n".join(lines)
+    
+    def unmemoried_board(self) -> str:
+        return super().__str__()
+
                     
                 
                 
@@ -450,6 +484,27 @@ class FallingRowsConnect4(BaseConnect4):
             columns=columns,
         )
 
+
+
+class MemoryConnect4(BaseConnect4):
+    def __init__(
+        self,
+        player1: Player,
+        player2: Player,
+        extra_marker: str,
+        memory_marker: str,
+        rows: int,
+        columns: int,
+    ):
+        super().__init__(player1, player2, extra_marker, rows, columns)
+        self.board = MemoryBoard(
+            game=self,
+            marker=extra_marker,
+            memory_marker=memory_marker,
+            rows=rows,
+            columns=columns,
+        )
+
         
 
 class Connect4Handler(Paginator):
@@ -521,15 +576,9 @@ class Connect4Handler(Paginator):
         self.set_context(ctx)
         await super().start(ctx)
     
-    async def stop(self):
-        """
-        end of game - called from base class
-        -> create embed with
-        stateless restart button
-        """
-        self._stop.set()
-        self._stopped = True
 
+    @property
+    def stateless_restart_button(self) -> MessageActionRowBuilder:
         # make stateless restart button
         custom_id = json.dumps(
             {
@@ -541,9 +590,18 @@ class Connect4Handler(Paginator):
             separators=(',', ':'),
             indent=None,
         )
-        restart_btn = MessageActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, custom_id).set_emoji("🔁").add_to_container()
+        return MessageActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, custom_id).set_emoji("🔁").add_to_container()
+    
 
-        await self.ctx.respond(components=[restart_btn], update=True, embed=self.build_embed())
+    async def stop(self):
+        """
+        end of game - called from base class
+        -> create embed with
+        stateless restart button
+        """
+        self._stop.set()
+        self._stopped = True
+        await self.ctx.respond(components=[self.stateless_restart_button], update=True, embed=self.build_embed())
 
 
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
@@ -622,10 +680,8 @@ class Connect4Handler(Paginator):
         string += f"*️⃣{''.join(self.orientation_number[:self.game.board.columns])}"
         return string
 
-
-    @listener(hikari.InteractionCreateEvent)
-    async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
-        """triggered, when player presses a button"""
+    async def _on_interaction_add(self, event: hikari.InteractionCreateEvent):
+        """called from on_interaction_add - since function is passed into listener this is needed"""
         log.debug(f"interaction receive")
         # predicate
         if not self.interaction_pred(event):
@@ -651,6 +707,11 @@ class Connect4Handler(Paginator):
         elif custom_id == "surrender":
             self.game.surrender(player)
             self._stop.set()  # base class will call stop() and create with it the final message
+    
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
+        """triggered, when player presses a button"""
+        await self._on_interaction_add(event)
 
             
     async def do_turn(self, column: int, user: HikariPlayer):
@@ -750,31 +811,7 @@ class Connect4FallingRowsHandler(Connect4Handler):
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
-        log.debug(f"interaction receive")
-        # predicate
-        if not self.interaction_pred(event):
-            return
-        message = self._message
-        log.debug(f"executing on interaction with pag id: {self.count} | msg id: {message.id}")
-
-        # this is a valid interaction for this game, so set context
-        self.set_context(event=event)
-
-        # extract the element from the custom_id e.g. num_{num} | surrender
-        custom_id = event.interaction.custom_id.replace("connect4_", "", 1)
-        if self.game.player1.name == self.game.player2.name:
-            # possibility to play against yourself
-            player = self.game.player_turn
-        else:
-            player = self.game.player1 if self.game.player1.user.id == event.interaction.user.id else self.game.player2
-        
-        if custom_id in [f"num_{x}" for x in range(1,9)]:
-            num = int(custom_id[-1]) -1
-            log.debug(f"custom_id num `{num}` found")
-            await self.do_turn(num, player) #type: ignore  # this sends the message
-        elif custom_id == "surrender":
-            self.game.surrender(player)
-            self._stop.set()  # base class will call stop() and create with it the final message
+        await self._on_interaction_add(event)
     
     
     def build_embed(self):
@@ -787,6 +824,113 @@ class Connect4FallingRowsHandler(Connect4Handler):
     def _stateless_type_letter(self) -> str:
         """returns one letter used to determine which type of connect 4 it is"""
         return "F"
+
+
+class MemoryConnect4Handler(Connect4Handler):
+    """
+    A handler which connects Connect4 with hikari/discord
+    """
+    def __init__(
+        self,
+        player1: hikari.Member,
+        player2: hikari.Member,
+        rows: int,
+        columns: int,
+    ):
+        super().__init__(player1, player2, rows, columns)
+        # regenerate player marks
+        marks = ['🔵','🟣','🔴','🟠','🟢','🟡','🟤'] #,'⚪'
+        self.mark1 = random.choice(marks)
+        marks.remove(self.mark1)
+        self.mark2 = random.choice(marks)
+        marks.remove(self.mark2)
+        self.memory_marker = random.choice(marks)
+        marks.remove(self.memory_marker)
+        if self.mark1 in '🟢🟡' and self.mark2 in '🟢🟡':
+            self.mark2 = random.choice(marks)
+            marks.remove(self.mark2)
+        extra_marker = random.choice(marks)
+        self._ctx: None | InuContext = None
+
+        # generate game
+        g_player1 = HikariPlayer(player1.display_name, 1, self.mark1, player1)
+        g_player2 = HikariPlayer(player2.display_name, 2, self.mark2, player2)
+        self.game = MemoryConnect4(
+            g_player1, 
+            g_player2, 
+            extra_marker,
+            self.memory_marker,
+            rows=rows,
+            columns=columns,
+        )
+        
+        # these Errors will be displayed to the players
+        # these should contain why a player can't make a specific move etc.
+        self.game_infos: List[Exception] = []
+
+    def build_embed(self):
+        embed = super().build_embed()
+        embed.title =f"- - Connect 4 Memory - -"
+        return embed
+    
+    def build_unmemoried_embed(self) -> hikari.Embed:
+        embed = self.build_embed()
+        embed.add_field(f"Unmemoried:", self.unmemoried_board_to_str(), inline=False)
+        return embed
+
+    
+    @property
+    def _stateless_type_letter(self) -> str:
+        """returns one letter used to determine which type of connect 4 it is"""
+        return "M"
+
+    @property
+    def game_explanation(self) -> str:
+        # a legend for the board
+        legend = (
+            f"{self.game.player1.token} {self.game.player1.name}\n\n"
+            f"{self.game.player2.token} {self.game.player2.name}\n\n"
+            f"{self.game.board.memory_marker} Memory Marker\n\n"
+            f"{self.game.board.marker} System\n\n"
+        )
+        return legend
+    
+    async def stop(self):
+        """
+        end of game - called from base class
+        -> create embed with
+        stateless restart button
+
+        Override:
+        ---------
+        send unmemoried embed instead of default one
+        """
+        self._stop.set()
+        self._stopped = True
+        await self.ctx.respond(components=[self.stateless_restart_button], update=True, embed=self.build_unmemoried_embed())
+
+    def unmemoried_board_to_str(self) -> str:
+        """
+        Adds column and row indicators to the board string
+
+        Override:
+        ---------
+        makes string of board.unmemoried_board() instead of default str
+        
+        """
+        string = ""
+        b = self.game.board.unmemoried_board()
+        lines = b.split("\n")
+        for i, line in enumerate(lines):
+            string += f"{self.orienation_letter[self.game.board.rows - i - 1]}{line}\n"
+        string += f"*️⃣{''.join(self.orientation_number[:self.game.board.columns])}"
+        return string
+    
+    # needs to be re-registered for each subclass
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
+        """triggered, when player presses a button"""
+        await self._on_interaction_add(event)
     
 
 
@@ -795,7 +939,17 @@ def get_handler_from_letter(letter: str) -> Type[Connect4Handler]:
     Args:
     -----
     letter : str
-        the letter to identify the handler to use [D|F]
+        the letter to identify the hand    @property
+    def game_explanation(self) -> str:
+        # a legend for the board
+        legend = (
+            f"{self.game.player1.token} {self.game.player1.name}\n\n"
+            f"{self.game.player2.token} {self.game.player2.name}\n\n"
+            f"{self.game.board.marker} System\n\n"
+        )
+        if (turns := self.game.board.turns_until_drop) < 5:
+            legend += f"{self.orientation_number[turns-1]} {Human.plural_('turn', turns)} remaining"
+        return legendler to use [D|F|M]
     
     
     Returns:
@@ -806,11 +960,15 @@ def get_handler_from_letter(letter: str) -> Type[Connect4Handler]:
     handler = {
         "D": Connect4Handler,
         "F": Connect4FallingRowsHandler,
+        "M": MemoryConnect4Handler,
     }.get(letter)
     if handler is None:
         raise TypeError(f"There is no Connect4Handler identified with letter {letter}")
     return handler  # type: ignore
             
+
+
+
         
     
     
