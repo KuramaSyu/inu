@@ -475,10 +475,10 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     message = music_messages.get(ctx.guild_id)
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
     node = await lavalink.get_guild_node(guild_id)
-    if not (message and node and len(node.queue) == 0):
-        ctx._ephemeral = True
+    if not (message and node and len(node.queue) > 0):
         return await ctx.respond(
-            "How am I supposed to do anything without even an active radio playing music?"
+            "How am I supposed to do anything without even an active radio playing music?",
+            ephemeral=True
         )
     if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.author.id)):
         return
