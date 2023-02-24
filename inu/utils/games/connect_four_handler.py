@@ -793,6 +793,7 @@ class Connect4FallingRowsHandler(Connect4Handler):
             rows=rows,
             columns=columns,
         )
+        self.game_infos = [RuntimeError(f"The last row will drop after the board is ~{self.game.board.original_threshold*100}% filled ")]
         
 
     @property
@@ -816,7 +817,7 @@ class Connect4FallingRowsHandler(Connect4Handler):
     
     def build_embed(self):
         embed = super().build_embed()
-        embed.title =f"- - Connect 4 Falling Rows - -"
+        embed.title =f"- - Connect 4: Falling Rows - -"
         return embed
 
     
@@ -836,7 +837,14 @@ class MemoryConnect4Handler(Connect4Handler):
         player2: hikari.Member,
         rows: int,
         columns: int,
+        unmemory: int = 5
     ):
+        """
+        Args:
+        -----
+        unmemory : int = 5
+            every <`unmemory`>th round, the unmemoried board will be shown
+        """
         super().__init__(player1, player2, rows, columns)
         # regenerate player marks
         marks = ['🔵','🟣','🔴','🟠','🟢','🟡','🟤'] #,'⚪'
@@ -866,16 +874,27 @@ class MemoryConnect4Handler(Connect4Handler):
         
         # these Errors will be displayed to the players
         # these should contain why a player can't make a specific move etc.
-        self.game_infos: List[Exception] = []
+        
+        self.UNMEMORY = unmemory
+        self.game_infos: List[Exception] = [RuntimeError(f"You will see the **normal board every {unmemory}. round**")]
+
 
     def build_embed(self):
         embed = super().build_embed()
-        embed.title =f"- - Connect 4 Memory - -"
+        embed.title =f"- - - Connect 4: Memory - - -"
         return embed
     
+
     def build_unmemoried_embed(self) -> hikari.Embed:
         embed = self.build_embed()
-        embed.add_field(f"Unmemoried:", self.unmemoried_board_to_str(), inline=False)
+        embed._fields.insert(
+            1, 
+            hikari.EmbedField(
+                name=f"Unmemoried:", 
+                value=self.unmemoried_board_to_str(), 
+                inline=True
+            )
+        )
         return embed
 
     
@@ -883,6 +902,7 @@ class MemoryConnect4Handler(Connect4Handler):
     def _stateless_type_letter(self) -> str:
         """returns one letter used to determine which type of connect 4 it is"""
         return "M"
+
 
     @property
     def game_explanation(self) -> str:
@@ -895,6 +915,7 @@ class MemoryConnect4Handler(Connect4Handler):
         )
         return legend
     
+
     async def stop(self):
         """
         end of game - called from base class
@@ -908,6 +929,7 @@ class MemoryConnect4Handler(Connect4Handler):
         self._stop.set()
         self._stopped = True
         await self.ctx.respond(components=[self.stateless_restart_button], update=True, embed=self.build_unmemoried_embed())
+
 
     def unmemoried_board_to_str(self) -> str:
         """
@@ -926,11 +948,26 @@ class MemoryConnect4Handler(Connect4Handler):
         string += f"*️⃣{''.join(self.orientation_number[:self.game.board.columns])}"
         return string
     
+
     # needs to be re-registered for each subclass
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
         await self._on_interaction_add(event)
+
+
+    async def update_embed(self):
+        """sends a message with an embed representing this game
+        
+        Override:
+        --------
+        Alternate between sending normal embed and unmemoried embed.
+        """
+        if self.game.turn % self.UNMEMORY == 0:
+            embed = self.build_unmemoried_embed()
+        else:
+            embed = self.build_embed()
+        await self.ctx.respond(embed=embed, components=self.message_components, update=True)
     
 
 
@@ -940,16 +977,6 @@ def get_handler_from_letter(letter: str) -> Type[Connect4Handler]:
     -----
     letter : str
         the letter to identify the hand    @property
-    def game_explanation(self) -> str:
-        # a legend for the board
-        legend = (
-            f"{self.game.player1.token} {self.game.player1.name}\n\n"
-            f"{self.game.player2.token} {self.game.player2.name}\n\n"
-            f"{self.game.board.marker} System\n\n"
-        )
-        if (turns := self.game.board.turns_until_drop) < 5:
-            legend += f"{self.orientation_number[turns-1]} {Human.plural_('turn', turns)} remaining"
-        return legendler to use [D|F|M]
     
     
     Returns:
@@ -965,18 +992,3 @@ def get_handler_from_letter(letter: str) -> Type[Connect4Handler]:
     if handler is None:
         raise TypeError(f"There is no Connect4Handler identified with letter {letter}")
     return handler  # type: ignore
-            
-
-
-
-        
-    
-    
-    
-
-
-        
-        
-        
-        
-
