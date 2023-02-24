@@ -37,38 +37,38 @@ bot: Inu
 async def on_ready(event: hikari.ShardReadyEvent):
     await Reddit.init_reddit_credentials(plugin.bot)
     
-@plugin.command
-@lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
-@lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
-@lightbulb.command("pic", "sends a nice picture from Reddit", aliases = ['rand_pic', 'picture'])
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def pic(ctx: Context):
-    '''
-    Sends a nice Picture
-    Parameters:
-    [Optional] subreddit: The subreddit u want a picture from - Default: A list of picture Subreddits
-    '''
-    subreddit = ctx.options.subreddit
-    if subreddit == '':
-        subreddit = random.choice(['itookapicture','CityPorn','EarthPorn', 'Pictures'])
-    await send_pic(ctx, subreddit)
+# @plugin.command
+# @lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
+# @lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
+# @lightbulb.command("pic", "sends a nice picture from Reddit", aliases = ['rand_pic', 'picture'])
+# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+# async def pic(ctx: Context):
+#     '''
+#     Sends a nice Picture
+#     Parameters:
+#     [Optional] subreddit: The subreddit u want a picture from - Default: A list of picture Subreddits
+#     '''
+#     subreddit = ctx.options.subreddit
+#     if subreddit == '':
+#         subreddit = random.choice(['itookapicture','CityPorn','EarthPorn', 'Pictures'])
+#     await send_pic(ctx, subreddit)
 
 
-@plugin.command
-@lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
-@lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
-@lightbulb.command("meme", "sends a meme from Reddit")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def memes(ctx: Context):
-    '''
-    Sends a meme
-    Parameters:
-    [Optional] subreddit: The subreddit u want a picture from - Default: A list of meme Subreddits
-    '''
-    subreddit = ctx.options.subreddit
-    if subreddit == '':
-        subreddit = random.choice(['memes','funny'])
-    await send_pic(ctx, subreddit)
+# @plugin.command
+# @lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
+# @lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
+# @lightbulb.command("meme", "sends a meme from Reddit")
+# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+# async def memes(ctx: Context):
+#     '''
+#     Sends a meme
+#     Parameters:
+#     [Optional] subreddit: The subreddit u want a picture from - Default: A list of meme Subreddits
+#     '''
+#     subreddit = ctx.options.subreddit
+#     if subreddit == '':
+#         subreddit = random.choice(['memes','funny'])
+#     await send_pic(ctx, subreddit)
 
 
 subreddits: Dict[str, Dict[str, int]] = {
