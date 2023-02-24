@@ -71,16 +71,15 @@ class EventHandler:
     def __init__(self):
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
-        # log.info("Track started on guild: %s", event.guild_id)
         try:
             asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
             node = await lavalink.get_guild_node(event.guild_id)
+            await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
             if node is None:
                 return
             if len(node.queue) in [1, 0]:
                 return  # first element added with /play -> play command will call queue
             track = node.queue[0].track
-            await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
         except Exception:
             log.error(traceback.format_exc())
 
@@ -574,10 +573,10 @@ async def start_lavalink() -> None:
     if not music.bot.conf.lavalink.connect:
         music.d.log.warning(f"Lavalink connection won't be established")
         return
-    sleep_time = 10
+    sleep_time = 5
     log.debug(f"Sleep for {sleep_time} seconds before connecting to Lavalink") 
     await asyncio.sleep(sleep_time)
-    for x in range(3):
+    for x in range(6):
         try:
             builder = (
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
