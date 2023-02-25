@@ -74,12 +74,12 @@ class EventHandler:
         try:
             asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
             node = await lavalink.get_guild_node(event.guild_id)
+            track = node.queue[0].track
             await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
             if node is None:
                 return
             if len(node.queue) in [1, 0]:
-                return  # first element added with /play -> play command will call queue
-            track = node.queue[0].track
+                return  # first element added with /play -> play command will call queue    
         except Exception:
             log.error(traceback.format_exc())
 
