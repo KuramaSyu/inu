@@ -965,10 +965,14 @@ async def play_normal(ctx: context.Context) -> None:
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def stop(ctx: Context) -> None:
     """Stops the current song (skip to continue)."""
+    ctx = get_context(ctx.event)
+    await ctx.defer()
     if not await lavalink.get_guild_node(ctx.guild_id):
         return
     await lavalink.stop(ctx.guild_id)
+    
     await ctx.respond("Stopped playings")
+    await queue(ctx)
 
 @music.command
 @lightbulb.add_cooldown(1, 1, lightbulb.UserBucket)
@@ -985,7 +989,11 @@ async def skip(ctx: Context) -> None:
         - [amount]: How many songs you want to skip. Default = 1
     """
 
-    await _skip(ctx.guild_id, ctx.options.amount)
+    successful = await _skip(ctx.guild_id, ctx.options.amount)
+    if not successful:
+        return
+    await queue(get_context(ctx.event))
+
 
 
 async def _skip(guild_id: int, amount: int) -> bool:
@@ -1045,7 +1053,7 @@ async def _resume(guild_id: int):
 @lightbulb.command("queue", "Resend the music message")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def _queue(ctx: Context) -> None:
-    await queue(ctx, force_resend=True)
+    await queue(get_context(ctx.event), force_resend=True)
 
 
 @music.command
@@ -1100,7 +1108,7 @@ async def clear(ctx: Context):
         ctx.guild_id,
         f"music was cleared by {ctx.member.display_name}"
     )
-    await _queue(ctx)
+    await _queue(get_context(ctx.event))
 
 async def _clear(guild_id: int):
     node = await lavalink.get_guild_node(guild_id)
@@ -1158,9 +1166,10 @@ async def restart(ctx: context.Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def music_search(ctx: context.Context):
     node = await lavalink.get_guild_node(ctx.guild_id)
+    query = ctx.options.query
+    ctx = get_context(ctx.event)
     if not node:
         return await ctx.respond("You have to play music, that I can search for songs")
-    query = ctx.options.query
     query = query.lower()
     response = []
     tracks = []
