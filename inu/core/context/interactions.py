@@ -466,7 +466,7 @@ class InteractionContext(_InteractionContext):
     @property
     def is_valid(self) -> bool:
         """wether or not the interaction is valid (timerange of 15 minutes)"""
-        return datetime.now() < (self.created_at + timedelta(minutes=15))
+        return datetime.now() < (self.created_at + timedelta(minutes=14.8))
 
     @property
     def command(self) -> None:
@@ -542,7 +542,8 @@ class InteractionContext(_InteractionContext):
         if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
-        if self.is_valid and self._deferred:  # interaction deferred
+        if self.is_valid and self._deferred:  
+            # interaction deferred
             self.log.debug("wait for defer complete")
             await self._maybe_wait_defer_complete()
             if not update:
@@ -569,7 +570,8 @@ class InteractionContext(_InteractionContext):
             )
             self.responses.append(proxy)
             return proxy
-        if not self.is_valid:  # interaction is unvalid
+        if not self.is_valid:
+            # interaction is unvalid
             if update:
                 if not self._message:
                     raise RuntimeError("Interaction run out of time. no message to edit")
