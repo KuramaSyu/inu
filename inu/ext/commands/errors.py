@@ -32,7 +32,7 @@ ERROR_JOKES = [
     "You expected something else? Oh please. I thought you got it by now",
     (
         "Y'know I can smell your disappointment. It's right about here: ```\n"
-        "good                  bad"
+        "good                  bad\n"
         "  |--------------------|\n"
         "                             ^\n```"
     )
