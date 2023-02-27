@@ -6,8 +6,11 @@ CREATE TABLE IF NOT EXISTS guilds (
 );
 
 CREATE TABLE IF NOT EXISTS music_history (
-    guild_id BIGINT NOT NULL PRIMARY KEY,
-    history JSONB
+    title_id SERIAL PRIMARY KEY,
+    title TEXT NOT NULL,
+    url TEXT NOT NULL,
+    played_on TIMESTAMP NOT NULL,
+    guild_id BIGINT NOT NULL
 );
 
 CREATE TABLE IF NOT EXISTS reddit_channels (
