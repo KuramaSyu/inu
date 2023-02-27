@@ -77,7 +77,7 @@ class MusicHistoryPaginator(Paginator):
             return
         ctx = get_context(event)
         # play the selected song
-        uri = self.song_list[int(event.interaction.values[0])]["uri"]
+        uri = self.song_list[int(event.interaction.values[0])]["url"]
         # await self.ctx.defer()
         try:
             await self.play(ctx, uri)
