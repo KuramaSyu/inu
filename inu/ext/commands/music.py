@@ -35,6 +35,9 @@ from lightbulb.context import Context
 import lavasnek_rs
 from matplotlib.pyplot import hist
 from youtubesearchpython.__future__ import VideosSearch  # async variant
+from asyncache import cached
+from cachetools import TTLCache
+from fuzzywuzzy import fuzz
 
 from core import Inu, getLevel, get_context, InuContext
 from utils import Paginator, Colors, Human
@@ -42,13 +45,15 @@ from utils import method_logger as logger
 from core.db import Database
 from utils.paginators.music_history import MusicHistoryPaginator
 
-from core import getLogger, BotResponseError, InteractionContext
+from core import getLogger, BotResponseError, InteractionContext, Table
 log = getLogger(__name__)
 
 
 # If True connect to voice with the hikari gateway instead of lavasnek_rs's
 HIKARI_VOICE = True
 
+# prefix for autocomplete history values
+HISTORY_PREFIX = "History: "
 # to fix bug, when join first time, no music
 first_join = False
 bot: Inu
@@ -72,14 +77,15 @@ class EventHandler:
         pass
     async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
         try:
-            asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
+            
             node = await lavalink.get_guild_node(event.guild_id)
-            track = node.queue[0].track
-            await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
             if node is None:
                 return
+            track = node.queue[0].track
+            await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
             if len(node.queue) in [1, 0]:
                 return  # first element added with /play -> play command will call queue    
+            asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
         except Exception:
             log.error(traceback.format_exc())
 
@@ -287,52 +293,33 @@ class MusicHistoryHandler:
     """A class which handles music history stuff and syncs it with postgre"""
     db: Database = Database()
     max_length: int = 200  # max length of music history list¡
+    table = Table("music_history")
 
     @classmethod
     async def add(cls, guild_id: int, title: str, url: str):
-
-        json_ = await cls.get(guild_id)
-        history: List[Dict] = json_["data"]  # type: ignore
-        history.append(                
-            {
-                "uri": url,
-                "title": title,
-            }
+        await cls.table.insert(
+            ["title", "url", "played_on", "guild_id"], 
+            [title, url, datetime.datetime.now(), guild_id]
         )
-        if len(history) > cls.max_length:
-            history.pop(0)
-        json_ = json.dumps({"data": history})
-        sql = """
-            UPDATE music_history
-            SET history = $1
-            WHERE guild_id = $2
-        """
-        await cls.db.execute(sql, json_, guild_id)
 
     @classmethod
-    async def get(cls, guild_id: int) -> Dict[str, Union[str, List[Dict]]]:
+    async def get(cls, guild_id: int) -> List[Dict[str, Any]]:
         """"""
-        sql = """
-            SELECT * FROM music_history
-            WHERE guild_id = $1
-        """
-        record = await cls.db.row(sql, guild_id)
+        records = await cls.table.fetch(f"SELECT * FROM {cls.table.name} ORDER BY played_on DESC LIMIT {cls.max_length}")
+        return records or []
+    
+    @classmethod
+    @cached(TTLCache(1024, 45))
+    async def cached_get(cls, guild_id: int) -> List[Dict[str, Any]]:
+        """"""
+        return await cls.table.fetch(f"SELECT title, url FROM {cls.table.name} ORDER BY played_on DESC LIMIT {cls.max_length}")
 
-        if record:
-            json_ = record["history"]
-            return json.loads(json_)
-        else:
-            sql = """
-                INSERT INTO music_history(guild_id, history)
-                VALUES ($1, $2)
-            """
-            # create new entry for this guild
-            try:
-                await cls.db.execute(sql, guild_id, json.dumps({"data": []}))
-                return {"data": []}
-            except Exception:
-                # unique violation error - try again
-                return await cls.get(guild_id)
+    @classmethod
+    async def clean(cls, max_age: datetime.timedelta = datetime.timedelta(days=180)):
+        del_oder_than = datetime.datetime.now() - max_age
+        deleted = await cls.table.execute(f"DELETE FROM {cls.table.name} WHERE played_on < $1", del_oder_than)
+        if deleted:
+            log.info(f"Cleaned {len(deleted)} music history entries")
 
 
 
@@ -600,14 +587,6 @@ async def start_lavalink() -> None:
     log.info("lavalink is connected")
 
 
-# @music.command
-# @lightbulb.add_checks(lightbulb.guild_only)
-# @lightbulb.command("join", "I will join into your channel")
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-# async def join(ctx: context.Context) -> None:
-#     """Joins the voice channel you are in."""
-#     channel_id = await _join(ctx)
-#     await ctx.respond("Radio up and running")
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -626,9 +605,6 @@ async def _fix(ctx: context.Context):
     await _resume(ctx.guild_id)
     
 
-    # if channel_id:
-    #     await ctx.respond(f"Joined <#{channel_id}>")
-
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -642,7 +618,7 @@ async def leave(ctx: context.Context) -> None:
     await ctx.respond(
         embed=(
             Embed(title="🛑 music stopped")
-                .set_footer(text=f"music was stopped by {ctx.author.display_name}", icon=ctx.author.avatar_url)
+                .set_footer(text=f"music was stopped by {ctx.member.display_name}", icon=ctx.member.avatar_url)
         )
     )
 
@@ -673,11 +649,10 @@ async def pl(ctx: context.Context) -> None:
     try:
         
         await _play(ctx, ctx.options.query)
-        # if first_join:
-        #     await _fix(ctx)
-        #     first_join = False
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
+
+
 
 async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queue: bool = False) -> bool:
     """
@@ -725,9 +700,15 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     if not con:
         await _join(ictx)
     await ictx.defer()
+    node = await lavalink.get_guild_node(ctx.guild_id)
+    if query.startswith(HISTORY_PREFIX):
+        query = query.replace(HISTORY_PREFIX, "")
+        history = await MusicHistoryHandler.cached_get(ctx.guild_id)
+        if (alt_query:=[t["url"] for t in history if query in t["title"]]):
+            query=alt_query[0]
+
     # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
-        node = await lavalink.get_guild_node(ctx.guild_id)
         await load_yt_playlist(ictx, query, be_quiet)
     # not a youtube playlist -> something else
     else:
@@ -756,11 +737,8 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         log.debug(ictx)
         await load_track(ictx, track, be_quiet)
 
-    if prevent_to_queue:
-        return True
 
-    await asyncio.sleep(0.2)
-
+    #await asyncio.sleep(0.2)
     await queue(
         ictx, 
         ctx.guild_id, 
@@ -773,7 +751,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
 @lightbulb.command("next", "enqueue a title at the beginning of the queue", aliases=["1st"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def now(ctx: Context) -> None:
@@ -783,7 +761,7 @@ async def now(ctx: Context) -> None:
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
 @lightbulb.command("second", "enqueue a title as the second in the queue", aliases=["2nd"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def second(ctx: Context) -> None:
@@ -794,7 +772,7 @@ async def second(ctx: Context) -> None:
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
-@lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST)
+@lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST, autocomplete=True)
 @lightbulb.command("position", "enqueue a title at a custom position of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def position(ctx: SlashContext) -> None:
@@ -855,9 +833,11 @@ async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = Fa
 async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> lavasnek_rs.Tracks:
     """
     loads a youtube playlist
+    
     Returns
     -------
-        - (lavasnek_rs.Track) the first track of the playlist
+    `lavasnek_rs.Track` :
+        the first track of the playlist
     """
     tracks = await lavalink.get_tracks(query)
     for track in tracks.tracks:
@@ -951,21 +931,19 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Tupl
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the title of the track", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.option("query", "the title of the track", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
 @lightbulb.command("play", "play a song", aliases=["pl"])
 @lightbulb.implements(commands.SlashCommand)
 async def play_normal(ctx: context.Context) -> None:
-    #await ctx.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
-    SlashContext
     await _play(ctx, ctx.options.query)
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("stop", "stop the current title")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def stop(ctx: Context) -> None:
+async def stop(_ctx: Context) -> None:
     """Stops the current song (skip to continue)."""
-    ctx = get_context(ctx.event)
+    ctx = get_context(_ctx.event)
     await ctx.defer()
     if not await lavalink.get_guild_node(ctx.guild_id):
         return
@@ -1126,9 +1104,7 @@ async def _clear(guild_id: int):
 async def history(ctx: Context):
     if not ctx.guild_id:
         return
-    json_ = await MusicHistoryHandler.get(ctx.guild_id)
-    history: List[Dict] = json_["data"]  # type: ignore
-    history.reverse()  # now recent first
+    history = await MusicHistoryHandler.get(ctx.guild_id)
     embeds = []
     embed = None
     for i, record in enumerate(history):
@@ -1139,7 +1115,7 @@ async def history(ctx: Context):
                 title=f"Music history {i} - {i+19}",
                 description="",
             )
-        embed.description += f"{i} | [{record['title']}]({record['uri']})\n"
+        embed.description += f"{i} | [{record['title']}]({record['url']})\n"
     if embed:
         embeds.append(embed)
     pag = MusicHistoryPaginator(
@@ -1213,24 +1189,22 @@ async def queue(
 
     node = await lavalink.get_guild_node(guild_id)
     if not node:
-        music.d.log.warning(f"node is None, in queue command; {guild_id=};")
-        music.d.log.info("Try to reconnect to websocket")
-        await _join(ctx)
-        node = await lavalink.get_guild_node(guild_id)
+        log.warning(f"node is None in queue command; {guild_id=};")
+        log.info("Try to reconnect to websocket")
         return
 
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
-    for x in range(1,4,1):
-        try:
-            num = numbers[int(x) - 1]
-            upcoming_songs = (
-                f'{upcoming_songs}\n' 
-                f'{num} {str(datetime.timedelta(milliseconds=node.queue[x].track.info.length))} '
-                f'- {node.queue[x].track.info.title}'
-            )
-        except:
+    for i, _track in enumerate(node.queue):
+        track = _track.track
+        if i >= 4:
             break
+        num = numbers[i]
+        upcoming_songs = (
+            f'{upcoming_songs}\n' 
+            f'{num} {str(datetime.timedelta(milliseconds=track.info.length))} '
+            f'- {track.info.title}'
+        )
     if upcoming_songs == '':
         upcoming_songs = '/'
 
@@ -1275,13 +1249,14 @@ async def queue(
     music_embed.set_footer(**kwarg)
     music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
     
-    # send new message and override
+    
     old_music_msg = music_messages.get(guild_id, None)
     if (
         not (music_message := await ctx.message())
         or old_music_msg is None 
         or force_resend 
     ):
+        # send new message and override
         kwargs = {"update": True} if music_message else {}
         log.debug(f"send new message with {kwargs=}")
         msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node), **kwargs)
@@ -1370,6 +1345,35 @@ async def build_music_components(
         pass
         #action_rows[0].add_button(hikari.ButtonStyle.SECONDARY, "music_outdated").set_label("outdated").set_is_disabled(disable_all).add_to_container()     
     return action_rows
+
+@position.autocomplete("query")
+@second.autocomplete("query")
+@now.autocomplete("query")
+@play_normal.autocomplete("query")
+async def guild_auto_complete(
+    option: hikari.AutocompleteInteractionOption,
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    value = option.value or ""
+    records = await MusicHistoryHandler.cached_get(interaction.guild_id)
+    new_records = []
+    for r in records:
+        r = dict(r)
+        if value:
+            r["ratio"] = fuzz.partial_token_set_ratio(value, r["title"])
+        if not r in new_records:
+            new_records.append(r)
+    records = new_records  
+    if not value:
+        records = records[:24]
+    else:
+          
+        records.sort(key=lambda r: r["ratio"], reverse=True)
+    return [HISTORY_PREFIX + r["title"][:100] for r in records]
+
+
+    
+    
 
 
 def load(inu: Inu) -> None:
