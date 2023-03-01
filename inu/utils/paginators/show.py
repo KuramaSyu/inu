@@ -204,15 +204,15 @@ class ShowPaginator(Paginator):
             embed.add_field("Duration", ", ".join(f"{e} min/Episode" for e in episode_runtime))
         
         if (seasons := details.get("seasons")):
-            season_overview = f"{'Season':<14}{'Episodes':<12}Date\n" # name, episode number, date
+            season_overview = f"{'Episodes':<10}{'Date':<8}Season\n" # name, episode number, date
             for season in seasons:
                 try:
                     d = date.fromisoformat(season.get("air_date", "2000-00-00"))
                     aired = f"{d.month}/{d.year}"
                 except:
                     aired = "/"
-                season_overview += f'{season.get("name", "None"):<14}{season.get("episode_count", "None"):<12}{aired}\n'
-            embed.add_field("Season Overview", f"```\n{Human.short_text_from_center(season_overview, 1000)}```", inline=False)
+                season_overview += f'{season.get("episode_count", "None"):<10}{aired:<8}{season.get("name", "None")}\n'
+            embed.add_field("Season Overview", f"```\n{Human.short_text(season_overview, 1000)}```", inline=False)
 
         embed.set_image(f"{base_url}{details['poster_path']}")
 
