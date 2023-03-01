@@ -1,9 +1,5 @@
-import asyncio
-import logging
-import typing
 from datetime import datetime, timedelta
 from typing import *
-from numpy import full, isin
 import random
 from io import BytesIO
 
@@ -11,46 +7,29 @@ from io import BytesIO
 import aiohttp
 import hikari
 import lightbulb
-import lightbulb.utils as lightbulb_utils
-from pytz import timezone
 from dataenforce import Dataset
 from pytimeparse.timeparse import timeparse
 
-from fuzzywuzzy import fuzz
 from hikari import (
-    ActionRowComponent, 
     Embed, 
-    MessageCreateEvent, 
-    embeds, 
-    ResponseType, 
-    TextInputStyle
 )
-from hikari.events import InteractionCreateEvent
-from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBuilder
-from hikari import ButtonStyle
-from jikanpy import AioJikan
-from lightbulb import OptionModifier as OM
-from lightbulb import commands, context
+from lightbulb import commands
 from lightbulb.context import Context
 import matplotlib
 import matplotlib.pyplot as plt
-#from matplotlib.dates import DateFormatter
-from typing_extensions import Self
+
+
 import pandas as pd
 import seaborn as sn
 import mplcyberpunk
 from pandas.plotting import register_matplotlib_converters
-from matplotlib.dates import DateFormatter, ConciseDateFormatter
+from matplotlib.dates import DateFormatter
 import matplotlib.ticker as plticker 
 import humanize
 
 from utils import (
-    Colors, 
     Human, 
     Paginator, 
-    Reddit, 
-    Urban, 
-    crumble,
     CurrentGamesManager,
     TimezoneManager,
     SettingsManager,
@@ -159,7 +138,7 @@ async def current_games(ctx: Context):
     show_only_games = not ctx.options["show-all"]
     remove_apps: List[str] = []
     apps = [app.strip() for app in ctx.options.apps.split(",")] if ctx.options.apps else None
-    coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow"]
+    coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow", "Code"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
     double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
     remove_apps.extend(double_games)
@@ -168,7 +147,6 @@ async def current_games(ctx: Context):
     max_ranking_num: int = 20
 
     async def build_embeds() -> List[Embed]:
-        bot: Inu = plugin.bot
         embeds: List[hikari.Embed] = []
         # build embed for current guild
         guild: hikari.Guild = ctx.get_guild()  # type: ignore
@@ -187,17 +165,19 @@ async def current_games(ctx: Context):
         for record in activity_records:
             if record['first_occurrence'] < first_occurrence:
                 first_occurrence = record['first_occurrence']
-
+        timedelta_days = (datetime.now() - first_occurrence).days+1
         embed = (
             hikari.Embed(
                 title=f"{guild.name}",
             )
-            .set_footer((
 
-                f"all records I've taken since {first_occurrence.strftime('%d. %B')} "
-                f"({Human.plural_('day', (datetime.now() - first_occurrence).days, True, 'days')})")
-            )
         )
+        if timedelta_days > 5:
+            embed.set_footer((
+
+                    f"all records I've taken since {first_occurrence.strftime('%d. %B')} "
+                    f"({Human.plural_('day', timedelta_days, True, 'days')})")
+                )
 
         field_value = ""
         embeds.append(embed)
@@ -351,7 +331,7 @@ async def build_activity_graph(
     since: datetime = df.index.min()
     until: datetime = df.index.max()
     df_timedelta: timedelta = until - since
-   
+
     if df_timedelta >= timedelta(days=20):
         resample_delta = df_timedelta / 15
     elif df_timedelta >= timedelta(days=4.5):
@@ -364,8 +344,8 @@ async def build_activity_graph(
     # resampeling dataframe
     # group by game 
     # and resample hours to `resample_delta` and sum them up
-    activity_series = df.groupby("game")["hours"].resample(resample_delta).sum()
-    df_summarized = activity_series.to_frame().reset_index()
+    activity_series: pd.Series = df.groupby("game")["hours"].resample(resample_delta).sum()
+    df_summarized: pd.DataFrame = activity_series.to_frame().reset_index()
 
     # set before and after game to 0
     games = set(df_summarized["game"])
@@ -452,6 +432,7 @@ async def build_activity_graph(
     
     #Create chart
     fig, ax1 = plt.subplots(figsize=(21,9))
+    ax1.set_xticks(df_summarized['r_timestamp'])
     fig.set_tight_layout(True)
     sn.despine(offset=20)
     ax: matplotlib.axes.Axes = sn.lineplot(
@@ -469,7 +450,7 @@ async def build_activity_graph(
     mplcyberpunk.add_glow_effects(ax=ax)
     #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
     ax.set_ylabel("Hours")
-    ax.set_xlabel("")
+    ax.set_xlabel(f"Date (rounded to {humanize.naturaldelta(resample_delta)})")
 
     date_format = get_date_format_by_timedelta(df_timedelta)
 
