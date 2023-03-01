@@ -374,7 +374,7 @@ This is a new page.
         self.set_context(event=event)
         if not value:
             return
-        values = crumble(value, 2000)
+        values = crumble(f"\n{value}", 2000)
         if append and self.tag.value:
             self.tag.value = [*self.tag.value[:self._position], *crumble(self.tag.value[self._position]+values[0], 2000), *values[1:], *self.tag.value[self._position+1:]]
         else:
@@ -390,7 +390,6 @@ This is a new page.
         else:
             self.tag._is_local = True
             self.tag.guild_ids.remove(0)
-        # await self.update_page()
 
     async def finish(self, interaction: ComponentInteraction):
         try:
@@ -452,7 +451,6 @@ This is a new page.
         if user and (channel := self.ctx.get_channel()):
             await channel.delete_messages(bot_message, event.message)
         self.tag.owner = user
-        # await self.update_page()
 
     def build_default_components(self, position) -> List[MessageActionRowBuilder]:
         rows = []
@@ -480,9 +478,7 @@ This is a new page.
         rows.append(menu)
         if self._additional_components:
             rows.extend(self._additional_components)
-        #if self.pagination:
         return rows
-        #return [tag_specific, finish]
 
     async def load_tag(self, tag: Mapping[str, Any] | Tag, author: Union[hikari.Member, hikari.User]):
         """
@@ -498,18 +494,6 @@ This is a new page.
             self.tag = new_tag
         else:
             self.tag = tag
-
-        # self.embed = Embed()
-        # self.embed.title = self.tag.name
-        # self.embed.description = self.tag.value[0]
-        # self.embed.add_field(name="Status", value=self.tag.__str__())
-        # self._pages = [
-        #     Embed(
-        #         title=self.tag.name,
-        #         description=value,
-        #     ).add_field("Info", str(self.tag))
-        #     for value in self.tag.value
-        # ]
         await self._rebuild_pages()
         self._default_site = len(self._pages) - 1
 
