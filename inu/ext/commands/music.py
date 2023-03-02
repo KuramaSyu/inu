@@ -1137,10 +1137,12 @@ async def queue(
     numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
     upcoming_songs = ''
     for i, _track in enumerate(node.queue):
+        if i == 0:
+            continue
         track = _track.track
         if i >= 4:
             break
-        num = numbers[i]
+        num = numbers[i-1]
         upcoming_songs = (
             f'{upcoming_songs}\n' 
             f'{num} {str(datetime.timedelta(milliseconds=track.info.length))} '
