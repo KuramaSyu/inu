@@ -8,11 +8,12 @@ import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import MessageActionRowBuilder
 from tmdb import route
+from tabulate import tabulate
 
 from .base import Paginator, listener
 
 from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
-from utils import Human
+from utils import Human, crumble
 
 log = getLogger(__name__)
 
@@ -115,11 +116,9 @@ class ShowPaginator(Paginator):
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
         if not self.interaction_pred(event):
-            log.debug("pred failed")
             return
         i = event.interaction
         if i.custom_id == "tv_show_seasons":
-            log.debug("start season pag")
             pag = ShowSeasonPaginator(
                 page_s=["none"], 
                 timeout=4*60, 
@@ -155,9 +154,10 @@ class ShowPaginator(Paginator):
         """
         show_route = route.Show()
         show_json = await show_route.search(search)
-        await show_route.session.close()
-        embeds = [Embed(description="spaceholder") for _ in range(len(show_json) -1)]
         self._results = show_json["results"]
+        await show_route.session.close()
+        embeds = [Embed(description="spaceholder") for _ in range(len(self._results) -1)]
+        
         return embeds
 
 
@@ -204,15 +204,28 @@ class ShowPaginator(Paginator):
             embed.add_field("Duration", ", ".join(f"{e} min/Episode" for e in episode_runtime))
         
         if (seasons := details.get("seasons")):
-            season_overview = f"{'Episodes':<10}{'Date':<8}Season\n" # name, episode number, date
+            # create season overview
+            data: Dict[str, List[str]] = {
+                "Episodes": [],
+                "Date": [],
+                "Name": []
+            }
             for season in seasons:
                 try:
                     d = date.fromisoformat(season.get("air_date", "2000-00-00"))
-                    aired = f"{d.month}/{d.year}"
+                    aired = f"{d.month:02}/{d.year}"
                 except:
-                    aired = "/"
-                season_overview += f'{season.get("episode_count", "None"):<10}{aired:<8}{season.get("name", "None")}\n'
-            embed.add_field("Season Overview", f"```\n{Human.short_text(season_overview, 1000)}```", inline=False)
+                    aired = "--/----"
+                data["Episodes"].append(f"{season.get('episode_count', 0)}")
+                data["Name"].append(Human.short_text(season.get("name", "Unnamed"), 34))
+                data["Date"].append(aired)
+            season_overview = tabulate(data, tablefmt="rounded_outline", headers=["Eps", "Date", "Name"])
+            for i, field in enumerate(crumble(season_overview, 1000)):
+                if i == 0:
+                    name = "Season Overview"
+                else:
+                    name = "..."
+                embed.add_field(name, f"```\n{field}```", inline=False)
 
         embed.set_image(f"{base_url}{details['poster_path']}")
 
