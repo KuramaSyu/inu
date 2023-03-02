@@ -1,5 +1,3 @@
-import os
-from pickle import HIGHEST_PROTOCOL
 import re
 import traceback
 import typing
@@ -18,34 +16,23 @@ import asyncio
 import logging
 import asyncio
 import datetime
-from pprint import pformat
 import random
 from collections import deque
-import json
-from unittest.util import _MAX_LENGTH
-from copy import deepcopy
 
 import hikari
-from hikari import ComponentInteraction, Embed, ResponseType, ShardReadyEvent, VoiceState, VoiceStateUpdateEvent
+from hikari import ComponentInteraction, Embed, ResponseType, VoiceStateUpdateEvent
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
-from matplotlib.pyplot import hist
 from youtubesearchpython.__future__ import VideosSearch  # async variant
-from asyncache import cached
-from cachetools import TTLCache
 from fuzzywuzzy import fuzz
 
-from core import Inu, getLevel, get_context, InuContext
-from utils import Paginator, Colors, Human
-from utils import method_logger as logger
-from core.db import Database
+from core import Inu, get_context, InuContext, getLogger, BotResponseError
+from utils import Paginator, Colors, Human, MusicHistoryHandler
 from utils.paginators.music_history import MusicHistoryPaginator
-
-from core import getLogger, BotResponseError, InteractionContext, Table
 log = getLogger(__name__)
 
 
@@ -54,22 +41,10 @@ HIKARI_VOICE = True
 
 # prefix for autocomplete history values
 HISTORY_PREFIX = "History: "
-# to fix bug, when join first time, no music
+
 first_join = False
 bot: Inu
 
-# ytdl_format_options = {
-#     "format": "bestaudio/best",
-#     "restrictfilenames": True,
-#     "noplaylist": True,
-#     "nocheckcertificate": True,
-#     "ignoreerrors": False,
-#     "logtostderr": False,
-#     "quiet": True,
-#     "no_warnings": True,
-#     "default_search": "auto",
-# }
-# ytdl = yt_dlp.YoutubeDL(ytdl_format_options)
 
 class EventHandler:
     """Events from the Lavalink server"""
@@ -286,46 +261,6 @@ class YouTubeHelper:
         if end == -1:
             return url
         return url[:end+start]
-
-
-
-class MusicHistoryHandler:
-    """A class which handles music history stuff and syncs it with postgre"""
-    db: Database = Database()
-    max_length: int = 200  # max length of music history list¡
-    table = Table("music_history")
-
-    @classmethod
-    async def add(cls, guild_id: int, title: str, url: str):
-        await cls.table.insert(
-            ["title", "url", "played_on", "guild_id"], 
-            [title, url, datetime.datetime.now(), guild_id]
-        )
-
-    @classmethod
-    async def get(cls, guild_id: int) -> List[Dict[str, Any]]:
-        """"""
-        records = await cls.table.fetch(
-            f"SELECT * FROM {cls.table.name} WHERE guild_id = $1 ORDER BY played_on DESC LIMIT {cls.max_length}", 
-            guild_id
-        )
-        return records or []
-    
-    @classmethod
-    @cached(TTLCache(1024, 30))
-    async def cached_get(cls, guild_id: int) -> List[Dict[str, Any]]:
-        """"""
-        return await cls.table.fetch(
-            f"SELECT title, url FROM {cls.table.name} WHERE guild_id = $1 ORDER BY played_on DESC LIMIT {cls.max_length}", 
-            guild_id
-        )
-
-    @classmethod
-    async def clean(cls, max_age: datetime.timedelta = datetime.timedelta(days=180)):
-        del_oder_than = datetime.datetime.now() - max_age
-        deleted = await cls.table.execute(f"DELETE FROM {cls.table.name} WHERE played_on < $1", del_oder_than)
-        if deleted:
-            log.info(f"Cleaned {len(deleted)} music history entries")
 
 
 
@@ -650,10 +585,7 @@ async def _leave(guild_id: int):
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def pl(ctx: context.Context) -> None:
     """Searches the query on youtube, or adds the URL to the queue."""
-    log.debug(lavalink)
-    global first_join
     try:
-        
         await _play(ctx, ctx.options.query)
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
@@ -1265,7 +1197,12 @@ async def queue(
         # send new message and override
         kwargs = {"update": True} if music_message else {}
         log.debug(f"send new message with {kwargs=}")
-        msg = await ctx.respond(embed=music_embed, components=await build_music_components(node=node), **kwargs)
+        msg = await ctx.respond(
+            embed=music_embed, 
+            content=None,
+            components=await build_music_components(node=node), 
+            **kwargs
+        )
         music_messages[ctx.guild_id] = await msg.message()
         try:
             if not old_music_msg is None:
@@ -1284,7 +1221,8 @@ async def queue(
             if m.id == ctx_message_id:
                 await ctx.respond(
                     embed=music_embed, 
-                    components=await build_music_components(node=node), 
+                    components=await build_music_components(node=node),
+                    content=None, 
                     update=True
                 )
                 log.debug("update old")
@@ -1296,6 +1234,7 @@ async def queue(
                 await ctx.delete_inital_response()
                 msg = await ctx.respond(
                     embed=music_embed, 
+                    content=None,
                     components=await build_music_components(node=node), 
                     update=False
                 )
