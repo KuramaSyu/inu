@@ -567,14 +567,6 @@ async def leave(ctx: context.Context) -> None:
 async def _leave(guild_id: int):
     await bot.update_voice_state(guild_id, None)
 
-    # this part will be done in the listener
-    # await lavalink.destroy(guild_id)
-    # await lavalink.wait_for_connection_info_remove(guild_id)
-
-    # # Destroy nor leave remove the node nor the queue loop, you should do this manually.
-    # await lavalink.remove_guild_node(guild_id)
-    # await lavalink.remove_guild_from_loops(guild_id)
-    # music_messages[guild_id] = None
 
 
 @music.command
@@ -686,6 +678,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
     return True
 
 
+
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -695,6 +688,8 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
     await play_at_pos(ctx, 1, ctx.options.query)
+
+
 
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
@@ -706,6 +701,8 @@ async def second(ctx: Context) -> None:
     """Adds a song at the second position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, 2, ctx.options.query)
 
+
+
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -716,6 +713,8 @@ async def second(ctx: Context) -> None:
 async def position(ctx: SlashContext) -> None:
     """Adds a song at the <position> position of the queue. So the track will be played soon"""
     await play_at_pos(ctx, ctx.options.position, ctx.options.query)
+
+
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
     # will be called from event track start
@@ -747,6 +746,8 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
             custom_info=f"{track.track.info.title} added by {ctx.author.username}"
         )
 
+
+
 async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
     guild_id = ctx.guild_id
     author_id = ctx.author.id
@@ -767,6 +768,8 @@ async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = Fa
             description=f'[{track.info.title}]({track.info.uri})'
         ).set_thumbnail(ctx.member.avatar_url)  # type: ignore
         await ctx.respond(embed=embed)
+
+
 
 async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> lavasnek_rs.Tracks:
     """
@@ -1163,6 +1166,8 @@ async def queue(
 
     requester = music.bot.cache.get_member(guild_id, node.queue[0].requester)
     current_duration = str(datetime.timedelta(milliseconds=int(int(track.info.length))))
+
+    # create embed
     music_embed = hikari.Embed(
         colour=hikari.Color.from_rgb(71, 89, 211)
     )
@@ -1286,9 +1291,6 @@ async def build_music_components(
             action_rows[0].add_button(hikari.ButtonStyle.PRIMARY, "music_resume").set_label("▶").add_to_container()
         else:
             action_rows[0].add_button(hikari.ButtonStyle.SECONDARY, "music_pause").set_label("⏸").add_to_container()
-    else:
-        pass
-        #action_rows[0].add_button(hikari.ButtonStyle.SECONDARY, "music_outdated").set_label("outdated").set_is_disabled(disable_all).add_to_container()     
     return action_rows
 
 @position.autocomplete("query")
@@ -1312,7 +1314,6 @@ async def guild_auto_complete(
     if not value:
         records = records[:24]
     else:
-          
         records.sort(key=lambda r: r["ratio"], reverse=True)
     return [HISTORY_PREFIX + r["title"][:100] for r in records]
 
