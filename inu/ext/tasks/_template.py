@@ -1,21 +1,14 @@
-import typing
-from typing import (
-    Union,
-    Optional,
-    List,
-)
+
+from typing import *
 import asyncio
 import logging
 from datetime import datetime, timedelta
-import time
-import traceback
 
 import lightbulb
 from lightbulb.commands.base import OptionModifier as OM
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from utils import PollManager, Poll
 
 from core import Table, getLogger, Inu
 
