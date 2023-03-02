@@ -34,3 +34,4 @@ humanize
 qrcode
 tmdb-python
 dacite
+tabulate
