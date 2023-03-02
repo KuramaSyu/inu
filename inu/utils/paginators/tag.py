@@ -33,6 +33,23 @@ from core import Inu, BotResponseError, InteractionContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
+DEFAULT_PAGE = """
+This is a new page. 
+
+**To remove it:**
+```
+- edit the tag
+- go to this page (with arrow buttons)
+- select "remove this page" in the menu
+```
+
+**To edit it:**
+```
+- edit the tag
+- go to this page (with arrow buttons)
+- select "set value" in the menu
+```
+                """
 
 
 class TagHandler(StatelessPaginator):
@@ -212,24 +229,7 @@ class TagHandler(StatelessPaginator):
                         ephemeral=True,
                     )
                 self._pages.insert(self._position+1, Embed(title=self.tag.name))
-                default_page = """
-This is a new page. 
-
-**To remove it:**
-```
-- edit the tag
-- go to this page (with arrow buttons)
-- select "remove this page" in the menu
-```
-
-**To edit it:**
-```
-- edit the tag
-- go to this page (with arrow buttons)
-- select "set value" in the menu
-```
-                """
-                self.tag.value.insert(self._position+1, default_page)
+                self.tag.value.insert(self._position+1, DEFAULT_PAGE)
                 self._position += 1
             elif custom_id == "remove_this_page":
                 if len(self._pages) <= 1:
@@ -248,7 +248,7 @@ This is a new page.
                 try:
                     await self.tag.save()
                 except Exception:
-                    pass
+                    log.error(traceback.format_exc())
             await self.update_page(update_value=custom_id in ["set_value", "extend_value", "add_new_page"], interaction=i)
             
         except Exception:
@@ -374,11 +374,21 @@ This is a new page.
         self.set_context(event=event)
         if not value:
             return
-        values = crumble(f"\n{value}", 2000)
+        values = crumble(f"{value}", 2000)
         if append and self.tag.value:
-            self.tag.value = [*self.tag.value[:self._position], *crumble(self.tag.value[self._position]+values[0], 2000), *values[1:], *self.tag.value[self._position+1:]]
+            self.tag.value = [
+                *self.tag.value[:self._position],  # tag pages until selected page
+                *crumble(self.tag.value[self._position]+f"\n{values[0]}", 2000),  # selected page + value crumbled
+                *values[1:],  # rest of values as separate pages
+                *self.tag.value[self._position+1:]  # tag pages after selected page
+            ]
         else:
-            self.tag.value = [*self.tag.value[:self._position], *crumble(values[0], 2000), *values[1:], *self.tag.value[self._position+1:]]
+            self.tag.value = [
+                *self.tag.value[:self._position], 
+                *crumble(values[0], 2000), 
+                *values[1:], 
+                *self.tag.value[self._position+1:]
+            ]
 
     async def extend_value(self, interaction: ComponentInteraction):
         await self.set_value(interaction, append=True)
