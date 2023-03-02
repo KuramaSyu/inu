@@ -305,14 +305,20 @@ class MusicHistoryHandler:
     @classmethod
     async def get(cls, guild_id: int) -> List[Dict[str, Any]]:
         """"""
-        records = await cls.table.fetch(f"SELECT * FROM {cls.table.name} ORDER BY played_on DESC LIMIT {cls.max_length}")
+        records = await cls.table.fetch(
+            f"SELECT * FROM {cls.table.name} WHERE guild_id = $1 ORDER BY played_on DESC LIMIT {cls.max_length}", 
+            guild_id
+        )
         return records or []
     
     @classmethod
-    @cached(TTLCache(1024, 45))
+    @cached(TTLCache(1024, 30))
     async def cached_get(cls, guild_id: int) -> List[Dict[str, Any]]:
         """"""
-        return await cls.table.fetch(f"SELECT title, url FROM {cls.table.name} ORDER BY played_on DESC LIMIT {cls.max_length}")
+        return await cls.table.fetch(
+            f"SELECT title, url FROM {cls.table.name} WHERE guild_id = $1 ORDER BY played_on DESC LIMIT {cls.max_length}", 
+            guild_id
+        )
 
     @classmethod
     async def clean(cls, max_age: datetime.timedelta = datetime.timedelta(days=180)):
