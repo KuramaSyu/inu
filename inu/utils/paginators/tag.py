@@ -24,9 +24,9 @@ import asyncpg
 
 from utils import crumble, TagManager
 from utils.language import Human
-from utils.db import Tag
+from utils.db import Tag, TagType
 
-from core import Inu, BotResponseError, InteractionContext
+from core import Inu, BotResponseError, InteractionContext, get_context
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -47,6 +47,19 @@ This is a new page.
 - select "set value" in the menu
 ```
 """
+
+TAG_TYPES_EXPLANATION = """
+**Media**: Media tags will be recommended in `/play` command.
+Use it to store the URL of a playlist or song.\n\n
+**List**: List tags will be recommended in the `/random list` command.
+Use it, to store large lists you don't want to rewrite every time. Like a list
+with LoL champions.\n\n
+**Normal**: Well - just to store some data. This is the default
+
+__Select the type you want__:
+"""
+
+
 
 
 
@@ -142,10 +155,11 @@ class TagHandler(StatelessPaginator):
                     )
                 # skip current page and replace it
             self._pages = pages # [*self._pages[:self._position], *pages, *self._pages[self._position+1:]]
-            self._pages[self._position].add_field(
-                name="Info",
-                value=str(self.tag or "what's the value? Thats actually a good question")
-            )
+        self._pages[self._position]._fields = [field for field in self._pages[self._position]._fields or [] if not field.name == "Info"]
+        self._pages[self._position].add_field(
+            name="Info",
+            value=str(self.tag or "what's the value? Thats actually a good question")
+        )
         # updating embed titles
         for page in self._pages:
             page.title = self.tag.name or "Unnamed"
@@ -193,6 +207,8 @@ class TagHandler(StatelessPaginator):
             except (IndexError, AssertionError):
                 # interaction was no menu interaction
                 return
+            #if not [True for unvalid in [] if custom_id in unvalid]:
+                # set_type has other message, not this one
             self.set_context(event=event)
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
@@ -220,6 +236,15 @@ class TagHandler(StatelessPaginator):
                 await self.change_aliases(i, set.remove)
             elif custom_id == "remove_guild_id":
                 await self.change_guild_ids(i, set.remove)
+            elif custom_id == "ask_type":
+                await self.ask_type(get_context(event))
+                return
+            elif custom_id.startswith("set_type_"):
+                value = int(custom_id.replace("set_type_", ""))
+                self.tag.tag_type = TagType.from_value(value)
+                log.debug(self.tag.tag_type)
+                #ctx = get_context(event)
+                #await ctx.respond(f"Updated Tag Type to {TagType.get_name(self.tag.tag_type.value)}", ephemeral=True)
             elif custom_id == "add_new_page":
                 if len(self._pages) >= 20:
                     return await self.ctx.respond(
@@ -251,6 +276,22 @@ class TagHandler(StatelessPaginator):
             
         except Exception:
             self.log.error(traceback.format_exc())
+
+    async def ask_type(self, ctx: Context):
+        menu = (
+            MessageActionRowBuilder()
+            .add_select_menu(self._serialize_custom_id("tag_options"))
+            .add_option("Normal", f"set_type_{TagType.NORMAL.value}").add_to_menu()
+            .add_option("Media (for /play)", f"set_type_{TagType.MEDIA.value}").add_to_menu()
+            .add_option("List (for /random list)", f"set_type_{TagType.LIST.value}").add_to_menu()
+            .add_to_container()
+        )
+        await self.ctx.respond(
+            TAG_TYPES_EXPLANATION,
+            component=menu,
+            embed=None,
+            update=True,
+        )
 
     async def change_creators(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
         """
@@ -478,7 +519,8 @@ class TagHandler(StatelessPaginator):
                 .add_option("remove guild", "remove_guild_id").add_to_menu()
                 .add_option("add new page", "add_new_page").add_to_menu()
                 .add_option("remove current page", "remove_this_page").add_to_menu()
-                .add_option("local / global", "change_visibility").add_to_menu()
+                .add_option("change tag type", "ask_type").add_to_menu()
+                #.add_option("local / global", "change_visibility").add_to_menu()
                 .add_option("delete tag", "remove_tag").add_to_menu()
                 .add_to_container()
             )
