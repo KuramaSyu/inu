@@ -20,7 +20,7 @@ import asyncpg
 from fuzzywuzzy import fuzz
 
 from core import Inu, Table, BotResponseError
-from utils import TagIsTakenError, TagManager, TagType, Human, get_guild_or_channel_id, guild_name_or_id
+from utils import TagIsTakenError, TagManager, TagScope, Human, get_guild_or_channel_id, guild_name_or_id
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator, StatelessPaginator
@@ -540,13 +540,13 @@ async def overview(ctx: Context):
 
     result = event.interaction.values[0]
     type_ = {
-        "guild": TagType.GUILD,
-        "all": TagType.SCOPE,
-        "global": TagType.GLOBAL,
-        "your": TagType.YOUR,
+        "guild": TagScope.GUILD,
+        "all": TagScope.SCOPE,
+        "global": TagScope.GLOBAL,
+        "your": TagScope.YOUR,
     }.get(result)
     if type_ is None:
-        raise RuntimeError("Can't get Tags, when TagType is None")
+        raise RuntimeError("Can't get Tags, when Tag Scope is None")
     records = await TagManager.get_tags(type_, guild_id=ctx.guild_id or ctx.channel_id, author_id=ctx.author.id)
     if records is None:
         return
@@ -862,7 +862,7 @@ async def tag_remove_guild(ctx: Context):
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def tag_random(ctx: Context):
     available_tags = await TagManager.get_tags(
-        TagType.SCOPE,
+        TagScope.SCOPE,
         guild_id=ctx.guild_id,
         author_id=ctx.author.id,
     )
