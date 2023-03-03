@@ -38,6 +38,27 @@ log = getLogger(__name__)
 
 TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{}]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
 
+
+
+class TagType(Enum):
+    NORMAL = 0
+    MEDIA = 1
+    LIST = 2
+
+    @classmethod
+    def from_value(cls, value: int) -> "TagType":
+        return next((member for name, member in cls.__members__.items() if member.value == value), None)
+    
+    @classmethod
+    def get_name(cls, value: int) -> "str":
+        return {
+            0: "Normal",
+            1: "Media URL",
+            2: "List"
+        }.get(value, "Unknown")
+
+
+
 class Tag():
     def __init__(self, owner: Optional[hikari.User] = None, channel_id: Optional[hikari.Snowflakeish] = None):
         """
@@ -65,6 +86,7 @@ class Tag():
         self._id: Optional[int] = None
         self.aliases: Set[str] = set()
         self.guild_ids: Set[int] = set()
+        self.tag_type: TagType = TagType.NORMAL
         if isinstance(owner, hikari.Member):
             self.guild_ids.add(owner.guild_id)
             self._is_local = True
@@ -215,6 +237,7 @@ class Tag():
                 tag_id=self.id,
                 guild_ids=list(self.guild_ids),
                 aliases=list(self.aliases),
+                tag_type=self.tag_type.value,
             )
         else:
             tag_id = await TagManager.set(
@@ -223,6 +246,7 @@ class Tag():
                 author_ids=list(self.owners),
                 guild_ids=list(self.guild_ids),
                 aliases=list(self.aliases),
+                tag_type=self.tag_type.value,
             )
             self.id = tag_id
         self.is_stored = True
@@ -252,6 +276,7 @@ class Tag():
         new_tag.guild_ids = set(record["guild_ids"])
         new_tag.aliases = set(record["aliases"])
         new_tag.owners = set(record["author_ids"])
+        new_tag.tag_type = TagType.from_value(record["type"])
         if (
             isinstance(author, hikari.Member)
             and not 0 in record["guild_ids"]
@@ -326,12 +351,13 @@ class Tag():
 
     def __str__(self) -> str:
         msg = (
-            f"your tag is: {'local' if self.is_local else 'global'}\n"
+            f"your tag is: {'local' if self.is_local else 'global'} available\n"
             f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
-            f"is the tag stored: {Human.bool_(self.is_stored)}\n"
+            #f"is the tag stored: {Human.bool_(self.is_stored)}\n"
             f"available for guilds: {', '.join(guild_name_or_id(id) for id in self.guild_ids)}\n"
-            f"is the tag name local available: {Human.bool_(self.is_local_available)}\n"
-            f"is the tag name global available: {Human.bool_(self.is_global_available)}\n"
+            f"tag type: {self.tag_type.get_name(self.tag_type.value)}\n"
+            # f"Local available: {Human.bool_(self.is_local_available)}\n"
+            # f"Global available: {Human.bool_(self.is_global_available)}\n"
         )
         if self.aliases:
             msg += f"aliases: {', '.join(self.aliases)}\n"
@@ -410,7 +436,7 @@ class Tag():
         return c_ids
 
 
-class TagType(Enum):
+class TagScope(Enum):
     YOUR = 1
     GUILD = 2
     GLOBAL = 3
@@ -421,6 +447,7 @@ class TagType(Enum):
 class TagManager():
     db: Database
     bot: Inu
+    table: Table
 
     def __init__(self, key: Optional[str] = None):
         self.key = key
@@ -447,6 +474,7 @@ class TagManager():
     def init_db(cls, bot: Inu):
         cls.db = bot.db
         cls.bot = bot
+        cls.table = Table("tags")
 
 
     @classmethod
@@ -458,6 +486,7 @@ class TagManager():
         guild_ids: List[int],
         aliases: List[str],
         check_if_taken: bool = True,
+        tag_type: int = 0,
     ) -> int:
         """
         Creates a db entry for given args.
@@ -488,8 +517,8 @@ class TagManager():
             await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(
             """
-            INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases, last_use)
-            VALUES($1, $2, $3, $4, $5, $6)
+            INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases, last_use, type)
+            VALUES($1, $2, $3, $4, $5, $6, $7)
             RETURNING tag_id
             """,
             key,
@@ -498,6 +527,7 @@ class TagManager():
             guild_ids,
             aliases,
             datetime.now(),
+            tag_type,
         )
         return record["tag_id"]
 
@@ -511,6 +541,7 @@ class TagManager():
         guild_ids: Optional[List[Union[int, None]]] = None,
         check_if_taken: bool = False,
         aliases: Optional[List[str]] = None,
+        tag_type: Optional[int] = None,
     ) -> Mapping[str, Any]:
         """
         Updates a tag by key
@@ -549,6 +580,8 @@ class TagManager():
             new_record["aliases"] = aliases
         if key:
             new_record["tag_key"] = key
+        if tag_type is not None:
+            new_record["type"] = tag_type
         await cls.sync_record(new_record)
         return new_record
 
@@ -634,7 +667,7 @@ class TagManager():
         """
         sql = """
             UPDATE tags
-            SET (tag_value, tag_key, author_ids, guild_ids, aliases, last_use) = ($1, $2, $3, $4, $5, $6)
+            SET (tag_value, tag_key, author_ids, guild_ids, aliases, last_use, type) = ($1, $2, $3, $4, $5, $6, $8)
             WHERE tag_id = $7
             """
         await cls.db.execute(
@@ -646,6 +679,7 @@ class TagManager():
             list(record["aliases"]),
             record["last_use"],
             record["tag_id"],
+            record["type"]
         )
 
     @classmethod
@@ -764,7 +798,7 @@ class TagManager():
     @classmethod
     async def get_tags(
         cls, 
-        type: TagType, 
+        type: TagScope, 
         guild_id: Optional[int] = None, 
         author_id: Optional[int] = None,
         limit: Optional[int] = None,
@@ -793,20 +827,20 @@ class TagManager():
         """
         if limit:
             after_sql += f" LIMIT {limit}"
-        if type == TagType.GLOBAL:
+        if type == TagScope.GLOBAL:
             sql = f"{sql} WHERE 0 = ANY(guild_ids) {after_sql}"
             return await cls.db.fetch(sql)
-        elif type == TagType.GUILD:
+        elif type == TagScope.GUILD:
             if guild_id is None:
                 raise RuntimeError("Can't fetch tags of a guild without an id (id is None)")
             sql = f"{sql} WHERE $1 = ANY(guild_ids) {after_sql}"
             return await cls.db.fetch(sql, guild_id)
-        elif type == TagType.YOUR:
+        elif type == TagScope.YOUR:
             if author_id is None:
                 raise RuntimeError("Can't fetch tags of a creator without an id (id is None)")
             sql = f"{sql} WHERE $1 = ANY(author_ids) {after_sql}"
             return await cls.db.fetch(sql, author_id)
-        elif type == TagType.SCOPE:
+        elif type == TagScope.SCOPE:
             if guild_id is None:
                 raise RuntimeError("Can't fetch tags of a guild without an id (id is None)")
             sql = f"{sql} WHERE $1 = ANY(guild_ids) OR 0 = ANY(guild_ids) {after_sql}"
@@ -955,7 +989,7 @@ class TagManager():
                     if name.startswith(option.value) ][:24]
             else:
                 tags = await cls.get_tags(
-                    type=TagType.SCOPE,
+                    type=TagScope.SCOPE,
                     guild_id=guild_or_channel,
                     limit=25
                 )
