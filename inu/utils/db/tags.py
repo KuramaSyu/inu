@@ -847,12 +847,26 @@ class TagManager():
             return await cls.db.fetch(sql, guild_id)
         raise RuntimeError(f"TagType unmatched - {type}")
     
+
+    @classmethod
+    @cached(TTLCache(1024, 30))
+    async def cached_find_similar(
+        cls,
+        tag_name: str, 
+        guild_id: Optional[int], 
+        creator_id: Optional[int] = None,
+        tag_type: Optional[TagType] = None,
+    ) -> List[Dict[str, Any]]:
+        return await cls.find_similar(tag_name, guild_id, creator_id, tag_type)
+
+
     @classmethod
     async def find_similar(
         cls,
         tag_name: str, 
         guild_id: Optional[int], 
-        creator_id: Optional[int] = None
+        creator_id: Optional[int] = None,
+        tag_type: Optional[TagType] = None,
     ) -> List[Dict[str, Any]]:
         """
         ### searches similar tags to <`tag_name`> in every reachable scope
@@ -871,11 +885,17 @@ class TagManager():
             - global tags will shown always (guild_id is 0)
             - if creator_id is None, the creator will be ignored
         """
-        cols = ["guild_ids"]
-        vals = [guild_id]
+        cols = ["guild_ids", "tag_key"]
+        vals = [guild_id, tag_name]
+        extra_where_statement = []
+        dollar = (f'${num}' for num in range(3,99))
         if creator_id:
-            cols.append("author_ids")
             vals.append(creator_id)
+            extra_where_statement.append(f"AND {next(dollar)} = ANY(creator_ids) ")
+        if tag_type:
+            vals.append(tag_type.value)
+            extra_where_statement.append(f"AND type = {next(dollar)}")
+
         records = await cls.bot.db.fetch(
             f"""
             SELECT *
@@ -884,6 +904,7 @@ class TagManager():
                 (
                     ($1 = ANY(guild_ids)) 
                     OR 0 = ANY(guild_ids)
+                    {" ".join(extra_where_statement)}
                 ) 
                     AND
                 (
@@ -899,11 +920,10 @@ class TagManager():
             ORDER BY similarity(tag_key, $2) DESC
             LIMIT 20;
             """,
-            guild_id, 
-            tag_name
+            *vals
         )
-        if creator_id:
-            return [r for r in records if creator_id in r["author_ids"]]
+        # if creator_id:
+        #     return [r for r in records if creator_id in r["author_ids"]]
         return records
 
     @classmethod
