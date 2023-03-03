@@ -31,8 +31,9 @@ from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 
 from core import Inu, get_context, InuContext, getLogger, BotResponseError
-from utils import Paginator, Colors, Human, MusicHistoryHandler
+from utils import Paginator, Colors, Human, MusicHistoryHandler, TagManager, TagType
 from utils.paginators.music_history import MusicHistoryPaginator
+from .tags import get_tag
 log = getLogger(__name__)
 
 
@@ -41,6 +42,7 @@ HIKARI_VOICE = True
 
 # prefix for autocomplete history values
 HISTORY_PREFIX = "History: "
+MEDIA_TAG_PREFIX = "Media Tag: "
 
 first_join = False
 bot: Inu
@@ -636,6 +638,11 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         history = await MusicHistoryHandler.cached_get(ctx.guild_id)
         if (alt_query:=[t["url"] for t in history if query in t["title"]]):
             query=alt_query[0]
+
+    if query.startswith(MEDIA_TAG_PREFIX):
+        query = query.replace(MEDIA_TAG_PREFIX, "")
+        tag = await get_tag(ictx, query)
+        query = tag["tag_value"][0]
 
     # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
@@ -1305,21 +1312,30 @@ async def query_auto_complete(
 ) -> List[str]:
     value = option.value or ""
     records = await MusicHistoryHandler.cached_get(interaction.guild_id)
-    new_records = []
-    for r in records:
-        r = dict(r)
-        if value:
-            r["ratio"] = fuzz.partial_token_set_ratio(value, r["title"])
-        if not r in new_records:
-            new_records.append(r)
-    records = new_records  
+    
+
     if not value:
         records = records[:23]
     else:
+        tag_records = await TagManager.cached_find_similar(value, interaction.guild_id, tag_type=TagType.MEDIA)
+        new_records = []
+        if len(str(value)) > 4:
+            # add tags
+            records.extend([
+                {"title": d["tag_key"], "prefix": MEDIA_TAG_PREFIX} for d in tag_records
+            ])
+        for r in records:
+            r = dict(r)
+            if value:
+                r["ratio"] = fuzz.partial_token_set_ratio(value, r["title"])
+            if not r in new_records:
+                new_records.append(r)
+        records = new_records
         records.sort(key=lambda r: r["ratio"], reverse=True)
-    converted_records = [HISTORY_PREFIX + r["title"][:100] for r in records]
+
+    converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"][:100] for r in records]
     if len(str(value)) > 3:
-        converted_records.insert(str(value), 0)
+        converted_records.insert(0, str(value))
     return converted_records
 
 
