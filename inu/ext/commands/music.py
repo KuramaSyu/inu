@@ -1299,7 +1299,7 @@ async def build_music_components(
 @second.autocomplete("query")
 @now.autocomplete("query")
 @play_normal.autocomplete("query")
-async def guild_auto_complete(
+async def query_auto_complete(
     option: hikari.AutocompleteInteractionOption,
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
@@ -1314,10 +1314,13 @@ async def guild_auto_complete(
             new_records.append(r)
     records = new_records  
     if not value:
-        records = records[:24]
+        records = records[:23]
     else:
         records.sort(key=lambda r: r["ratio"], reverse=True)
-    return [HISTORY_PREFIX + r["title"][:100] for r in records]
+    converted_records = [HISTORY_PREFIX + r["title"][:100] for r in records]
+    if len(str(value)) > 3:
+        converted_records.insert(str(value), 0)
+    return converted_records
 
 
     
