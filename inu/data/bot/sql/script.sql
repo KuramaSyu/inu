@@ -50,7 +50,8 @@ CREATE TABLE IF NOT EXISTS tags (
     author_ids BIGINT [] NOT NULL,
     guild_ids BIGINT [],
     aliases TEXT [],
-    last_use TIMESTAMP NOT NULL
+    last_use TIMESTAMP NOT NULL,
+    "type" INT DEFAULT 0 NOT NULL
 
 );
 -- supposed to work as cache, to prevent too many requests 429
