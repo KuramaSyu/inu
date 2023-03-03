@@ -183,7 +183,6 @@ async def get_tag(ctx: Context, name: str) -> Optional[Mapping[str, Any]]:
     -----
         - tags created in your guild will be prefered sent, in case there is a global tag too
     """
-    ctx.raw_options["name"] = ctx.options.name.strip()
     records = await TagManager.get(name, ctx.guild_id or ctx.channel_id)
     record: Optional[Mapping[str, Any]] = None
     # if records are > 1 return the local overridden one
