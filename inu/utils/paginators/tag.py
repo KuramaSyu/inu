@@ -1,11 +1,8 @@
-from ast import alias
 import traceback
-import typing
 from typing import *
 import asyncio
 import logging
-import re
-import json
+from enum import Enum
 
 import hikari
 from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, events, ResponseType, Embed
@@ -49,7 +46,8 @@ This is a new page.
 - go to this page (with arrow buttons)
 - select "set value" in the menu
 ```
-                """
+"""
+
 
 
 class TagHandler(StatelessPaginator):
