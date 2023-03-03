@@ -442,7 +442,7 @@ class Table():
     def create_where_statement(columns: List[str], dollar_start: int = 1) -> str:
         where = ""
         for i, item in zip(range(dollar_start, dollar_start+len(columns)+1),columns):
-            where += f"{'and ' if i > 0 else ''}{item}=${i} "
+            where += f"{'AND ' if i > 0 else ''}{item}=${i} "
         return where[4:]  # cut first and
     
     def _create_sql_log_message(self, sql:str, values: List):
