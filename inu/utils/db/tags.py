@@ -891,20 +891,25 @@ class TagManager():
         dollar = (f'${num}' for num in range(3,99))
         if creator_id:
             vals.append(creator_id)
-            extra_where_statement.append(f"AND {next(dollar)} = ANY(creator_ids) ")
-        if tag_type:
-            vals.append(tag_type.value)
-            extra_where_statement.append(f"AND type = {next(dollar)}")
+            extra_where_statement.append(f"{next(dollar)} = ANY(creator_ids) ")
 
+        if tag_type is not None:
+            vals.append(tag_type.value)
+            extra_where_statement.append(f"type = {next(dollar)}")
+
+        extra_where_statement = " AND ".join(extra_where_statement)
+        if extra_where_statement:
+            extra_where_statement = f"AND ({extra_where_statement})"
+        
         records = await cls.bot.db.fetch(
             f"""
             SELECT *
             FROM tags
             WHERE 
                 (
-                    ($1 = ANY(guild_ids)) 
-                    OR 0 = ANY(guild_ids)
-                    {" ".join(extra_where_statement)}
+                    ($1 = ANY(guild_ids)
+                    OR 0 = ANY(guild_ids))
+                    {extra_where_statement}
                 ) 
                     AND
                 (
