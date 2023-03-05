@@ -250,7 +250,7 @@ def convert_vocabulary(tag: Tag) -> Tuple[Optional[Tuple[str, str]], Dict[str, s
 
 class DefaultParser:
     _language_separator_order = ["->", "|"]
-    _separator_order = [";", ",", " "]
+    _separator_order = [";", "  ", "    ", ",", " "]
 
 
     def parse(self, value: str) -> Tuple[Optional[Tuple[str, str]], Dict[str, str]]:
