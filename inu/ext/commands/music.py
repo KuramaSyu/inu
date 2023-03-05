@@ -676,12 +676,13 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 
 
     #await asyncio.sleep(0.2)
-    await queue(
-        ictx, 
-        ctx.guild_id, 
-        force_resend=True,
-        create_footer_info=True,
-    )
+    if not prevent_to_queue:
+        await queue(
+            ictx, 
+            ctx.guild_id, 
+            force_resend=True,
+            create_footer_info=True,
+        )
     return True
 
 
