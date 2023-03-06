@@ -2,7 +2,7 @@ from datetime import datetime, timedelta
 from typing import *
 import random
 from io import BytesIO
-
+import traceback
 
 import aiohttp
 import hikari
@@ -33,13 +33,15 @@ from utils import (
     CurrentGamesManager,
     TimezoneManager,
     SettingsManager,
-    get_date_format_by_timedelta
+    get_date_format_by_timedelta,
+    ts_round
 )
 from core import (
     BotResponseError, 
     Inu, 
     Table, 
-    getLogger
+    getLogger,
+    get_context
 )
 
 log = getLogger(__name__)
@@ -117,16 +119,21 @@ async def week_activity(ctx: Context):
     "The time you want to get stats for - e.g. 30 days, 3 hours",
     default="9 days"
 )
-@lightbulb.command("current-games", "Shows, which games are played in which guild", auto_defer=True)
+@lightbulb.command("current-games", "Shows, which games are played in which guild")
 @lightbulb.implements(commands.SlashCommand)
 async def current_games(ctx: Context):
-    
+    options = ctx.options
+    ctx = get_context(ctx.event)
+    try:
+        await ctx.defer()
+    except Exception:
+        log.error(traceback.format_exc())
     await maybe_raise_activity_tracking_disabled(ctx.guild_id)
-    seconds = timeparse(ctx.options.time)
+    seconds = timeparse(options.time)
     if not seconds:
         raise BotResponseError(
             (
-                f"Well - I've no idea what you mean with `{ctx.options.time}`"
+                f"Well - I've no idea what you mean with `{options.time}`"
                 f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
                 f"\nShort forms of time are also supported: `d`, `h`, `m`, `s`"
                 f"\nIf you want to see the activity of the last 10 days, just use `10 days` or `10d`"
@@ -135,9 +142,9 @@ async def current_games(ctx: Context):
         )
     # constants
     timedelta_ = timedelta(seconds=seconds)
-    show_only_games = not ctx.options["show-all"]
+    show_only_games = not options["show-all"]
     remove_apps: List[str] = []
-    apps = [app.strip() for app in ctx.options.apps.split(",")] if ctx.options.apps else None
+    apps = [app.strip() for app in options.apps.split(",")] if options.apps else None
     coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow", "Code"]
     music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
     double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
@@ -212,6 +219,8 @@ async def current_games(ctx: Context):
         else:
             embeds.pop()
         
+        if len(embeds) == 0:
+            raise BotResponseError("No games where played durring the given period of time", ephemeral=True)
         # add total played games/time
         embeds[0] = (
             embeds[0]
@@ -259,7 +268,7 @@ async def current_games(ctx: Context):
         # nothing was played during given time
         if not apps:
             raise BotResponseError(
-                f"There were no games played in the last {humanize.naturaldelta(timedelta_)}."
+                f"No games were played in the last {humanize.naturaldelta(timedelta_)}."
             )
     # build picture
     try:
@@ -267,10 +276,10 @@ async def current_games(ctx: Context):
             ctx.guild_id, 
             since=timedelta_,
             activities=apps,
-            distinguishable_colors=ctx.options["clean-colors"]
+            distinguishable_colors=options["clean-colors"]
         )
     except Exception as e:
-        if not ctx.options.apps:
+        if not options.apps:
             raise e
         raise BotResponseError(
             "Something went wrong. Are you sure, that your game exists?",
@@ -326,26 +335,52 @@ async def build_activity_graph(
     df.dropna(axis=0, how='any', subset=None, inplace=True)
     df.set_index(keys="r_timestamp", inplace=True)
     if old_row_amount != (new_row_amount := len(df.index)):
-        log.waring(f"missing rows ({old_row_amount - new_row_amount}) in guild {guild_id}")
-    
+        log.warning(f"missing rows ({old_row_amount - new_row_amount}) in guild {guild_id}")
+
+    X_LABLE_AMOUNT: int = 15  # about
+    base = None
     since: datetime = df.index.min()
     until: datetime = df.index.max()
     df_timedelta: timedelta = until - since
 
     if df_timedelta >= timedelta(days=20):
-        resample_delta = df_timedelta / 15
+        resample_delta = df_timedelta / 20
     elif df_timedelta >= timedelta(days=4.5):
         resample_delta = timedelta(days=1)
     else:
-        resample_delta = df_timedelta / 20 
+        resample_delta = df_timedelta / 13
+       
         if resample_delta.total_seconds() < 60*10:
             resample_delta = timedelta(minutes=10)
+
+    def normalize_delta(delta: timedelta, resample_rate: timedelta):
+        references = [
+            {timedelta(hours=6): timedelta(seconds=300)},
+            {timedelta(hours=12): timedelta(hours=0.25)},
+            {timedelta(days=1): timedelta(hours=0.5)},
+            {timedelta(days=3): timedelta(hours=1)},
+            {timedelta(days=5): timedelta(hours=3)},
+            {timedelta(days=10): timedelta(hours=6)},
+            {timedelta(days=20): timedelta(hours=12)}
+        ]
+        nearest = [list(references[0].keys())[0], list(references[0].values())[0]]
+        difference = abs(delta.total_seconds() - nearest[0].total_seconds())
+        for entry in references:
+            for key, value in entry.items():
+                if (diff := abs(delta.total_seconds() - key.total_seconds())) < difference:
+                    difference = diff
+                    nearest = [key, value]
+        return ts_round(resample_rate, nearest[1])
+    
+    resample_delta = normalize_delta(df_timedelta, resample_delta)
 
     # resampeling dataframe
     # group by game 
     # and resample hours to `resample_delta` and sum them up
     activity_series: pd.Series = df.groupby("game")["hours"].resample(resample_delta).sum()
     df_summarized: pd.DataFrame = activity_series.to_frame().reset_index()
+    # normalize timestamps to avoid uneven tick rates
+    df_summarized["r_timestamp"] = df_summarized["r_timestamp"].dt.round(resample_delta)
 
     # set before and after game to 0
     games = set(df_summarized["game"])
@@ -440,7 +475,7 @@ async def build_activity_graph(
         y='hours', 
         data=df_summarized,
         hue="game", 
-        legend="full", 
+        legend="auto", 
         markers=False,
         palette=color,
         ax=ax1,
@@ -449,23 +484,23 @@ async def build_activity_graph(
     # style chart
     mplcyberpunk.add_glow_effects(ax=ax)
     #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
-    ax.set_ylabel("Hours")
-    ax.set_xlabel(f"Date (rounded to {humanize.naturaldelta(resample_delta)})")
 
+
+    # set date formatter with guild tz
     date_format = get_date_format_by_timedelta(df_timedelta)
-
     tz = await TimezoneManager.fetch_timezone(guild_or_author_id=guild_id)
     date_form = DateFormatter(date_format, tz=tz)
+    ax.xaxis.set_major_formatter(date_form)
 
     # set Locator
-    ax.xaxis.set_major_formatter(date_form)
-    X_LABLE_AMOUNT: int = 12  # about
-    base = round(df_timedelta.days / X_LABLE_AMOUNT, 0)  # base have to be .0, otherwise not matching with plot peaks
-    if base > 0:
-        loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
-        ax.xaxis.set_major_locator(loc)
+    # if not base:
+    #     base = round(df_timedelta.days / X_LABLE_AMOUNT, 0)  # 0 or higher INT (.0)
+    # if base > 0:
+    #     loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
+    #     ax.xaxis.set_major_locator(loc)
     # ax.figure.autofmt_xdate(rotation=45)
-    
+    ax.set_ylabel("Hours")
+    ax.set_xlabel(f"Date (rounded to {humanize.naturaldelta(resample_delta)})")
     # save chart
     figure = fig.get_figure()    
     figure.savefig(picture_buffer, dpi=100)
