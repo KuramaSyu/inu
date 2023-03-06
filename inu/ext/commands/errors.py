@@ -23,13 +23,9 @@ bot: Inu
 
 ERROR_JOKES = [
     "Wait, there is a difference between beta and production?",
-    (
-        '_"NOOoo the bot wasn\'t tested properly"_ is what you are maybe thinking right now. '
-        "So now is the right moment to tell you: _you **are** the tester_"
-    ),
     "Seems like someone was to lazy to test me -- _again_",
     "Y'know: _my_ ordinary life is generating errors",
-    "You expected something else? Oh please. I thought you got it by now",
+    "You expected me to work properly? Oh please ...",
     (
         "Y'know I can smell your disappointment. It's right about here: ```\n"
         "good                  bad\n"
