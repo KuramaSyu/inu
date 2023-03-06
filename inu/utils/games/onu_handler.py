@@ -93,11 +93,12 @@ class HikariOnu(OnuHandler):
     async def loop(self):
         while not self.onu.game_over:
             card_index, user_id = await self._wait_for_interaction()
-            hand = [h for h in self.onu.hands if int(h.id) == int(user_id)][0]
             if card_index is None:
-                # self.# log.debug("card index is None")
+                # timeout
                 break
-            elif card_index in self.colors.keys():
+
+            hand = [h for h in self.onu.hands if int(h.id) == int(user_id)][0]
+            if card_index in self.colors.keys():
                 # change selected color
                 # here the name card_index is maybe a bit weird
                 event = self.do_turn(hand, select_color=self.colors[card_index])
@@ -110,25 +111,25 @@ class HikariOnu(OnuHandler):
             await self.a_on_event(event)
 
     async def _wait_for_interaction(self) -> Tuple[Optional[Union[int, str]], Optional[Snowflakeish]]:
-        coros = [
-            self.bot.wait_for(
-                MessageCreateEvent,
-                timeout=self.timeout,
-                predicate=lambda e:(
-                    str(e.author_id) in [str(player.id) for player in self.players.values()]
-                )
-            ),
-            self.bot.wait_for(
-                InteractionCreateEvent,
-                timeout=self.timeout,
-                predicate=lambda e:(
-                    isinstance(e.interaction, ComponentInteraction)
-                    and e.interaction.custom_id in ["onu_card_menu", "red", "yellow", "green", "blue"]
-                    and str(e.interaction.user.id) in [str(player.id) for player in self.players.values()]
-                )
-            )
-        ]
         try:
+            coros = [
+                self.bot.wait_for(
+                    MessageCreateEvent,
+                    timeout=self.timeout,
+                    predicate=lambda e:(
+                        str(e.author_id) in [str(player.id) for player in self.players.values()]
+                    )
+                ),
+                self.bot.wait_for(
+                    InteractionCreateEvent,
+                    timeout=self.timeout,
+                    predicate=lambda e:(
+                        isinstance(e.interaction, ComponentInteraction)
+                        and e.interaction.custom_id in ["onu_card_menu", "red", "yellow", "green", "blue"]
+                        and str(e.interaction.user.id) in [str(player.id) for player in self.players.values()]
+                    )
+                )
+            ]
             done, pending = await asyncio.wait(
                 [asyncio.create_task(coro) for coro in coros],
                 return_when=asyncio.FIRST_COMPLETED,
@@ -136,17 +137,22 @@ class HikariOnu(OnuHandler):
             )
             for task in pending:
                 task.cancel()
+            if len(done) == 0:
+                return None, None
             event = done.pop().result()
             if isinstance(event, MessageCreateEvent):
-                return int(event.message.content), event.author_id
+                index = int(event.message.content)
+                user_id = event.author_id
+                return index, user_id
             await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
             if event.interaction.custom_id in ["red", "yellow", "green", "blue"]:
                 return event.interaction.custom_id, event.interaction.user.id
+            # onu card menu - return index
             return int(event.interaction.values[0]), event.interaction.user.id # the card number the player has choosen
         except asyncio.TimeoutError:
             await self.a_on_timeout()
             return None, None
-        except ValueError:
+        except Exception:
             return await self._wait_for_interaction()
 
     async def start(self, bot: Inu, ctx: Context):
@@ -228,7 +234,7 @@ class HikariOnu(OnuHandler):
                 embed=Embed(
                     title=f"{event.winner.name} has won the game!", 
                     color=Colors.from_name("royalblue"),
-                    description=f"start another game with `/onu @player1 ...` or `inu.onu @player1 ...`"
+                    description=f"start another game with `/onu @player1 ...`"
                 ), 
             )
         )
