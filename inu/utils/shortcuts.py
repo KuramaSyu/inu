@@ -1,5 +1,5 @@
 from typing import *
-
+from datetime import datetime, timedelta
 import hikari
 
 from core import Inu
@@ -39,3 +39,8 @@ def guild_name_or_id(guild_id: int, *args, **kwargs) -> str:
     guild = bot.cache.get_guild(guild_id)
     return guild.name if guild else str(guild_id)
 
+
+def ts_round(delta: timedelta, round_to: timedelta) -> timedelta:
+    total_seconds = delta.total_seconds()
+    rounded_seconds = round(total_seconds / round_to.total_seconds()) * round_to.total_seconds()
+    return timedelta(seconds=rounded_seconds)
