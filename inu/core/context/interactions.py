@@ -295,7 +295,7 @@ class InteractionContext(_InteractionContext):
         """
         asyncio.create_task(self._defer_on_timelimit())
 
-    async def defer(self, background: bool = True) -> None:
+    async def defer(self, background: bool = False) -> None:
         """
         Acknowledges the interaction.
         acknowledge with DEFFERED_MESSAGE_UPDATE if self._update is True,
@@ -539,13 +539,13 @@ class InteractionContext(_InteractionContext):
         
         """
         self.log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
+        await self._maybe_wait_defer_complete()
         if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
         if self.is_valid and self._deferred:  
             # interaction deferred
             self.log.debug("wait for defer complete")
-            await self._maybe_wait_defer_complete()
             if not update:
                 self.log.debug("deferred message create")
                 await self.initial_response_create(**kwargs)
