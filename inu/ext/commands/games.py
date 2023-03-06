@@ -12,7 +12,7 @@ from lightbulb.commands import OptionModifier as OM
 
 from utils.games.connect_four_handler import Connect4Handler, Connect4FallingRowsHandler, get_handler_from_letter, MemoryConnect4Handler
 from utils.games import HikariOnu
-from utils import AkinatorSI
+from utils import AkinatorSI, Human
 from core import getLogger, Inu, get_context
 
 
@@ -150,6 +150,7 @@ async def onu(ctx: Context):
             )
         else:
             onu_sessions.add(p_id)
+    await ctx.respond(f"Starting Onu game with {Human.list_([p.display_name for p in players.values()], with_a_or_an=False)}")
     onu = HikariOnu(players)
     try:
         await onu.start(ctx.bot, ctx)
