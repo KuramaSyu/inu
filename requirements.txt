@@ -1,7 +1,7 @@
 
 hikari-lightbulb==2.3.1
-hikari
-#git+https://github.com/thesadru/hikari@dd88abdd84fb5abd398dea6292300eb035a57e46
+hikari==2.0.0.dev117 
+hikari-miru==3.0.2
 aiohttp
 asyncpg
 asyncache==0.1.1
@@ -18,7 +18,6 @@ jikanpy
 fuzzywuzzy
 pyyaml
 akinator[async]
-hikari-miru
 python-Levenshtein
 types-PyYAML
 pandas
