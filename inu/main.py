@@ -9,6 +9,7 @@ import aiohttp
 from core import LoggingHandler
 logging.setLoggerClass(LoggingHandler)
 
+import miru
 import hikari
 import lightbulb
 from core import Inu, Table
@@ -31,6 +32,7 @@ log = getLogger(__name__)
 log.info(f"hikari version:{hikari.__version__}")
 log.info(f"lightbulb version:{lightbulb.__version__}")
 log.info(f"lavasnek-rs version:{lavasnek_rs.__version__}")
+log.info(f"hikari-miru version:{miru.__version__}")
 
 def main():
     log.info("Create Inu")
