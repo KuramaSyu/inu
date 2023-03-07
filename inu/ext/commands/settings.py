@@ -44,7 +44,7 @@ class SettingsMenuView(miru.View):
         self, 
         *,
         old_view: Optional["SettingsMenuView"], 
-        timeout: Optional[float] = 120, 
+        timeout: Optional[float] = 14*15, 
         autodefer: bool = True,
         ctx: lightbulb.Context,
     ) -> None:
@@ -75,7 +75,7 @@ class SettingsMenuView(miru.View):
     async def go_back(self, ctx: miru.Context) -> None:
         if self.old_view is not None:
             self.stop()
-            await self.old_view.async_start(self.message)
+            await self.old_view.start(self.message)
         else:
             await ctx.respond("You can't go back from here.")
 
@@ -86,9 +86,9 @@ class SettingsMenuView(miru.View):
         else:
             return self.__class__.name
 
-    async def async_start(self, message: hikari.Message) -> None:
+    async def start(self, message: hikari.Message) -> None:
 
-        super().start(message)
+        await super().start(message)
         await message.edit(
             embed=await self.to_embed(),
             components=self.build()
@@ -190,7 +190,7 @@ class RedditView(SettingsMenuView):
 
     @miru.button(label="manage top channels", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, button: miru.Button, ctx: miru.Context) -> None:
-        await RedditTopChannelView(old_view=self, ctx=self.lightbulb_ctx).async_start(self.message)
+        await RedditTopChannelView(old_view=self, ctx=self.lightbulb_ctx).start(self.message)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -206,7 +206,7 @@ class TimezoneView(SettingsMenuView):
     name = "Timezone"
     @miru.button(label="set", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def set_timezone(self, button: miru.Button, ctx: miru.Context) -> None:
-        await RedditChannelView(old_view=self, ctx=self.lightbulb_ctx).async_start(self.message)
+        await RedditChannelView(old_view=self, ctx=self.lightbulb_ctx).start(self.message)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -239,6 +239,30 @@ class ActivityLoggingView(SettingsMenuView):
         )
         return embed
 
+class AutorolesView(SettingsMenuView):
+    name = "Autoroles"
+    @miru.button(label="enable", style=hikari.ButtonStyle.SUCCESS)
+    async def set_true(self, button: miru.Button, ctx: miru.Context) -> None:
+        embed = await update_activity_logging(ctx.guild_id, True)
+        await ctx.respond(embed=embed)
+
+    @miru.button(label="disable", style=hikari.ButtonStyle.DANGER)
+    async def set_false(self, button: miru.Button, ctx: miru.Context) -> None:
+        embed = await update_activity_logging(ctx.guild_id, False)
+        await ctx.respond(embed=embed)
+
+    async def to_embed(self):
+        embed = hikari.Embed(
+            title=self.total_name, 
+            description=(
+                "Here you can enable or disable activity logging\n"
+                "So if you want to use commands like `/current-games` or `/week-activity` "
+                "than you need to enable it. WHEN **ENABLED** ALL THIS GUILDS **ACTIVITIES WILL BE TRACKED**! (but anonymously)\n\n"
+                f"Currently: {'ENABLED' if await SettingsManager.fetch_activity_tracking(self.lightbulb_ctx.guild_id) else 'DISABLED'}"
+            )
+        )
+        return embed
+
 
 
 
@@ -246,19 +270,19 @@ class MainView(SettingsMenuView):
     name = "Settings"
     @miru.button(label="Prefixes", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def prefixes(self, button: miru.Button, ctx: miru.Context) -> None:
-        await (PrefixView(old_view=self, ctx=self.lightbulb_ctx)).async_start(self._message)
+        await (PrefixView(old_view=self, ctx=self.lightbulb_ctx)).start(self._message)
         
     @miru.button(label="Reddit", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def reddit_channels(self, button: miru.Button, ctx: miru.Context) -> None:
-        await RedditView(old_view=self, ctx=self.lightbulb_ctx).async_start(self._message)
+        await RedditView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
 
     @miru.button(label="Timezone", emoji=chr(9986), style=hikari.ButtonStyle.PRIMARY)
     async def timezone_button(self, button: miru.Button, ctx: miru.Context):
-        await TimezoneView(old_view=self, ctx=self.lightbulb_ctx).async_start(self._message)
+        await TimezoneView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
 
     @miru.button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY)
     async def activity_logging_button(self, button: miru.Button, ctx: miru.Context):
-        await ActivityLoggingView(old_view=self, ctx=self.lightbulb_ctx).async_start(self._message)
+        await ActivityLoggingView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
 
     async def to_embed(self) -> hikari.Embed:
         embed = hikari.Embed(
@@ -288,7 +312,7 @@ async def settings(ctx: Context):
     pass
     # main_view = MainView(old_view=None, ctx=ctx)
     # message = await ctx.respond("settings")
-    # await main_view.async_start(await message.message())
+    # await main_view.start(await message.message())
 
 @settings.child
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -321,7 +345,7 @@ async def update_activity_logging(guild_id: int, enable: bool) -> hikari.Embed:
 async def settings_menu(ctx: Context):
     main_view = MainView(old_view=None, ctx=ctx)
     message = await ctx.respond("settings")
-    await main_view.async_start(await message.message())
+    await main_view.start(await message.message())
 
 
 @settings.child
@@ -549,6 +573,12 @@ async def settings_board_remove(ctx: SlashContext):
         )
     )
 
+# @settings.child()
+# @lightbulb.command("autoroles", "automatically role asignment")
+# @lightbulb.implements(commands.SlashSubCommand)
+# async def autoroles(ctx: SlashContext):
+#     ...
+
 @settings_board_add.autocomplete("emoji")
 @settings_board_remove.autocomplete("emoji")
 async def board_emoji_autocomplete(    
@@ -556,7 +586,8 @@ async def board_emoji_autocomplete(
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
     letters = ['🇦', '🇧', '🇨', '🇩', '🇪', '🇫', '🇬', '🇭', '🇮', '🇯', '🇰', '🇱', '🇲', '🇳', '🇴', '🇵', '🇶', '🇷', '🇸', '🇹', '🇺', '🇻', '🇼', '🇽', '🇾', '🇿']
-    return ["⭐", "🗑️", "👍", "👎", "😂", *letters][:24]
+    return ["⭐", "🗑️", "👍", "👎", *letters][:24]
+
 
 def load(inu: Inu):
     inu.add_plugin(plugin)
