@@ -472,7 +472,9 @@ async def timez(ctx: Context):
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def timez_set(ctx: Context):
     await set_timezone(ctx)
+
 async def set_timezone(ctx: Context, kwargs: Dict[str, Any] = {"flags": hikari.MessageFlag.EPHEMERAL}):
+    """dialog for setting the timezone"""
     menu = (
         MessageActionRowBuilder()
         .add_select_menu("timezone_menu")
@@ -532,7 +534,7 @@ async def set_timezone(ctx: Context, kwargs: Dict[str, Any] = {"flags": hikari.M
             except Exception:
                 log.error(f"settings timezone set: {traceback.format_exc()}")
         if update_author:
-            await TimezoneManager.set_timezone(ctx.guild_id, int(event.interaction.values[0]))
+            await TimezoneManager.set_timezone(event2.interaction.user.id, int(event.interaction.values[0]))
         
     except asyncio.TimeoutError:
         pass
