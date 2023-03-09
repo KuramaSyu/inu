@@ -31,7 +31,7 @@ from utils.db import BoardManager, SettingsManager
 from core import getLogger, Inu
 
 log = getLogger(__name__)
-
+EPHEMERAL = {"flags": hikari.MessageFlag.EPHEMERAL}
 
 ################################################################################
 # Start - View for Settings
@@ -206,12 +206,14 @@ class TimezoneView(SettingsMenuView):
     name = "Timezone"
     @miru.button(label="set", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def set_timezone(self, button: miru.Button, ctx: miru.Context) -> None:
-        await RedditChannelView(old_view=self, ctx=self.lightbulb_ctx).start(self.message)
+        await set_timezone(ctx)
 
     async def to_embed(self):
+        t_zone = await TimezoneManager.fetch_timezone(self.lightbulb_ctx.guild_id)
+        now = datetime.now(t_zone)
         embed = hikari.Embed(
             title=self.total_name,
-            description="Here u should see the timezone of your guild." 
+            description=f"Your current time is: {now.strftime('%Y-%m-%d %H:%M')}" 
         )
         return embed
 
@@ -469,6 +471,8 @@ async def timez(ctx: Context):
 @lightbulb.command("set", "Set the timezone of your guild - interactive")
 @lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
 async def timez_set(ctx: Context):
+    await set_timezone(ctx)
+async def set_timezone(ctx: Context, kwargs: Dict[str, Any] = {"flags": hikari.MessageFlag.EPHEMERAL}):
     menu = (
         MessageActionRowBuilder()
         .add_select_menu("timezone_menu")
@@ -481,7 +485,7 @@ async def timez_set(ctx: Context):
             str(x)
         ).add_to_menu()
     component = menu.add_to_container()
-    await ctx.respond("How late is it in your region?", component=component)
+    await ctx.respond("How late is it in your region?", component=component, **kwargs)
     try:
         event = await plugin.bot.wait_for(
             hikari.InteractionCreateEvent,
@@ -495,21 +499,20 @@ async def timez_set(ctx: Context):
         )
         if not isinstance(event.interaction, ComponentInteraction):
             return
-        await event.interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"_successfully stored in my mind_")
+        await event.interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"ok", **kwargs)
         update_author = True
-        table = Table("guild_timezones")
         if ctx.guild_id:
             await TimezoneManager.set_timezone(ctx.guild_id, int(event.interaction.values[0]))
             try:
                 btns = (
                     MessageActionRowBuilder()
                     .add_button(ButtonStyle.PRIMARY, "1").set_emoji("✔️").add_to_container()
-                    .add_button(ButtonStyle.DANGER, "0").set_emoji("❌").add_to_container()
+                    .add_button(ButtonStyle.DANGER, "0").set_emoji("✖").add_to_container()
                 )
-                await ctx.bot.rest.create_message(
-                    ctx.channel_id, 
+                await event.interaction.execute(
                     "Should I also use it as your private time?",
-                    component=btns
+                    component=btns,
+                    **EPHEMERAL
                 )
                 event2 = await ctx.bot.wait_for(
                     hikari.InteractionCreateEvent,
@@ -524,7 +527,7 @@ async def timez_set(ctx: Context):
                     pass
                 values = event.interaction.values
                 update_author = bool(int(event2.interaction.custom_id))
-                await event2.interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"_also successfully stored in my mind_")
+                await event2.interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"ok", **EPHEMERAL)
                 # await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_CREATE)
             except Exception:
                 log.error(f"settings timezone set: {traceback.format_exc()}")
