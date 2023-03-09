@@ -34,6 +34,7 @@ log = getLogger(__name__)
 
 tags = lightbulb.Plugin("Tags", "Commands all arround tags")
 bot: Inu
+EPHEMERAL = {"flags": hikari.MessageFlag.EPHEMERAL}
 
 
 
@@ -141,6 +142,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
     # case 1: 1 entry in db; check if global or in guild
     # case _: let user select if he wants the global or local one
     if len(results) == 0:
+        await ctx.respond(f"I can't find a tag named `{key}` where you are the owner :/", **EPHEMERAL)
         return None
     elif len(results) == 1:
         return results[0]
@@ -162,7 +164,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
             .add_to_container()
         )
         try:
-            await ctx.respond("There are multiple tags with this name. Which one do you want?", component=menu)
+            await ctx.respond("There are multiple tags with this name. Which one do you want?", component=menu, **EPHEMERAL)
             event = await tags.bot.wait_for(
                 InteractionCreateEvent,
                 30,
@@ -447,7 +449,7 @@ async def tag_edit(ctx: Context):
     ctx.raw_options["name"] = ctx.options.name.strip()
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     taghandler = TagHandler()
     await taghandler.start(ctx, record)
 
@@ -472,7 +474,7 @@ async def tag_remove(ctx: Context):
     name = ctx.options.name
     record = await get_tag_interactive(ctx)
     if not record:
-        await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        # await #ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
         return
     await TagManager.remove(record['tag_id'])
     await ctx.respond(
@@ -597,18 +599,19 @@ async def tag_append(ctx: Context):
     key = ctx.options.name
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return # await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.value[-1] += f"\n{ctx.options.text.lstrip()}"
+    to_add = ctx.options.text.lstrip()
+    tag.value[-1] += f"\n{to_add}"
     await tag.save()
     await ctx.respond(
-        f"Done.",
+        f"""Added\n```\n{to_add.replace("`", "")}``` to `{tag.name}`""",
         component=(
             hikari.impl.MessageActionRowBuilder()
             .add_button(ButtonStyle.SECONDARY, tag.link)
-            .set_label("show tag")
+            .set_label(tag.name)
             .add_to_container()
-        )
+        ),
     )
 
 
@@ -632,12 +635,12 @@ async def tag_change_name(ctx: Context):
     old_key = ctx.options.old_name
     record = await get_tag_interactive(ctx, old_key)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{old_key}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{old_key}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.name = ctx.options.new_name
     await tag.save()
     await ctx.respond(
-        f"Done."
+        f"Changed name from `{old_key}` to `{tag.name}`"
     )
 
 
@@ -691,12 +694,13 @@ async def tag_add_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/", **EPHEMERAL)
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.aliases.add(f"{ctx.options.alias.strip()}")
     await tag.save()
     await ctx.respond(
-        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`"
+        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`",
+        **EPHEMERAL
     )
 
 @tag.child
@@ -717,15 +721,16 @@ async def tag_remove_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/", **EPHEMERAL)
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.aliases.add(f"{ctx.options.alias.strip()}")
     except ValueError:
-        return await ctx.respond(f"This tag don't have an ailias called `{ctx.options.alias.strip()}` which I could remove")
+        return await ctx.respond(f"This tag don't have an ailias called `{ctx.options.alias.strip()}` which I could remove", **EPHEMERAL)
     await tag.save()
     await ctx.respond(
-        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`"
+        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`",
+        **EPHEMERAL
     )
 
 @tag.child
@@ -746,12 +751,13 @@ async def tag_add_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/", **EPHEMERAL)
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.owners.add(int(ctx.options.author.id))
     await tag.save()
     await ctx.respond(
-        f"Added {ctx.options.author.username} as an author of `{tag.name}`"
+        f"Added {ctx.options.author.username} as an author of `{tag.name}`",
+        **EPHEMERAL
     )
 
 
@@ -774,15 +780,16 @@ async def tag_remove_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.owners.remove(int(ctx.options.author.id))
     except ValueError:
-        return await ctx.respond(f"{ctx.options.author.username} was never an author")
+        return await ctx.respond(f"{ctx.options.author.username} was never an author", **EPHEMERAL)
     await tag.save()
     await ctx.respond(
-        f"Removed {ctx.options.author.username} from the author of `{tag.name}`"
+        f"Removed {ctx.options.author.username} from the author of `{tag.name}`",
+        **EPHEMERAL
     )
 
 
@@ -810,12 +817,13 @@ async def tag_add_guild(ctx: Context):
     guild_id = guild_autocomplete_get_id(value=ctx.options.guild)
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.guild_ids.add(guild_id)
     await tag.save()
     await ctx.respond(
-        f"You will now be able to see `{tag.name}` in the guild `{ctx.options.guild}`"
+        f"You will now be able to see `{tag.name}` in the guild `{ctx.options.guild}`",
+        **EPHEMERAL
     )
 
 @tag.child
@@ -841,7 +849,7 @@ async def tag_remove_guild(ctx: Context):
     guild_id = guild_autocomplete_get_id(value=ctx.options.guild)
     record = await get_tag_interactive(ctx)
     if not record:
-        return await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await #ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.guild_ids.remove(guild_id)
@@ -851,7 +859,8 @@ async def tag_remove_guild(ctx: Context):
         )
     await tag.save()
     await ctx.respond(
-        f"You won't see `{tag.name}` in the guild `{ctx.options.guild}` anymore"
+        f"You won't see `{tag.name}` in the guild `{ctx.options.guild}` anymore",
+        **EPHEMERAL
     )
 
 
@@ -902,13 +911,13 @@ async def guild_auto_complete(
 ) -> List[str]:
     value = option.value or ""
     value = str(value)
-    guilds: List[Dict[str, str | int]] = [{'id': 000000000000000000, 'name': "Global - Everywhere where I am"}]
+    guilds: List[Dict[str, str | int]] = []
     for gid, name in bot.cache.get_available_guilds_view().items():
-        # if value.lower() in str(name).lower():
         guilds.append({'id': gid, 'name': str(name)})
     if len(guilds) >= 1000:
         log.warning("Too many guilds to autocomplete - optimising guild list fast..")
         guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
+    guilds.append({'id': 000000000000000000, 'name': "Global - Everywhere where I am"})
 
     if len(guilds) > 25:
         if len(value) <= 2:
