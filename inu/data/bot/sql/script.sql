@@ -184,6 +184,13 @@ CREATE TABLE IF NOT EXISTS facts (
     sha256 TEXT UNIQUE  -- ensure, that facts won't be added multiple times 
 );
 
+CREATE TABLE IF NOT EXISTS autoroles (
+    id SERIAL PRIMARY KEY,
+    guild_id BIGINT NOT NULL,
+    event_id BIGINT NOT NULL,
+    duration INTERVAL,
+    role_id BIGINT NOT NULL
+);
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
 
