@@ -13,3 +13,4 @@ from .boards import *
 from .settings import *
 from .facts import *
 from .music import *
+from .autoroles import *
