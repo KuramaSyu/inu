@@ -2,7 +2,7 @@ from typing import *
 
 from tabulate import tabulate
 import hikari
-from hikari import ComponentInteraction
+from hikari import ComponentInteraction, ButtonStyle
 from hikari.impl import MessageActionRowBuilder
 
 from . import Paginator
@@ -17,8 +17,18 @@ class AutorolesPaginator(Paginator):
         rows = []
         rows.append(
             MessageActionRowBuilder()
-            .add_button(
+            .add_button(ButtonStyle.SECONDARY, "autoroles_up").set_label("⬆️").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "autoroles_down").set_label("⬇️").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "autoroles_add").set_label("➕").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "autoroles_remove").set_label("➖").add_to_container()
         )
+        rows.append(
+            MessageActionRowBuilder()
+            .add_button(ButtonStyle.SECONDARY, "autoroles_set_role").set_label("📌 Set Role").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "autoroles_set_event").set_label("📅 Set Event").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "autoroles_set_duration").set_label("🕒 Set Duration").add_to_container()
+        )
+        return rows
 
     async def render(self):
         ...
