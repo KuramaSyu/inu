@@ -1,9 +1,8 @@
 import asyncio
-import logging
 import os
 import typing
 from typing import *
-from functools import wraps
+from functools import wraps, update_wrapper
 import traceback
 from datetime import datetime, timedelta
 import re
@@ -181,8 +180,51 @@ class Database(metaclass=Singleton):
 ####
 ## tags: id INT, tag_key - TEXT; tag_value - List[TEXT]; creator_id - INT; guild_id - INT
 
-class KeyValueDB:
-    db: Database
+def logging(reraise_exc: bool = True):
+    def decorator(func: Callable):
+        @asyncio.coroutine
+        @wraps(func)
+        async def wrapper(*args, **kwargs):
+            self = args[0]
+            log = getLogger(__name__, self.name, func.__name__)
+            try:
+                return_value = await func(*args, **kwargs)
+                if self.do_log:
+                    log.debug(f"{self._executed_sql}\n->{return_value}")
+                return return_value
+            except Exception as e:
+                if self._error_logging:
+                    log.error(f"{self._executed_sql}")
+                    log.exception(f"{traceback.format_exc()}")
+                    if reraise_exc:
+                        raise e
+                    return None
+        update_wrapper(wrapper, func)
+        return wrapper
+    return decorator
+# -> Callable[["Table", Any], Callable[[Any], Awaitable]]
+def formatter(func: Callable):
+    @asyncio.coroutine
+    @wraps(func)
+    async def wrapper(*args, **kwargs):
+        self = args[0]
+        return_value = await func(*args, **kwargs)
+        if self._as_dataframe:
+            columns = []
+            if isinstance(return_value, list):
+                if len(return_value) > 0:
+                    columns = [k for k in return_value[0].keys()]
+                else:
+                    columns = []
+            elif isinstance(return_value, dict):
+                columns = [k for k in return_value.keys()]
+            else:
+                raise TypeError(f"{type(return_value)} is not supported. Only list and dict can be converted to dataframe.")
+            return_value = pd.DataFrame(data=return_value, columns=columns)
+        return return_value
+    update_wrapper(wrapper, func)
+    return wrapper
+
 
 
 class Table():
@@ -197,53 +239,14 @@ class Table():
     def return_as_dataframe(self, b: bool) -> None:
         self._as_dataframe = b
 
-    def logging(reraise_exc: bool = True):
-        def decorator(func: Callable):
-            @wraps(func)
-            async def wrapper(*args, **kwargs):
-                self = args[0]
-                log = getLogger(__name__, self.name, func.__name__)
-                try:
-                    return_value = await func(*args, **kwargs)
-                    if self.do_log:
-                        log.debug(f"{self._executed_sql}\n->{return_value}")
-                    return return_value
-                except Exception as e:
-                    if self._error_logging:
-                        log.error(f"{self._executed_sql}")
-                        log.exception(f"{traceback.format_exc()}")
-                        if reraise_exc:
-                            raise e
-                        return None
-            return wrapper
-        return decorator
 
-    def formatter(func: Callable) -> Callable[["Table", Any], Callable[[Any], Awaitable]]:
-        @wraps(func)
-        async def wrapper(*args, **kwargs):
-            self = args[0]
-            return_value = await func(*args, **kwargs)
-            if self._as_dataframe:
-                columns = []
-                if isinstance(return_value, list):
-                    if len(return_value) > 0:
-                        columns = [k for k in return_value[0].keys()]
-                    else:
-                        columns = []
-                elif isinstance(return_value, dict):
-                    columns = [k for k in return_value.keys()]
-                else:
-                    raise TypeError(f"{type(return_value)} is not supported. Only list and dict can be converted to dataframe.")
-                return_value = pd.DataFrame(data=return_value, columns=columns)
-            return return_value
-        return wrapper
 
 
     @logging()
     async def insert(
         self, 
         which_columns: List[str], 
-        values: List, 
+        values: List | Dict[str, Any], 
         returning: str = "*",
         on_conflict: str = "",
     ) -> Optional[asyncpg.Record]:
@@ -254,7 +257,7 @@ class Table():
         -----
         which_columns: `List[str]`
             the column names where you want to insert
-        values: `List[Any]`
+        values: `List[Any] | Dict[str, Any]`
             the matching values to which_columns
         returning: `str`
             the column(s) which should be returned
@@ -262,6 +265,13 @@ class Table():
             DO NOTHING / ''
         
         """
+        if isinstance(values, dict):
+            new_values = []
+            new_columns = []
+            for k, v in values.items():
+                new_values.append(v)
+                new_columns.append(k)
+
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
             f"INSERT INTO {self.name} ({', '.join(which_columns)})\n"
@@ -380,18 +390,32 @@ class Table():
         matching_values: List,
         additional_values: Optional[List] = None,
         order_by: Optional[str] = None, 
+        where: Optional[Dict[str, Any]] = None,
         select: str = "*"
     ) -> Optional[List[Dict[str, Any]]]:
         """
         SELECT <select> FROM `this`
         WHERE <columns>=<matching_values>
         ORDER BY <order_by> (column ASC|DESC)
-        """
-        where = self.__class__.create_where_statement(columns)
 
+        Args:
+        -----
+        `where : Dict[str, Any]`
+            alternative to columns and matching values.
+            instead of columns = ['id'] matching_values = [1]
+            you could do where = {'id': 1}
+        """
+        
+        if where:
+            columns = []
+            matching_values = []
+            for k, v in where.items():
+                columns.append(k)
+                matching_values.append(v)
+        where_stmt = self.__class__.create_where_statement(columns)
         sql = (
             f"SELECT {select} FROM {self.name}\n"
-            f"WHERE {where}"
+            f"WHERE {where_stmt}"
         )
         if order_by:
             sql += f"\nORDER BY {order_by}"
