@@ -108,6 +108,7 @@ class ShowPaginator(Paginator):
             timeout=4*60, 
             disable_paginator_when_one_site=False,
             disable_search_btn=True,
+            number_button_navigation=True,
             **self._base_init_kwargs
         )
         return await super().start(ctx)
@@ -122,11 +123,10 @@ class ShowPaginator(Paginator):
             pag = ShowSeasonPaginator(
                 page_s=["none"], 
                 timeout=4*60, 
-                disable_paginator_when_one_site=True,
-                disable_search_btn=True,
                 first_message_kwargs={
                     "content": f"{self._results[self._position]['name']} season overview"
                 },
+                number_button_navigation=True,
             )
             ctx = get_context(event)
             seasons: Optional[List[Dict[str, str | int]]]= self._results[self._position].get("seasons")
@@ -260,9 +260,13 @@ class ShowSeasonPaginator(Paginator):
         """
         self._tv_show_id = tv_show_id
         self._results = season_response
+        
         self.ctx = ctx
         self._position = 0
-        self._pages = [Embed(description="spaceholder") for _ in range(len(self._results) -1)]
+        # if first season name is "Specials", move it to the end
+        if self._results[0]["name"] == "Specials":
+            self._results.append(self._results.pop(0))
+        self._pages = [Embed(description="spaceholder") for _ in range(len(self._results))]
         await self._load_details()
         if not self._pages:
             return
