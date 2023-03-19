@@ -13,6 +13,7 @@ from typing import (
     Final,
     Dict,
     Generic,
+    Type,
 )
 import json
 import traceback
@@ -54,6 +55,7 @@ REJECTION_MESSAGES = [
     "imagine not even having enough permissions to click a button",
     "Never heard of [privacy](https://en.wikipedia.org/wiki/Privacy)?"
 ]
+NUMBER_BUTTON_PREFIX = "pagination_page_"
 
 class PaginatorReadyEvent(hikari.Event):
     def __init__(self, bot: lightbulb.BotApp):
@@ -245,14 +247,15 @@ class Paginator():
         disable_component: bool = True,
         disable_components: bool = False,
         disable_paginator_when_one_site: bool = True,
-        listen_to_events: List[Any] = [],
+        listen_to_events: List[Type[hikari.Event]] = [],
         compact: Optional[bool] = None,
         default_page_index: int = 0,
         download: Union[Callable[["Paginator"], str], str, bool] = False,
         download_name: str = "content.txt",
-        disable_search_btn: bool = False,
+        disable_search_btn: bool = True,
         first_message_kwargs: Dict[str, Any] = {},
         custom_id_type: str | None = None,
+        number_button_navigation: bool = False,
     ):
         """
         ### A Paginator with many options
@@ -298,6 +301,9 @@ class Paginator():
                     **kwargs -> additional self defined keys and values
             if None:
                 custom_id will be the bare custom_id not converted to json
+        number_button_navigation: bool
+            wether or not to use number buttons for navigation.
+            Only used when len of pages below 20
         Note:
         -----
             - the listener is always listening to 2 events:
@@ -335,6 +341,7 @@ class Paginator():
         self._first_message_kwargs = first_message_kwargs or {}
         self._additional_components = additional_components or []
         self._custom_id_type = custom_id_type
+        self._number_button_navigation = number_button_navigation
 
         self.bot: lightbulb.BotApp
         self._ctx: InteractionContext | None = None
@@ -490,7 +497,7 @@ class Paginator():
         btn = btn.add_to_container()
         return btn
 
-    def _navigation_row(self, position = None) -> Optional[MessageActionRowBuilder]:
+    def _navigation_row(self, position = None) -> Optional[List[MessageActionRowBuilder]]:
         if not self.pagination:
             return None
 
@@ -529,20 +536,68 @@ class Paginator():
                 disable_when_index_is=lambda p: p == len(self.pages)-1,
             )
 
-        return action_row
+        return [action_row]
+    
+    def _number_button_navigation_row(self, position=None) -> Optional[List[MessageActionRowBuilder]]:
+        if not self.pagination:
+            return None
+
+        # calculate start and stop indices for the three cases
+        BUTTON_AMOUNT = 20
+        BUTTONS_PER_ROW = 5
+        if self._position < BUTTONS_PER_ROW * 2:
+            start = 0
+            stop = min(BUTTON_AMOUNT, len(self._pages))
+        else:
+            row_index = self._position // BUTTONS_PER_ROW
+            if row_index < 2:
+                start = 0
+                stop = BUTTON_AMOUNT
+            elif row_index > len(self._pages) // BUTTONS_PER_ROW - 2:
+                stop = len(self._pages)
+                start = ((stop - BUTTON_AMOUNT) // BUTTONS_PER_ROW + 1) * BUTTONS_PER_ROW
+            else:
+                start = (row_index - 2) * BUTTONS_PER_ROW
+                stop = start + BUTTON_AMOUNT
+
+        action_rows = []
+        for i in range(start, stop, BUTTONS_PER_ROW):
+            action_row = MessageActionRowBuilder()
+            for j in range(i, min(i+BUTTONS_PER_ROW, stop)):
+                button_index = j - start
+                action_row = self._button_factory(
+                    custom_id= "stop" if j == self._position else f"pagination_page_{j}",  # pressing selected button will stop the paginator
+                    label=str(j+1),
+                    action_row_builder=action_row or MessageActionRowBuilder(),
+                    # disable_when_index_is=lambda p: p == j,
+                    style=ButtonStyle.PRIMARY if j == self._position else ButtonStyle.SECONDARY,
+                )
+            action_rows.append(action_row)
+        return action_rows
+
+
     
     def build_default_component(self, position=None) -> Optional[MessageActionRowBuilder]:
         if self._disable_paginator_when_one_site and len(self._pages) == 1:
             return None
-        return self._navigation_row(position)
+        return self._navigation_row(position)[0]
     
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
-        navi = self.build_default_component(position)
         action_rows = []
+        if self._number_button_navigation:
+            # number navigation
+            navi = self._number_button_navigation_row(position)
+        else:
+            # arrow navigation
+            navi = self._navigation_row(position)
         if navi:
-            action_rows.append(navi)
+            action_rows.extend(navi)
         action_row = None
-        if not self.compact and not self._disable_search_btn:
+        if (
+            not self.compact 
+            and not self._disable_search_btn
+            and not self._number_button_navigation
+        ):
             action_row = self._button_factory(
                 custom_id="search",
                 emoji="🔍"
@@ -879,10 +934,13 @@ class Paginator():
                 if (
                     isinstance(event, hikari.InteractionCreateEvent) 
                     and self.interaction_pred(event)
-                    and event.interaction.custom_id in [
-                        "first", "previous", "search",
-                        "stop", "next", "last"
-                    ]
+                    and (
+                        event.interaction.custom_id in [
+                            "first", "previous", "search",
+                            "stop", "next", "last", 
+                        ]
+                        or event.interaction.custom_id.startswith(NUMBER_BUTTON_PREFIX)
+                    )
                 ):
                     self.set_context(event=event)
 
@@ -948,7 +1006,8 @@ class Paginator():
             await self.ctx.defer()
             await self.search()
             return
-
+        elif id.startswith(NUMBER_BUTTON_PREFIX):
+            self._position = int(id.replace(NUMBER_BUTTON_PREFIX, ""))
         if last_position != self._position:
             await self._update_position()
 
