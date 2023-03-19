@@ -555,7 +555,10 @@ class Paginator():
                 stop = BUTTON_AMOUNT
             elif row_index > len(self._pages) // BUTTONS_PER_ROW - 2:
                 stop = len(self._pages)
-                start = ((stop - BUTTON_AMOUNT) // BUTTONS_PER_ROW + 1) * BUTTONS_PER_ROW
+                start = max(
+                    ((stop - BUTTON_AMOUNT) // BUTTONS_PER_ROW + 1) * BUTTONS_PER_ROW, 
+                    0
+                )
             else:
                 start = (row_index - 2) * BUTTONS_PER_ROW
                 stop = start + BUTTON_AMOUNT
