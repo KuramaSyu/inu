@@ -572,11 +572,12 @@ class InteractionContext(_InteractionContext):
             return proxy
         if not self.is_valid:
             # interaction is unvalid
+            message = await self.message()
             if update:
-                if not self._message:
+                if not message:
                     raise RuntimeError("Interaction run out of time. no message to edit")
                 self.log.debug("edit response with rest")
-                self._message = await self.app.rest.edit_message(self.channel_id, self._message.id, **kwargs)
+                self._message = await self.app.rest.edit_message(self.channel_id, message.id, **kwargs)
             else:
                 self.log.debug("create response with rest")
                 self._message = await self.app.rest.create_message(self.channel_id, **kwargs)
