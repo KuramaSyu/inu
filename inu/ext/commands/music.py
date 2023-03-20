@@ -1337,7 +1337,7 @@ async def query_auto_complete(
     converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"][:100] for r in records]
     if len(str(value)) > 3:
         converted_records.insert(0, str(value))
-    return converted_records
+    return converted_records[:23]
 
 
     
