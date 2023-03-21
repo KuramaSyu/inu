@@ -256,6 +256,7 @@ class Paginator():
         first_message_kwargs: Dict[str, Any] = {},
         custom_id_type: str | None = None,
         number_button_navigation: bool = False,
+        number_button_rows: int = 4,
     ):
         """
         ### A Paginator with many options
@@ -304,6 +305,8 @@ class Paginator():
         number_button_navigation: bool
             wether or not to use number buttons for navigation.
             Only used when len of pages below 20
+        number_button_rows: int = 4
+            How many button rows should be used if `number_button_navigation` is used
         Note:
         -----
             - the listener is always listening to 2 events:
@@ -342,13 +345,13 @@ class Paginator():
         self._additional_components = additional_components or []
         self._custom_id_type = custom_id_type
         self._number_button_navigation = number_button_navigation
+        self.button_rows = number_button_rows
 
         self.bot: lightbulb.BotApp
         self._ctx: InteractionContext | None = None
         self._channel_id: int | None = None
         self._author_id: int | None = None
 
-        
         self.listener = EventListener(self)
         self.log = getLogger(__name__, str(count))
         self.log.setLevel(LOGLEVEL)
@@ -444,7 +447,8 @@ class Paginator():
                 "a value for `instance`._components"
             ))
 
-    def interaction_pred(self, event: InteractionCreateEvent):
+    def interaction_pred(self, event: InteractionCreateEvent) -> bool:
+        """Checks user and message id of the event interaction"""
         if not isinstance((i := event.interaction), ComponentInteraction):
             self.log.debug("False interaction pred")
             return False
@@ -543,8 +547,8 @@ class Paginator():
             return None
 
         # calculate start and stop indices for the three cases
-        BUTTON_AMOUNT = 20
         BUTTONS_PER_ROW = 5
+        BUTTON_AMOUNT = self.button_rows * BUTTONS_PER_ROW
         if self._position < BUTTONS_PER_ROW * 2:
             start = 0
             stop = min(BUTTON_AMOUNT, len(self._pages))
