@@ -133,7 +133,7 @@ class AnimePaginator(Paginator):
     
     @listener(hikari.InteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
-        if not isinstance(event.interaction, ComponentInteraction):
+        if not self.interaction_pred(event):
             return
         custom_id = event.interaction.custom_id
         i = event.interaction
