@@ -35,16 +35,22 @@ plugin = lightbulb.Plugin("Voice commands")
     lightbulb.bot_has_role_permissions(hikari.Permissions.MOVE_MEMBERS),
     lightbulb.guild_only,
 )
+# @lightbulb.option(
+#     "member", 
+#     "a person who is in the current voice channel. normally you", 
+#     type=hikari.Member,
+#     default=None,
+# )
 @lightbulb.option(
-    "member", 
-    "a person who is in the current voice channel. normally you", 
-    type=hikari.Member,
+    "from-voice-channel", 
+    "the voice channel where move peaple of",
+    type=hikari.GuildVoiceChannel,
     default=None,
 )
 @lightbulb.option(
     "voice-channel", 
     "the voice channel where you want to move to",
-    autocomplete=True,
+    type=hikari.GuildVoiceChannel,
 )
 @lightbulb.command(
     "move-all", 
@@ -53,26 +59,28 @@ plugin = lightbulb.Plugin("Voice commands")
 )
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def move_all(ctx: Context):
-    member = ctx.options.member or ctx.member
-    assert member is not None
-    states = ctx.bot.cache.get_voice_states_view_for_guild(ctx.guild_id)
-    voice_state = [state for state in states.values() if state.user_id == member.id]
-
-    if not voice_state:
-        await ctx.respond(f"{member.display_name} needs to be in a voice channel")
+    target_channel = ctx.options["voice-channel"]
+    if not isinstance(target_channel, hikari.GuildVoiceChannel):
+        await ctx.respond(f"{target_channel} is not a voice channel", flags=hikari.MessageFlag.EPHEMERAL)
         return None
 
-    channel_id = voice_state[0].channel_id
-    user_ids = [state.user_id for state in states.values() if state.channel_id == channel_id]
-    channels = await ctx.bot.rest.fetch_guild_channels(ctx.guild_id)
-    try:
-        target_channel = [
-            ch for ch in channels 
-            if isinstance(ch, hikari.GuildVoiceChannel) 
-            and ch.id == int(ctx.options["voice-channel"].split("|")[0])
-        ][0]
-    except IndexError:
-        return await ctx.respond(f"No channel with the name `{ctx.options.voice_channel.strip()}`")
+    if not ctx.options["from-voice-channel"]:
+        member = ctx.member
+        states = ctx.bot.cache.get_voice_states_view_for_guild(ctx.guild_id)
+        voice_state = [state for state in states.values() if state.user_id == member.id]
+
+        if not voice_state:
+            await ctx.respond(f"{member.display_name} needs to be in a voice channel")
+            return None
+
+        channel_id = voice_state[0].channel_id
+        user_ids = [state.user_id for state in states.values() if state.channel_id == channel_id]
+    else:
+        user_ids = [
+            state.user_id for state in ctx.bot.cache.get_voice_states_view_for_guild(ctx.guild_id).values()
+            if state.channel_id == ctx.options["from-voice-channel"].id
+        ]
+    
     tasks = [
         asyncio.create_task(
             ctx.bot.rest.edit_member(
