@@ -156,7 +156,7 @@ class ShowPaginator(Paginator):
         show_json = await show_route.search(search)
         self._results = show_json["results"]
         await show_route.session.close()
-        embeds = [Embed(description="spaceholder") for _ in range(len(self._results) -1)]
+        embeds = [Embed(description="spaceholder") for _ in range(len(self._results))]
         if len(embeds) == 0:
             raise BotResponseError("Seems like your given TV show doesn't exist", ephemeral=True)
         return embeds
