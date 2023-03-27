@@ -113,7 +113,7 @@ class Human():
     def plural_(
         word_s: T_str_list,
         relation: Union[int, bool, float],
-        with_number: bool = False,
+        with_number: bool = True,
         plural_s: str | List[str] | None = None,
     ) -> T_str_list:
         """ 
