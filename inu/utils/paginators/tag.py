@@ -155,7 +155,11 @@ class TagHandler(StatelessPaginator):
                     )
                 # skip current page and replace it
             self._pages = pages # [*self._pages[:self._position], *pages, *self._pages[self._position+1:]]
-        self._pages[self._position]._fields = [field for field in self._pages[self._position]._fields or [] if not field.name == "Info"]
+        self._pages[self._position]._fields = [
+            field for field 
+            in self._pages[self._position]._fields or [] 
+            if not field.name == "Info"
+        ]
         self._pages[self._position].add_field(
             name="Info",
             value=str(self.tag or "what's the value? Thats actually a good question")
@@ -509,8 +513,8 @@ class TagHandler(StatelessPaginator):
                 MessageActionRowBuilder()
                 .add_select_menu(self._serialize_custom_id("tag_options"))
                 .add_option("set name", "set_name").add_to_menu()
+                .add_option("edit value", "set_value").add_to_menu()
                 .add_option("add to value", "extend_value").add_to_menu()
-                .add_option("set value", "set_value").add_to_menu()
                 .add_option("add an alias", "add_alias").add_to_menu()
                 .add_option("add a guild", "add_guild_id").add_to_menu()
                 .add_option("add an author", "add_author_id").add_to_menu()
