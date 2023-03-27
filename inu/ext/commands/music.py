@@ -1205,9 +1205,10 @@ async def queue(
     
     old_music_msg = music_messages.get(guild_id, None)
     if (
-        not (music_message := await ctx.message())
+        force_resend 
         or old_music_msg is None 
-        or force_resend 
+        or not (music_message := await ctx.message())
+        
     ):
         # send new message and override
         kwargs = {"update": True} if music_message else {}
