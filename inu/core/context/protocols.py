@@ -193,3 +193,30 @@ class InuContextProtocol(Protocol[T]):
             ``delete_after`` kwarg.
         """
         ...
+
+    @property
+    def id(self):
+        """used to Compare `InuContext` classes"""
+        ...
+    
+
+    async def auto_defer(self) -> None:
+        """
+        Waits the about 3 seconds - REST_SENDING_MARGIN and acks then the
+        interaction.
+
+        Note:
+        -----
+        this runs as task in the background
+        """
+        ...
+
+    @property
+    def is_hashable(self) -> bool:
+        """wether or not __hash__ will result in an error"""
+        return self.id is not None
+    
+    
+    async def delete_inital_response(self) -> None:
+        """deletes the initial response"""
+        ...
