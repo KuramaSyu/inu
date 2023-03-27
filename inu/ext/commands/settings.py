@@ -598,5 +598,5 @@ def load(inu: Inu):
     inu.add_plugin(plugin)
     global bot
     bot = inu
-    miru.load(bot)
+    miru.install(bot)
         
