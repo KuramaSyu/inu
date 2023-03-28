@@ -34,7 +34,8 @@ from utils import (
     TimezoneManager,
     SettingsManager,
     get_date_format_by_timedelta,
-    ts_round
+    ts_round,
+    Games
 )
 from core import (
     BotResponseError, 
@@ -72,9 +73,16 @@ async def maybe_raise_activity_tracking_disabled(guild_id: int):
     "The time you want to get stats for - e.g. 30 days, 3 hours",
     default="9 days"
 )
+@lightbulb.option(
+    "show-all", 
+    "Shows all apps, not only games (e.g. music, programming)", 
+    default="No", 
+    choices=["Yes", "No"]
+)
 @lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def week_activity(ctx: Context):
+    
     await maybe_raise_activity_tracking_disabled(ctx.guild_id)
     seconds = timeparse(ctx.options.time)
     if not seconds:
@@ -82,9 +90,11 @@ async def week_activity(ctx: Context):
             f"Well - I've no idea what you mean with `{ctx.options.time}`"
             f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
         )
+    show_all = ctx.options["show-all"] == "Yes"
     buffer, _ = await build_week_activity_chart(
         ctx.guild_id, 
-        timedelta(seconds=seconds)
+        timedelta(seconds=seconds),
+        remove=[*Games.MUSIC, *Games.PROGRAMMING, *Games.DUPLEX_GAMES] if not show_all else []
     )
     await ctx.respond(
         f"{ctx.get_guild().name}'s daily activity",  # type: ignore
@@ -145,9 +155,9 @@ async def current_games(ctx: Context):
     show_only_games = not options["show-all"]
     remove_apps: List[str] = []
     apps = [app.strip() for app in options.apps.split(",")] if options.apps else None
-    coding_apps = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow", "Code"]
-    music_apps = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
-    double_games = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
+    coding_apps = Games.PROGRAMMING
+    music_apps = Games.MUSIC
+    double_games = Games.DUPLEX_GAMES  # these will be removed from games too
     remove_apps.extend(double_games)
     if show_only_games:
         remove_apps.extend([*coding_apps, *music_apps])
@@ -508,10 +518,16 @@ async def build_activity_graph(
     return picture_buffer, df_summarized
 
 
-async def build_week_activity_chart(guild_id: int, since: timedelta) -> Tuple[BytesIO, Dataset]:
+async def build_week_activity_chart(
+        guild_id: int, 
+        since: timedelta,
+        remove: List[str],
+    ) -> Tuple[BytesIO, Dataset]:
+    log.debug(f"remove: {remove}")
     df: pd.DataFrame = await CurrentGamesManager.fetch_total_activity_per_day(
         guild_id,
-        datetime.now() - since
+        datetime.now() - since,
+        ignore_activities=remove,
     )
 
     #rolling_mean_days = 3
