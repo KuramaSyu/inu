@@ -364,7 +364,7 @@ class AnimePaginator(Paginator):
             hikari.Embed()
             .add_field("Type", anime.type_, inline=True)
             .add_field("Score", f"{anime.score}/10", inline=True)
-            .add_field("Episodes", f"{anime.episodes} {Human.plural_('episode', anime.episodes)}", inline=True)
+            .add_field("Episodes", f"{Human.plural_('episode', anime.episodes)}", inline=True)
             .add_field("Rank", f"{anime.rank} ", inline=True)
             .add_field("Popularity", popularity, inline=True)
             .add_field("Age", f"{anime.rating}", inline=True)
