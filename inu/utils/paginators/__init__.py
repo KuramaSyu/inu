@@ -7,3 +7,4 @@ from .akinator_ import AkinatorSI
 from .stateless import *
 from .show import ShowPaginator
 from .vocabulary import VocabularyPaginator
+from .autoroles import AutorolesView
