@@ -5,12 +5,14 @@ from abc import ABC, abstractmethod, abstractproperty
 import asyncio
 
 import hikari
+from hikari.impl import MessageActionRowBuilder
 from hikari import Member
 
 from core import Table, Inu
 
 autorole_table = Table("autoroles")
 AnyAutoroleEvent = TypeVar('AnyAutoroleEvent', bound="AutoroleEvent", covariant=True)
+
 
 class AutoroleEvent(ABC):
     
@@ -32,6 +34,11 @@ class AutoroleEvent(ABC):
     @property
     @abstractmethod
     def event_id(self) -> int:
+        ...
+    
+    @property
+    @abstractmethod
+    def event_name(self) -> str:
         ...
 
     @abstractmethod
@@ -57,6 +64,10 @@ class AutoroleAllEvent(AutoroleEvent):
     @property
     def event_id(self) -> int:
         return 0
+    
+    @property
+    def event_name(self) -> str:
+        return "Default Role"
 
     async def initial_call(self) -> None:
         """asigns the role to all members currently in the guild"""
@@ -94,16 +105,24 @@ class AutoroleAllEvent(AutoroleEvent):
 
 
 class AutoroleBuilder:
-    guild_id: int
-    duration: timedelta
-    role_id: int
-    event: Type[AutoroleEvent]
-
+    guild_id: int | None = None
+    duration: timedelta | None = None
+    role_id: int | None = None
+    event: Type[AutoroleEvent] | None = None
+    id: int | None = None
 
     def build(self) -> AutoroleEvent:
         if None in [self.guild_id, self.duration, self.role_id, self.event]:
             raise ValueError("None in [self.guild_id, self.duration, self.role_id, self.event]")
-        return self.event(guild_id=self.guild_id, duration=self.duration, role_id=self.role_id, bot=AutoroleManager.bot)
+        return self.event(
+            guild_id=self.guild_id, 
+            duration=self.duration, 
+            role_id=self.role_id, 
+            bot=AutoroleManager.bot
+        )  # type: ignore
+    
+    
+
     
 
 
