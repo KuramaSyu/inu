@@ -354,6 +354,8 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             pass
         # bot disconnected
         elif event.state.channel_id is None and not event.old_state is None:
+            ctx = last_context[event.state.guild_id]
+            await ctx.respond(components=build_music_components(event.state.guild_id, disable_all=True), update=True)
             await lavalink.destroy(event.guild_id)
             await lavalink.wait_for_connection_info_remove(event.guild_id)
 
@@ -1204,10 +1206,14 @@ async def queue(
     
     
     old_music_msg = music_messages.get(guild_id, None)
+    try:
+        music_message = await ctx.message()
+    except hikari.NotFoundError:
+        music_message = None
     if (
         force_resend 
         or old_music_msg is None 
-        or not (music_message := await ctx.message())
+        or not music_message
         
     ):
         # send new message and override
