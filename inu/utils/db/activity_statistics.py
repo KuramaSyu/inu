@@ -52,6 +52,11 @@ class GameCategories:
         ...
 
 
+class Games:
+    PROGRAMMING = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow", "Code"]
+    MUSIC = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
+    DUPLEX_GAMES = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
+
 
 class CurrentGamesManager:
 
@@ -279,7 +284,8 @@ class CurrentGamesManager:
     async def fetch_total_activity_per_day(
         cls, 
         guild_id: int, 
-        since: datetime
+        since: datetime,
+        ignore_activities: List[str] = [],
     ) -> Dataset["date": datetime, "hours": int]:
         """Returns the total amount of played hours per day since <`since`> from <`guild_id`>
 
@@ -289,14 +295,16 @@ class CurrentGamesManager:
         since: datetime
         """
 
-        sql = """
+        additional_filter = f"AND game != ALL($3)" if ignore_activities else ""
+        additional_args = [ignore_activities] if ignore_activities else []
+        sql = f"""
         SELECT date_trunc('day', timestamp)::TIMESTAMP WITH TIME ZONE AS datetime, SUM(user_amount)/6 AS hours\n
         FROM current_games\n
-        WHERE guild_id = $1 AND timestamp > $2\n
+        WHERE guild_id = $1 AND timestamp > $2 {additional_filter}\n
         GROUP BY datetime \n
         ORDER BY datetime ASC
         """
         table = Table("current_games")
         table.return_as_dataframe(True)
-        return await table.fetch(sql, guild_id, since)
+        return await table.fetch(sql, guild_id, since, *additional_args)
 
