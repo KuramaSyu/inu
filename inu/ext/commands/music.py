@@ -1213,7 +1213,7 @@ async def queue(
     old_music_msg = music_messages.get(guild_id, None)
     try:
         music_message = await ctx.message()
-    except hikari.NotFoundError:
+    except (hikari.NotFoundError, hikari.UnauthorizedError):
         music_message = None
     if (
         force_resend 
