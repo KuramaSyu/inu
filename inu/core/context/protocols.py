@@ -114,7 +114,7 @@ class InuContext(ABC):
     
     
     @abstractmethod
-    async def delete_inital_response(self) -> None:
+    async def delete_initial_response(self) -> None:
         ...
 
 
