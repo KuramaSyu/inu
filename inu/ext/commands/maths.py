@@ -415,7 +415,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
         )
     else:
         await ctx.respond(
-            f"You solved {tasks_done} {Human.plural_('task', tasks_done)}. The last answer was {Human.number(c.get_result(current_task))}"
+            f"You solved {Human.plural_('task', tasks_done)}. The last answer was {Human.number(c.get_result(current_task))}"
         )
     return tasks_done
 

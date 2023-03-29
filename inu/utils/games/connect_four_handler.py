@@ -805,7 +805,7 @@ class Connect4FallingRowsHandler(Connect4Handler):
             f"{self.game.board.marker} System\n\n"
         )
         if (turns := self.game.board.turns_until_drop) < 5:
-            legend += f"{self.orientation_number[turns-1]} {Human.plural_('turn', turns)} remaining"
+            legend += f"{self.orientation_number[turns-1]} {Human.plural_('turn', turns, with_number=False)} remaining"
         return legend
     
 

@@ -661,7 +661,7 @@ async def tag_info(ctx: Context):
     value = "\n".join(record['tag_value'])
     message = (
         f"**{record['tag_key']}**\n\n"
-        f"tag {Human.plural_('author', len(record['author_ids']))}: "
+        f"tag {Human.plural_('author', len(record['author_ids']), with_number=False)}: "
         f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
         f"tag guilds/channels: {Human.list_([guild_name_or_id(gid) for gid in record['guild_ids']], with_a_or_an=False)}\n"
         f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
