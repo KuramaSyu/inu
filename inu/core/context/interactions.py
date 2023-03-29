@@ -239,6 +239,23 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
             self.app.create_task(_cleanup(delete_after, proxy))
 
         return self._responses[-1]
+    
+    async def delete_initial_response(self, after: int | None = None):
+        """
+        deletes the initial response
+        
+        Args:
+        -----
+        after : int
+            wait <after> seconds until deleting
+        """
+        if after:
+            await asyncio.sleep(after)
+        if self.is_valid:
+            return await self.i.delete_initial_response()
+        else:
+            self.bot.rest.delete_message(self.interaction.message.id)
+
 
 class InteractionContext(_InteractionContext):
     """
@@ -374,23 +391,6 @@ class InteractionContext(_InteractionContext):
         self._defer_in_progress_event.set()
         self._responded = True
         self.log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
-
-    
-    async def delete_initial_response(self, after: int | None = None):
-        """
-        deletes the initial response
-        
-        Args:
-        -----
-        after : int
-            wait <after> seconds until deleting
-        """
-        if after:
-            await asyncio.sleep(after)
-        if self.is_valid:
-            return await self.i.delete_initial_response()
-        else:
-            self.bot.rest.delete_message(self.interaction.message.id)
 
     @property
     def i(self) -> hikari.ComponentInteraction:
