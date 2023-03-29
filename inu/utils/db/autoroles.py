@@ -38,7 +38,7 @@ class AutoroleEvent(ABC):
     
     @property
     @abstractmethod
-    def event_name(self) -> str:
+    def name(self) -> str:
         ...
 
     @abstractmethod
@@ -61,13 +61,8 @@ class AutoroleEvent(ABC):
         ...
 
 class AutoroleAllEvent(AutoroleEvent):
-    @property
-    def event_id(self) -> int:
-        return 0
-    
-    @property
-    def event_name(self) -> str:
-        return "Default Role"
+    name = "Default Role"
+    event_id = 0
 
     async def initial_call(self) -> None:
         """asigns the role to all members currently in the guild"""
@@ -105,9 +100,9 @@ class AutoroleAllEvent(AutoroleEvent):
 
 
 class AutoroleBuilder:
-    guild_id: int | None = None
+    guild: int | hikari.Guild | None = None
     duration: timedelta | None = None
-    role_id: int | None = None
+    role: int | hikari.Role | None = None
     event: Type[AutoroleEvent] | None = None
     id: int | None = None
 
@@ -120,6 +115,25 @@ class AutoroleBuilder:
             role_id=self.role_id, 
             bot=AutoroleManager.bot
         )  # type: ignore
+    
+    @property
+    def guild_id(self) -> int:
+        if isinstance(self.guild, hikari.Guild):
+            return self.guild.id
+        elif isinstance(self.guild, int):
+            return self.guild
+        else:
+            raise ValueError("self.guild is not a hikari.Guild or int")
+        
+    @property
+    def role_id(self) -> int:
+        if isinstance(self.role, hikari.Role):
+            return self.role.id
+        elif isinstance(self.role, int):
+            return self.role
+        else:
+            raise ValueError("self.role is not a hikari.Role or int")
+
     
     
 
