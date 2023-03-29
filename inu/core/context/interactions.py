@@ -52,7 +52,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
         return self.event.interaction.message
     
     async def message(self):
-        return self._event.interaction.message
+        return self.interaction.message
 
     @property
     def event(self) -> hikari.InteractionCreateEvent:
@@ -143,21 +143,22 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
                 pass
 
         if ephemeral:
+            # add ephemeral flag
             kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
 
         includes_ephemeral: Callable[[Union[hikari.MessageFlag, int],], bool] = (
             lambda flags: (hikari.MessageFlag.EPHEMERAL & flags) == hikari.MessageFlag.EPHEMERAL
         )
 
-
         kwargs.pop("reply", None)
         kwargs.pop("mentions_reply", None)
         kwargs.pop("nonce", None)
 
-        if self._default_ephemeral:
-            kwargs.setdefault("flags", hikari.MessageFlag.EPHEMERAL)
+        # if self._default_ephemeral:
+        #     kwargs.setdefault("flags", hikari.MessageFlag.EPHEMERAL)
 
         if self._responded:
+            # followup response
             kwargs.pop("response_type", None)
             if args and isinstance(args[0], hikari.ResponseType):
                 args = args[1:]
@@ -372,21 +373,9 @@ class InteractionContext(_InteractionContext):
         
         self._defer_in_progress_event.set()
         self._responded = True
-        # self._deferred = False
         self.log.debug(f"{self.__class__.__name__} ack for deferred {'update' if self._update else 'create'} done")
 
     
-    async def delete_inital_response(self) -> None:
-        await self.interaction.delete_initial_response()
-
-    @property
-    def i(self) -> hikari.ComponentInteraction:
-        return self._interaction
-
-    @property
-    def author(self) -> hikari.User:
-        return self.interaction.user
-
     async def delete_initial_response(self, after: int | None = None):
         """
         deletes the initial response
@@ -398,7 +387,19 @@ class InteractionContext(_InteractionContext):
         """
         if after:
             await asyncio.sleep(after)
-        return await self.i.delete_initial_response()
+        if self.is_valid:
+            return await self.i.delete_initial_response()
+        else:
+            self.bot.rest.delete_message(self.interaction.message.id)
+
+    @property
+    def i(self) -> hikari.ComponentInteraction:
+        return self._interaction
+
+    @property
+    def author(self) -> hikari.User:
+        return self.interaction.user
+
 
     async def delete_webhook_message(self, message: int | hikari.Message, after: int | None = None):
         """
@@ -480,11 +481,12 @@ class InteractionContext(_InteractionContext):
     def invoked_with(self) -> None:  #type: ignore
         return None
 
-    async def initial_response_create(self, **kwargs):
+    async def initial_response_create(self, **kwargs) -> hikari.Message:
         """Create initial response initially or deffered"""
         self._responded = True
+        message = self.interaction.message
         if self._deferred:
-            await self.interaction.edit_initial_response(
+            message = await self.interaction.edit_initial_response(
                 **kwargs
             )
         else:
@@ -495,6 +497,7 @@ class InteractionContext(_InteractionContext):
         # else:
 
         self._deferred = False
+        return message
 
         #asyncio.create_task(self._cache_initial_response())
     
@@ -514,7 +517,7 @@ class InteractionContext(_InteractionContext):
             await self._cache_initial_response()
         return self._message
 
-    async def initial_response_update(self, **kwargs) -> None:
+    async def edit_inital_response(self, **kwargs) -> hikari.Message:
         """update the initial response"""
         self._responded = True
         if not self._deferred:
@@ -522,8 +525,9 @@ class InteractionContext(_InteractionContext):
                 response_type=ResponseType.MESSAGE_UPDATE, 
                 **kwargs
             )
+            return self.interaction.message
         else:
-            await self.i.edit_initial_response(
+            return await self.i.edit_initial_response(
                 **kwargs
             )
         
@@ -540,21 +544,27 @@ class InteractionContext(_InteractionContext):
         """
         self.log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
         await self._maybe_wait_defer_complete()
-        if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  # maybe move content from arg to kwarg
+
+        if not kwargs.get("content") and len(args) > 0 and isinstance(args[0], str):  
+            # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
+        
         if self.is_valid and self._deferred:  
             # interaction deferred
-            self.log.debug("wait for defer complete")
-            if not update:
-                self.log.debug("deferred message create")
-                await self.initial_response_create(**kwargs)
-            else:
+            message: hikari.Message
+
+            if update:
                 self.log.debug("deferred message update")
-                await self.initial_response_update(**kwargs)
+                message = await self.edit_inital_response(**kwargs)
+            else:
+                self.log.debug("deferred message create")
+                message = await self.initial_response_create(**kwargs)
+
             async def _editor(
                 rp: ResponseProxy, *args_: Any, inter: hikari.CommandInteraction, **kwargs_: Any
             ) -> hikari.Message:
+                """editor for initial responses"""
                 await inter.edit_initial_response(*args_, **kwargs_)
                 return await rp.message()
 
@@ -563,6 +573,7 @@ class InteractionContext(_InteractionContext):
             )
 
             proxy = ResponseProxy(
+                message=message,
                 fetcher=self._interaction.fetch_initial_response,
                 editor=functools.partial(_editor, inter=self._interaction)
                 if includes_ephemeral(kwargs.get("flags", hikari.MessageFlag.NONE))
@@ -570,9 +581,10 @@ class InteractionContext(_InteractionContext):
             )
             self.responses.append(proxy)
             return proxy
+        
         if not self.is_valid:
             # interaction is unvalid
-            message = await (self.previous_response).message()
+            message = await (self.last_response).message()
             if update:
                 if not message:
                     raise RuntimeError("Interaction run out of time. no message to edit")
@@ -587,7 +599,7 @@ class InteractionContext(_InteractionContext):
             self.responses.append(proxy)
             return proxy
 
-        old_responded = self._responded
+        # interaction is valid and not deferred
         self.log.debug("call respond")
         ret_val = await super().respond(*args, update=update, **kwargs)
         # first response was created
@@ -603,21 +615,61 @@ class CommandInteractionContext(InteractionContext):
         super().__init__(**kwargs)
         
 
-    # async def initial_response_create(self, **kwargs):
-    #     """Create initial response initially or deffered"""
-    #     self._responded = True
-    #     if self._deferred:
-    #         await self.interaction.edit_initial_response(
-    #             **kwargs
-    #         )
-    #     else:
-    #         await self.interaction.create_initial_response(
-    #             response_type=ResponseType.MESSAGE_CREATE, 
-    #             **kwargs
-    #         )
-    #     self._deferred = False
+    async def initial_response_create(self, **kwargs) -> hikari.Message:
+        """Create initial response initially or deffered"""
+        self._responded = True
+        message: hikari.Message
+
+        if self._deferred:
+            message = await self.interaction.edit_initial_response(
+                **kwargs
+            )
+        else:
+            await self.interaction.create_initial_response(
+                response_type=ResponseType.MESSAGE_CREATE, 
+                **kwargs
+            )
+            message = await self.interaction.fetch_initial_response()
+
+        self._initial_response = message
+        self._deferred = False
+        return message
+
+
+    async def edit_inital_response(self, **kwargs) -> hikari.Message:
+        """update the initial response"""
+        hikari.CommandInteraction
+        self._responded = True
+        message: hikari.Message
+
+        if not self._deferred:
+            await self.i.create_initial_response(
+                response_type=ResponseType.MESSAGE_UPDATE, 
+                **kwargs
+            )
+            message =  await self.interaction.fetch_initial_response()
+        else:
+            message = await self.i.edit_initial_response(
+                **kwargs
+            )
+        self._initial_response = message
+        return message
     
-        #asyncio.create_task(self._cache_initial_response())
+    async def delete_initial_response(self, after: int | None = None):
+        """
+        deletes the initial response
+        
+        Args:
+        -----
+        after : int
+            wait <after> seconds until deleting
+        """
+        if after:
+            await asyncio.sleep(after)
+        if self.is_valid:
+            return await self.i.delete_initial_response()
+        else:
+            self.bot.rest.delete_message(self._initial_response.id)
     
     @property
     def interaction(self) -> hikari.CommandInteraction:
