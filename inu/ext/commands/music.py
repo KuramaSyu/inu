@@ -132,6 +132,9 @@ class Interactive:
         menu = (
             MessageActionRowBuilder()
             .add_select_menu(f"query_menu-{id_}")
+            .set_placeholder("Choose a song")
+            .set_max_values(1)
+            .set_min_values(1)
         )
         embeds: List[Embed] = []
         # building selection menu
@@ -143,20 +146,21 @@ class Interactive:
             query_print = f"{x+1} | {track.info.title}"
             if len(query_print) > 100:
                 query_print = query_print[:100]
-            menu.add_option(query_print, str(x)).add_to_menu()
+            menu.add_option(track.info.title[:100], str(x)).add_to_menu()
             embeds.append(
                 Embed(
                     title=f"{x+1} | {track.info.title}"[:100],
                 ).set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri))
             )
         menu = menu.add_to_container()
-        msg_proxy = await ctx.respond(f"Choose the song which should be added", component=menu)
+
+        msg_proxy = await ctx.respond(component=menu)
         menu_msg = await msg_proxy.message()
         event = None
         try:
             event = await self.bot.wait_for(
                 hikari.InteractionCreateEvent,
-                30,
+                60,
                 lambda e: (
                     isinstance(e.interaction, ComponentInteraction) 
                     and e.interaction.user.id == ctx.author.id
@@ -168,6 +172,7 @@ class Interactive:
                 return None, None  # to avoid problems with typecheckers
             track_num = int(event.interaction.values[0])
         except asyncio.TimeoutError as e:
+            await msg_proxy.delete()
             raise e
         # await event.interaction.create_initial_response(
         #     ResponseType.MESSAGE_UPDATE,
@@ -675,7 +680,6 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         if event:
             # asked with menu - update context
             ictx = get_context(event=event)
-        log.debug(ictx)
         await load_track(ictx, track, be_quiet)
 
 
@@ -849,7 +853,6 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Tupl
             track, event = await interactive.ask_for_song(ctx, query, query_information=query_information)
             if event is None:
                 # no interaction was done - delete selection menu
-                await ctx.delete_last_response()
                 return None, None
         except asyncio.TimeoutError as e:
             raise e
