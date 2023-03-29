@@ -19,7 +19,8 @@ from utils import (
     Colors, 
     Human, 
     Paginator, 
-    crumble
+    crumble,
+    AutorolesView,
 )
 from core import (
     BotResponseError, 
@@ -39,18 +40,9 @@ bot: Inu
 @lightbulb.command("autoroles", "a command for editing autoroles")
 @lightbulb.implements(commands.SlashCommand)
 async def autoroles(ctx: context.Context):
-    bot: Inu = ctx.bot
-    answers, interaction, _ = await bot.shortcuts.ask_with_modal(
-        "Tag", 
-        ["Name:", "Value:"], 
-        interaction=ctx.interaction,
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
-        placeholder_s=[None, "What you will see, when you do /tag get <name>"],
-        is_required_s=[True, None],
-        pre_value_s=[None, "Well idc"]
-
-    )
-    await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
+    view = AutorolesView(timeout=10*60)
+    msg = await ctx.respond(components=view)
+    await view.start(await msg.message())
 
 
 def load(inu: lightbulb.BotApp):
