@@ -5,6 +5,7 @@ from typing import *
 from cachetools import cached, TTLCache
 from core import getLogger
 from . import InuContext
+from lightbulb import ResponseProxy
 
 log = getLogger(__name__)
 
@@ -48,8 +49,13 @@ class ContextEqualTrait:
 
 
 class InuContextBase(ContextEqualTrait):
+    _responses: List[ResponseProxy] = []
     def __hash__(self) -> int:
         return self.id
+    
+    @property
+    def last_response(self) -> Optional[ResponseProxy]:
+        return self._responses[-1] if self._responses else None
 
     @property
     def is_hashable(self) -> bool:
