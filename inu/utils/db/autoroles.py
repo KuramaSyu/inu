@@ -63,6 +63,7 @@ class AutoroleEvent(ABC):
 class AutoroleAllEvent(AutoroleEvent):
     name = "Default Role"
     event_id = 0
+    db_event_id = None
 
     async def initial_call(self) -> None:
         """asigns the role to all members currently in the guild"""
@@ -82,14 +83,15 @@ class AutoroleAllEvent(AutoroleEvent):
 
     async def add_to_db(self):
         """adds the autorole to the database"""
-        await autorole_table.insert(
-            values={
-                "guild_id": self.guild_id,
-                "duration": self.duration,
-                "role_id": self.role_id,
-                "event_id": self.event_id
-            }
-        )
+        if self.db_event_id is None:
+            await autorole_table.insert(
+                values={
+                    "guild_id": self.guild_id,
+                    "duration": self.duration,
+                    "role_id": self.role_id,
+                    "event_id": self.event_id
+                }
+            )
         
 
     async def remove_from_db(self):
@@ -100,10 +102,11 @@ class AutoroleAllEvent(AutoroleEvent):
 
 
 class AutoroleBuilder:
-    guild: int | hikari.Guild | None = None
-    duration: timedelta | None = None
-    role: int | hikari.Role | None = None
-    event: Type[AutoroleEvent] | None = None
+    _guild: int | hikari.Guild | None = None
+    _duration: timedelta | None = None
+    _role: int | hikari.Role | None = None
+    _event: Type[AutoroleEvent] | None = None
+    _changed: bool = False
     id: int | None = None
 
     def build(self) -> AutoroleEvent:
@@ -115,6 +118,67 @@ class AutoroleBuilder:
             role_id=self.role_id, 
             bot=AutoroleManager.bot
         )  # type: ignore
+    
+    def _mark_as_changed(self) -> None:
+        if self.id:
+            self._changed = True
+
+
+    @property
+    def guild(self) -> int | hikari.Guild | None:
+        return self._guild
+    
+    @guild.setter
+    def guild(self, value: int | hikari.Guild | None) -> None:
+        self._mark_as_changed()
+        self._guild = value
+
+    @property
+    def duration(self) -> timedelta | None:
+        return self._duration
+    
+    @duration.setter
+    def duration(self, value: timedelta | None) -> None:
+        self._mark_as_changed()
+        self._duration = value
+
+    @property
+    def role(self) -> int | hikari.Role | None:
+        return self._role
+    
+    @role.setter
+    def role(self, value: int | hikari.Role | None) -> None:
+        self._mark_as_changed()
+        self._role = value
+
+    @property
+    def event(self) -> Type[AutoroleEvent] | None:
+        return self._event
+    
+    @event.setter
+    def event(self, value: Type[AutoroleEvent] | None) -> None:
+        self._mark_as_changed()
+        self._event = value
+
+    async def save(self) -> None:
+        if self._changed:
+            event: AutoroleEvent = self.build()
+            ...
+    def from_db(self, record: dict) -> "AutoroleBuilder":
+        self.guild = record["guild_id"]
+        self.duration = record["duration"]
+        self.role = record["role_id"]
+        self.event = AutoroleManager.id_event_map[record["event_id"]]
+        self.id = record["id"]
+        return self
+
+    def from_event(self, event: AutoroleEvent) -> "AutoroleBuilder":
+        self.guild = event.guild_id
+        self.duration = event.duration
+        self.role = event.role_id
+        self.event = event
+        self.id = event.id
+        return self
     
     @property
     def guild_id(self) -> int:
@@ -156,7 +220,7 @@ class AutoroleManager():
     async def fetch_events(
         cls,
         guild_id: int,
-        event: Type[AutoroleEvent],
+        event: Type[AutoroleEvent] | None = None,
     ):
         """fetches all autoroles with the given `guild_id` and `event_id`
         
@@ -164,7 +228,7 @@ class AutoroleManager():
         -----
         `guild_id : int`
             the guild id of the autoroles to fetch
-        `event : Type[AutoroleEvent]`
+        `event : Type[AutoroleEvent] | None`
             the event type of the autoroles to fetch
         
         Returns:
@@ -173,7 +237,10 @@ class AutoroleManager():
             a list of all autoroles with the given `guild_id` and `event_id`
         """
         event_id = event.event_id
-        records = await cls.table.select(where={"guild_id": guild_id, "event_id": event_id})
+        where = {"guild_id": guild_id}
+        if event_id is not None:
+            where["event_id"] = event_id
+        records = await cls.table.select(where=where)
         events: List[AutoroleEvent] = []
         for record in records:
             event = cls._build_event(record)
