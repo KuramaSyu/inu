@@ -1,46 +1,23 @@
 from typing import *
+from datetime import datetime, timedelta
+import asyncio
 
 from tabulate import tabulate
 import hikari
 from hikari import ComponentInteraction, ButtonStyle
 from hikari.impl import MessageActionRowBuilder
 import miru
+from pytimeparse.timeparse import timeparse
+from humanize import naturaldelta
 
 from . import Paginator
-from ..db import AutoroleManager, AutoroleBuilder
+from ..db import AutoroleManager, AutoroleBuilder, AutoroleEvent
+
+from core import getLogger, InuContext, BotResponseError, Inu
+
+log = getLogger(__name__)
 
 
-class AutorolesPaginator(Paginator):
-    table_headers = ["ID", "Role", "Event", "duration"]
-    table: List[AutoroleBuilder] = []
-    selected_row_index = 0
-
-    def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
-        rows = []
-        rows.append(
-            MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "autoroles_up").set_label("⬆️").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "autoroles_down").set_label("⬇️").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "autoroles_add").set_label("➕").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "autoroles_remove").set_label("➖").add_to_container()
-        )
-        rows.append(
-            MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "autoroles_set_role").set_label("📌 Set Role").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "autoroles_set_event").set_label("📅 Set Event").add_to_container()
-            .add_button(ButtonStyle.SECONDARY, "autoroles_set_duration").set_label("🕒 Set Duration").add_to_container()
-        )
-        return rows
-
-    async def render(self):
-        ...
-
-    async def _update_position(self, interaction: ComponentInteraction | None = None,):
-        """
-        replaces embed page first with a more detailed one, before sending the message
-        """
-        await self.render()
-        await super()._update_position(interaction)
 
 class RoleSelectView(miru.View):
     author_id: int
@@ -54,12 +31,39 @@ class RoleSelectView(miru.View):
     @miru.role_select(custom_id="role_select", placeholder="Select a role")
     async def role_select(self, select: miru.RoleSelect, ctx: miru.ViewContext):
         self.roles = select.values
+        log.debug(self.roles)
+        self.stop()
+
+    async def view_check(self, context: miru.ViewContext) -> bool:
+        return context.message.id == self.message.id and context.author.id == self.author_id
+    
+
+
+class EventSelectView(miru.View):
+    author_id: int
+    event: Type[AutoroleEvent]
+
+    def __init__(self, author_id: int) -> None:
+        super().__init__(timeout=15*10, autodefer=True)
+        self.author_id = author_id
+        self.event_id = 0
+
+    @miru.text_select(
+            custom_id="event_select", 
+            placeholder="Select an event", 
+            options=[miru.SelectOption(event.name, str(event.event_id)) for event in AutoroleManager.id_event_map.values()],
+    )
+    async def event_select(self, select: miru.TextSelect, ctx: miru.ViewContext):
+        self.event = AutoroleManager.id_event_map[int(select.values[0])]
+        self.stop()
 
     async def view_check(self, context: miru.ViewContext) -> bool:
         return context.message.id == self.message.id and context.author.id == self.author_id
 
+
+
 class AutorolesView(miru.View):
-    table_headers = ["", "ID", "Role", "Event", "duration"]
+    table_headers = ["ID", "Role", "Event", "duration"]
     table: List[AutoroleBuilder] = []
     selected_row_index = 0
 
@@ -83,15 +87,59 @@ class AutorolesView(miru.View):
         self.table.pop(self.selected_row_index)
         await self.render_table()
 
-    @miru.button(emoji="📌", label="Set Role", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_role")
+    @miru.button(emoji="📌", label="Set Role", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_role", row=2)
     async def button_set_role(self, button: miru.Button, ctx: miru.ViewContext):
         role_select = RoleSelectView(ctx.author.id)
-        msg = await ctx.respond(components=role_select)
+        msg = await ctx.edit_response(components=role_select)
         await role_select.start(await msg.retrieve_message())
         await role_select.wait()
+        #await msg.delete()
+        log.debug(role_select.roles)
         if not role_select.roles:
             return
-        self.table[self.selected_row_index].role_id = role_select.roles[0].id
+        await self.start(await msg.retrieve_message())
+        self.table[self.selected_row_index].role = role_select.roles[0]
+        log.debug(self.table[self.selected_row_index].role_id)
+        await self.render_table()
+
+    @miru.button(emoji="🕒", label="Set Duration", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_duration", row=2)
+    async def button_set_duration(self, button: miru.Button, ctx: miru.ViewContext):
+        bot: Inu = ctx.bot
+        answer, interaction, event = None, None, None
+        try:
+            answer, interaction, event = await bot.shortcuts.ask_with_modal(
+                "Duration",
+                "Duration:",
+                ctx.interaction,
+                placeholder_s="2 weeks 5 days"
+            )
+        except asyncio.TimeoutError:
+            return
+        if not answer:
+            return
+        #await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE, "test")
+        duration = timeparse(answer)
+        ctx._interaction = interaction
+        if not duration:
+            await ctx.respond("Invalid duration. Use something like 3 weeks or 20 days", flags=hikari.MessageFlag.EPHEMERAL)
+            return
+        self.table[self.selected_row_index].duration = timedelta(seconds=duration)
+        await self.render_table()
+
+
+    @miru.button(emoji="📅", label="Set Event", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_event", row=2)
+    async def button_set_event(self, button: miru.Button, ctx: miru.ViewContext):
+        event_select = EventSelectView(ctx.author.id)
+        msg = await ctx.edit_response(components=event_select)
+        await event_select.start(await msg.retrieve_message())
+        await event_select.wait()
+        log.debug(event_select.event)
+        if not event_select.event:
+            return
+        await self.start(await msg.retrieve_message())
+        self.table[self.selected_row_index].event = event_select.event
+        log.debug(self.table[self.selected_row_index].event)
+        await self.render_table()
 
 
 
@@ -100,17 +148,17 @@ class AutorolesView(miru.View):
         DEFAULT_NONE_VALUE = "---"
         table = []
         for index, row in enumerate(self.table):
-            row_marker = " " if index != self.selected_row_index else ">"
+            row_marker = "" if index != self.selected_row_index else ">"
             table.append([
-                row_marker,
-                row.id or DEFAULT_NONE_VALUE,
-                row.role_id or DEFAULT_NONE_VALUE,
-                row.event or DEFAULT_NONE_VALUE,
-                row.duration or DEFAULT_NONE_VALUE,
+                row_marker + str(row.id or DEFAULT_NONE_VALUE),
+                str(row.role) or DEFAULT_NONE_VALUE,
+                (None if not row.event else row.event.name) or DEFAULT_NONE_VALUE,
+                (naturaldelta(row.duration) if row.duration else None) or DEFAULT_NONE_VALUE,
             ])
-        rendered_table = tabulate(table, headers=self.table_headers, tablefmt="rounded_outline")
+        rendered_table = tabulate(table, headers=self.table_headers, tablefmt="simple_grid", maxcolwidths=[4, 15, 15, 10])
         embed = hikari.Embed(
             title="Autoroles",
             description=f"```{rendered_table}```"
         )
-        await self.last_context.respond(embed=embed) 
+        await self.last_context.edit_response(embed=embed, components=self)
+        #await self.last_context.respond(embed=embed) 
