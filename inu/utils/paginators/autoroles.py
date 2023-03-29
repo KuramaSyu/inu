@@ -67,6 +67,11 @@ class AutorolesView(miru.View):
     table: List[AutoroleBuilder] = []
     selected_row_index = 0
 
+    async def start(self, message: hikari.Message):
+        self.table = await AutoroleManager.fetch_events(message.guild_id, None)
+        await self.render_table()
+        await super().start(message)
+
     @miru.button(label="⬆️", style=ButtonStyle.SECONDARY, custom_id="autoroles_up")
     async def button_up(self, button: miru.Button, ctx: miru.ViewContext):
         self.selected_row_index = max(0, self.selected_row_index - 1)
