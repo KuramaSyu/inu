@@ -1346,10 +1346,10 @@ async def query_auto_complete(
         records = new_records
         records.sort(key=lambda r: r["ratio"], reverse=True)
 
-    converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"][:100] for r in records]
+    converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"] for r in records]
     if len(str(value)) > 3:
         converted_records.insert(0, str(value))
-    return converted_records[:23]
+    return [r[:100] for r in converted_records[:23]]
 
 
     
