@@ -579,7 +579,7 @@ class InteractionContext(_InteractionContext):
                 if includes_ephemeral(kwargs.get("flags", hikari.MessageFlag.NONE))
                 else None,
             )
-            self.responses.append(proxy)
+            self._responses.append(proxy)
             return proxy
         
         if not self.is_valid:
@@ -596,7 +596,7 @@ class InteractionContext(_InteractionContext):
             proxy = ResponseProxy(
                 self._message,
             )
-            self.responses.append(proxy)
+            self._responses.append(proxy)
             return proxy
 
         # interaction is valid and not deferred
@@ -669,7 +669,7 @@ class CommandInteractionContext(InteractionContext):
         if self.is_valid:
             return await self.i.delete_initial_response()
         else:
-            self.bot.rest.delete_message(self._initial_response.id)
+            await self.bot.rest.delete_message(self._initial_response.id)
     
     @property
     def interaction(self) -> hikari.CommandInteraction:
