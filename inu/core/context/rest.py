@@ -174,7 +174,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         return cls(app=event.app, event=event)
     
 
-    async def delete_inital_response(self) -> None:
+    async def delete_initial_response(self) -> None:
         await self.original_message.delete()
 
 
