@@ -1212,13 +1212,13 @@ async def queue(
     
     old_music_msg = music_messages.get(guild_id, None)
     try:
-        music_message = await ctx.message()
+        music_message = await ctx.last_response.message()
     except (hikari.NotFoundError, hikari.UnauthorizedError):
         music_message = None
     if (
         force_resend 
         or old_music_msg is None 
-        or not music_message
+        or music_message is None
         
     ):
         # send new message and override
