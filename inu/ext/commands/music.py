@@ -1182,17 +1182,22 @@ async def queue(
         music.d.log.warning("no requester of current track - returning")
 
     requester = music.bot.cache.get_member(guild_id, node.queue[0].requester)
-    current_duration = str(datetime.timedelta(milliseconds=int(int(track.info.length))))
+    music_over_in = (
+        datetime.datetime.now() 
+        + datetime.timedelta(
+            milliseconds=int(int(track.info.length))
+        )
+    ).timestamp()
 
     # create embed
     music_embed = hikari.Embed(
         colour=hikari.Color.from_rgb(71, 89, 211)
     )
-    music_embed.add_field(name = "Playing Song:", value=f'[{track.info.title}]({track.info.uri})', inline=True)#{"🔂 " if player.repeat else ""}
+    music_embed.add_field(name = "Playing:", value=f'[{track.info.title}]({track.info.uri})', inline=True)#{"🔂 " if player.repeat else ""}
     music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
-    music_embed.add_field(name="Added from:", value=f'{requester.display_name}' , inline=True)
-    music_embed.add_field(name = "Duration:", value=f'{current_duration}', inline=False)
-    music_embed.add_field(name = "——————————Queue—————————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
+    music_embed.add_field(name = "Added from:", value=f'{requester.display_name}' , inline=True)
+    music_embed.add_field(name = "Over in:", value=f'<t:{music_over_in:.0f}:R>', inline=False)
+    music_embed.add_field(name = "—————————————Queue——————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
     kwarg = {"text": f"{queue or '/'}"}
     if create_footer_info:
         last_track: lavasnek_rs.TrackQueue = node.queue[-1]
@@ -1264,7 +1269,8 @@ async def queue(
             # resend message
             if timeout == 0:
                 log.debug("send new")
-                await ctx.delete_inital_response()
+                #await ctx.delete_inital_response()
+                await music_message.delete()
                 msg = await ctx.respond(
                     embed=music_embed, 
                     content=None,
