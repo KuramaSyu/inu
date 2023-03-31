@@ -1212,15 +1212,21 @@ async def queue(
     
     old_music_msg = music_messages.get(guild_id, None)
     try:
-        music_message = await ctx.last_response.message()
+        resp = ctx.last_response
+        if not resp:
+            music_message = None
+        else:
+            music_message = await resp.message()
     except (hikari.NotFoundError, hikari.UnauthorizedError):
         music_message = None
+    
     if (
         force_resend 
         or old_music_msg is None 
         or music_message is None
         
     ):
+        log.debug(f"{force_resend=}; {old_music_msg=}; {music_message=};")
         # send new message and override
         kwargs = {"update": True} if music_message else {}
         log.debug(f"send new message with {kwargs=}")
