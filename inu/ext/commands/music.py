@@ -598,7 +598,7 @@ async def pl(ctx: context.Context) -> None:
 
 
 
-async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queue: bool = False) -> bool:
+async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queue: bool = False) -> Tuple[bool, InuContext]:
     """
     - Will search the query
     - if more than one track found, ask which track to use
@@ -697,7 +697,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
             force_resend=True,
             create_footer_info=True,
         )
-    return True
+    return True, ictx
 
 
 
@@ -741,32 +741,35 @@ async def position(ctx: SlashContext) -> None:
 async def play_at_pos(ctx: Context, pos: int, query: str):
     # will be called from event track start
     #ctx = InteractionContext(ctx.event, ctx.app, defer=True)
-    ctx: InuContext = get_context(ctx.event)
-    await ctx.defer()
-    node = await lavalink.get_guild_node(ctx.guild_id)
-    if not node:
-        prevent_to_queue = True
-    else:
-        prevent_to_queue = len(node.queue) == 0
-    song_added = await _play(ctx, query, prevent_to_queue=True)
-    if not song_added:
-        return
-    node = await lavalink.get_guild_node(ctx.guild_id)
-    if node is None or not ctx.guild_id:
-        return
-    node_queue = node.queue
-    track = node_queue.pop(-1)
-    node_queue.insert(pos, track)
-    node.queue = node_queue
-    await lavalink.set_guild_node(ctx.guild_id, node)
-    if not prevent_to_queue:
-        await queue(
-            ctx, 
-            ctx.guild_id, 
-            force_resend=True, 
-            create_footer_info=True,
-            custom_info=f"{track.track.info.title} added by {ctx.author.username}"
-        )
+    try:
+        ctx: InuContext = get_context(ctx.event)
+        await ctx.defer()
+        node = await lavalink.get_guild_node(ctx.guild_id)
+        if not node:
+            prevent_to_queue = False
+        else:
+            prevent_to_queue = False
+        song_added, ctx = await _play(ctx, query, prevent_to_queue=True)
+        if not song_added:
+            return
+        node = await lavalink.get_guild_node(ctx.guild_id)
+        if node is None or not ctx.guild_id:
+            return
+        node_queue = node.queue
+        track = node_queue.pop(-1)
+        node_queue.insert(pos, track)
+        node.queue = node_queue
+        await lavalink.set_guild_node(ctx.guild_id, node)
+        if not prevent_to_queue:
+            await queue(
+                ctx, 
+                ctx.guild_id, 
+                force_resend=True, 
+                create_footer_info=True,
+                custom_info=f"{track.track.info.title} added by {ctx.author.username}"
+            )
+    except Exception as e:
+        log.error(traceback.format_exc())
 
 
 
