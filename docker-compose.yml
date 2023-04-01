@@ -19,14 +19,12 @@ services:
     restart: "unless-stopped"
   lava:
     container_name: lavalink
-    build: ./dependencies/fredboat/
     restart: "unless-stopped"
-    # image: fredboat/lavalink:dev
-    # configs:
-    # - source: my_config
-    #   target: /opt/Lavalink/application.yml
-  # lava:
-  #   build: dependencies/music/
+    image: fredboat/lavalink:master
+    volumes:
+      - ./dependencies/fredboat/application.yml:/opt/Lavalink/application.yml
+      #- target: /opt/Lavalink/application.yml
+      # build: ./dependencies/fredboat/
 configs:
   my_config:
     file: dependencies/fredboat/application.yml
