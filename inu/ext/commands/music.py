@@ -62,7 +62,7 @@ class EventHandler:
             await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
             if len(node.queue) in [1, 0]:
                 return  # first element added with /play -> play command will call queue    
-            asyncio.create_task(queue(guild_id=event.guild_id, create_footer_info=False))
+            await queue(guild_id=event.guild_id, create_footer_info=False)
         except Exception:
             log.error(traceback.format_exc())
 
@@ -1151,6 +1151,7 @@ async def queue(
     else:
         ctx = last_context[guild_id]
     if not ctx.guild_id:
+        log.debug("guild_id is None in queue command;")
         return
 
     node = await lavalink.get_guild_node(guild_id)
@@ -1267,21 +1268,23 @@ async def queue(
     
     old_music_msg = music_messages.get(guild_id, None)
     try:
-        resp = ctx.last_response
+        log.debug(f"{ctx._responses=}")
+        resp = await ctx.message()
         if not resp:
             music_message = None
         else:
-            music_message = await resp.message()
+            music_message = resp
     except (hikari.NotFoundError, hikari.UnauthorizedError):
         music_message = None
     
     if (
         force_resend 
-        or old_music_msg is None    
+        or old_music_msg is None   
+        or music_message is None 
     ):
         log.debug(f"{force_resend=}; {old_music_msg=}; {music_message=};")
         # send new message and override
-        kwargs = {"update": True} if music_message and not force_resend else {}
+        kwargs = {"update": True} if music_message else {}
         log.debug(f"send new message with {kwargs=}")
         msg = await ctx.respond(
             embed=music_embed, 
