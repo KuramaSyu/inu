@@ -262,7 +262,7 @@ class Human():
         return out
 
     @staticmethod
-    def short_text(text: Optional[str], max_lengh: int) -> str:
+    def short_text(text: Optional[str], max_lengh: int, suffix: str = " [...]") -> str:
         """
         Returns:
         --------
@@ -271,7 +271,6 @@ class Human():
         text = str(text)
         if len(text) <= max_lengh:
             return text
-        suffix = " [...]"
         short_text = ""
         for word in WordIterator(text):
             if len(short_text) + len(word) + len(suffix) < max_lengh:
