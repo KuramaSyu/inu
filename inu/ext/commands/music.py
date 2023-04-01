@@ -361,7 +361,10 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
         elif event.state.channel_id is None and not event.old_state is None:
             ctx = last_context[event.state.guild_id]
             music_message = music_messages[event.state.guild_id]
-            await music_message.edit(components=await build_music_components(event.state.guild_id, disable_all=True))
+            try:
+                await music_message.edit(components=await build_music_components(event.state.guild_id, disable_all=True))
+            except hikari.NotFoundError:
+                log.error(traceback.format_exc())
             # await ctx.respond(components=await build_music_components(event.state.guild_id, disable_all=True), update=True)
             await lavalink.destroy(event.guild_id)
             await lavalink.wait_for_connection_info_remove(event.guild_id)
@@ -642,19 +645,22 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         await _join(ictx)
     await ictx.defer()
     node = await lavalink.get_guild_node(ctx.guild_id)
+
     if query.startswith(HISTORY_PREFIX):
+        # -> history -> get url from history
         query = query.replace(HISTORY_PREFIX, "")
         history = await MusicHistoryHandler.cached_get(ctx.guild_id)
         if (alt_query:=[t["url"] for t in history if query in t["title"]]):
             query=alt_query[0]
 
     if query.startswith(MEDIA_TAG_PREFIX):
+        # -> media tag -> get url from tag
         query = query.replace(MEDIA_TAG_PREFIX, "")
         tag = await get_tag(ictx, query)
         query = tag["tag_value"][0]
 
-    # -> youtube playlist -> load playlist
     if 'youtube' in query and 'playlist?list=' in query:
+        # -> youtube playlist -> load playlist
         await load_yt_playlist(ictx, query, be_quiet)
     # not a youtube playlist -> something else
     else:
@@ -1133,6 +1139,7 @@ async def queue(
     refreshes the queue of the player
     uses ctx if not None, otherwise it will fetch the last context with the guild_id
     '''
+    AMOUNT_OF_SONGS_IN_QUEUE = 4
     if guild_id is None:
         guild_id = ctx.guild_id
 
@@ -1149,23 +1156,62 @@ async def queue(
         log.info("Try to reconnect to websocket")
         return
 
-    numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
+    numbers = ['1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'] # double 1 to make it 1 based (0 is current playing song)
     upcoming_songs = ''
-    for i, _track in enumerate(node.queue):
+    upcomping_song_fields: List[hikari.EmbedField] = []
+    first_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
+    second_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
+    pre_titles_total_delta = datetime.timedelta()
+    for i, items in enumerate(zip(node.queue, numbers)):
         if i == 0:
+            # skip current playing song
             continue
-        track = _track.track
-        if i >= 4:
+        if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
+            # only show 4 upcoming songs
             break
-        num = numbers[i-1]
-        upcoming_songs = (
-            f'{upcoming_songs}\n' 
-            f'{num} {str(datetime.timedelta(milliseconds=track.info.length))} '
-            f'- {track.info.title}'
-        )
-    if upcoming_songs == '':
-        upcoming_songs = '/'
 
+        _track, num = items
+        track = _track.track
+        # increment total_delta
+        pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
+        # <t:{start_timestamp:.0f}:t>
+        discord_timestamp = f"<t:{(datetime.datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
+        upcomping_song_fields.append(
+            hikari.EmbedField(
+                name=f"{num} - {discord_timestamp}",
+                value=f"```ml\n{Human.short_text(track.info.title, 50, '...')}```",
+                inline=True,
+            )
+        )
+    # split upcomping_song_fields into two EmbedFields
+    total_len = len(upcomping_song_fields)
+    for i, field in enumerate(upcomping_song_fields):
+        # x.5 is first field
+        if i < total_len / 2:
+            if first_field.name == " ":
+                first_field.name = field.name
+                first_field.value = field.value
+            else:
+                first_field.value += f"**{field.name}**\n{field.value}"
+        elif i >= total_len / 2:
+            if second_field.name == " ":
+                second_field.name = field.name
+                second_field.value = field.value
+            else:
+                second_field.value += f"**{field.name}**\n{field.value}"
+        else:
+            if first_field.name == " ":
+                first_field.name = field.name
+                first_field.value = field.value
+            else:
+                first_field.value += f"**{field.name}**\n{field.value}"
+    
+    upcomping_song_fields = []
+    if first_field.name != " ":
+        upcomping_song_fields.append(first_field)
+    if second_field.name != " ":
+        upcomping_song_fields.append(second_field)
+    
     total_playtime = datetime.timedelta(milliseconds=sum(track.track.info.length for track in node.queue)) 
 
     queue_len = len(node.queue)-3
@@ -1197,7 +1243,8 @@ async def queue(
     music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
     music_embed.add_field(name = "Added from:", value=f'{requester.display_name}' , inline=True)
     music_embed.add_field(name = "Over in:", value=f'<t:{music_over_in:.0f}:R>', inline=False)
-    music_embed.add_field(name = "—————————————Queue——————————————", value=f'```ml\n{upcoming_songs}\n```', inline=False)
+    #music_embed.add_field(name = "—————————————Queue——————————————", value=f'{upcoming_songs}', inline=False)  # ml was used as md
+    music_embed._fields.extend(upcomping_song_fields)
     kwarg = {"text": f"{queue or '/'}"}
     if create_footer_info:
         last_track: lavasnek_rs.TrackQueue = node.queue[-1]
@@ -1227,13 +1274,11 @@ async def queue(
     
     if (
         force_resend 
-        or old_music_msg is None 
-        or music_message is None
-        
+        or old_music_msg is None    
     ):
         log.debug(f"{force_resend=}; {old_music_msg=}; {music_message=};")
         # send new message and override
-        kwargs = {"update": True} if music_message else {}
+        kwargs = {"update": True} if music_message and not force_resend else {}
         log.debug(f"send new message with {kwargs=}")
         msg = await ctx.respond(
             embed=music_embed, 
@@ -1253,16 +1298,17 @@ async def queue(
     # only possible with component interactions
     try:
         timeout = 4
-        ctx_message_id = music_message.id
+        ctx_message_id = old_music_msg.id
         async for m in music.bot.rest.fetch_messages(ctx.channel_id):
             # edit existing message if in last messages
             if m.id == ctx_message_id:
-                await ctx.respond(
+                msg = await ctx.respond(
                     embed=music_embed, 
                     components=await build_music_components(node=node),
                     content=None, 
                     update=True
                 )
+                music_messages[ctx.guild_id] = await msg.message()
                 log.debug("update old")
                 return
             timeout -= 1
