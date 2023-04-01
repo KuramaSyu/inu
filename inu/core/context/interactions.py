@@ -205,7 +205,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
                 if len(args) > 1:
                     kwargs.setdefault("content", args[1])
         
-        if not self._responses and update:
+        if not self._responses and update and await self.message() is None:
             # create a message, if we don't have one to edit
             update = False
         
