@@ -1,6 +1,6 @@
 import random
 import typing
-import asyncpraw
+import asyncpraw, asyncprawcore
 import traceback
 from typing import *
 import logging
@@ -30,7 +30,7 @@ class RedditError(Exception):
 
 class Reddit():
     bot: Inu
-    reddit_client: typing.Any
+    reddit_client: asyncpraw.Reddit
     @classmethod
     async def init_reddit_credentials(cls, bot: Inu):
         cls.bot = bot
@@ -122,16 +122,16 @@ class Reddit():
         if not media_filter:
             media_filter = [""]
 
-        post_list: List[asyncpraw.models.Submission] = []
+        post_list: List[asyncpraw.reddit.Submission] = []
         try:
-            subreddit = await cls.reddit_client.subreddit(subreddit)
+            subreddit_obj: asyncpraw.reddit.Subreddit = await cls.reddit_client.subreddit(subreddit)
             if hot:
-                posts = subreddit.hot()
+                posts = subreddit_obj.hot()
             elif top:
-                posts = subreddit.top(time_filter=time_filter)
+                posts = subreddit_obj.top(time_filter=time_filter)
 
             async for submission in posts:
-                if len(post_list) >= minimum:
+                if minimum and len(post_list) >= minimum:
                     break
                 if submission in post_list:
                     continue
@@ -142,8 +142,13 @@ class Reddit():
                 if title_filter and not title_filter.lower() in submission.title.lower():
                     continue
                 post_list.append(submission)
+            
+            # sort post_list desc by date
+            post_list.sort(key=lambda x: x.created_utc, reverse=True)
             return post_list
 
+        except asyncprawcore.NotFound:
+            raise RedditError(f"Subreddit {subreddit} not found")
         except Exception as e:
             log.error(f'ERROR [utils/get_a_pic - exception] {e}')
             log.error(f'ERROR in utils get_a_pic - exception log {traceback.print_exc()}')
@@ -160,19 +165,116 @@ class Reddit():
         searches the anime subreddit for the last post starting with 'top 10 anime of the week #' and png as media with 1 week timelimit
         """
         try:
-            return (await cls._fetch_posts(
+            return (await cls._search(
                 subreddit="anime",
-                hot=False,
-                top=True,
-                minimum=1,
-                media_filter="png",
-                time_filter="week",
-                title_filter="top 10 anime of the week #"
+                limit=10,
+                media_filter=["png", "jpg"],
+                time_filter="month",
+                title_filter="top 10 anime of the week #",
+                skip_stickied=False,
 
             ))[0]
         except IndexError:
             raise RuntimeError("Anime of the Week post not found")
+    
+    
+    @classmethod
+    async def _search(
+        cls,
+        subreddit: str,
+        limit: int = 10,
+        time_filter: str = 'day',
+        media_filter: List[str] | None= ["png", "jpg"],
+        title_filter: Optional[str] = None,
+        skip_stickied: bool = True,
+    ) -> List[asyncpraw.models.Submission]:
+        """
+        Fetch submissions with given settings using search method. No cache implemented
 
+        Args:
+        -----
+        subreddit : str
+            the name of the subreddit
+        minimum : int = 10
+            the amount of `asyncpraw.reddit.models.Submission`s to return
+        time_fileter : str = day
+            the time filter to apply to the subreddit. [hour,day,week,month,year,all]
+            only used with <`top`> parameter
+        title_filter : Optional[str] = None
+            a required name, which needs to be in the lowercase title of the post
+        """
+
+
+        if not cls.reddit_client:
+            raise UnvalidRedditClient
+        if not media_filter:
+            media_filter = [""]
+
+        post_list: List[asyncpraw.reddit.Submission] = []
+        try:
+            subreddit_obj: asyncpraw.reddit.Subreddit = await cls.reddit_client.subreddit(subreddit)
+            posts = subreddit_obj.search(
+                query=title_filter,
+                sort="relevance",
+                time_filter=time_filter,
+                limit=limit,
+            )
+
+            async for submission in posts:
+                if submission in post_list:
+                    continue
+                if media_filter and not Multiple.endswith_(submission.url, media_filter):
+                    continue
+                if skip_stickied and submission.stickied:
+                    continue
+                if title_filter and not title_filter.lower() in submission.title.lower():
+                    continue
+                post_list.append(submission)
+            
+            # sort post_list desc by date
+            post_list.sort(key=lambda x: x.created_utc, reverse=True)
+            return post_list
+
+        except asyncprawcore.NotFound:
+            raise RedditError(f"Subreddit {subreddit} not found")
+        except Exception as e:
+            log.error(f'Reddit.search - exception log {traceback.print_exc()}')
+        return []
+    
+    @classmethod
+    @cached(TTLCache(int(2 ** 16), float(1*60*60)))
+    async def search(
+        cls,
+        subreddit: str,
+        limit: int = 10,
+        time_filter: str = 'day',
+        media_filter: List[str] | None= ["png", "jpg"],
+        title_filter: Optional[str] = None,
+        skip_stickied: bool = True,
+    ) -> List[asyncpraw.models.Submission]:
+        """
+        Fetch submissions with given settings using search method. Cache implemented
+
+        Args:
+        -----
+        subreddit : str
+            the name of the subreddit
+        minimum : int = 10
+            the amount of `asyncpraw.reddit.models.Submission`s to return
+        time_fileter : str = day
+            the time filter to apply to the subreddit. [hour,day,week,month,year,all]
+            only used with <`top`> parameter
+        title_filter : Optional[str] = None
+            a required name, which needs to be in the lowercase title of the post
+        """
+        return await cls._search(
+            subreddit=subreddit,
+            limit=limit,
+            time_filter=time_filter,
+            media_filter=media_filter,
+            title_filter=title_filter,
+            skip_stickied=skip_stickied,
+        )
 
 @dataclass
 class RedditPost:
