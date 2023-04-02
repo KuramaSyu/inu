@@ -100,10 +100,6 @@ subreddits: Dict[str, Dict[str, int]] = {
         'hot': 20,
         'top': 6,
     },
-    'HentaiBlowjob':  {
-        'hot': 4,
-        'top': 4,
-    },
     'HentaiSchoolGirls':  {
         'hot': 3,
         'top': 3,
@@ -131,13 +127,7 @@ subreddits: Dict[str, Dict[str, int]] = {
     'pantsu':  {
         'hot': 13,
         'top': 5,
-    }, # fanservice
-    # 'ahegao':  {
-    #     'hot': 1,
-    #     'top': 1,
-    # },
-    # 'yuri': 5,
-    # 'ZettaiRyouiki': 5,
+    }, 
     'genshinimpacthentai': {
         'hot': 20,
         'top': 10,
@@ -212,7 +202,7 @@ async def anime_of_the_week(ctx: Context):
         submission = await Reddit.get_anime_of_the_week_post()
     except Exception:
         log.error(traceback.format_exc())
-        return await "Well - I didn't found it"
+        return await ctx.respond("Well - I didn't found it")
     await send_pic(
         ctx=ctx, 
         subreddit="anime", 
