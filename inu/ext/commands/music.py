@@ -1293,12 +1293,12 @@ async def queue(
             **kwargs
         )
         new_music_msg = await msg.message()
-        music_messages[ctx.guild_id] = new_music_msg
         try:
             if not old_music_msg is None and not old_music_msg.id == new_music_msg.id:
                 await old_music_msg.delete()
         except hikari.NotFoundError:
             pass
+        music_messages[ctx.guild_id] = new_music_msg
         return
 
     #edit existing message
