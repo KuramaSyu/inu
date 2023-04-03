@@ -1,7 +1,6 @@
 
 import asyncio
 from datetime import datetime, timedelta
-from email.message import Message
 import random
 from time import time
 import traceback
