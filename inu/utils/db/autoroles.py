@@ -20,7 +20,7 @@ class AutoroleEvent(ABC):
         self,
         bot: Inu,
         guild_id: int,
-        duration: timedelta,
+        duration: timedelta | None,
         role_id: int,
         id: int | None = None
     ):
@@ -134,8 +134,8 @@ class AutoroleBuilder:
         return not None in (self._guild, self._duration, self._role, self._event)
     
     def build(self) -> AutoroleEvent:
-        if None in [self.guild_id, self.duration, self.role_id, self.event]:
-            raise ValueError("None in [self.guild_id, self.duration, self.role_id, self.event]")
+        if None in [self.guild_id, self.role_id, self.event]:
+            raise ValueError("None in [self.guild_id, self.role_id, self.event]")
         event = self.event(
             guild_id=self.guild_id, 
             duration=self.duration, 
