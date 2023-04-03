@@ -66,12 +66,18 @@ class AutorolesView(miru.View):
     table_headers = ["ID", "Role", "Event", "duration"]
     table: List[AutoroleBuilder] = []
     selected_row_index = 0
+    
+    async def pre_start(self, guild_id: int):
+        self.table = await AutoroleManager.wrap_events_in_builder(
+            await AutoroleManager.fetch_events(guild_id, None)
+        )
+        log.debug(self.table)
+        if not self.table:
+            builder = AutoroleBuilder()
+            builder.guild = guild_id
+            self.table = [builder]
 
     async def start(self, message: hikari.Message):
-        self.table = await AutoroleManager.fetch_events(message.guild_id, None)
-        if not self.table:
-            self.table = [AutoroleBuilder()]
-        await self.render_table()
         await super().start(message)
 
     @miru.button(label="⬆️", style=ButtonStyle.SECONDARY, custom_id="autoroles_up")
@@ -86,12 +92,15 @@ class AutorolesView(miru.View):
 
     @miru.button(label="➕", style=ButtonStyle.SECONDARY, custom_id="autoroles_add")
     async def button_add(self, button: miru.Button, ctx: miru.ViewContext):
-        self.table.insert(self.selected_row_index, AutoroleBuilder())
+        builder = AutoroleBuilder()
+        builder.guild = self.last_context.guild_id
+        self.table.insert(self.selected_row_index, builder)
         await self.render_table()
 
     @miru.button(label="➖", style=ButtonStyle.SECONDARY, custom_id="autoroles_remove")
     async def button_remove(self, button: miru.Button, ctx: miru.ViewContext):
-        self.table.pop(self.selected_row_index)
+        event = self.table.pop(self.selected_row_index)
+        await event.delete()
         await self.render_table()
 
     @miru.button(emoji="📌", label="Set Role", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_role", row=2)
@@ -108,6 +117,22 @@ class AutorolesView(miru.View):
         self.table[self.selected_row_index].role = role_select.roles[0]
         log.debug(self.table[self.selected_row_index].role_id)
         await self.render_table()
+
+
+    @miru.button(emoji="📅", label="Set Event", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_event", row=2)
+    async def button_set_event(self, button: miru.Button, ctx: miru.ViewContext):
+        event_select = EventSelectView(ctx.author.id)
+        msg = await ctx.edit_response(components=event_select)
+        await event_select.start(await msg.retrieve_message())
+        await event_select.wait()
+        log.debug(event_select.event)
+        if not event_select.event:
+            return
+        await self.start(await msg.retrieve_message())
+        self.table[self.selected_row_index].event = event_select.event
+        log.debug(self.table[self.selected_row_index].event)
+        await self.render_table()
+
 
     @miru.button(emoji="🕒", label="Set Duration", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_duration", row=2)
     async def button_set_duration(self, button: miru.Button, ctx: miru.ViewContext):
@@ -134,28 +159,16 @@ class AutorolesView(miru.View):
         await self.render_table()
 
 
-    @miru.button(emoji="📅", label="Set Event", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_event", row=2)
-    async def button_set_event(self, button: miru.Button, ctx: miru.ViewContext):
-        event_select = EventSelectView(ctx.author.id)
-        msg = await ctx.edit_response(components=event_select)
-        await event_select.start(await msg.retrieve_message())
-        await event_select.wait()
-        log.debug(event_select.event)
-        if not event_select.event:
-            return
-        await self.start(await msg.retrieve_message())
-        self.table[self.selected_row_index].event = event_select.event
-        log.debug(self.table[self.selected_row_index].event)
-        await self.render_table()
-
-
     async def render_table(self):
+        embed = await self.embed()
+        await self.save_rows()
+        await self.last_context.edit_response(embed=embed, components=self)
+        #await self.last_context.respond(embed=embed) 
+
+    async def embed(self) -> hikari.Embed:
         DEFAULT_NONE_VALUE = "---"
         table = []
         for index, row in enumerate(self.table):
-            saved = await row.save()
-            if saved:
-                log.debug(f"Saved autoroleevent: {row}")
             row_marker = "" if index != self.selected_row_index else ">"
             table.append([
                 row_marker + str(row.id or DEFAULT_NONE_VALUE),
@@ -164,9 +177,12 @@ class AutorolesView(miru.View):
                 (naturaldelta(row.duration) if row.duration else None) or DEFAULT_NONE_VALUE,
             ])
         rendered_table = tabulate(table, headers=self.table_headers, tablefmt="simple_grid", maxcolwidths=[4, 15, 15, 10])
-        embed = hikari.Embed(
+        return hikari.Embed(
             title="Autoroles",
             description=f"```{rendered_table}```"
         )
-        await self.last_context.edit_response(embed=embed, components=self)
-        #await self.last_context.respond(embed=embed) 
+
+    async def save_rows(self):
+        for row in self.table:
+            saved = await row.save()
+            log.trace(f"{saved=}; {row=}")
