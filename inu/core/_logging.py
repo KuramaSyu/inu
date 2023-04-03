@@ -208,6 +208,9 @@ def getLevel(name_s: Union[List, str], log4file: bool = False):
 
 colorlog.getLogger = getLogger
 log = colorlog.getLogger("colorlog")
-log.setLevel("TRACE")
+log.setLevel("INFO")
+log.info("changed colorlog getLogger method")
+main_log = colorlog.getLogger("colorlog")
+main_log.setLevel("INFO")
 # logging.getLogger = getLogger
 # log.info("changed logging.getLogger method")
