@@ -1,6 +1,4 @@
 import asyncio
-import logging
-import typing
 from datetime import datetime
 from typing import *
 import traceback
@@ -10,18 +8,10 @@ import hikari
 import lightbulb
 import lightbulb.utils as lightbulb_utils
 from core import BotResponseError, Inu, Table, getLogger, get_context
-from fuzzywuzzy import fuzz
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ResponseType, TextInputStyle
-from hikari.events import InteractionCreateEvent
-from hikari.impl import LinkButtonBuilder
-from hikari import ButtonStyle
-from jikanpy import AioJikan
 from lightbulb import OptionModifier as OM
 from lightbulb import commands, context
 from lightbulb.context import Context
-from matplotlib.style import available
-from numpy import full, isin
-from typing_extensions import Self
 from tmdb import route
 
 from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP, Facts
