@@ -158,6 +158,18 @@ class AutorolesView(miru.View):
         self.table[self.selected_row_index].duration = timedelta(seconds=duration)
         await self.render_table()
 
+    # save button
+    @miru.button(emoji="💾", label="Save", style=ButtonStyle.SECONDARY, custom_id="autoroles_save", row=2)
+    async def button_save(self, button: miru.Button, ctx: miru.ViewContext):
+        await ctx.respond("Start..", flags=hikari.MessageFlag.EPHEMERAL)
+        await self.save_rows()
+        
+        for builder in self.table:
+            if builder.is_saveable:
+                event = builder.build()
+                await event.initial_call()
+        await ctx.edit_response("Saved!", flags=hikari.MessageFlag.EPHEMERAL)
+        
 
     async def render_table(self):
         embed = await self.embed()
@@ -174,7 +186,7 @@ class AutorolesView(miru.View):
                 row_marker + str(row.id or DEFAULT_NONE_VALUE),
                 str(row.role) or DEFAULT_NONE_VALUE,
                 (None if not row.event else row.event.name) or DEFAULT_NONE_VALUE,
-                (naturaldelta(row.duration) if row.duration else None) or DEFAULT_NONE_VALUE,
+                (naturaldelta(row.duration) if row.duration else None) or "∞",
             ])
         rendered_table = tabulate(table, headers=self.table_headers, tablefmt="simple_grid", maxcolwidths=[4, 15, 15, 10])
         return hikari.Embed(
