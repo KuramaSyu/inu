@@ -60,6 +60,12 @@ class AutoroleEvent(ABC):
     async def remove_from_db(self):
         ...
 
+    @abstractmethod
+    async def sync_to_db(self):
+        ...
+
+
+
 class AutoroleAllEvent(AutoroleEvent):
     name = "Default Role"
     event_id = 0
@@ -85,6 +91,7 @@ class AutoroleAllEvent(AutoroleEvent):
         """adds the autorole to the database"""
         if self.db_event_id is None:
             await autorole_table.insert(
+                [],
                 values={
                     "guild_id": self.guild_id,
                     "duration": self.duration,
@@ -108,10 +115,9 @@ class AutoroleAllEvent(AutoroleEvent):
                 "guild_id": self.guild_id,
                 "duration": self.duration,
                 "role_id": self.role_id,
-                "event_id": self.event_idu
+                "event_id": self.event_id
             },
             where={"id": self.id},
-            *[self.id]
         )
 
 class AutoroleBuilder:
@@ -125,18 +131,22 @@ class AutoroleBuilder:
     
     @property
     def is_saveable(self) -> bool:
-        return not None in (self.guild_id, self.duration, self.role_id, self.event)
+        return not None in (self._guild, self._duration, self._role, self._event)
     
     def build(self) -> AutoroleEvent:
         if None in [self.guild_id, self.duration, self.role_id, self.event]:
             raise ValueError("None in [self.guild_id, self.duration, self.role_id, self.event]")
-        return self.event(
+        event = self.event(
             guild_id=self.guild_id, 
             duration=self.duration, 
             role_id=self.role_id, 
             bot=AutoroleManager.bot
         )  # type: ignore
-    
+        if self.id:
+            event.id = self.id
+        return event
+
+
     def _mark_as_changed(self) -> None:
         if self.id:
             self._changed = True
@@ -188,7 +198,7 @@ class AutoroleBuilder:
                 return False
         
             event: AutoroleEvent = self.build()
-            await event.add_to_db()
+            await event.sync_to_db()
             self._changed = False
             return True
         else:
@@ -198,6 +208,16 @@ class AutoroleBuilder:
             event: AutoroleEvent = self.build()
             await event.add_to_db()
             return True
+        
+    async def delete(self) -> bool:
+        """
+        returns wether or not the event was deleted
+        """
+        if self.id:
+            event: AutoroleEvent = self.build()
+            await event.remove_from_db()
+            return True
+        return False
         
     def from_db(self, record: dict) -> "AutoroleBuilder":
         self.guild = record["guild_id"]
@@ -211,7 +231,7 @@ class AutoroleBuilder:
         self.guild = event.guild_id
         self.duration = event.duration
         self.role = event.role_id
-        self.event = event
+        self.event = event.__class__
         self.id = event.id
         return self
     
@@ -271,22 +291,39 @@ class AutoroleManager():
         `List[AutoroleEvent]`
             a list of all autoroles with the given `guild_id` and `event_id`
         """
-        event_id = event.event_id
+        if event is not None:
+            event_id = event.event_id
+        else:
+            event_id = None
         where = {"guild_id": guild_id}
         if event_id is not None:
             where["event_id"] = event_id
         records = await cls.table.select(where=where)
         events: List[AutoroleEvent] = []
         for record in records:
-            event = cls._build_event(record)
-            events.append(event)
-
+            e = cls._build_event(record)
+            events.append(e)
+        return events
 
     @classmethod
-    async def _build_event(cls, record: dict) -> AutoroleEvent:
+    async def wrap_events_in_builder(cls, events: List[AutoroleEvent]) -> List[AutoroleBuilder]:
+        builders: List[AutoroleBuilder] = []
+        roles = cls.bot.cache.get_roles_view_for_guild(events[0].guild_id)
+        for event in events:
+            builder = AutoroleBuilder().from_event(event)
+            builder.role = roles.get(event.role_id)
+            # reset the changed flag triggered by role proterty setter
+            builder._changed = False
+            builders.append(builder)
+        
+        return builders
+    
+
+    @classmethod
+    def _build_event(cls, record: dict) -> AutoroleEvent:
         event_id = record["event_id"]
-        event = cls.id_event_map[event_id]
-        event = event(
+        event_type = cls.id_event_map[event_id]
+        event = event_type(
             guild_id=record["guild_id"],
             duration=record["duration"],
             role_id=record["role_id"],
