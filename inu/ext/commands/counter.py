@@ -5,7 +5,6 @@ import hikari
 import lightbulb
 import json
 
-from fuzzywuzzy import fuzz
 from hikari import (
     Embed,
     ResponseType, 
