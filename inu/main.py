@@ -22,7 +22,8 @@ from utils import (
     MyAnimeListAIOClient,
     CurrentGamesManager,
     BoardManager,
-    set_bot
+    set_bot,
+    AutoroleManager
 )
 import lavasnek_rs
 from core import getLogger
@@ -68,6 +69,7 @@ def main():
             await BoardManager.init_bot(inu)
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
             set_bot(inu)
+            AutoroleManager.set_bot(inu)
             log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
@@ -77,10 +79,10 @@ def main():
             table = Table("bot")
             record = await table.select_row(["key"], ["restart_count"])
             if not record:
-                count = 1
+                count = 0
             else:
                 count = int(record["value"])
-                count += 1
+            count += 1
             inu.restart_num = count
             await table.upsert(["key", "value"], ["restart_count", str(count)])
             log.info(f'RESTART NUMBER: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
