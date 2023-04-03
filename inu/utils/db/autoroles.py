@@ -92,7 +92,6 @@ class AutoroleAllEvent(AutoroleEvent):
                     "event_id": self.event_id
                 }
             )
-        
 
     async def remove_from_db(self):
         """removes the autorole from the database"""
@@ -100,6 +99,20 @@ class AutoroleAllEvent(AutoroleEvent):
             raise ValueError("id is None")
         await autorole_table.delete_by_id("id", self.id)
 
+    async def sync_to_db(self):
+        """syncs the autorole to the database"""
+        if self.id is None:
+            raise ValueError("id is None")
+        await autorole_table.update(
+            set={
+                "guild_id": self.guild_id,
+                "duration": self.duration,
+                "role_id": self.role_id,
+                "event_id": self.event_idu
+            },
+            where={"id": self.id},
+            *[self.id]
+        )
 
 class AutoroleBuilder:
     _guild: int | hikari.Guild | None = None
@@ -109,6 +122,11 @@ class AutoroleBuilder:
     _changed: bool = False
     id: int | None = None
 
+    
+    @property
+    def is_saveable(self) -> bool:
+        return not None in (self.guild_id, self.duration, self.role_id, self.event)
+    
     def build(self) -> AutoroleEvent:
         if None in [self.guild_id, self.duration, self.role_id, self.event]:
             raise ValueError("None in [self.guild_id, self.duration, self.role_id, self.event]")
@@ -160,10 +178,27 @@ class AutoroleBuilder:
         self._mark_as_changed()
         self._event = value
 
-    async def save(self) -> None:
-        if self._changed:
+    async def save(self) -> bool:
+        """
+        returns wether or not the event was saved
+        """
+        if self.id:
+            # update
+            if not self._changed:
+                return False
+        
             event: AutoroleEvent = self.build()
-            ...
+            await event.add_to_db()
+            self._changed = False
+            return True
+        else:
+            # insert
+            if not self.is_saveable:
+                return False
+            event: AutoroleEvent = self.build()
+            await event.add_to_db()
+            return True
+        
     def from_db(self, record: dict) -> "AutoroleBuilder":
         self.guild = record["guild_id"]
         self.duration = record["duration"]
