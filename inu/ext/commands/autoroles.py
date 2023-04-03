@@ -37,6 +37,8 @@ plugin = lightbulb.Plugin("Autoroles", "Role Management")
 bot: Inu
 
 @plugin.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.app_command_permissions(hikari.Permissions.MANAGE_ROLES)
 @lightbulb.command("autoroles", "a command for editing autoroles")
 @lightbulb.implements(commands.SlashCommand)
 async def autoroles(ctx: context.Context):
