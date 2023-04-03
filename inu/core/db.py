@@ -271,6 +271,7 @@ class Table():
             for k, v in values.items():
                 new_values.append(v)
                 new_columns.append(k)
+            values, which_columns = new_values, new_columns
 
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         sql = (
@@ -386,8 +387,8 @@ class Table():
     @formatter
     async def select(
         self, 
-        columns: List[str], 
-        matching_values: List,
+        columns: List[str] | None = None, 
+        matching_values: List | None = None,
         additional_values: Optional[List] = None,
         order_by: Optional[str] = None, 
         where: Optional[Dict[str, Any]] = None,
@@ -405,7 +406,6 @@ class Table():
             instead of columns = ['id'] matching_values = [1]
             you could do where = {'id': 1}
         """
-        
         if where:
             columns = []
             matching_values = []
