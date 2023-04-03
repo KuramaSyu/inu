@@ -69,6 +69,8 @@ class AutorolesView(miru.View):
 
     async def start(self, message: hikari.Message):
         self.table = await AutoroleManager.fetch_events(message.guild_id, None)
+        if not self.table:
+            self.table = [AutoroleBuilder()]
         await self.render_table()
         await super().start(message)
 
@@ -147,12 +149,13 @@ class AutorolesView(miru.View):
         await self.render_table()
 
 
-
-
     async def render_table(self):
         DEFAULT_NONE_VALUE = "---"
         table = []
         for index, row in enumerate(self.table):
+            saved = await row.save()
+            if saved:
+                log.debug(f"Saved autoroleevent: {row}")
             row_marker = "" if index != self.selected_row_index else ">"
             table.append([
                 row_marker + str(row.id or DEFAULT_NONE_VALUE),
