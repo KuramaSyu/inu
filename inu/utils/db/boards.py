@@ -24,8 +24,11 @@ class BoardManager:
             cls._cache[guild_id] = {
                 emoji: set()
             }
-        elif guild_cache.get(emoji) is None:
+            guild_cache = cls._cache[guild_id]
+
+        if guild_cache.get(emoji) is None:
             cls._cache[guild_id][emoji] = set()
+
         if message_id:
             cls._cache[guild_id][emoji].add(message_id)  # type: ignore
 
@@ -403,7 +406,21 @@ class BoardManager:
             emoji
         ))[0]
         return record["count"]
-
+    
+    @classmethod
+    async def fetch_all_entries(
+        cls,
+    ) -> List[Dict[str, Any]]:
+        """
+        Returns:
+        -------
+        List[Dict[str, Any]] :
+            all entries
+        """
+        table = Table("board.entries")
+        return await table.fetch(
+            f"SELECT * FROM {table.name}"
+        )
 
 
     
