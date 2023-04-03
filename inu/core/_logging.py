@@ -31,6 +31,7 @@ import colorlog
 
 
 init()
+logging.addLevelName(5, "TRACE")
 main_log = logging.getLogger("core.logging")
 main_log.setLevel(logging.DEBUG)
 config = ConfigProxy(ConfigType.YAML)
@@ -85,6 +86,9 @@ ignored = {
 }
 
 class LoggingHandler(logging.Logger):
+    def trace(self, message: str):
+        self.log(5, message)
+    
     def handle(self, record: logging.LogRecord) -> None:
         # if record.msg in ignored.get(record.name, ()):
         #     return
@@ -204,9 +208,6 @@ def getLevel(name_s: Union[List, str], log4file: bool = False):
 
 colorlog.getLogger = getLogger
 log = colorlog.getLogger("colorlog")
-log.setLevel("INFO")
-log.info("changed colorlog getLogger method")
-main_log = colorlog.getLogger("colorlog")
-main_log.setLevel("INFO")
+log.setLevel("TRACE")
 # logging.getLogger = getLogger
 # log.info("changed logging.getLogger method")
