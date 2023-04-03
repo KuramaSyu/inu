@@ -66,7 +66,12 @@ class AutorolesView(miru.View):
     table_headers = ["ID", "Role", "Event", "duration"]
     table: List[AutoroleBuilder] = []
     selected_row_index = 0
+    author_id: int
     
+    def __init__(self, author_id: int) -> None:
+        super().__init__(timeout=15*10, autodefer=True)
+        self.author_id = author_id
+
     async def pre_start(self, guild_id: int):
         try:
             self.table = await AutoroleManager.wrap_events_in_builder(
@@ -201,3 +206,6 @@ class AutorolesView(miru.View):
         for row in self.table:
             saved = await row.save()
             log.trace(f"{saved=}; {row=}")
+
+    async def view_check(self, context: miru.ViewContext) -> bool:
+        return context.message.id == self.message.id and context.author.id == self.author_id

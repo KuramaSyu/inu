@@ -42,7 +42,7 @@ bot: Inu
 @lightbulb.command("autoroles", "a command for editing autoroles")
 @lightbulb.implements(commands.SlashCommand)
 async def autoroles(ctx: context.Context):
-    view = AutorolesView(timeout=10*60)
+    view = AutorolesView(author_id=ctx.author.id)
     await view.pre_start(ctx.guild_id)
     msg = await ctx.respond(components=view, embed=await view.embed())
     await view.start(await msg.message())
