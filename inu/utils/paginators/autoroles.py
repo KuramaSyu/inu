@@ -68,10 +68,13 @@ class AutorolesView(miru.View):
     selected_row_index = 0
     
     async def pre_start(self, guild_id: int):
-        self.table = await AutoroleManager.wrap_events_in_builder(
-            await AutoroleManager.fetch_events(guild_id, None)
-        )
-        log.debug(self.table)
+        try:
+            self.table = await AutoroleManager.wrap_events_in_builder(
+                await AutoroleManager.fetch_events(guild_id, None)
+            )
+            log.debug(self.table)
+        except IndexError:
+            self.table = []
         if not self.table:
             builder = AutoroleBuilder()
             builder.guild = guild_id
