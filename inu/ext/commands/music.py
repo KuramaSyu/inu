@@ -728,13 +728,13 @@ async def second(ctx: Context) -> None:
 @pl.child
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=int)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST, autocomplete=True)
 @lightbulb.command("position", "enqueue a title at a custom position of the queue", aliases=[])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def position(ctx: SlashContext) -> None:
     """Adds a song at the <position> position of the queue. So the track will be played soon"""
-    await play_at_pos(ctx, ctx.options.position, ctx.options.query)
+    await play_at_pos(ctx, int(ctx.options.position), ctx.options.query)
 
 
 
@@ -995,8 +995,11 @@ async def _resume(guild_id: int):
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("queue", "Resend the music message")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def _queue(ctx: Context) -> None:
-    await queue(get_context(ctx.event), force_resend=True)
+async def _queue(_ctx: Context) -> None:
+    ctx = get_context(_ctx.event)
+    # defer, that it doesn't timeout while loading queue
+    await ctx.defer() 
+    await queue(ctx, force_resend=True)
 
 
 @music.command
