@@ -34,34 +34,51 @@ class AutoroleEvent(ABC):
     @property
     @abstractmethod
     def event_id(self) -> int:
+        """The id of the event"""
         ...
     
     @property
     @abstractmethod
     def name(self) -> str:
+        """The name of this event"""
         ...
 
     @abstractmethod
     async def initial_call(self):
+        """
+        initial call which needs to be done once at the start
+        before any callback
+        """
         ...
 
 
     @abstractmethod
     async def callback(self, event: hikari.Event):
+        """
+        callback for what the event actually does
+
+        Parameters
+        ----------
+        event : hikari.Event
+            the event that triggered the callback
+        """
         ...
     
 
     @abstractmethod
     async def add_to_db(self):
+        """adds the entry to the database"""
         ...
 
     
     @abstractmethod
     async def remove_from_db(self):
+        """removes the entry from the database"""
         ...
 
     @abstractmethod
     async def sync_to_db(self):
+        """updates the entry in the database"""
         ...
 
 
@@ -131,6 +148,7 @@ class AutoroleBuilder:
     
     @property
     def is_saveable(self) -> bool:
+        """weather or not the builder is saveable as an `AutoroleEvent`"""
         return not None in (self._guild, self._duration, self._role, self._event)
     
     def build(self) -> AutoroleEvent:
@@ -148,6 +166,7 @@ class AutoroleBuilder:
 
 
     def _mark_as_changed(self) -> None:
+        """marks the builder as changed, if it has an id"""
         if self.id:
             self._changed = True
 
@@ -220,6 +239,19 @@ class AutoroleBuilder:
         return False
         
     def from_db(self, record: dict) -> "AutoroleBuilder":
+        """syncs this builder with a database record
+        
+        Parameters
+        ----------
+        record : dict
+            the database record
+            
+        
+        Returns
+        -------
+        AutoroleBuilder :
+            self
+        """
         self.guild = record["guild_id"]
         self.duration = record["duration"]
         self.role = record["role_id"]
@@ -228,6 +260,18 @@ class AutoroleBuilder:
         return self
 
     def from_event(self, event: AutoroleEvent) -> "AutoroleBuilder":
+        """syncs this builder with an AutoroleEvent
+        
+        Parameters
+        ----------
+        event : AutoroleEvent
+            the AutoroleEvent
+        
+        Returns
+        -------
+        AutoroleBuilder :
+            self
+        """
         self.guild = event.guild_id
         self.duration = event.duration
         self.role = event.role_id
@@ -307,6 +351,18 @@ class AutoroleManager():
 
     @classmethod
     async def wrap_events_in_builder(cls, events: List[AutoroleEvent]) -> List[AutoroleBuilder]:
+        """wraps a list of AutoroleEvents in AutoroleBuilders
+        
+        Args:
+        -----
+        `events : List[AutoroleEvent]`
+            the list of AutoroleEvents to wrap
+        
+        Returns:
+        --------
+        `List[AutoroleBuilder]`
+            a list of AutoroleBuilders with the same data as the given events
+        """
         builders: List[AutoroleBuilder] = []
         roles = cls.bot.cache.get_roles_view_for_guild(events[0].guild_id)
         for event in events:
@@ -321,6 +377,18 @@ class AutoroleManager():
 
     @classmethod
     def _build_event(cls, record: dict) -> AutoroleEvent:
+        """builds an AutoroleEvent from a database record
+        
+        Args:
+        -----
+        `record : dict`
+            the database record
+        
+        Returns:
+        --------
+        `AutoroleEvent`
+            an AutoroleEvent with the same data as the given record
+        """
         event_id = record["event_id"]
         event_type = cls.id_event_map[event_id]
         event = event_type(
@@ -334,4 +402,16 @@ class AutoroleManager():
     
     @classmethod
     async def add_event(cls, event: AutoroleEvent) -> None:
+        """adds an AutoroleEvent to the database
+        this just calls the event method `add_to_db`
+        
+        Args:
+        -----
+        `event : AutoroleEvent`
+            the AutoroleEvent to add
+        
+        Returns:
+        --------
+        `None`
+        """
         await event.add_to_db()
