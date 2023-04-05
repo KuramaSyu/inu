@@ -73,6 +73,13 @@ class AutorolesView(miru.View):
         self.author_id = author_id
 
     async def pre_start(self, guild_id: int):
+        """Fetches events from the database and wraps them in a table
+        
+        Parameters
+        ----------
+        guild_id : int
+            The guild ID to fetch events for
+        """
         try:
             self.table = await AutoroleManager.wrap_events_in_builder(
                 await AutoroleManager.fetch_events(guild_id, None)
@@ -180,12 +187,14 @@ class AutorolesView(miru.View):
         
 
     async def render_table(self):
+        """Renders the table and updates the message."""
         embed = await self.embed()
         await self.save_rows()
         await self.last_context.edit_response(embed=embed, components=self)
         #await self.last_context.respond(embed=embed) 
 
     async def embed(self) -> hikari.Embed:
+        """Renders the table as an embed."""
         DEFAULT_NONE_VALUE = "---"
         table = []
         for index, row in enumerate(self.table):
@@ -203,9 +212,11 @@ class AutorolesView(miru.View):
         )
 
     async def save_rows(self):
+        """Saves all rows in the table if possible."""
         for row in self.table:
             saved = await row.save()
             log.trace(f"{saved=}; {row=}")
 
     async def view_check(self, context: miru.ViewContext) -> bool:
+        """predicate to check wether or not a user is allowed to use the view."""
         return context.message.id == self.message.id and context.author.id == self.author_id
