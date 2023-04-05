@@ -739,8 +739,17 @@ async def position(ctx: SlashContext) -> None:
 
 
 async def play_at_pos(ctx: Context, pos: int, query: str):
-    # will be called from event track start
-    #ctx = InteractionContext(ctx.event, ctx.app, defer=True)
+    """Adds a song at the <position> position of the queue. So the track will be played soon
+    
+    Args:
+    ----
+    ctx : InuContext
+        The context to use for sending the message and fetching the node
+    pos : int
+        The position where the song should be added
+    query : str
+        The query to search for
+    """
     try:
         ctx: InuContext = get_context(ctx.event)
         await ctx.defer()
@@ -774,6 +783,17 @@ async def play_at_pos(ctx: Context, pos: int, query: str):
 
 
 async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
+    """Loads a track into the queue
+    
+    Args:
+    ----
+    ctx : InuContext
+        The context to use for sending the message and fetching the node
+    track : lavasnek_rs.Track
+        The track to load
+    be_quiet : bool, optional
+        If the track should be loaded without any response, by default False
+    """
     guild_id = ctx.guild_id
     author_id = ctx.author.id
     if not ctx.guild_id or not guild_id:
@@ -799,6 +819,15 @@ async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = Fa
 async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> lavasnek_rs.Tracks:
     """
     loads a youtube playlist
+
+    Parameters
+    ----------
+    ctx : InuContext
+        The context to use for sending the message and fetching the node
+    query : str
+        The query to search for
+    be_quiet : bool, optional
+        If the track should be loaded without any response, by default False
     
     Returns
     -------
