@@ -203,12 +203,24 @@ async def anime_of_the_week(ctx: Context):
     except Exception:
         log.error(traceback.format_exc())
         return await ctx.respond("Well - I didn't found it")
+    
+    season_to_color_map = {
+        "winter": "32acd5",
+        "spring": "eb2b48"
+    }
+    # get color for season from submission title
+    color = "32acd5"
+    for season, c in season_to_color_map.items():
+        if season in submission.title.lower():
+            color = c
+            break
+
     await send_pic(
         ctx=ctx, 
         subreddit="anime", 
         submission=submission, 
         footer=True, 
-        embed_template=hikari.Embed(color=hikari.Color.from_hex_code("32acd5"))
+        embed_template=hikari.Embed(color=hikari.Color.from_hex_code(color))
     )
 
 
