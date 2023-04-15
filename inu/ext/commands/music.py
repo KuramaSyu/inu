@@ -638,7 +638,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
         ictx = get_context(ctx.event)
     else:
         ictx = ctx
-    last_context[ctx.guild_id] = ictx
+    # last_context[ctx.guild_id] = ictx
     con = lavalink.get_guild_gateway_connection_info(ctx.guild_id)
     # Join the user's voice channel if the bot is not in one.
     if not con:
