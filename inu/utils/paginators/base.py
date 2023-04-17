@@ -592,6 +592,7 @@ class Paginator():
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         action_rows = []
         if self._disable_paginator_when_one_site and len(self._pages) == 1:
+            action_rows.extend(self._additional_components)
             return action_rows
         if self._number_button_navigation:
             # number navigation
