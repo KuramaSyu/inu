@@ -44,7 +44,8 @@ class TagPaginator(StatelessPaginator):
         super().__init__(
             **kwargs,
             timeout=15*60,
-            additional_components=tag.components
+            additional_components=tag.components,
+            disable_paginator_when_one_site=False,
         )
 
     def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
