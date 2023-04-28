@@ -484,8 +484,8 @@ class MoviePaginator(Paginator):
         # revenue / budget
         if details["budget"] > 0 and details["revenue"] > 0:
             embed.add_field(
-                "💵 Profit", 
-                f"${details['revenue'] - details['budget']:,}\n({details['revenue'] / details['budget'] * 100:.0f}% of budget)", 
+                "Profit", 
+                f"{details['revenue'] / details['budget']:.1f}x", 
                 inline=True
             )
 
