@@ -6,6 +6,7 @@ from lightbulb import commands, context
 
 from utils import (
     ShowPaginator, 
+    MoviePaginator
 )
 from core import (
     Inu, 
@@ -26,6 +27,14 @@ async def search_show(ctx: context.Context):
     pag = ShowPaginator()
     await pag.start(get_context(ctx.event), ctx.options.name)
 
+
+@plugin.command
+@lightbulb.option("name", "name of movie")
+@lightbulb.command("movie", "Search a movie (TMDB)")
+@lightbulb.implements(commands.SlashCommand)
+async def search_movie(ctx: context.Context):
+    pag = MoviePaginator()
+    await pag.start(get_context(ctx.event), ctx.options.name)
 
 
 
