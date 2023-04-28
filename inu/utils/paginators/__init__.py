@@ -5,6 +5,6 @@ from .anime_character import AnimeCharacterPaginator
 from .manga import MangaPaginator
 from .akinator_ import AkinatorSI
 from .stateless import *
-from .show import ShowPaginator
+from .show import ShowPaginator, MoviePaginator
 from .vocabulary import VocabularyPaginator
 from .autoroles import AutorolesView
