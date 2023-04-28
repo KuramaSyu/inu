@@ -471,6 +471,9 @@ class InteractionContext(_InteractionContext):
     @property
     def is_valid(self) -> bool:
         """wether or not the interaction is valid (timerange of 15 minutes)"""
+        if not (self._responded and self._deferred):
+            # timedelta is 3 seconds
+            return datetime.now() < (self.created_at + timedelta(seconds=3))
         return datetime.now() < (self.created_at + timedelta(minutes=14.8))
 
     @property
@@ -588,6 +591,8 @@ class InteractionContext(_InteractionContext):
         
         if not self.is_valid:
             # interaction is unvalid
+            if not self.last_response:
+                raise RuntimeError("Interaction run out of time. no message to edit")
             message = await (self.last_response).message()
             if update:
                 if not message:
