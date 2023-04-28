@@ -9,6 +9,7 @@ from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import MessageActionRowBuilder
 from tmdb import route
 from tabulate import tabulate
+from fuzzywuzzy import fuzz
 
 from .base import Paginator, listener
 
@@ -108,7 +109,7 @@ class ShowPaginator(Paginator):
             timeout=4*60, 
             disable_paginator_when_one_site=False,
             disable_search_btn=True,
-            number_button_navigation=True,
+            number_button_navigation=False,
             **self._base_init_kwargs
         )
         return await super().start(ctx)
@@ -295,10 +296,63 @@ class ShowSeasonPaginator(Paginator):
         embed.title = details["name"]
         if (overview := details.get("overview")):
             embed.description = overview
-        add_key_to_field("Season number", "season_number")
-        avg_score = median([e["vote_average"] for e in details.get("episodes", [])] or [0])
-        embed.add_field("Score", f"{avg_score:.2}/10", inline=True)
-        add_key_to_field("Air date", "air_date", default="/")
+
+        min_score_ep = None
+        max_score_ep = None
+        if (episodes := details.get("episodes")):
+            min_score_ep = min(episodes, key=lambda e: e["vote_average"])
+            max_score_ep = max(episodes, key=lambda e: e["vote_average"])
+
+
+        # add embed field for max score episode
+        if max_score_ep:
+            embed.add_field(
+                "🔺 Highest rated EP", 
+                f"{max_score_ep['vote_average']:.2}/10", 
+                inline=True
+            )
+        # add embed field for average score
+        avg_score = median(
+            [e["vote_average"] for e in details.get("episodes", [])] or [0]
+        )
+        embed.add_field("🔹 Score", f"{avg_score:.2}/10", inline=True)
+
+        # add embed field for min score episode
+        if min_score_ep:
+            embed.add_field(
+                "🔻Lowest rated EP", 
+                f"{min_score_ep['vote_average']:.2}/10", 
+                inline=True
+            )
+
+
+        add_key_to_field("Season number", "season_number", inline=True)
+        # Add Air date as MM/YYYY
+        if (air_date := details.get("air_date")):
+            try:
+                d = date.fromisoformat(air_date)
+                aired = f"{d.month:02}/{d.year}"
+            except:
+                aired = "--/----"
+            embed.add_field("Air date", aired, inline=True)
+        embed.add_field("Episodes", str(len(details.get("episodes", []))), inline=True)
+
+        name_min_max_ep = ""
+        # make both EPs equaly long
+        if min_score_ep and max_score_ep:
+            # get max length of both names
+            max_len = max(len(min_score_ep.get("name", "")), len(max_score_ep.get("name", ""))) + 8
+            log.debug(f"max_len: {max_len}")
+        if min_score_ep:
+            str_ = f"{min_score_ep.get('name', '')} (EP {min_score_ep['episode_number']})"
+            # center text in the middle
+            name_min_max_ep += f"Lowest rated EP name: ||`{str_:^{max_len}}`||\n"
+        if max_score_ep:
+            str_ = f"{max_score_ep.get('name', '')} (EP {max_score_ep['episode_number']})"
+            name_min_max_ep += f"Highest rated EP name: ||`{str_:^{max_len}}`||\n"
+        if name_min_max_ep:
+            embed.add_field("Episode details", name_min_max_ep, inline=False)
+        
         embed.set_image(f"{base_url}{details['poster_path']}")
         embed._fields = [f for f in embed.fields if f.value and f.name]
         self._pages[self._position] = embed
@@ -309,3 +363,165 @@ class ShowSeasonPaginator(Paginator):
         """
         await self._load_details()
         await super()._update_position(interaction)
+
+
+
+class MoviePaginator(Paginator):
+    def __init__(
+        self,
+        with_refresh_btn: bool = False,
+        old_message = None,
+        **kwargs
+    ):
+        self._old_message = old_message
+        self._with_refresh_btn = with_refresh_btn
+
+        self._results: List[Dict]
+        self._updated_mal_ids = set()
+        self._current_has_prequel: bool = False
+        self._current_has_sequel: bool = False
+        self._max_openings: int = 4
+        self._max_endings: int = 4
+        self._detailed: bool = False
+        self._base_init_kwargs = kwargs or {}
+
+        # re-init in start - just leave it
+        super().__init__(
+            page_s=["None"],
+            timeout=60*2,
+        )
+
+
+    async def start(self, ctx: InuContext, movie_name: str) -> hikari.Message:
+        """
+        entry point for paginator
+
+        Args:
+        ----
+        ctx : InuContext
+            The context to use to send the initial message
+        movie_name : str
+            the name of the movie
+        
+        """
+        self.ctx = ctx
+        self._position = 0
+        self._pages = await self._search_movie(movie_name)
+        await self._load_details()
+        super().__init__(
+            page_s=self._pages,
+            timeout=4*60,
+            disable_paginator_when_one_site=False,
+            disable_search_btn=True,
+            number_button_navigation=False,
+            **self._base_init_kwargs
+        )
+        return await super().start(ctx)
+
+
+    async def _search_movie(self, search: str) -> List[hikari.Embed]:
+        """
+        Search for a movie. Returned Embeds are placeholders. Actual pages will be
+        loaded lazily
+        
+        Args:
+        ----
+        search : str
+            the name of the movie to get results from
+        """
+        movie_route = route.Movie()
+        movie_json = await movie_route.search(search)
+        self._results = movie_json["results"]
+        await movie_route.session.close()
+        self._results.sort(key=lambda x: fuzz.partial_token_set_ratio(search, x["title"]), reverse=True)
+
+        embeds = [Embed(description="spaceholder") for _ in range(len(self._results))]
+        if len(embeds) == 0:
+            raise BotResponseError("Seems like your given movie doesn't exist", ephemeral=True)
+        return embeds
+
+
+    async def _load_details(self) -> None:
+        """
+        Loads details of current movie into self._page
+        """
+        if not self._pages[self._position].description == "spaceholder":
+            return
+
+        try:
+            movie_route = route.Movie()
+            details = await movie_route.details(self._results[self._position]["id"])
+        except IndexError:
+            raise BotResponseError("Seems like your given movie doesn't exist", ephemeral=True)
+        finally:
+            await movie_route.session.close()
+
+        # otherwise not accessible for season button
+        self._results[self._position] = details
+        embed = Embed(description="")
+        
+        def add_key_to_field(name: str, key: str, inline=True, default=None):
+            if (value := details.get(key, "None")):
+                embed.add_field(name, str(value), inline=inline)
+
+        def join_list_dict_keys(key: str):
+            value = details.get(key, [])
+            return ", ".join([n["name"] for n in value if n.get("name")])
+        
+        embed.title = details["title"]
+        embed.set_footer(details["title"])
+        if (tagline := details.get("tagline")):
+            embed.description += f"_{tagline}_\n\n"
+        embed.description += Human.short_text(details["overview"], 1950)
+
+        # direction in emoji:  
+        embed.add_field("Popularity", f'{round(details["popularity"])}', inline=True)
+        embed.add_field("Score", f"{details['vote_average']:.2}/10", inline=True)
+        add_key_to_field("⏱️ Runtime", "runtime")
+        embed.add_field("💰 Budget", f"${details['budget']:,}", inline=True)
+        embed.add_field("🎬 Genres", join_list_dict_keys("genres"), inline=True)
+        embed.add_field("💸 Revenue", f"${details['revenue']:,}", inline=True)
+        # revenue / budget
+        if details["budget"] > 0 and details["revenue"] > 0:
+            embed.add_field(
+                "💵 Profit", 
+                f"${details['revenue'] - details['budget']:,}\n({details['revenue'] / details['budget'] * 100:.0f}% of budget)", 
+                inline=True
+            )
+
+        # add release date in MM/YYYY format from iso format
+        if (release_date := details.get("release_date")):
+            try:
+                d = date.fromisoformat(release_date)
+                aired = f"{d.month:02}/{d.year}"
+            except:
+                aired = "--/----"
+            embed.add_field("📅 Release date", aired, inline=True)
+        add_key_to_field("Status", "status")
+        add_key_to_field("Original Language", "original_language")
+        add_key_to_field("Original Title", "original_title")
+        add_key_to_field("Vote Count", "vote_count")
+        if (belongs_to_collection := details.get("belongs_to_collection")):
+            embed.add_field("Belongs to", belongs_to_collection["name"], inline=False)
+        embed.add_field("Produced in", join_list_dict_keys("production_countries"), inline=False)
+        embed.add_field("Produced from", join_list_dict_keys("production_companies"), inline=False)
+        add_key_to_field("Homepage", "homepage", inline=False)
+
+
+        if (video := details.get("videos")) and (results := video.get("results", [])):
+            embed.add_field("Trailer", f"[Link]({route.Movie().youtube_link(results[0]['key'])})", inline=False)
+
+        if (poster_path := details.get("poster_path")):
+            embed.set_image(f"{base_url}{poster_path}")
+        
+        embed._fields = [f for f in embed._fields if f.value and f.name]
+
+        self._pages[self._position] = embed
+
+    async def _update_position(self, interaction: ComponentInteraction | None = None,):
+        """
+        replaces the current season page with the rest response. This works lazy
+        """
+        await self._load_details()
+        await super()._update_position(interaction)
+
