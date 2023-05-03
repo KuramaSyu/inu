@@ -10,7 +10,13 @@ import lightbulb.context as context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
 
-from utils.games.connect_four_handler import Connect4Handler, Connect4FallingRowsHandler, get_handler_from_letter, MemoryConnect4Handler
+from utils.games.connect_four_handler import (
+    Connect4Handler, 
+    Connect4FallingRowsHandler, 
+    get_handler_from_letter, 
+    MemoryConnect4Handler,
+    RandomTerrainConnect4Handler,
+)
 from utils.games import HikariOnu
 from utils import AkinatorSI, Human
 from core import getLogger, Inu, get_context
@@ -29,6 +35,7 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     try:
+        # extract data from custom_id or exit
         custom_id_json = json.loads(event.interaction.custom_id)
         custom_id: str = custom_id_json["type"]
         assert custom_id.startswith("c4") # c4{game_letter}-{rows}x{columns}
@@ -121,8 +128,19 @@ async def connect4_falling_rows(ctx: Context):
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("memory", "A game of Connect 4 where you can't distinguish the tokens")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def connect4_falling_rows(ctx: Context):
+async def connect4_memory(ctx: Context):
     await start_4_in_a_row(ctx, rows=6, columns=7, handler=MemoryConnect4Handler, unmemory=ctx.options["unmemory-count"])
+
+
+@connect4.child
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
+@lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
+@lightbulb.command("random-terrain", "A game of Connect 4 with a random start terrain")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def connect4_memory(ctx: Context):
+    await start_4_in_a_row(ctx, rows=6, columns=7, handler=RandomTerrainConnect4Handler)
 
 
 
