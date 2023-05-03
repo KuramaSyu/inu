@@ -265,6 +265,60 @@ class Board:
         return str(self)
     
 
+class RandomTerrainBoard(Board):
+    """A class which represents a connect 4 board"""
+    def __init__(self, game: "BaseConnect4", marker: str, rows: int, columns: int, terrain_marker: str):
+        """
+        Args:
+        -----
+        marker : str
+            the emoji which should be used in __str__ to highlight the game over coordinates
+        """
+        super().__init__(game, marker, rows=rows, columns=columns)
+        self.system_player = Player("Terrain", "3", terrain_marker)
+        
+        # mapping from column to per slot probability
+        # the amount of probabilities in the list is the max terrain height
+        self.terrain_probabilities = {
+            0: [0.8, 0.5, 0.5],
+            1: [0.7, 0.5, 0.3],
+            2: [0.5, 0.4, 0.3],
+            3: [0.4, 0.5],
+            4: [0.5, 0.4, 0.3],
+            5: [0.7, 0.5, 0.3],
+            6: [0.8, 0.5, 0.5],
+        }
+        self._generate_random_terrain_board()
+
+    def _generate_random_terrain_in_column(self, max_height: int, column: int, per_row_probability: List[float]) -> None:
+        """
+        generates a random terrain column. After the first "False" with generation will break
+
+        Args:
+        -----
+        max_height : int
+            the maximum height of the column
+        column : int
+            the column which should be filled
+        per_row_probability : List[float]
+            the probability of a slot being filled in a row. the float should be between 0 and 1
+        """
+        for row in range(max_height):
+            if random.random() < per_row_probability[row]:
+                self.drop_token(column, self.system_player)
+            else:
+                break
+
+    def _generate_random_terrain_board(self) -> None:
+        """
+        fills the existing `self.board` with random terrain
+        """
+        for column, probabilities in self.terrain_probabilities.items():
+            self._generate_random_terrain_in_column(len(probabilities), column, probabilities)
+
+
+
+
 
 class BoardFallingRows(Board):
     """A class which represents a connect 4 board"""
@@ -501,6 +555,26 @@ class MemoryConnect4(BaseConnect4):
             game=self,
             marker=extra_marker,
             memory_marker=memory_marker,
+            rows=rows,
+            columns=columns,
+        )
+
+
+class RandomTerrainConnect4(BaseConnect4):
+    def __init__(
+        self,
+        player1: Player,
+        player2: Player,
+        extra_marker: str,
+        terrain_marker: str,
+        rows: int,
+        columns: int,
+    ):
+        super().__init__(player1, player2, extra_marker, rows, columns)
+        self.board = RandomTerrainBoard(
+            game=self,
+            marker=extra_marker,
+            terrain_marker=terrain_marker,
             rows=rows,
             columns=columns,
         )
@@ -968,6 +1042,85 @@ class MemoryConnect4Handler(Connect4Handler):
         else:
             embed = self.build_embed()
         await self.ctx.respond(embed=embed, components=self.message_components, update=True)
+
+
+
+class RandomTerrainConnect4Handler(Connect4Handler):
+    """
+    A handler which connects Connect4 with hikari/discord
+    """
+    def __init__(
+        self,
+        player1: hikari.Member,
+        player2: hikari.Member,
+        rows: int,
+        columns: int,
+    ):
+        super().__init__(player1, player2, rows, columns)
+        # regenerate player marks
+        marks = ['🔵','🟣','🔴','🟠','🟢','🟡','🟤'] #,'⚪'
+        self.mark1 = random.choice(marks)
+        marks.remove(self.mark1)
+        self.mark2 = random.choice(marks)
+        marks.remove(self.mark2)
+        self.terrain_marker = random.choice(marks)
+        marks.remove(self.terrain_marker)
+        if self.mark1 in '🟢🟡' and self.mark2 in '🟢🟡':
+            self.mark2 = random.choice(marks)
+            marks.remove(self.mark2)
+        extra_marker = random.choice(marks)
+        self._ctx: None | InuContext = None
+
+        # generate game
+        g_player1 = HikariPlayer(player1.display_name, 1, self.mark1, player1)
+        g_player2 = HikariPlayer(player2.display_name, 2, self.mark2, player2)
+        self.game = RandomTerrainConnect4(
+            g_player1, 
+            g_player2, 
+            extra_marker,
+            self.terrain_marker,
+            rows=rows,
+            columns=columns,
+        )
+        
+        # these Errors will be displayed to the players
+        # these should contain why a player can't make a specific move etc.
+        self.game_infos: List[Exception] = [
+            RuntimeError(f"The {self.terrain_marker} slots are blocked terrain. You can't place a chip there.")
+        ]
+        
+
+    @property
+    def game_explanation(self) -> str:
+        # a legend for the board
+        legend = (
+            f"{self.game.player1.token} {self.game.player1.name}\n\n"
+            f"{self.game.player2.token} {self.game.player2.name}\n\n"
+            f"{self.game.board.system_player.token} Terrain\n\n"
+        )
+        return legend
+    
+
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
+        """triggered, when player presses a button"""
+        await self._on_interaction_add(event)
+        # if event.interaction.custom_id == "connect4_re-generate":
+        #     self.game.board = RandomTerrainBoard()
+    
+    def build_embed(self):
+        embed = super().build_embed()
+        embed.title =f"- - Connect 4: Random Terrain - -"
+        return embed
+
+    
+    @property
+    def _stateless_type_letter(self) -> str:
+        """returns one letter used to determine which type of connect 4 it is"""
+        return "T"
+
+
+
     
 
 
@@ -988,6 +1141,7 @@ def get_handler_from_letter(letter: str) -> Type[Connect4Handler]:
         "D": Connect4Handler,
         "F": Connect4FallingRowsHandler,
         "M": MemoryConnect4Handler,
+        "T": RandomTerrainConnect4Handler,
     }.get(letter)
     if handler is None:
         raise TypeError(f"There is no Connect4Handler identified with letter {letter}")
