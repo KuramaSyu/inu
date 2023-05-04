@@ -207,6 +207,10 @@ class Board:
             for line in lines:
                 slots = []
                 for slot in line:
+                    if slot.marker not in [self.game.player1.token, self.game.player2.token]:
+                        # non human slot
+                        set_if_longest()
+                        slots = []
                     if slot.marker is None:
                         # empty slot
                         set_if_longest()
@@ -315,65 +319,6 @@ class RandomTerrainBoard(Board):
         """
         for column, probabilities in self.terrain_probabilities.items():
             self._generate_random_terrain_in_column(len(probabilities), column, probabilities)
-
-    def check_for_game_over(self):
-        """
-        Checks if the game is over.
-        If the game is over, `self.game_over_slots` will be changed to the coordinates and wont be `None` anymore
-        And `self.game.status` will be set to `GameStatus.OVER`
-        """
-        def check(lines: List[List[Slot]]) -> List[Slot]:
-            # I know that this could be shorter
-            # but I also want, that when a game is won with more than 4 slots,
-            # the system will also display more the 4 slots
-            longest: List[Slot] = []
-            slots: List[Slot] = []
-
-            def set_if_longest():
-                nonlocal longest
-                nonlocal slots
-                if len(slots) > len(longest):
-                    longest = slots
-
-            for line in lines:
-                slots = []
-                for slot in line:
-                    if slot.marker is None:
-                        # empty slot
-                        set_if_longest()
-                        slots = []
-                    elif slots == []:
-                        # first slot
-                        slots.append(slot)
-                    elif slot.marker == self.system_player.marker:
-                        # system slot
-                        slots = []
-                    elif slots[-1].marker != slot.marker:
-                        # other slot then before
-                        set_if_longest()
-                        slots = [slot]
-                    else:
-                        # same slot as before
-                        slots.append(slot) 
-                set_if_longest()
-
-            if len(longest) >= 4:
-                return longest
-            return []
-
-        # test rows, cols and diagonals and backward diagonals
-        # for a +4 row
-        for slots in [
-            self.board,
-            Grid.get_cols(self.board), 
-            Grid.get_backward_diagonals(self.board), 
-            Grid.get_forward_diagonals(self.board)
-        ]:
-            row_of_4 = check(slots)
-            if row_of_4:
-                self.game_over_slots = row_of_4
-                self.game.status = GameStatus.OVER
-                break
 
 
 
