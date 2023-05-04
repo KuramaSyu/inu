@@ -1098,6 +1098,7 @@ class RandomTerrainConnect4Handler(Connect4Handler):
         legend = (
             f"{self.game.player1.token} {self.game.player1.name}\n\n"
             f"{self.game.player2.token} {self.game.player2.name}\n\n"
+            f"{self.game.board.marker} System\n\n"
             f"{self.game.board.system_player.token} Terrain\n\n"
         )
         return legend
