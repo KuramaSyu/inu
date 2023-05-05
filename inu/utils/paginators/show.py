@@ -191,7 +191,7 @@ class ShowPaginator(Paginator):
             embed.description += f"_{tagline}_\n"  # type: ignore
         embed.description = Human.short_text(details["overview"], 1950)
         embed.add_field("Popularity", f'{round(details["popularity"])}', inline=True)
-        embed.add_field("Score", f"{details['vote_average']:.2}/10", inline=True)
+        embed.add_field("Score", f"{details['vote_average']:.1f}/10", inline=True)
         
         embed.add_field("Episodes", Human.plural_("episode", details["number_of_episodes"], True), inline=True)
         embed.add_field("Seasons", Human.plural_("season", details["number_of_seasons"], True), inline=True)
@@ -308,20 +308,20 @@ class ShowSeasonPaginator(Paginator):
         if max_score_ep:
             embed.add_field(
                 "🔺 Highest rated EP", 
-                f"{max_score_ep['vote_average']:.2}/10", 
+                f"{max_score_ep['vote_average']:.1f}/10", 
                 inline=True
             )
         # add embed field for average score
         avg_score = median(
             [e["vote_average"] for e in details.get("episodes", [])] or [0]
         )
-        embed.add_field("🔹 Score", f"{avg_score:.2}/10", inline=True)
+        embed.add_field("🔹 Score", f"{avg_score:.1f}/10", inline=True)
 
         # add embed field for min score episode
         if min_score_ep:
             embed.add_field(
                 "🔻Lowest rated EP", 
-                f"{min_score_ep['vote_average']:.2}/10", 
+                f"{min_score_ep['vote_average']:.1f}/10", 
                 inline=True
             )
 
@@ -476,7 +476,7 @@ class MoviePaginator(Paginator):
 
         # direction in emoji:  
         embed.add_field("Popularity", f'{round(details["popularity"])}', inline=True)
-        embed.add_field("Score", f"{details['vote_average']:.2}/10", inline=True)
+        embed.add_field("Score", f"{details['vote_average']:.1f}/10", inline=True)
         add_key_to_field("⏱️ Runtime", "runtime")
         embed.add_field("💰 Budget", f"${details['budget']:,}", inline=True)
         embed.add_field("🎬 Genres", join_list_dict_keys("genres"), inline=True)
