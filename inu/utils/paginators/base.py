@@ -61,6 +61,10 @@ class PaginatorReadyEvent(hikari.Event):
     def __init__(self, bot: lightbulb.BotApp):
         self.bot = bot
 
+    @property
+    def app(self):
+        return self.bot
+
 class PaginatorTimeoutEvent(hikari.Event):
     def __init__(self, bot: lightbulb.BotApp):
         self.bot = bot
