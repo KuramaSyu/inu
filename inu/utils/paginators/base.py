@@ -61,6 +61,10 @@ class PaginatorReadyEvent(hikari.Event):
     def __init__(self, bot: lightbulb.BotApp):
         self.bot = bot
 
+class PaginatorTimeoutEvent(hikari.Event):
+    def __init__(self, bot: lightbulb.BotApp):
+        self.bot = bot
+
     @property
     def app(self):
         return self.bot
@@ -757,14 +761,22 @@ class Paginator():
         await self.ctx.respond(update=False, **kwargs)
 
 
-    async def stop(self):
+    async def stop(self, kwargs: Dict[str, Any] | None = None):
+        """
+        updates the message and removes all components
+
+        Args:
+        -----
+        kwargs: Dict[str, Any] | None
+            additional kwargs to pass into `hikari.Message.edit`
+        """
         if self._stopped:
             return
         # to prevent from calling again
         self._stopped = True
         self.log.debug("stopping navigator")
         with suppress(NotFoundError, hikari.ForbiddenError):
-            kwargs = {}
+            kwargs = kwargs or {}
             if self.components:
                 kwargs["components"] = []
             elif self.component:
@@ -926,6 +938,7 @@ class Paginator():
                 # timeout - no tasks done - stop
                 if len(done) == 0:
                     self.log.debug(f"no done tasks - stop")
+                    self.dispatch_event(PaginatorTimeoutEvent(self.bot))
                     self._stop.set()
                 
                 # cancel all other tasks
