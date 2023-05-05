@@ -17,7 +17,7 @@ from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context
 
-from utils.paginators.base import PaginatorReadyEvent, listener, Paginator
+from utils.paginators.base import PaginatorReadyEvent, listener, Paginator, PaginatorTimeoutEvent
 from utils import Colors, Grid, Human
 from core import get_context, InuContext
 
@@ -677,7 +677,11 @@ class Connect4Handler(Paginator):
         """
         self._stop.set()
         self._stopped = True
-        await self.ctx.respond(components=[self.stateless_restart_button], update=True, embed=self.build_embed())
+        await self.ctx.respond(
+            components=[self.stateless_restart_button], 
+            update=True, 
+            embed=self.build_embed()
+        )
 
 
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
@@ -788,6 +792,11 @@ class Connect4Handler(Paginator):
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
         await self._on_interaction_add(event)
+
+    @listener(PaginatorTimeoutEvent)
+    async def on_timeout(self, event: PaginatorTimeoutEvent):
+        """change embed title to {Timeout {title}} and set footer to timeout draw"""
+
 
             
     async def do_turn(self, column: int, user: HikariPlayer):
