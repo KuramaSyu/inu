@@ -14,7 +14,8 @@ from utils import (
     AnimePaginator, 
     AnimeCharacterPaginator,
     MangaPaginator,
-    check_website
+    check_website,
+    MAGIC_ERROR_MONSTER
 )
 from core import getLogger, get_context
 
@@ -46,8 +47,9 @@ async def fetch_anime(_ctx: context.Context):
             )
         else:
             await ctx.respond(
-                f"Seems like [MyAnimeList]({url}) is down. Please try again later.\n\n{code}\n\n{error}",
-                ephemeral=True
+                f"Seems like [MyAnimeList]({url}) is down. Please try again later.\n_{code} - {error}_",
+                ephemeral=True,
+                attachments=[hikari.files.URL(url=MAGIC_ERROR_MONSTER, filename="error-monster.png")],
             )
 
 
