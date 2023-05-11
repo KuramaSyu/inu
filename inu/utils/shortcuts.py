@@ -1,6 +1,7 @@
 from typing import *
 from datetime import datetime, timedelta
 import hikari
+import aiohttp
 
 from core import Inu
 
@@ -44,3 +45,21 @@ def ts_round(delta: timedelta, round_to: timedelta) -> timedelta:
     total_seconds = delta.total_seconds()
     rounded_seconds = round(total_seconds / round_to.total_seconds()) * round_to.total_seconds()
     return timedelta(seconds=rounded_seconds)
+
+
+
+async def check_website(url: str) -> Tuple[int, Optional[str]]:
+    """
+    Checks if a website is available
+
+    Returns:
+    --------
+    Tuple[int, Optional[str]]
+        the status code and an optional error message
+    """
+    try:
+        async with aiohttp.ClientSession() as session:
+            async with session.get(url) as response:
+                return response.status, response.reason
+    except aiohttp.ClientError as e:
+        return 0, str(e)
