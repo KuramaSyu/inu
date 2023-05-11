@@ -540,7 +540,13 @@ class InteractionContext(_InteractionContext):
         
         #asyncio.create_task(self._cache_initial_response())
 
-    async def respond(self, *args, update: bool = False, **kwargs) -> ResponseProxy:
+    async def respond(
+            self, 
+            *args, 
+            update: bool = False, 
+            ephemeral: bool = False,
+            **kwargs
+    ) -> ResponseProxy:
         """
         creates a message with the interaction or REST
 
@@ -556,6 +562,9 @@ class InteractionContext(_InteractionContext):
             # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
+        # set ephemeral message flag
+        if ephemeral:
+            kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
         
         if self.is_valid and self._deferred:  
             # interaction deferred
