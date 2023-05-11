@@ -493,6 +493,8 @@ class InteractionContext(_InteractionContext):
         self._responded = True
         message = self.interaction.message
         if self._deferred:
+            if kwargs.get("flags"):
+                del kwargs["flags"]
             message = await self.interaction.edit_initial_response(
                 **kwargs
             )
@@ -562,9 +564,6 @@ class InteractionContext(_InteractionContext):
             # maybe move content from arg to kwarg
             kwargs["content"] = args[0]
             args = args[1:]
-        # set ephemeral message flag
-        if ephemeral:
-            kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
         
         if self.is_valid and self._deferred:  
             # interaction deferred
@@ -575,6 +574,7 @@ class InteractionContext(_InteractionContext):
                 message = await self.edit_inital_response(**kwargs)
             else:
                 self.log.debug("deferred message create")
+                kwargs["flags"] = hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.MessageFlag.NONE
                 message = await self.initial_response_create(**kwargs)
 
             async def _editor(
@@ -619,7 +619,7 @@ class InteractionContext(_InteractionContext):
 
         # interaction is valid and not deferred
         self.log.debug("call respond")
-        ret_val = await super().respond(*args, update=update, **kwargs)
+        ret_val = await super().respond(*args, update=update, ephemeral=ephemeral, **kwargs)
         # first response was created
         # if old_responded == False and self._responded == True:
             #asyncio.create_task(self._cache_initial_response())
