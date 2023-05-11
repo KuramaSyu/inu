@@ -14,6 +14,7 @@ from utils import (
     AnimePaginator, 
     AnimeCharacterPaginator,
     MangaPaginator,
+    check_website
 )
 from core import getLogger, get_context
 
@@ -36,10 +37,18 @@ async def fetch_anime(_ctx: context.Context):
     except Exception:
         log = getLogger(__name__, "fetch_anime")
         log.debug(traceback.format_exc())
-        await ctx.respond(
-            f"Seems like you haven't typed in something anime like.",
-            ephemeral=True
-        )
+        url = "https://myanimelist.net/"
+        code, error = await check_website(url)
+        if code == 200:
+            await ctx.respond(
+                f"Seems like you haven't typed in something anime like.",
+                ephemeral=True
+            )
+        else:
+            await ctx.respond(
+                f"Seems like [MyAnimeList]({url}) is down. Please try again later.\n\n{code}\n\n{error}",
+                ephemeral=True
+            )
 
 
 # @fetch_anime.set_error_handler()
