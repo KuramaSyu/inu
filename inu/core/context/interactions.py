@@ -221,6 +221,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
         async def _editor(
             rp: ResponseProxy, *args_: Any, inter: hikari.CommandInteraction, **kwargs_: Any
         ) -> hikari.Message:
+            if kwargs_.get("flags"): del kwargs_["flags"]
             await inter.edit_initial_response(*args_, **kwargs_)
             return await rp.message()
 
@@ -536,6 +537,7 @@ class InteractionContext(_InteractionContext):
             )
             return self.interaction.message
         else:
+            if kwargs.get("flags"): del kwargs["flags"]
             return await self.i.edit_initial_response(
                 **kwargs
             )
@@ -581,6 +583,7 @@ class InteractionContext(_InteractionContext):
                 rp: ResponseProxy, *args_: Any, inter: hikari.CommandInteraction, **kwargs_: Any
             ) -> hikari.Message:
                 """editor for initial responses"""
+                if kwargs_.get("flags"): del kwargs_["flags"]
                 await inter.edit_initial_response(*args_, **kwargs_)
                 return await rp.message()
 
@@ -639,6 +642,7 @@ class CommandInteractionContext(InteractionContext):
         message: hikari.Message
 
         if self._deferred:
+            if kwargs.get("flags"): del kwargs["flags"]
             message = await self.interaction.edit_initial_response(
                 **kwargs
             )
@@ -667,6 +671,7 @@ class CommandInteractionContext(InteractionContext):
             )
             message =  await self.interaction.fetch_initial_response()
         else:
+            if kwargs.get("flags"): del kwargs["flags"]
             message = await self.i.edit_initial_response(
                 **kwargs
             )
