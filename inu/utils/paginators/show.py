@@ -3,6 +3,7 @@ from typing import *
 from enum import Enum
 from datetime import date
 from statistics import median
+from copy import copy
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
@@ -14,7 +15,7 @@ from fuzzywuzzy import fuzz
 from .base import Paginator, listener
 
 from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
-from utils import Human, crumble
+from utils import Human, crumble, Colors
 
 log = getLogger(__name__)
 
@@ -248,6 +249,42 @@ class ShowPaginator(Paginator):
 class ShowSeasonPaginator(Paginator):
     _results: List[Dict[str, Any]]  # bare season info
     _tv_show_id: int
+    _current_details: Dict[Any, Any]
+
+    @listener(hikari.InteractionCreateEvent)
+    async def on_interaction(self, event: hikari.InteractionCreateEvent):
+        if not self.interaction_pred(event):
+            return
+        i = event.interaction
+        if i.custom_id == "season_episodes_full_ranking":
+            return await (SeasonEpisodeRankingPaginator([""])).start(
+                get_context(event), 
+                self._current_details
+            )
+    def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
+        components = super().build_default_components(position)
+        components.append(
+            MessageActionRowBuilder()
+            .add_button(ButtonStyle.SECONDARY, "season_episodes_full_ranking").set_label("Ranked EPs").add_to_container()
+        )
+        return components
+    
+    async def send_full_ranking(self, ctx: InuContext):
+        if not (episodes := self._current_details.get("episodes")):
+            await ctx.respond("No episodes which could be ranked", ephemeral=True)
+            return
+        sorted_episodes = sorted(episodes, key=lambda e: e["vote_average"], reverse=True)
+        sorted_episdoes_text = ""
+        prefix = "||"
+        suffix = "||"
+        for idx, ep in enumerate(sorted_episodes):
+            sorted_episdoes_text += f"{idx+1}. {prefix}{ep['name']} (EP {ep['episode_number']}){suffix}\n"
+        embed = Embed(
+            title=f"{self._current_details['name']} - ranked",
+
+        )
+
+
 
     async def start(self, ctx: InuContext, tv_show_id: int, season_response: List[Dict[str, Any]], **kwargs):
         """
@@ -284,6 +321,7 @@ class ShowSeasonPaginator(Paginator):
                 return
             show_route = route.Season()
             details = await show_route.details(self._tv_show_id, self._results[self._position]["season_number"])
+            self._current_details = details
             await show_route.session.close()
         except IndexError:
             return await self.ctx.respond("Seems like there is no season preview for this TV show", ephemeral=True)
@@ -363,6 +401,44 @@ class ShowSeasonPaginator(Paginator):
         """
         await self._load_details()
         await super()._update_position(interaction)
+
+
+class SeasonEpisodeRankingPaginator(Paginator):
+    _details: Dict[str, Any]
+
+    async def start(self, ctx: InuContext, _details: Dict[str, Any]) -> hikari.Message:
+        """
+        starts the paginator
+        """
+        self._details = _details
+        self.ctx = ctx
+        self._position = 0
+        await self._load_details()
+        if not self._pages:
+            return
+
+        return await super().start(ctx)
+
+    async def _load_details(self, prefix: str = "||", suffix: str = "||") -> None:
+        if not (episodes := self._details.get("episodes")):
+            await self.ctx.respond("No episodes which could be ranked", ephemeral=True)
+            return
+        sorted_episodes = sorted(episodes, key=lambda e: e["vote_average"], reverse=True)
+        sorted_episdoes_text = ""
+        prefix = "||`"
+        suffix = "`||"
+        max_len = max(len(ep.get('title', '')) for ep in sorted_episodes) + 8
+        embed = Embed(title=f"Episode ranking for {self._details['name']}")
+        embed.color = Colors.pastel_color()
+        for idx, ep in enumerate(sorted_episodes):
+            title = f"{ep['name']} (EP {ep['episode_number']})"
+            sorted_episdoes_text += f"{ep['vote_average']}: {prefix}{title:^{max_len}}{suffix}\n"
+        if len(sorted_episdoes_text) < 2040:
+            embed.description = sorted_episdoes_text
+        else:
+            for text_part in crumble(sorted_episdoes_text, 1024):
+                embed.add_field(".", text_part, inline=False)
+        self._pages = [embed]
 
 
 
