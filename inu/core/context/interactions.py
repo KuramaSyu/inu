@@ -494,8 +494,8 @@ class InteractionContext(_InteractionContext):
         self._responded = True
         message = self.interaction.message
         if self._deferred:
-            if kwargs.get("flags"):
-                del kwargs["flags"]
+            if not kwargs.get("flags") is None:
+                kwargs.pop("flags")
             message = await self.interaction.edit_initial_response(
                 **kwargs
             )
@@ -527,7 +527,7 @@ class InteractionContext(_InteractionContext):
             await self._cache_initial_response()
         return self._message
 
-    async def edit_inital_response(self, **kwargs) -> hikari.Message:
+    async def edit_initial_response(self, **kwargs) -> hikari.Message:
         """update the initial response"""
         self._responded = True
         if not self._deferred:
@@ -537,7 +537,8 @@ class InteractionContext(_InteractionContext):
             )
             return self.interaction.message
         else:
-            if kwargs.get("flags"): del kwargs["flags"]
+            if not kwargs.get("flags") is None:
+                kwargs.pop("flags")
             return await self.i.edit_initial_response(
                 **kwargs
             )
@@ -573,7 +574,7 @@ class InteractionContext(_InteractionContext):
 
             if update:
                 self.log.debug("deferred message update")
-                message = await self.edit_inital_response(**kwargs)
+                message = await self.edit_initial_response(**kwargs)
             else:
                 self.log.debug("deferred message create")
                 kwargs["flags"] = hikari.MessageFlag.EPHEMERAL if ephemeral else hikari.MessageFlag.NONE
@@ -642,7 +643,7 @@ class CommandInteractionContext(InteractionContext):
         message: hikari.Message
 
         if self._deferred:
-            if kwargs.get("flags"): del kwargs["flags"]
+            if not kwargs.get("flags") is None: kwargs.pop("flags")
             message = await self.interaction.edit_initial_response(
                 **kwargs
             )
@@ -658,7 +659,7 @@ class CommandInteractionContext(InteractionContext):
         return message
 
 
-    async def edit_inital_response(self, **kwargs) -> hikari.Message:
+    async def edit_initial_response(self, **kwargs) -> hikari.Message:
         """update the initial response"""
         hikari.CommandInteraction
         self._responded = True
@@ -671,7 +672,7 @@ class CommandInteractionContext(InteractionContext):
             )
             message =  await self.interaction.fetch_initial_response()
         else:
-            if kwargs.get("flags"): del kwargs["flags"]
+            if not kwargs.get("flags") is None: kwargs.pop("flags")
             message = await self.i.edit_initial_response(
                 **kwargs
             )
