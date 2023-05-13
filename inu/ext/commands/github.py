@@ -44,16 +44,16 @@ async def change_log(_ctx: context.Context):
     github = GitHubAPI.INU_REPO()
     commits = await github.fetch_commits()
     embeds: List[Embed] = [
-        Embed("Last Changes", color=Colors.pastel_color())
+        Embed(title="Last Changes", color=Colors.pastel_color())
     ]
     for commit in commits:
         if not commit.has_keywords(commit.DEFAULT_KEYWORDS):
             continue
         if len(embeds[-1].fields) >= 24:
-            embeds.append(Embed())
-        value = f"{commit.date_string}{'-'*20}\n\n{commit.description}"
+            embeds.append(Embed(title="Last Changes", color=Colors.pastel_color()))
+        value = f"{commit.description}\n<t:{commit.date.timestamp():.0f}:f>"
         embeds[-1].add_field(
-            name=commit.message,
+            name=commit.title,
             value=value,
         )
     embeds = [embed for embed in embeds if embed.fields]
