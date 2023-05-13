@@ -25,7 +25,7 @@ class Commit:
             commit_data["author"]["date"], 
             "%Y-%m-%dT%H:%M:%SZ"
         )
-        
+
     def extract_title(self, message: str) -> str:
         lines: List[str] = message.split("\n")
         if lines:
@@ -89,21 +89,3 @@ class GitHubAPI:
                         commits.append(commit)
         return commits
 
-async def main():
-    # Specify the repository details
-    owner = "zp33dy"
-    repo = "inu"
-
-    # Create an instance of GitHubAPI
-    github_api = GitHubAPI(owner, repo)
-
-    # Get the last commits
-    commits = await github_api.fetch_commits()
-
-    # Print the commit details
-    for commit in commits:
-        print(commit)
-
-# Run the main function
-loop = asyncio.get_event_loop()
-loop.run_until_complete(main())
