@@ -102,8 +102,13 @@ class Colors():
             )
         )
     @classmethod
-    def pastel_color(self) -> hikari.Color:
-        pass 
+    def pastel_color(cls) -> hikari.Color:
+        """Returns a random pastel color."""
+        r = random.randint(0, 255)
+        g = random.randint(0, 255)
+        b = random.randint(0, 255)
+        pastel_hex = cls.adjust_color_lightness(r, g, b, factor=0.8)
+        return hikari.Color.from_hex_code(pastel_hex)
     
     @overload
     @classmethod
