@@ -242,6 +242,203 @@ class CustomID():
         except (TypeError, json.JSONDecodeError):
             return cls(custom_id=custom_id)
         
+        
+class NavigationMenuBuilder():
+    _pages: int = 0
+    _compact: bool = False
+    _current_index: int = 0
+    _disable_pagination: bool = False
+    _additional_components: List[MessageActionRowBuilder] | None = None
+    _button_rows: int = 4
+    _disabled: bool = False
+
+    def __init__(self, paginator: "Paginator"):
+        self._paginator = paginator
+
+    @property
+    def paginator(self) -> "Paginator":
+        return self._paginator
+
+    @property
+    def pages(self) -> int:
+        return self._pages
+
+    @property
+    def compact(self) -> bool:
+        return self._compact or len(self._paginator._pages) < 3
+
+    @property
+    def index(self) -> int:
+        return self._current_index
+
+    @property
+    def disable_pagination(self) -> bool:
+        return self._disable_pagination
+
+    @property
+    def additional_components(self) -> List[MessageActionRowBuilder] | None:
+        return self._additional_components
+
+    @property
+    def button_rows(self) -> int:
+        return self._button_rows
+    
+    @property
+    def disabled(self) -> bool:
+        return self._disabled
+
+
+
+    def set_current_index(self, index: int):
+        self._current_index = index
+
+    def set_pages(self, pages: int):
+        self._pages = pages
+
+    def set_disable_pagination(self, disable_pagination: bool):
+        self._disable_pagination = disable_pagination
+
+    def set_additional_components(self, additional_components: List[MessageActionRowBuilder] | None):
+        self._additional_components = additional_components
+
+    def set_compact(self, compact: bool):
+        self._compact = compact
+
+    def from_paginator(self, paginator: "Paginator"):
+        self._current_index = paginator._position
+        self._pages = len(paginator._pages)
+
+    def set_style(self, style: str):
+        """
+        sets the style of the navigation menu
+        
+        Args:
+        -----
+        style: str
+            the style of the navigation menu
+        
+        Style Options:
+        --------------
+        classic:
+            navigation with arrows
+        numbers:
+            navigation with numbers
+        """
+
+    def build(self) -> MessageActionRowBuilder:
+        if self._
+    
+
+    def _navigation_row(self, position = None) -> Optional[List[MessageActionRowBuilder]]:
+        if self.disabled:
+            return None
+
+        action_row = None
+        if not self._compact:
+            action_row = self._button_factory(
+                custom_id="first", 
+                emoji="⏮", 
+                disable_when_index_is=lambda p: p == 0
+            )
+        if self.pages > 1:
+            action_row = self._button_factory(
+                custom_id="previous",
+                emoji="◀",
+                action_row_builder=action_row or MessageActionRowBuilder(),
+                disable_when_index_is=lambda p: p == 0,
+            )
+        action_row = self._button_factory(
+            custom_id="stop",
+            emoji="✖",
+            label=f"{self.index+1}/{self.pages}",
+            action_row_builder=action_row,
+            style=ButtonStyle.DANGER,
+        )
+        if self.pages > 1:
+            action_row = self._button_factory(
+                custom_id="next",
+                emoji="▶",
+                action_row_builder=action_row,
+                disable_when_index_is=lambda p: p == self.pages-1,
+            )
+        if not self.compact:
+            action_row = self._button_factory(
+                custom_id="last",
+                emoji="⏭",
+                action_row_builder=action_row,
+                disable_when_index_is=lambda p: p == self.pages-1,
+            )
+
+        return [action_row]
+    
+    def _number_button_navigation_row(self, position=None) -> Optional[List[MessageActionRowBuilder]]:
+        # calculate start and stop indices for the three cases
+        BUTTONS_PER_ROW = 5
+        BUTTON_AMOUNT = self.button_rows * BUTTONS_PER_ROW
+        if self.index < BUTTONS_PER_ROW * 2:
+            # start at 0 because index is in the first two rows
+            start = 0
+            stop = min(BUTTON_AMOUNT, self.pages)
+        else:
+            # dont start at 0 because index is anywhere after the first two rows
+            row_index = self.index // BUTTONS_PER_ROW
+            if row_index < 2:
+                start = 0
+                stop = BUTTON_AMOUNT
+            elif row_index > self.index // BUTTONS_PER_ROW - 2:
+                stop = self.pages
+                start = max(
+                    ((stop - BUTTON_AMOUNT) // BUTTONS_PER_ROW + 1) * BUTTONS_PER_ROW, 
+                    0
+                )
+            else:
+                start = (row_index - 2) * BUTTONS_PER_ROW
+                stop = start + BUTTON_AMOUNT
+
+        action_rows = []
+        for i in range(start, stop, BUTTONS_PER_ROW):
+            action_row = MessageActionRowBuilder()
+            for j in range(i, min(i+BUTTONS_PER_ROW, stop)):
+                button_index = j - start
+                action_row = self._button_factory(
+                    custom_id= "stop" if j == self.index else f"pagination_page_{j}",  # pressing selected button will stop the paginator
+                    label=str(j+1),
+                    action_row_builder=action_row or MessageActionRowBuilder(),
+                    # disable_when_index_is=lambda p: p == j,
+                    style=ButtonStyle.PRIMARY if j == self.index else ButtonStyle.SECONDARY,
+                )
+            action_rows.append(action_row)
+        return action_rows
+
+    def _button_factory(
+        self,
+        disable_when_index_is: Callable[[Optional[int]], bool] = (lambda x: False),
+        label: str = "",
+        style = ButtonStyle.SECONDARY,
+        custom_id: Optional[str] = None,
+        emoji: Optional[str] = None,
+        action_row_builder: Optional[MessageActionRowBuilder] = None,
+        
+    ) -> MessageActionRowBuilder:
+        if action_row_builder is None:
+            action_row_builder = MessageActionRowBuilder()
+        state: bool = disable_when_index_is(self.index)
+        if not custom_id:
+            custom_id = label
+    
+        btn = (
+            action_row_builder
+            .add_button(style, custom_id)
+            .set_is_disabled(state)
+        )
+        if emoji:
+            btn = btn.set_emoji(emoji)
+
+        if label:
+            btn = btn.set_label(label)
+        btn = btn.add_to_container()
+        return btn
+        
 
 class Paginator():
     def __init__(
@@ -521,27 +718,29 @@ class Paginator():
                 emoji="⏮", 
                 disable_when_index_is=lambda p: p == 0
             )
+        if len(self._pages) > 1:
+            action_row = self._button_factory(
+                custom_id="previous",
+                emoji="◀",
+                action_row_builder=action_row or MessageActionRowBuilder(),
+                disable_when_index_is=lambda p: p == 0,
+            )
         action_row = self._button_factory(
-            custom_id="previous",
-            emoji="◀",
-            action_row_builder=action_row or MessageActionRowBuilder(),
-            disable_when_index_is=lambda p: p == 0,
-        )
-        self._button_factory(
             custom_id="stop",
             emoji="✖",
             label=f"{self._position+1}/{len(self._pages)}",
             action_row_builder=action_row,
             style=ButtonStyle.DANGER,
         )
-        self._button_factory(
-            custom_id="next",
-            emoji="▶",
-            action_row_builder=action_row,
-            disable_when_index_is=lambda p: p == len(self.pages)-1,
-        )
+        if len(self._pages) > 1:
+            action_row = self._button_factory(
+                custom_id="next",
+                emoji="▶",
+                action_row_builder=action_row,
+                disable_when_index_is=lambda p: p == len(self.pages)-1,
+            )
         if not self.compact:
-            self._button_factory(
+            action_row = self._button_factory(
                 custom_id="last",
                 emoji="⏭",
                 action_row_builder=action_row,
