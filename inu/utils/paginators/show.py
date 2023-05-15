@@ -84,7 +84,10 @@ class ShowPaginator(Paginator):
         components = super().build_default_components(position)
         components.append(
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "tv_show_seasons").set_label("Seasons").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "tv_show_seasons")
+            .set_label("Seasons")
+            .set_emoji("⤵️")
+            .add_to_container()
         )
         return components
 
@@ -250,6 +253,7 @@ class ShowSeasonPaginator(Paginator):
     _results: List[Dict[str, Any]]  # bare season info
     _tv_show_id: int
     _current_details: Dict[Any, Any]
+    _detail_cache: List[Dict[Any, Any]]
 
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
@@ -259,18 +263,21 @@ class ShowSeasonPaginator(Paginator):
         if i.custom_id == "season_episodes_full_ranking":
             return await (SeasonEpisodeRankingPaginator([""])).start(
                 get_context(event), 
-                self._current_details
+                self._detail_cache[self._position]
             )
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         components = super().build_default_components(position)
         components.append(
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "season_episodes_full_ranking").set_label("Ranked EPs").add_to_container()
+            .add_button(ButtonStyle.SECONDARY, "season_episodes_full_ranking")
+            .set_label("Episode scores")
+            .set_emoji("⤵️")
+            .add_to_container()
         )
         return components
     
     async def send_full_ranking(self, ctx: InuContext):
-        if not (episodes := self._current_details.get("episodes")):
+        if not (episodes := self._detail_cache[self._position].get("episodes")):
             await ctx.respond("No episodes which could be ranked", ephemeral=True)
             return
         sorted_episodes = sorted(episodes, key=lambda e: e["vote_average"], reverse=True)
@@ -280,7 +287,7 @@ class ShowSeasonPaginator(Paginator):
         for idx, ep in enumerate(sorted_episodes):
             sorted_episdoes_text += f"{idx+1}. {prefix}{ep['name']} (EP {ep['episode_number']}){suffix}\n"
         embed = Embed(
-            title=f"{self._current_details['name']} - ranked",
+            title=f"{self._detail_cache[self._position]['name']} - ranked",
 
         )
 
@@ -305,6 +312,7 @@ class ShowSeasonPaginator(Paginator):
         if self._results[0]["name"] == "Specials":
             self._results.append(self._results.pop(0))
         self._pages = [Embed(description="spaceholder") for _ in range(len(self._results))]
+        self._detail_cache = [{} for _ in range(len(self._results))]
         await self._load_details()
         if not self._pages:
             return
@@ -321,7 +329,7 @@ class ShowSeasonPaginator(Paginator):
                 return
             show_route = route.Season()
             details = await show_route.details(self._tv_show_id, self._results[self._position]["season_number"])
-            self._current_details = details
+            self._detail_cache[self._position] = details
             await show_route.session.close()
         except IndexError:
             return await self.ctx.respond("Seems like there is no season preview for this TV show", ephemeral=True)
@@ -380,7 +388,6 @@ class ShowSeasonPaginator(Paginator):
         if min_score_ep and max_score_ep:
             # get max length of both names
             max_len = max(len(min_score_ep.get("name", "")), len(max_score_ep.get("name", ""))) + 8
-            log.debug(f"max_len: {max_len}")
         if min_score_ep:
             str_ = f"{min_score_ep.get('name', '')} (EP {min_score_ep['episode_number']})"
             # center text in the middle
@@ -416,7 +423,12 @@ class SeasonEpisodeRankingPaginator(Paginator):
         await self._load_details()
         if not self._pages:
             return
-
+        super().__init__(
+            self._pages, 
+            disable_paginator_when_one_site=False, 
+            number_button_navigation=True,
+            timeout=60*5,
+        )
         return await super().start(ctx)
 
     async def _load_details(self, prefix: str = "||", suffix: str = "||") -> None:
@@ -427,18 +439,26 @@ class SeasonEpisodeRankingPaginator(Paginator):
         sorted_episdoes_text = ""
         prefix = "||`"
         suffix = "`||"
-        max_len = max(len(ep.get('title', '')) for ep in sorted_episodes) + 8
+        max_len = max(len(ep.get('name', '')) for ep in sorted_episodes) + 8
         embed = Embed(title=f"Episode ranking for {self._details['name']}")
         embed.color = Colors.pastel_color()
         for idx, ep in enumerate(sorted_episodes):
-            title = f"{ep['name']} (EP {ep['episode_number']})"
-            sorted_episdoes_text += f"{ep['vote_average']}: {prefix}{title:^{max_len}}{suffix}\n"
+            title = f"E{ep['episode_number']:02d} - {ep['vote_average']:.1f} - {ep['name']}"
+            sorted_episdoes_text += f"{title}\n"
+        sorted_episdoes_text = f"```\n{sorted_episdoes_text}\n```"
+        embeds = []
         if len(sorted_episdoes_text) < 2040:
+            embed = copy(embed)
             embed.description = sorted_episdoes_text
+            embeds.append(embed)
         else:
+            # remove starting and trailing ```
+            sorted_episdoes_text = sorted_episdoes_text[3:-3]
             for text_part in crumble(sorted_episdoes_text, 1024):
-                embed.add_field(".", text_part, inline=False)
-        self._pages = [embed]
+                embed_ = copy(embed)
+                embed_.description = f"```{text_part}```"
+                embeds.append(embed_)
+        self._pages = embeds
 
 
 
