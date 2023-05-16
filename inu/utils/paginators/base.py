@@ -326,7 +326,7 @@ class NavigationMenuBuilder():
         """
 
     def build(self) -> MessageActionRowBuilder:
-        if self._
+        raise NotImplementedError
     
 
     def _navigation_row(self, position = None) -> Optional[List[MessageActionRowBuilder]]:
