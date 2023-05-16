@@ -110,26 +110,27 @@ async def week_activity(ctx: Context):
     "apps", 
     "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
     default=None,
+    required=False,
     autocomplete=True,
 )
 @lightbulb.option(
     "clean-colors",
     "Use distinguishable colors (clear color difference)",
-    default=False,
-    type=bool,
+    default="No",
+    choices=["Yes", "No"],
 )
 @lightbulb.option(
     "show-all",
-    "[Yes | No] wether you see everyting (not only games). Default is No",
-    default=False,
-    type=bool,
+    "Whether you see everyting (not only games). Default is No",
+    default="No",
+    choices=["Yes", "No"],
 )
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
     default="9 days"
 )
-@lightbulb.command("current-games", "Shows, which games are played in which guild")
+@lightbulb.command("current-games", "Shows, which games are played in your guild")
 @lightbulb.implements(commands.SlashCommand)
 async def current_games(ctx: Context):
     options = ctx.options
@@ -152,7 +153,7 @@ async def current_games(ctx: Context):
         )
     # constants
     timedelta_ = timedelta(seconds=seconds)
-    show_only_games = not options["show-all"]
+    show_only_games = options["show-all"] == "No"
     remove_apps: List[str] = []
     apps = [app.strip() for app in options.apps.split(",")] if options.apps else None
     coding_apps = Games.PROGRAMMING
@@ -286,7 +287,7 @@ async def current_games(ctx: Context):
             ctx.guild_id, 
             since=timedelta_,
             activities=apps,
-            distinguishable_colors=options["clean-colors"]
+            distinguishable_colors=options["clean-colors"] == "Yes",
         )
     except Exception as e:
         if not options.apps:
