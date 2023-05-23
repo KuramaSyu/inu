@@ -59,7 +59,7 @@ async def on_interaction_create(event: hikari.InteractionCreateEvent):
         log.debug("customid is not for polls")
         return
     letter = custom_id[-1]
-    ctx_message_id = await (ictx.message()).id
+    ctx_message_id = (await ictx.message()).id
     if not ctx_message_id in PollManager.message_id_cache:
         log.debug("message id not in cache")
         return
