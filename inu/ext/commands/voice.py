@@ -44,13 +44,13 @@ plugin = lightbulb.Plugin("Voice commands")
 @lightbulb.option(
     "from-voice-channel", 
     "the voice channel where move peaple of",
-    type=hikari.GuildVoiceChannel,
+    type=hikari.GuildChannel,
     default=None,
 )
 @lightbulb.option(
     "voice-channel", 
     "the voice channel where you want to move to",
-    type=hikari.GuildVoiceChannel,
+    type=hikari.GuildChannel,
 )
 @lightbulb.command(
     "move-all", 
@@ -59,8 +59,8 @@ plugin = lightbulb.Plugin("Voice commands")
 )
 @lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
 async def move_all(ctx: Context):
-    target_channel = ctx.options["voice-channel"]
-    if not isinstance(target_channel, hikari.GuildVoiceChannel):
+    target_channel: hikari.InteractionChannel = ctx.options["voice-channel"]
+    if not target_channel.type == hikari.ChannelType.GUILD_VOICE:
         await ctx.respond(f"{target_channel} is not a voice channel", flags=hikari.MessageFlag.EPHEMERAL)
         return None
 
