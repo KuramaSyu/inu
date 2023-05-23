@@ -59,11 +59,12 @@ async def on_interaction_create(event: hikari.InteractionCreateEvent):
         log.debug("customid is not for polls")
         return
     letter = custom_id[-1]
-    if not ictx.message.id in PollManager.message_id_cache:
+    ctx_message_id = await (ictx.message()).id
+    if not ctx_message_id in PollManager.message_id_cache:
         log.debug("message id not in cache")
         return
 
-    record = await PollManager.fetch_poll(message_id=ictx.message.id)
+    record = await PollManager.fetch_poll(message_id=ctx_message_id)
     if not record:
         log.debug("no poll record found")
         return
