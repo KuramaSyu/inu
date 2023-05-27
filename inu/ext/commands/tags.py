@@ -538,7 +538,8 @@ async def overview(ctx: Context):
         return
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-
+    new_ctx = get_context(event)
+    await new_ctx.defer()
     result = event.interaction.values[0]
     type_ = {
         "guild": TagScope.GUILD,
@@ -552,9 +553,8 @@ async def overview(ctx: Context):
     if records is None:
         return
     embeds = records_to_embed(records)
-    await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
     pag = Paginator(page_s=embeds, timeout=10*60)
-    await pag.start(ctx)
+    await pag.start(new_ctx)
 
 
 
