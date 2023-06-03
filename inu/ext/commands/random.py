@@ -37,6 +37,25 @@ async def rnd(ctx: Context):
     pass
 
 @rnd.child
+@lightbulb.option("stop-number", "This number is included", type=int)
+@lightbulb.option("start-number", 'This number is included', type=int, default=1)
+@lightbulb.command("number", "Gives a number between start and stop")
+@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+async def number(ctx: Context):
+    # start-number and stop-number are both included
+    number = random.randint(ctx.options["start-number"], ctx.options["stop-number"])
+    answers = [
+        "I think it's",
+        "I would say",
+        "You should take",
+        "I would take",
+        "Your number is",
+        "I would choose",
+        "I would go with",
+    ]
+    await ctx.respond(f"{random.choice(answers)} {number}")
+
+@rnd.child
 @lightbulb.option("tag-with-list", "a tag which contains the list", autocomplete=True, default=None)
 @lightbulb.option("list", 'seperate with comma -- eg: apple, kiwi, tree, stone', modifier=OM.CONSUME_REST, default=None)
 @lightbulb.command("list", "shuffles a given list", aliases=["l", "facts"])
