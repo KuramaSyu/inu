@@ -424,7 +424,7 @@ class Poll():
             f"options={self._options}, poll={self._poll}, "
         )
 
-    def _amount_to_str(self, option_key: int, str_len: int = 44) -> str:
+    def _amount_to_str(self, option_key: int, str_len: int = 30) -> str:
         """
         returns a string with len <str_len> which displays the poll percentage with terminal symbols
         """
