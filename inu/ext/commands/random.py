@@ -43,7 +43,11 @@ async def rnd(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def number(ctx: Context):
     # start-number and stop-number are both included
-    number = random.randint(ctx.options["start-number"], ctx.options["stop-number"])
+    try:
+        number = random.randint(ctx.options["start-number"], ctx.options["stop-number"])
+    except ValueError:
+        await ctx.respond("No. You can't do that. Stop it. Get some help.")
+        return
     answers = [
         "I think it's",
         "I would say",
