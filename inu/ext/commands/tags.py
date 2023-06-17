@@ -582,6 +582,7 @@ async def tag_execute(ctx: Context):
 
 
 @tag.child
+@lightbulb.option("silent-message", "only you see the message", type=bool, default=False)
 @lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
 @lightbulb.option("name", "the name of your tag", 
     autocomplete=True
@@ -595,8 +596,9 @@ async def tag_append(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
+    additional_flag = EPHEMERAL if ctx.options.silent_message else {}
     ctx.raw_options["name"] = ctx.options.name.strip()
-    key = ctx.options.name
+    ctx = get_context(ctx.event)
     record = await get_tag_interactive(ctx)
     if not record:
         return # await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
@@ -612,6 +614,7 @@ async def tag_append(ctx: Context):
             .set_label(tag.name)
             .add_to_container()
         ),
+        **additional_flag
     )
 
 
