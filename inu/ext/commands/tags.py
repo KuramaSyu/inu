@@ -598,7 +598,6 @@ async def tag_append(ctx: Context):
     """
     additional_flag = EPHEMERAL if ctx.options.silent_message else {}
     ctx.raw_options["name"] = ctx.options.name.strip()
-    ctx = get_context(ctx.event)
     record = await get_tag_interactive(ctx)
     if not record:
         return # await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
