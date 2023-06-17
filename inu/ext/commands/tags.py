@@ -584,9 +584,7 @@ async def tag_execute(ctx: Context):
 @tag.child
 @lightbulb.option("silent-message", "only you see the message", type=bool, default=False)
 @lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
-@lightbulb.option("name", "the name of your tag", 
-    autocomplete=True
-)  
+@lightbulb.option("name", "the name of your tag", autocomplete=True)  
 @lightbulb.command("append", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def tag_append(ctx: Context):
@@ -596,7 +594,7 @@ async def tag_append(ctx: Context):
     -----
         - key: the name of the tag which you want to remove
     """
-    additional_flag = EPHEMERAL if ctx.options.silent_message else {}
+    additional_flag = EPHEMERAL if ctx.options["silent-message"] else {}
     ctx.raw_options["name"] = ctx.options.name.strip()
     record = await get_tag_interactive(ctx)
     if not record:
