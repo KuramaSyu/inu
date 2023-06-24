@@ -48,16 +48,12 @@ async def number(ctx: Context):
     except ValueError:
         await ctx.respond("No. You can't do that. Stop it. Get some help.")
         return
-    answers = [
-        "I think it's",
-        "I would say",
-        "You should take",
-        "I would take",
-        "Your number is",
-        "I would choose",
-        "I would go with",
-    ]
-    await ctx.respond(f"{random.choice(answers)} {number}")
+    # emoji number array
+    emoji_numbers = [ "0️⃣", "1️⃣", "2️⃣", "3️⃣", "4️⃣",
+                      "5️⃣", "6️⃣", "7️⃣", "8️⃣", "9️⃣"]
+    # convert number to string
+    emoji_number = "".join([emoji_numbers[int(i)] for i in str(number)])
+    await ctx.respond(f"{emoji_number}")
 
 @rnd.child
 @lightbulb.option("tag-with-list", "a tag which contains the list", autocomplete=True, default=None)
