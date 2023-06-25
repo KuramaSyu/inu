@@ -16,6 +16,7 @@ import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
+from expiring_dict import ExpiringDict
 
 from utils import crumble
 from utils import Paginator
@@ -31,6 +32,14 @@ log = getLogger(__name__)
 plugin = lightbulb.Plugin("Owner", "Commands, which are only accessable to the owner of the bot")
 LOG_LEVELS = {"DEBUG":1, "INFO":2, "WARNING":3, "ERROR":4, "CRITICAL":5}
 all_levels = list(LOG_LEVELS.keys())
+message_id_cache: ExpiringDict = ExpiringDict(ttl=60*10)
+
+
+@plugin.listener(hikari.events.MessageUpdateEvent)
+async def on_message_update(event: hikari.events.MessageUpdateEvent):
+    ...
+
+
 
 # from norinorin: https://github.com/norinorin/nokari/blob/kita/nokari/extensions/extras/admin.py#L32-L50
 def insert_returns(body: Union[List[ast.AST], List[ast.stmt]]) -> None:
@@ -359,5 +368,7 @@ async def tag_name_auto_complete(
 
 
 
-def load(bot: Inu):
+def load(inu: Inu):
+    global bot
+    bot = inu
     bot.add_plugin(plugin)
