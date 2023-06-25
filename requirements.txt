@@ -34,3 +34,4 @@ qrcode
 tmdb-python
 dacite
 tabulate
+expiring-dict
