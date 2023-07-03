@@ -154,3 +154,5 @@ inu/utils/db/df.pickle
 models/df.pickle
 .vscode/launch.json
 Lavalink.jar
+
+/bin
