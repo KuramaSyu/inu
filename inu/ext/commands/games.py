@@ -9,6 +9,7 @@ import lightbulb
 import lightbulb.context as context
 from lightbulb import commands
 from lightbulb.commands import OptionModifier as OM
+import aiohttp
 
 from utils.games.connect_four_handler import (
     Connect4Handler, 
@@ -187,6 +188,27 @@ async def onu(ctx: Context):
 async def akinator(ctx: Context):
     aki = AkinatorSI("en")
     await aki.start(ctx)
+
+
+@plugin.command
+@lightbulb.add_cooldown(60, 1, lightbulb.UserBucket)
+@lightbulb.command("reversi", "Creates a session for reversi")
+@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
+async def akinator(ctx: Context):
+    ctx = get_context(ctx.event)
+    # make a get request to inuthebot.duckdns.org:8888/create_session
+    async with aiohttp.ClientSession() as session:
+        async with session.get("http://inuthebot.duckdns.org:8888/create_session", ssl=False) as resp:
+            if resp.status != 200:
+                return await ctx.respond("Something went wrong", ephemeral=True)
+            data = await resp.json()
+            await ctx.respond(
+                component=(
+                    MessageActionRowBuilder()
+                    .add_button(hikari.ButtonStyle.LINK, custom_id=data[data]["link"])
+                    .set_label(f"Reversi Lobby Code: {data[data]['code']}")
+                )          
+            )
 
 
 
