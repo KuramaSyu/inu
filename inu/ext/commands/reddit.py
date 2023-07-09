@@ -207,7 +207,7 @@ async def anime_of_the_week(ctx: Context):
     season_to_color_map = {
         "winter": "32acd5",
         "spring": "eb2b48",
-        "summer": "f9a11b",
+        "summer": "ffe9cc",
     }
     # get color for season from submission title
     color = "32acd5"
