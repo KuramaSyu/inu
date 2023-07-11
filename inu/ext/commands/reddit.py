@@ -18,12 +18,13 @@ import hikari
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
-from utils.rest import Reddit
+from utils.rest import Reddit, AnimeCornerAPI
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from utils import Human as H
-from core import getLogger, stopwatch, BotResponseError, Inu
+from utils.paginators import AnimeCornerPaginator
+from core import getLogger, stopwatch, BotResponseError, Inu, get_context
 
 log = getLogger(__name__)
 
@@ -37,39 +38,6 @@ bot: Inu
 async def on_ready(event: hikari.ShardReadyEvent):
     await Reddit.init_reddit_credentials(plugin.bot)
     
-# @plugin.command
-# @lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
-# @lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
-# @lightbulb.command("pic", "sends a nice picture from Reddit", aliases = ['rand_pic', 'picture'])
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-# async def pic(ctx: Context):
-#     '''
-#     Sends a nice Picture
-#     Parameters:
-#     [Optional] subreddit: The subreddit u want a picture from - Default: A list of picture Subreddits
-#     '''
-#     subreddit = ctx.options.subreddit
-#     if subreddit == '':
-#         subreddit = random.choice(['itookapicture','CityPorn','EarthPorn', 'Pictures'])
-#     await send_pic(ctx, subreddit)
-
-
-# @plugin.command
-# @lightbulb.add_cooldown(1, 3, lightbulb.UserBucket)
-# @lightbulb.option("subreddit", "A Subreddit where the pic should come from", default="")
-# @lightbulb.command("meme", "sends a meme from Reddit")
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-# async def memes(ctx: Context):
-#     '''
-#     Sends a meme
-#     Parameters:
-#     [Optional] subreddit: The subreddit u want a picture from - Default: A list of meme Subreddits
-#     '''
-#     subreddit = ctx.options.subreddit
-#     if subreddit == '':
-#         subreddit = random.choice(['memes','funny'])
-#     await send_pic(ctx, subreddit)
-
 
 subreddits: Dict[str, Dict[str, int]] = {
     'AnimeBooty': {
@@ -152,11 +120,12 @@ hentai_cache_indexes: Dict[int, List[int]] = {
 
 
 SYNCING = False
+HENTAI_DISABLED = True
 
 @plugin.listener(hikari.ShardReadyEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
     global SYNCING
-    if SYNCING:
+    if SYNCING or HENTAI_DISABLED:
         return
     else:
         SYNCING = True
@@ -166,63 +135,66 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     plugin.bot.scheduler.add_job(_update_pictures, trigger, args=[subreddits])
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
-@plugin.command
-@lightbulb.add_cooldown(1, 4, lightbulb.UserBucket)
-@lightbulb.command("hentai", "sends a hentai picture from Reddit")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def hentai(ctx: Context):
-    '''
-    Sends a Hentai picture
-    Parameters:
-    [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
-    '''
-    id = ctx.guild_id or ctx.channel_id
-    def check_index_list():
-        if not hentai_cache_indexes.get(id, []):
-            hentai_cache_indexes[id] = [i for i in range(len(hentai_cache))]
-            random.shuffle(hentai_cache_indexes[id])
-    check_index_list()
-    # needs to be in a function, otherwise async would cause problems
-    # when command is called very fast
-    def get_submission():
-        return hentai_cache[hentai_cache_indexes[id].pop(-1)]
-    submission = get_submission()
-    return await send_pic(ctx, "", footer=True, amount=10, submission=submission)
 
-
-    #await .send_pic(ctx, subreddit, footer=False)
+# deactivated because of the reddit api changes
+if not HENTAI_DISABLED:
+    @plugin.command
+    @lightbulb.add_cooldown(1, 4, lightbulb.UserBucket)
+    @lightbulb.command("hentai", "sends a hentai picture from Reddit")
+    @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+    async def hentai(ctx: Context):
+        '''
+        Sends a Hentai picture
+        Parameters:
+        [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
+        '''
+        id = ctx.guild_id or ctx.channel_id
+        def check_index_list():
+            if not hentai_cache_indexes.get(id, []):
+                hentai_cache_indexes[id] = [i for i in range(len(hentai_cache))]
+                random.shuffle(hentai_cache_indexes[id])
+        check_index_list()
+        # needs to be in a function, otherwise async would cause problems
+        # when command is called very fast
+        def get_submission():
+            return hentai_cache[hentai_cache_indexes[id].pop(-1)]
+        submission = get_submission()
+        return await send_pic(ctx, "", footer=True, amount=10, submission=submission)
 
 
 @plugin.command
 @lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
-@lightbulb.command("anime-of-the-week", "get information of an Manga by name", auto_defer=True)
+@lightbulb.command("anime-of-the-week", "get information of an Manga by name")
 @lightbulb.implements(commands.SlashCommand)
 async def anime_of_the_week(ctx: Context):
+    ctx = get_context(ctx.event)
+    await ctx.defer()
     try:
         submission = await Reddit.get_anime_of_the_week_post()
     except Exception:
         log.error(traceback.format_exc())
         return await ctx.respond("Well - I didn't found it")
-    
-    season_to_color_map = {
-        "winter": "32acd5",
-        "spring": "eb2b48",
-        "summer": "ffe9cc",
-    }
-    # get color for season from submission title
-    color = "32acd5"
-    for season, c in season_to_color_map.items():
-        if season in submission.title.lower():
-            color = c
-            break
+    pag = AnimeCornerPaginator()
+    await pag.start(ctx, submission, submission.title)
+    # season_to_color_map = {
+    #     "winter": "32acd5",
+    #     "spring": "eb2b48",
+    #     "summer": "ffe9cc",
+    # }
+    # # get color for season from submission title
+    # color = "32acd5"
+    # for season, c in season_to_color_map.items():
+    #     if season in submission.title.lower():
+    #         color = c
+    #         break
 
-    await send_pic(
-        ctx=ctx, 
-        subreddit="anime", 
-        submission=submission, 
-        footer=True, 
-        embed_template=hikari.Embed(color=hikari.Color.from_hex_code(color))
-    )
+    # await send_pic(
+    #     ctx=ctx, 
+    #     subreddit="anime", 
+    #     submission=submission, 
+    #     footer=True, 
+    #     embed_template=hikari.Embed(color=hikari.Color.from_hex_code(color))
+    # )
 
 
 @stopwatch(
