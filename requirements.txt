@@ -35,3 +35,5 @@ tmdb-python
 dacite
 tabulate
 expiring-dict
+selenium
+selenium_async
