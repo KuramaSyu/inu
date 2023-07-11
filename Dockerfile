@@ -1,9 +1,9 @@
-FROM ubuntu:lunar
+FROM ubuntu:latest
 FROM python:3.10.4
 RUN apt update
 RUN apt upgrade -y
 RUN apt-get install -y rustc sudo
-
+RUN apt install -y firefox-esr
 # manually install qalc since it is used by inu
 RUN wget https://github.com/Qalculate/qalculate-gtk/releases/download/v4.5.1/qalculate-4.5.1-x86_64.tar.xz
 RUN tar -xf qalculate-4.5.1-x86_64.tar.xz
@@ -23,6 +23,7 @@ RUN cp -r dependencies/conf/qalc.cfg /home/inu/.config/qalculate/qalc.cfg
 USER root
 RUN chown -R inu: /home/inu/.config
 RUN chown -R inu: /home/inu/inu
+RUN chmod -R 777 /home/inu
 USER inu
 WORKDIR /home/inu
 CMD ["python3", "-O", "inu/main.py"]
