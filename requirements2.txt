@@ -1,3 +1,5 @@
 simple_term_menu
 rich
 typer
+selenium
+selenium_async
