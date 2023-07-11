@@ -182,7 +182,6 @@ class Database(metaclass=Singleton):
 
 def logging(reraise_exc: bool = True):
     def decorator(func: Callable):
-        @asyncio.coroutine
         @wraps(func)
         async def wrapper(*args, **kwargs):
             self = args[0]
@@ -204,7 +203,6 @@ def logging(reraise_exc: bool = True):
     return decorator
 # -> Callable[["Table", Any], Callable[[Any], Awaitable]]
 def formatter(func: Callable):
-    @asyncio.coroutine
     @wraps(func)
     async def wrapper(*args, **kwargs):
         self = args[0]
