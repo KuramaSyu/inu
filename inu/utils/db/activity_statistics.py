@@ -1,8 +1,8 @@
 from datetime import datetime, timedelta
 from typing import *
 import pickle
-
-from dataenforce import Dataset
+import pandas as pd
+#from dataenforce import Dataset
 
 from core import Database, Table
 
@@ -208,7 +208,7 @@ class CurrentGamesManager:
         guild_id: int,
         since: datetime,
         activity_filter: Optional[List[str]] = None,
-    ) -> Dataset["index": int, "r_timestamp": datetime, "game": str, "hours": int]:
+    ) -> pd.DataFrame:
         """
         fetches activies from a guild
 
@@ -226,6 +226,13 @@ class CurrentGamesManager:
             List with all reocrds from a guild.
             These records will have a timestamp, game and hours.
             The records are taken every 10 minutes.
+            Keys of Mapping:
+                r_timestamp: datetime
+                    rounded timestamp
+                game: str
+                    name of the game
+                hours: int
+                    amount of hours played
 
         """
         table = Table("current_games")
@@ -286,13 +293,20 @@ class CurrentGamesManager:
         guild_id: int, 
         since: datetime,
         ignore_activities: List[str] = [],
-    ) -> Dataset["date": datetime, "hours": int]:
+    ) -> pd.DataFrame:
         """Returns the total amount of played hours per day since <`since`> from <`guild_id`>
 
         Args:
         -----
         guild_id: int
         since: datetime
+
+        Returns:
+        --------
+        pd.Dataframe:
+            Keys:
+            - date: datetime
+            - hours: int
         """
 
         additional_filter = f"AND game != ALL($3)" if ignore_activities else ""
