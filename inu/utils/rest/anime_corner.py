@@ -24,6 +24,7 @@ class AnimeCornerAPI:
 
     @stopwatch("Scraping AnimeCorner")
     async def fetch_ranking(self, link: str) -> List[AnimeMatch]:
+        self.link = link
         return await selenium_async.run_sync(
             self._fetch_ranking
         )
