@@ -27,7 +27,7 @@ class Anime:
         title_synonyms: List[str],
         synopsis: str,
         background: str,
-        related: Dict[str, List[Dict[str, Union[Any]]]],
+        related: Dict[str, List[Dict[str, Any]]],
         genres: List[Dict[str, str]],
         type_: str,
         episodes: Optional[int],
@@ -62,7 +62,7 @@ class Anime:
         self.title_synonyms: List[str] = title_synonyms
         self.synopsis: str = synopsis
         self.background: str = background
-        self.related: Dict[str, List[Dict[str, Union[Any]]]] = related
+        self.related: Dict[str, List[Dict[str, Any]]] = related
         self.genres: List[Dict[str, str]] = genres
         self.type_: str = type_
         self.episodes: Optional[int] = episodes
