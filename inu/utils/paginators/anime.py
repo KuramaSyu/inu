@@ -7,6 +7,7 @@ import traceback
 from pprint import pformat
 import re
 from copy import deepcopy, copy
+from datetime import datetime
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
@@ -19,9 +20,10 @@ from .base import PaginatorReadyEvent, Paginator, listener
 from jikanpy import AioJikan
 from lightbulb.context import Context
 from fuzzywuzzy import fuzz
+import asyncpraw
 
 from core import getLogger, InteractionContext
-from utils import Human, Colors, MyAnimeList, Anime
+from utils import Human, Colors, MyAnimeList, Anime, AnimeCornerAPI
 
 log = getLogger(__name__)
 
@@ -583,6 +585,161 @@ class AnimePaginator(Paginator):
         self.pages.insert(self._position+1, Embed(title=f"Anime [{anime_id}]"))
         self._results.insert(self._position+1, {"node": {"id": anime_id}})
         
+
+class AnimeMatch(TypedDict):
+    rank: int
+    rank_suffix: str
+    name: str
+    score: float
+
+
+class AnimeCornerPaginator(Paginator):
+    anime_matches: List[AnimeMatch]
+    submission: asyncpraw.models.Submission
+    anime_paginators: List[AnimePaginator | None]
+    title: str
+    active_anime_paginator: AnimePaginator | None = None
+
+    def __init__(
+        self,
+        **kwargs
+    ):
+        self.anime_matches = []
+        self.submission = None
+        self.anime_paginators = []
+        self.title = ""
+        self.active_anime_paginator = None
+
+        # re-init in start - just leave it
+        super().__init__(
+            page_s=["None"], 
+            timeout=60*2,
+        )
+        
+
+    async def start(
+        self, 
+        ctx: Context, 
+        submission: asyncpraw.models.Submission,
+        title: str,
+    ) -> hikari.Message:
+        """
+        entry point for paginator
+
+        Args:
+        ----
+        ctx : lightbulb.Context
+            The context to use to send the initial message
+        anime_name : str | None
+            the name of the anime which should be searched
+        results : List[Dict[str, Dict[str, int]]] | None
+            results, if already given.
+            Must use following structure:
+                [
+                    {"node": 
+                        {"id": int}
+                    }
+                ]
+        """
+        self.ctx = ctx
+
+        
+        self.anime_paginators = []
+        self.submission = submission
+        self.title = title
+        self._pages = [self.default_embed]
+
+        self._position = 0
+        super().__init__(
+            page_s=self._pages, 
+            timeout=60*4, 
+            disable_paginator_when_one_site=False,
+            disable_search_btn=True,
+            number_button_navigation=True,
+        )
+        task = asyncio.create_task(self.fetch_matches())
+        return await super().start(ctx)
+    
+    async def fetch_matches(self):
+        """
+        fetches the matches and updates this paginator
+        """
+        print("fetching matches")
+        try:
+            anime_corner = AnimeCornerAPI()
+            print(f"anime_corner fetch {self.anime_corner_url}")
+            self.anime_matches = (await anime_corner.fetch_ranking(self.anime_corner_url))[:10]
+            print("anime_corner fetched")
+            self._pages = [self.default_embed for _ in range(len(self.anime_matches))]
+            self.anime_paginators = [None for _ in range(len(self.anime_matches))]
+            # update components
+            await super()._update_position()
+        except Exception as e:
+            traceback.print_exc()
+        print("fetched matches")
+
+    @property
+    def anime_corner_url(self) -> str:
+        # https://animecorner.me/spring-2023-anime-rankings-week-12/
+        # Top 10 Anime of the Week #01 - Summer 2023 (Anime Corner)
+        REGEX = r"^Top 10 Anime of the Week #(?P<week_number>\d+) - (?P<season>\w+) (?P<year>\d+)(?: \(Anime Corner\))?$"
+        match_ = re.match(REGEX, self.title)
+        if not match_:
+            raise RuntimeError(f"Couldn't match title {self.title} with regex {REGEX}")
+        week_number = int(match_.group("week_number"))
+        season = match_.group("season").lower()
+        year = match_.group("year")
+        return f"https://animecorner.me/{season}-{year}-anime-rankings-week-{week_number}/"
+
+    async def _update_position(self, interaction: ComponentInteraction | None = None, detailed=False):
+        """
+        replaces embed page first with a more detailed one, before sending the message
+        """
+        await self.load_page()
+        await super()._update_position(interaction)
+
+    @property
+    def default_embed(self) -> Embed:
+        season_to_color_map = {
+            "winter": "#32acd5",
+            "spring": "#eb2b48",
+            "summer": "#ffe9cc",
+        }
+        # get color for season from submission title
+        color = "32acd5"
+        for season, c in season_to_color_map.items():
+            if season in self.submission.title.lower():
+                color = c
+                break
+
+        return (
+            Embed(title=self.title, color=color)
+            .set_image(self.submission.url)
+        )
+
+    async def load_page(self):
+        """
+        starts the anime paginator of current index
+        """
+        old_pag = self.active_anime_paginator
+        if self.anime_paginators[self._position] is None:
+            self.anime_paginators[self._position] = await self._load_page()
+        self.active_anime_paginator = self.anime_paginators[self._position]
+
+        if old_pag is not None and not old_pag == self.active_anime_paginator:
+            await old_pag.delete_presence()
+        return self.active_anime_paginator
+    
+    async def _load_page(self) -> Paginator:
+        anime_match = self.anime_matches[self._position]
+        anime_pag = AnimePaginator()
+        task = asyncio.create_task(anime_pag.start(self.ctx, anime_match["name"]))
+        return anime_pag
+
+
+
+
+
 
 
 if __name__ == "__main__":
