@@ -23,7 +23,7 @@ import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from utils import Human as H
-from utils.paginators import AnimeCornerPaginator
+from utils.paginators import AnimeCornerPaginator, AnimeCornerPaginator2
 from core import getLogger, stopwatch, BotResponseError, Inu, get_context
 
 log = getLogger(__name__)
@@ -174,27 +174,9 @@ async def anime_of_the_week(ctx: Context):
     except Exception:
         log.error(traceback.format_exc())
         return await ctx.respond("Well - I didn't found it")
-    pag = AnimeCornerPaginator()
+    pag = AnimeCornerPaginator2()
     await pag.start(ctx, submission, submission.title)
-    # season_to_color_map = {
-    #     "winter": "32acd5",
-    #     "spring": "eb2b48",
-    #     "summer": "ffe9cc",
-    # }
-    # # get color for season from submission title
-    # color = "32acd5"
-    # for season, c in season_to_color_map.items():
-    #     if season in submission.title.lower():
-    #         color = c
-    #         break
 
-    # await send_pic(
-    #     ctx=ctx, 
-    #     subreddit="anime", 
-    #     submission=submission, 
-    #     footer=True, 
-    #     embed_template=hikari.Embed(color=hikari.Color.from_hex_code(color))
-    # )
 
 
 @stopwatch(
