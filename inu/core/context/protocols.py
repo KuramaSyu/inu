@@ -116,6 +116,19 @@ class InuContext(ABC):
     @abstractmethod
     async def delete_initial_response(self) -> None:
         ...
+        
+    @abstractmethod
+    async def delete_webhook_message(self, message: int | hikari.Message, after: int | None = None):
+        """
+        delete a webhook message
+
+        Args:
+        ----
+        message : int
+            the message to delete. Needs to be created by this interaction
+        after : int
+            wait <after> seconds, until deleting
+        """
 
 
 class InuContextProtocol(Protocol[T]):
