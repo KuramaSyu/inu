@@ -12,6 +12,7 @@ import aiohttp
 import dotenv
 import asyncio
 from fuzzywuzzy import fuzz
+from expiring_dict import ExpiringDict
 
 from core import getLogger
 
@@ -35,6 +36,7 @@ class MALTypes(Enum):
 class MyAnimeListAIOClient:
     """Wrapper for MyAnimeList API Endpoint"""
     client_id: str = ""
+    response_cache = ExpiringDict(ttl=60*60)
 
 
     def __init__(
@@ -137,6 +139,8 @@ class MyAnimeListAIOClient:
         Dict[str, Any]
             the response json
         """
+        if resp := self.response_cache.get(query) is not None:
+            return resp
         fields = (
             "id,title,main_picture,alternative_titles,"
             "start_date,end_date,synopsis,mean,rank,popularity,"
@@ -151,6 +155,7 @@ class MyAnimeListAIOClient:
         kwargs = {"nsfw": "true" if include_nsfw else "false"}
         resp = await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields, "limit":"50", **kwargs})
         log.info(f"fetched {len(resp['data'])} anime in {(datetime.now() - a).total_seconds():.2f}s")
+        self.response_cache[query] = resp
         return resp
 
 
