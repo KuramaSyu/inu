@@ -348,7 +348,8 @@ class AnimePaginator(Paginator):
         # fetch anime if not done yet
         anime = await self._fetch_current_anime()
 
-        old_embed = self._pages[self._position]
+        self._current_has_prequel = False
+        self._current_has_sequel = False
         
         # build detailed embed
         popularity = ""
