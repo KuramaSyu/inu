@@ -18,6 +18,7 @@ import asyncio
 import datetime
 import random
 from collections import deque
+from contextlib import suppress
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, VoiceStateUpdateEvent
@@ -172,7 +173,8 @@ class Interactive:
                 return None, None  # to avoid problems with typecheckers
             track_num = int(event.interaction.values[0])
         except asyncio.TimeoutError as e:
-            await msg_proxy.delete()
+            with suppress(hikari.NotFoundError):
+                await msg_proxy.delete()
             raise e
         # await event.interaction.create_initial_response(
         #     ResponseType.MESSAGE_UPDATE,
@@ -359,17 +361,21 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             pass
         # bot disconnected
         elif event.state.channel_id is None and not event.old_state is None:
-            ctx = last_context[event.state.guild_id]
-            music_message = music_messages[event.state.guild_id]
-            try:
-                await music_message.edit(components=await build_music_components(event.state.guild_id, disable_all=True))
-            except hikari.NotFoundError:
-                log.error(traceback.format_exc())
+            with suppress(hikari.NotFoundError, IndexError):
+                music_message = music_messages[event.state.guild_id]
+                try:
+                    await music_message.edit(
+                        components=await build_music_components(
+                        event.state.guild_id, 
+                        disable_all=True)
+                    )
+                except hikari.NotFoundError:
+                    log.error(traceback.format_exc())
             # await ctx.respond(components=await build_music_components(event.state.guild_id, disable_all=True), update=True)
             await lavalink.destroy(event.guild_id)
             await lavalink.wait_for_connection_info_remove(event.guild_id)
 
-            # Destroy nor leave remove the node nor the queue loop, you should do this manually.
+            # Destroy nor leave removes the node or the queue loop, you should do this manually.
             await lavalink.remove_guild_node(event.guild_id)
             await lavalink.remove_guild_from_loops(event.guild_id)
             #music_messages[event.guild_id] = None
