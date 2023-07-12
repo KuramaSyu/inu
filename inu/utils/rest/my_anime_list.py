@@ -161,7 +161,7 @@ class MyAnimeListAIOClient:
         kwargs = {"nsfw": "true" if include_nsfw else "false"}
         resp = await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields, "limit":"50", **kwargs})
         log.info(f"fetched {len(resp['data'])} anime in {(datetime.now() - a).total_seconds():.2f}s")
-        self.response_cache.ttl(query, resp, self.TTL)
+        self.response_cache.ttl(query, copy(resp), self.TTL)
         return resp
 
 
