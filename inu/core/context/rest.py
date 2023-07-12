@@ -178,6 +178,21 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         await self.original_message.delete()
 
 
+    async def delete_webhook_message(self, message: int | hikari.Message, after: int | None = None):
+        """
+        delete a webhook message
+
+        Args:
+        ----
+        message : int
+            the message to delete. Needs to be created by this interaction
+        after : int
+            wait <after> seconds, until deleting
+        """
+        if after is not None:
+            await asyncio.sleep(after)
+        await self.app.rest.delete_message(self.channel_id, message)
+
 
 # class RESTMessageContext(RESTContext):
 #     def __init__(self, app: hikari.GatewayBot, event: hikari.MessageCreateEvent | hikari.Mess)
