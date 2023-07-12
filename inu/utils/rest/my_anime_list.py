@@ -8,6 +8,7 @@ logging.basicConfig(format='%(asctime)s %(message)s')
 import jikanpy
 from enum import Enum
 from copy import copy
+from pprint import pprint
 
 import aiohttp
 import dotenv
@@ -143,7 +144,7 @@ class MyAnimeListAIOClient:
         """
         try:
             resp = self.response_cache[query]
-            return resp
+            return copy(resp)
         except KeyError:
             pass
         fields = (
