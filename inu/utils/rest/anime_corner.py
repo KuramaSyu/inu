@@ -18,7 +18,8 @@ class AnimeMatch(TypedDict):
 
 
 class AnimeCornerAPI:
-    ttl_dict = ExpiringDict(ttl=60*60*24*7)
+    TTL = 60*60*24*7
+    ttl_dict = ExpiringDict(ttl=TTL)
 
     def __init__(self) -> None:
         self.link = "https://animecorner.me/spring-2023-anime-rankings-week-12/"
@@ -31,7 +32,7 @@ class AnimeCornerAPI:
                 self._fetch_ranking,
                 browser="firefox"
             )
-            self.ttl_dict[link] = matches
+            self.ttl_dict.ttl(link, matches, self.TTL)
         return matches
 
     

@@ -7,6 +7,7 @@ import logging
 logging.basicConfig(format='%(asctime)s %(message)s')
 import jikanpy
 from enum import Enum
+from copy import copy
 
 import aiohttp
 import dotenv
@@ -36,7 +37,8 @@ class MALTypes(Enum):
 class MyAnimeListAIOClient:
     """Wrapper for MyAnimeList API Endpoint"""
     client_id: str = ""
-    response_cache = ExpiringDict(ttl=60*60)
+    TTL = 60*60
+    response_cache = ExpiringDict(ttl=TTL)
 
 
     def __init__(
@@ -139,8 +141,11 @@ class MyAnimeListAIOClient:
         Dict[str, Any]
             the response json
         """
-        if resp := self.response_cache.get(query) is not None:
+        try:
+            resp = self.response_cache[query]
             return resp
+        except KeyError:
+            pass
         fields = (
             "id,title,main_picture,alternative_titles,"
             "start_date,end_date,synopsis,mean,rank,popularity,"
@@ -155,7 +160,7 @@ class MyAnimeListAIOClient:
         kwargs = {"nsfw": "true" if include_nsfw else "false"}
         resp = await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields, "limit":"50", **kwargs})
         log.info(f"fetched {len(resp['data'])} anime in {(datetime.now() - a).total_seconds():.2f}s")
-        self.response_cache[query] = resp
+        self.response_cache.ttl(query, resp, self.TTL)
         return resp
 
 
