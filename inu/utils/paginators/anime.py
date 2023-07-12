@@ -695,8 +695,10 @@ class AnimeCornerPaginator(Paginator):
         """
         replaces embed page first with a more detailed one, before sending the message
         """
+        await super()._update_position()
+        # this starts the sub-anime paginator; this paginator needs to be updated first
         await self.load_page()
-        await super()._update_position(interaction)
+        
 
     @property
     def default_embed(self) -> Embed:
@@ -722,18 +724,25 @@ class AnimeCornerPaginator(Paginator):
         starts the anime paginator of current index
         """
         old_pag = self.active_anime_paginator
+        
         if self.anime_paginators[self._position] is None:
             self.anime_paginators[self._position] = await self._load_page()
         self.active_anime_paginator = self.anime_paginators[self._position]
 
-        if old_pag is not None and not old_pag == self.active_anime_paginator:
+        if old_pag is not None and not old_pag == self.active_anime_paginator and not old_pag._stopped:
             await old_pag.delete_presence()
+        
+        anime_match = self.anime_matches[self._position]
+        task = asyncio.create_task(self.active_anime_paginator.start(self.ctx, anime_match["name"]))
+
+
         return self.active_anime_paginator
     
     async def _load_page(self) -> Paginator:
-        anime_match = self.anime_matches[self._position]
+        
         anime_pag = AnimePaginator()
-        task = asyncio.create_task(anime_pag.start(self.ctx, anime_match["name"]))
+        #self.ctx._update = True
+        #await self.ctx.defer()
         return anime_pag
 
 
