@@ -565,6 +565,7 @@ class Paginator():
         self._interaction: hikari.ComponentInteraction | None = None            
         self._stopped: bool = False         
         self._last_used: float = time.time()
+        self._proxy: Optional[lightbulb.ResponseProxy] = None
 
         # paginator configuration
         self.pagination = not disable_pagination
@@ -1082,6 +1083,7 @@ class Paginator():
                 **kwargs
             )
         self._message = await msg_proxy.message()
+        self._proxy = msg_proxy
         self.log.debug(f"Message created: {self._message.id}")
         # check for one extra component - paginator is automatically disabled when there is only one site
         if len(self.pages) == 1 and self._disable_paginator_when_one_site and len(self.components) < 1:
@@ -1241,7 +1243,8 @@ class Paginator():
         """Deletes this message, and invokation message, if invocation was in a guild"""
         if not self.ctx._responded:
             await self.stop()
-        await self.ctx.interaction.delete_initial_response()
+        await self._proxy.delete()
+        #await self.ctx.delete_webhook_message(self._message)
 
     async def _update_position(self, interaction: ComponentInteraction | None = None):
         """sends the page with the current `self._position` index"""
