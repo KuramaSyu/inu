@@ -7,7 +7,7 @@ import logging
 logging.basicConfig(format='%(asctime)s %(message)s')
 import jikanpy
 from enum import Enum
-from copy import copy
+from copy import copy, deepcopy
 from pprint import pprint
 
 import aiohttp
@@ -144,7 +144,8 @@ class MyAnimeListAIOClient:
         """
         try:
             resp = self.response_cache[query]
-            return copy(resp)
+            log.info(f"{len(resp['data'])}")
+            return deepcopy(resp)
         except KeyError:
             pass
         fields = (
@@ -161,8 +162,9 @@ class MyAnimeListAIOClient:
         kwargs = {"nsfw": "true" if include_nsfw else "false"}
         resp = await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields, "limit":"50", **kwargs})
         log.info(f"fetched {len(resp['data'])} anime in {(datetime.now() - a).total_seconds():.2f}s")
-        self.response_cache.ttl(query, copy(resp), self.TTL)
-        return resp
+        self.response_cache.ttl(query, deepcopy(resp), self.TTL)
+        log.info(f"{len(resp['data'])}")
+        return deepcopy(resp)
 
 
 
