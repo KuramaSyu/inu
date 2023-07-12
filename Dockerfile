@@ -1,9 +1,7 @@
 FROM ubuntu:latest
 FROM python:3.10.4
-RUN apt update
-RUN apt upgrade -y
-RUN apt-get install -y rustc sudo
-RUN apt install -y firefox-esr
+# install rustc for lavasnek_rs and firefox-esr for selenium
+RUN apt update;apt-get install -y rustc sudo firefox-esr
 # manually install qalc since it is used by inu
 RUN wget https://github.com/Qalculate/qalculate-gtk/releases/download/v4.5.1/qalculate-4.5.1-x86_64.tar.xz
 RUN tar -xf qalculate-4.5.1-x86_64.tar.xz
