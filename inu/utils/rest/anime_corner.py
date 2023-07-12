@@ -6,8 +6,7 @@ import asyncio
 from typing import *
 import selenium_async
 from core import stopwatch
-
-
+from expiring_dict import ExpiringDict
 REGEX = r"(\d+)(th|st|nd|rd) (.+) ([\d\.]+)%"
 
 
@@ -19,15 +18,22 @@ class AnimeMatch(TypedDict):
 
 
 class AnimeCornerAPI:
+    ttl_dict = ExpiringDict(ttl=60*60*24*7)
+
     def __init__(self) -> None:
         self.link = "https://animecorner.me/spring-2023-anime-rankings-week-12/"
 
-    @stopwatch("Scraping AnimeCorner")
+    @stopwatch("Scraping AnimeCorner")  
     async def fetch_ranking(self, link: str) -> List[AnimeMatch]:
         self.link = link
-        return await selenium_async.run_sync(
-            self._fetch_ranking
-        )
+        if not (matches := self.ttl_dict.get(link)):
+            matches = await selenium_async.run_sync(
+                self._fetch_ranking,
+                browser="firefox"
+            )
+            self.ttl_dict[link] = matches
+        return matches
+
     
     def _fetch_ranking(self, browser) -> List[AnimeMatch]:
         opts = Options()
