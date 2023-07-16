@@ -16,7 +16,7 @@ import asyncio
 from fuzzywuzzy import fuzz
 from expiring_dict import ExpiringDict
 
-from core import getLogger
+from core import getLogger, stopwatch
 
 log = getLogger(__name__)
 
@@ -144,7 +144,6 @@ class MyAnimeListAIOClient:
         """
         try:
             resp = self.response_cache[query]
-            log.info(f"{len(resp['data'])}")
             return deepcopy(resp)
         except KeyError:
             pass
@@ -163,7 +162,6 @@ class MyAnimeListAIOClient:
         resp = await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields, "limit":"50", **kwargs})
         log.info(f"fetched {len(resp['data'])} anime in {(datetime.now() - a).total_seconds():.2f}s")
         self.response_cache.ttl(query, deepcopy(resp), self.TTL)
-        log.info(f"{len(resp['data'])}")
         return deepcopy(resp)
 
 

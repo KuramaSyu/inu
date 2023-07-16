@@ -55,7 +55,6 @@ class AnimeCornerAPI:
                     score=float(match.group(4))
                     )
                 )
-        print("done")
         return matches
 
 if __name__ == '__main__':

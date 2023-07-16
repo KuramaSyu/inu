@@ -675,19 +675,15 @@ class AnimeCornerPaginator(Paginator):
         """
         fetches the matches and updates this paginator
         """
-        print("fetching matches")
         try:
             anime_corner = AnimeCornerAPI()
-            print(f"anime_corner fetch {self.anime_corner_url}")
             self.anime_matches = (await anime_corner.fetch_ranking(self.anime_corner_url))[:10]
-            print("anime_corner fetched")
             self._pages = [self.default_embed for _ in range(len(self.anime_matches))]
             self.anime_paginators = [None for _ in range(len(self.anime_matches))]
             # update components
             await super()._update_position()
         except Exception as e:
             traceback.print_exc()
-        print("fetched matches")
 
     @property
     def anime_corner_url(self) -> str:
@@ -839,15 +835,11 @@ class AnimeCornerPaginator2(AnimePaginator):
         """
         fetches the matches and updates this paginator
         """
-        print("fetching matches")
         try:
             anime_corner = AnimeCornerAPI()
-            print(f"anime_corner fetch {self.anime_corner_url}")
             self.anime_matches = (await anime_corner.fetch_ranking(self.anime_corner_url))[:10]
-            print("anime_corner fetched")
         except Exception as e:
             traceback.print_exc()
-        print("fetched matches")
 
     @property
     def anime_corner_url(self) -> str:
