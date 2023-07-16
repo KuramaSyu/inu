@@ -142,14 +142,18 @@ def stopwatch(
     def decorator(
         func: Callable
     ):
+
         def log_text(start: datetime):
+            nonlocal mention_method
             log = getLogger(func.__name__)
             duration = datetime.now() - start
             if cache_threshold and duration < cache_threshold:
                 return
             text = f"[{duration.total_seconds()*1000:.0f} ms] "
             if not note or mention_method:
-                text += f"({func.__qualname__}) "
+                if not isinstance(mention_method, str):
+                    mention_method = func.__qualname__
+                text += f"({mention_method}) "
             if note:
                 if inspect.isfunction(note):
                     text += note()
