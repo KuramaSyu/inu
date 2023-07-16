@@ -126,14 +126,28 @@ class LoggingHandler(logging.Logger):
 
 def stopwatch(
     note: Optional[str | Callable[[], str]] = None, 
-    mention_method: bool = False
+    mention_method: bool | str = False,
+    cache_threshold: Optional[timedelta] = timedelta(milliseconds=20),
 ):
+    """
+    Args:
+    -----
+    note : Optional[str | Callable[[], str]]
+        the note which should be added to the log
+    mention_method : bool | str
+        whether to mention the method which was called
+    cache_threshold : Optional[timedelta]
+        the threshold in ms after which should be logged
+    """
     def decorator(
         func: Callable
     ):
         def log_text(start: datetime):
             log = getLogger(func.__name__)
-            text = f"[{(datetime.now() - start).total_seconds()*1000:.0f} ms] "
+            duration = datetime.now() - start
+            if cache_threshold and duration < cache_threshold:
+                return
+            text = f"[{duration.total_seconds()*1000:.0f} ms] "
             if not note or mention_method:
                 text += f"({func.__qualname__}) "
             if note:
@@ -141,7 +155,7 @@ def stopwatch(
                     text += note()
                 else:
                     text += note
-            log.warning(text)
+            log.info(text)
         
         if asyncio.iscoroutinefunction(func):
             log.warning("is coro")
