@@ -156,12 +156,10 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
                 records["local"] = record
         menu = (
             MessageActionRowBuilder()
-            .add_select_menu("menu")
+            .add_text_menu("menu")
             .add_option(f"{key} - global / everywhere", "global")
-            .add_to_menu()
             .add_option(f"{key} - local / guild only", "local")
-            .add_to_menu()
-            .add_to_container()
+            .parent
         )
         try:
             await ctx.respond("There are multiple tags with this name. Which one do you want?", component=menu, **EPHEMERAL)
@@ -424,7 +422,11 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
     return await ctx.respond(
         f"Your tag `{name}` has been added to my storage",
-        component=MessageActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label(tag.name).add_to_container()
+        component=MessageActionRowBuilder().add_interactive_button(
+            ButtonStyle.SECONDARY, 
+            tag.link,
+            label=tag.name
+        )
     )
 
 
@@ -514,16 +516,12 @@ async def overview(ctx: Context):
     """
     menu = (
         MessageActionRowBuilder()
-        .add_select_menu("overview_menu")
+        .add_text_menu("overview_menu")
         .add_option("all tags you can use", "all")
-        .add_to_menu()
         .add_option("guild tags", "guild")
-        .add_to_menu()
         .add_option("your tags", "your")
-        .add_to_menu()
         .add_option("global tags (all guilds)", "global")
-        .add_to_menu()
-        .add_to_container()
+        .parent
     )
     msg = await ctx.respond("Which overview do you want?", component=menu)
     msg = await msg.message()
@@ -607,9 +605,11 @@ async def tag_append(ctx: Context):
         f"""Added\n```\n{to_add.replace("`", "")}``` to `{tag.name}`""",
         component=(
             hikari.impl.MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, tag.link)
-            .set_label(tag.name)
-            .add_to_container()
+            .add_interactive_button(
+                ButtonStyle.SECONDARY,
+                tag.link,
+                label=tag.name
+            )
         ),
         **additional_flag
     )
@@ -671,7 +671,11 @@ async def tag_info(ctx: Context):
     )
     await ctx.respond(
         message,
-        component=MessageActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label("show tag").add_to_container()
+        component=MessageActionRowBuilder().add_interactive_button(
+            ButtonStyle.SECONDARY, 
+            tag.link,
+            label="show tag"    
+        )
     )
 
     

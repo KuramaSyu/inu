@@ -64,9 +64,12 @@ class MangaPaginator(Paginator):
         components = super().build_default_components(position)
         if not isinstance(components, list):
             return components
-        # components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort by score").add_to_container()
         if self._with_refresh_btn:
-            components[-1] = components[-1].add_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("more information").add_to_container()
+            components[-1] = (
+            components[-1]
+                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_re_search", label="more information")
+            )
+
         return components
     
     @listener(hikari.InteractionCreateEvent)

@@ -404,18 +404,20 @@ class Tag():
             for link in self.tag_link_infos:
                 (
                     action_row
-                    .add_button(ButtonStyle.SECONDARY, f"tag://{link['tag_name']}.{link['scope']}")
-                    .set_label(link["tag_name"])
-                    .add_to_container()
+                    .add_interactive_button(
+                        ButtonStyle.SECONDARY, 
+                        f"tag://{link['tag_name']}.{link['scope']}",
+                        label=link["tag_name"]
+                    )
                 )
         else:
-            action_row = MessageActionRowBuilder().add_select_menu(f"tag-link-menu")
+            action_row = MessageActionRowBuilder().add_text_menu(f"tag-link-menu")
             for link in self.tag_link_infos[:24]:
-                action_row = (
-                    action_row
-                    .add_option(f"{link['tag_name']}", f"tag://{link['tag_name']}.{link['scope']}").add_to_menu()
+                action_row.add_option(
+                    f"{link['tag_name']}", 
+                    f"tag://{link['tag_name']}.{link['scope']}"
                 )
-            action_row = action_row.add_to_container()
+            action_row = action_row.parent
         return [action_row]
 
     @property
@@ -428,7 +430,6 @@ class Tag():
 
         c_ids = []
         if len(self.tag_link_infos) < 6:
-            action_row = MessageActionRowBuilder()
             for link in self.tag_link_infos:
                 c_ids.append(f"tag://{link['tag_name']}.{link['scope']}")
         else:

@@ -666,8 +666,12 @@ class Connect4Handler(Paginator):
             separators=(',', ':'),
             indent=None,
         )
-        return MessageActionRowBuilder().add_button(hikari.ButtonStyle.SECONDARY, custom_id).set_emoji("🔁").add_to_container()
-    
+        return MessageActionRowBuilder().add_interactive_button(
+            hikari.ButtonStyle.SECONDARY,
+            custom_id,
+            emoji="🔁",
+        )
+
 
     async def stop(self):
         """
@@ -713,10 +717,10 @@ class Connect4Handler(Paginator):
         for d in emoji_rows:
             row = MessageActionRowBuilder()
             for emoji, custom_id in d.items():
-                row = (
-                    row
-                    .add_button(hikari.ButtonStyle.SECONDARY, f"connect4_{custom_id}")
-                    .set_emoji(emoji).add_to_container()
+                row.add_interactive_button(
+                    hikari.ButtonStyle.SECONDARY,
+                    f"connect4_{custom_id}",
+                    emoji=emoji,
                 )
             rows.append(row)
         return rows

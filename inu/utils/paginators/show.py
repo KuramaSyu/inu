@@ -7,7 +7,7 @@ from copy import copy
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
-from hikari.impl import MessageActionRowBuilder
+from hikari.impl import MessageActionRowBuilder, InteractiveButtonBuilder
 from tmdb import route
 from tabulate import tabulate
 from fuzzywuzzy import fuzz
@@ -84,10 +84,12 @@ class ShowPaginator(Paginator):
         components = super().build_default_components(position)
         components.append(
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "tv_show_seasons")
-            .set_label("Seasons")
-            .set_emoji("⤵️")
-            .add_to_container()
+            .add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                "tv_show_seasons",
+                label="Seasons",
+                emoji="⤵️"
+            )
         )
         return components
 
@@ -269,10 +271,12 @@ class ShowSeasonPaginator(Paginator):
         components = super().build_default_components(position)
         components.append(
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "season_episodes_full_ranking")
-            .set_label("Episode scores")
-            .set_emoji("⤵️")
-            .add_to_container()
+            .add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                "season_episodes_full_ranking",
+                label="Episode scores",
+                emoji="⤵️"
+            )
         )
         return components
     

@@ -103,7 +103,11 @@ class VocabularyPaginator(Paginator):
         components = super().build_default_components(position)
         components.append(
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SECONDARY, "vocabulary_start_training").set_label("learn ⤵️").add_to_container()
+            .add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                "vocabulary_start_training",
+                label="learn ⤵️"
+            )
         )
         return components
 
@@ -218,12 +222,24 @@ class TrainingPaginator(Paginator):
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         training_row = (
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SUCCESS, "vocabulary_training_yes").set_emoji("✔").add_to_container()
-            .add_button(ButtonStyle.DANGER, "vocabulary_training_no").set_emoji("✖").add_to_container()
+            .add_interactive_button(
+                ButtonStyle.SUCCESS, 
+                "vocabulary_training_yes",
+                label="✔"
+            )
+            .add_interactive_button(
+                ButtonStyle.DANGER, 
+                "vocabulary_training_no",
+                label="✖"
+            )
         )
         additional_row = (
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.SUCCESS, "vocabulary_training_stop").set_label("stop").add_to_container()
+            .add_interactive_button(
+                ButtonStyle.SUCCESS, 
+                "vocabulary_training_stop",
+                label="stop"
+            )
         )
         components = [training_row, additional_row]
         return components

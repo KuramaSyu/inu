@@ -132,7 +132,7 @@ class Interactive:
         id_ = bot.id_creator.create_id()
         menu = (
             MessageActionRowBuilder()
-            .add_select_menu(f"query_menu-{id_}")
+            .add_text_menu(f"query_menu-{id_}")
             .set_placeholder("Choose a song")
             .set_max_values(1)
             .set_min_values(1)
@@ -147,13 +147,13 @@ class Interactive:
             query_print = f"{x+1} | {track.info.title}"
             if len(query_print) > 100:
                 query_print = query_print[:100]
-            menu.add_option(track.info.title[:100], str(x)).add_to_menu()
+            menu.add_option(track.info.title[:100], str(x))
             embeds.append(
                 Embed(
                     title=f"{x+1} | {track.info.title}"[:100],
                 ).set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri))
             )
-        menu = menu.add_to_container()
+        menu = menu.parent
 
         msg_proxy = await ctx.respond(component=menu)
         menu_msg = await msg_proxy.message()
@@ -1392,30 +1392,48 @@ async def build_music_components(
     if not node and not disable_all:
         raise RuntimeError("Can't fetch node")
         
-    action_rows = [(
-        MessageActionRowBuilder()
-        .add_button(hikari.ButtonStyle.SECONDARY, "music_skip_1")
-            .set_emoji("1️⃣")
-            .set_is_disabled(disable_all or node.is_paused)
-            .add_to_container()
-        .add_button(hikari.ButtonStyle.SECONDARY, "music_skip_2")
-            .set_emoji("2️⃣")
-            .set_is_disabled(disable_all or node.is_paused)
-            .add_to_container()
-        .add_button(hikari.ButtonStyle.SECONDARY, "music_shuffle")
-            .set_emoji("🔀")
-            .set_is_disabled(disable_all)
-            .add_to_container()
-        .add_button(hikari.ButtonStyle.SECONDARY, "music_stop")
-            .set_emoji("🛑")
-            .set_is_disabled(disable_all)
-            .add_to_container()
-    )]
+    action_rows = [
+        (
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                "music_skip_1",
+                is_disabled=disable_all or node.is_paused,
+                emoji="1️⃣",
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                "music_skip_2",
+                emoji="2️⃣",
+                is_disabled=disable_all or node.is_paused,
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                "music_shuffle",
+                emoji="🔀",
+                is_disabled=disable_all,
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                "music_stop",
+                emoji="🛑",
+                is_disabled=disable_all,
+            )
+        )
+    ]
     if not disable_all:
         if node.is_paused:
-            action_rows[0].add_button(hikari.ButtonStyle.PRIMARY, "music_resume").set_label("▶").add_to_container()
+            action_rows[0].add_interactive_button(
+                hikari.ButtonStyle.PRIMARY,
+                "music_resume",
+                emoji="▶",
+            )
         else:
-            action_rows[0].add_button(hikari.ButtonStyle.SECONDARY, "music_pause").set_label("⏸").add_to_container()
+            action_rows[0].add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                "music_pause",
+                emoji="⏸",
+            )
     return action_rows
 
 @position.autocomplete("query")

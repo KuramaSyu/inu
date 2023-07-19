@@ -278,24 +278,24 @@ class HikariOnu(OnuHandler):
         components: List[MessageActionRowBuilder] = []
         menu = (
             MessageActionRowBuilder()
-            .add_select_menu("onu_card_menu")
-            .add_option(f"Draw cards ({self.onu.cast_off.draw_calue})", "0").add_to_menu()
+            .add_text_menu("onu_card_menu")
+            .add_option(f"Draw cards ({self.onu.cast_off.draw_calue})", "0")
         )
         for i, card in enumerate(hand.cards):
             if i >= 24:
                 # limit of menu len reached
                 break  
-            menu.add_option(f"{i+1:02d}", str(int(i+1))).add_to_menu()
-        menu = menu.add_to_container()
+            menu.add_option(f"{i+1:02d}", str(int(i+1)))
+        menu = menu.parent
         for i, card in enumerate(hand.cards):
 
             if CardFunctions.CHANGE_COLOR in card.functions:
                 btns = (
                     MessageActionRowBuilder()
-                    .add_button(ButtonStyle.SECONDARY, "green").set_emoji("🟢").add_to_container()
-                    .add_button(ButtonStyle.SECONDARY, "red").set_emoji("🔴").add_to_container()
-                    .add_button(ButtonStyle.SECONDARY, "blue").set_emoji("🔵").add_to_container()
-                    .add_button(ButtonStyle.SECONDARY, "yellow").set_emoji("🟡").add_to_container()
+                    .add_interactive_button(ButtonStyle.SECONDARY, "green", emoji="🟢")
+                    .add_interactive_button(ButtonStyle.SECONDARY, "red", emoji="🔴")
+                    .add_interactive_button(ButtonStyle.SECONDARY, "blue", emoji="🔵")
+                    .add_interactive_button(ButtonStyle.SECONDARY, "yellow", emoji="🟡")
                 )
                 components.append(btns)
                 break

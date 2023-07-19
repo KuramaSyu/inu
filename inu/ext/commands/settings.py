@@ -477,7 +477,7 @@ async def set_timezone(ctx: Context, kwargs: Dict[str, Any] = {"flags": hikari.M
     """dialog for setting the timezone"""
     menu = (
         MessageActionRowBuilder()
-        .add_select_menu("timezone_menu")
+        .add_text_menu("timezone_menu")
     )
     for x in range(-5,6,1):
         t = timezone(offset=timedelta(hours=x))
@@ -485,8 +485,8 @@ async def set_timezone(ctx: Context, kwargs: Dict[str, Any] = {"flags": hikari.M
         menu.add_option(
             f"{now.hour}:{now.minute} | {t}",
             str(x)
-        ).add_to_menu()
-    component = menu.add_to_container()
+        )
+    component = menu.parent
     await ctx.respond("How late is it in your region?", component=component, **kwargs)
     try:
         event = await plugin.bot.wait_for(
@@ -508,8 +508,8 @@ async def set_timezone(ctx: Context, kwargs: Dict[str, Any] = {"flags": hikari.M
             try:
                 btns = (
                     MessageActionRowBuilder()
-                    .add_button(ButtonStyle.PRIMARY, "1").set_emoji("✔️").add_to_container()
-                    .add_button(ButtonStyle.DANGER, "0").set_emoji("✖").add_to_container()
+                    .add_interactive_button(ButtonStyle.PRIMARY, "1", emoji="✔️")
+                    .add_interactive_button(ButtonStyle.DANGER, "0", emoji="✖")
                 )
                 await event.interaction.execute(
                     "Should I also use it as your private time?",

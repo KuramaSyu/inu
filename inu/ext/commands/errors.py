@@ -61,13 +61,16 @@ async def on_error(event: events.CommandErrorEvent):
             error_id = f"{bot.restart_num}-{bot.id_creator.create_id()}-{bot.me.username[0]}"
             component=(
                 hikari.impl.MessageActionRowBuilder()
-                .add_button(hikari.ButtonStyle.PRIMARY, "error_send_dev_silent")
-                .set_label("🍭 Send report")
-                .add_to_container()
-                .add_button(hikari.ButtonStyle.PRIMARY, "error_send_dev")
-                .set_label("🍭 Add note & send")
-                .add_to_container()
-
+                .add_interactive_button(
+                    hikari.ButtonStyle.PRIMARY, 
+                    "error_send_dev_silent",
+                    label="🍭 Send report silently"
+                )
+                .add_interactive_button(
+                    hikari.ButtonStyle.PRIMARY, 
+                    "error_send_dev",
+                    label="🍭 Add note & send"
+                )
             )
             try:
                 message = await (await ctx.respond(

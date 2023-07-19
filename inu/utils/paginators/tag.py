@@ -284,11 +284,11 @@ class TagHandler(StatelessPaginator):
     async def ask_type(self, ctx: Context):
         menu = (
             MessageActionRowBuilder()
-            .add_select_menu(self._serialize_custom_id("tag_options"))
-            .add_option("Normal", f"set_type_{TagType.NORMAL.value}").add_to_menu()
-            .add_option("Media (for /play)", f"set_type_{TagType.MEDIA.value}").add_to_menu()
-            .add_option("List (for /random list)", f"set_type_{TagType.LIST.value}").add_to_menu()
-            .add_to_container()
+            .add_text_menu(self._serialize_custom_id("tag_options"))
+            .add_option("Normal", f"set_type_{TagType.NORMAL.value}")
+            .add_option("Media (for /play)", f"set_type_{TagType.MEDIA.value}")
+            .add_option("List (for /random list)", f"set_type_{TagType.LIST.value}")
+            .parent
         )
         await self.ctx.respond(
             TAG_TYPES_EXPLANATION,
@@ -510,24 +510,23 @@ class TagHandler(StatelessPaginator):
         navi = super().build_default_component(position)
         rows.append(navi)
         menu = (
-                MessageActionRowBuilder()
-                .add_select_menu(self._serialize_custom_id("tag_options"))
-                .add_option("set name", "set_name").add_to_menu()
-                .add_option("edit value", "set_value").add_to_menu()
-                .add_option("add to value", "extend_value").add_to_menu()
-                .add_option("add an alias", "add_alias").add_to_menu()
-                .add_option("add a guild", "add_guild_id").add_to_menu()
-                .add_option("add an author", "add_author_id").add_to_menu()
-                .add_option("remove an author", "remove_author_id").add_to_menu()
-                .add_option("remove alias", "remove_alias").add_to_menu()
-                .add_option("remove guild", "remove_guild_id").add_to_menu()
-                .add_option("add new page", "add_new_page").add_to_menu()
-                .add_option("remove current page", "remove_this_page").add_to_menu()
-                .add_option("change tag type", "ask_type").add_to_menu()
-                #.add_option("local / global", "change_visibility").add_to_menu()
-                .add_option("delete tag", "remove_tag").add_to_menu()
-                .add_to_container()
-            )
+            MessageActionRowBuilder()
+            .add_text_menu(self._serialize_custom_id("tag_options"))
+            .add_option("set name", "set_name")
+            .add_option("edit value", "set_value")
+            .add_option("add to value", "extend_value")
+            .add_option("add an alias", "add_alias")
+            .add_option("add a guild", "add_guild_id")
+            .add_option("add an author", "add_author_id")
+            .add_option("remove an author", "remove_author_id")
+            .add_option("remove alias", "remove_alias")
+            .add_option("remove guild", "remove_guild_id")
+            .add_option("add new page", "add_new_page")
+            .add_option("remove current page", "remove_this_page")
+            .add_option("change tag type", "ask_type")
+            .add_option("delete tag", "remove_tag")
+            .parent
+        )
         
         rows.append(menu)
         if self._additional_components:
