@@ -17,7 +17,7 @@ import lightbulb
 from lightbulb import context, commands, when_mentioned_or
 import hikari
 from hikari.snowflakes import Snowflakeish
-from hikari.impl import ModalActionRowBuilder
+from hikari.impl import ModalActionRowBuilder, TextInputBuilder
 from hikari import TextInputStyle
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
@@ -666,10 +666,9 @@ class Shortcuts:
         if not components:
             components = []
             for i, question in enumerate(questions):
-                modal = (
-                    ModalActionRowBuilder()
-                    .add_text_input(f"modal_answer-{i}", question)
-                )
+                modal = TextInputBuilder(custom_id=f"modal_answer-{i}", label=question)
+                    #.add_text_input(f"modal_answer-{i}", question)
+                
 
                 # adds corresponding items to the modal
                 if max_length_s and (max_length := get_index_or_last(i, max_length_s)):
@@ -686,7 +685,7 @@ class Shortcuts:
                     modal.set_style(input_style)
 
                 # add modal part to the components
-                components.append(modal.add_to_container())
+                components.append(ModalActionRowBuilder(components=[modal]))
             
         custom_id = self.bot.id_creator.create_id()
         await interaction.create_modal_response(modal_title, custom_id, components=components)
