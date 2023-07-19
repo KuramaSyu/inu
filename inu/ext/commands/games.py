@@ -7,7 +7,7 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 import lightbulb.context as context
-from lightbulb import commands
+from lightbulb import commands, cooldown_algorithms
 from lightbulb.commands import OptionModifier as OM
 import aiohttp
 

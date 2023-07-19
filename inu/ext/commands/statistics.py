@@ -13,7 +13,7 @@ from pytimeparse.timeparse import timeparse
 from hikari import (
     Embed, 
 )
-from lightbulb import commands
+from lightbulb import commands, SlidingWindowCooldownAlgorithm
 from lightbulb.context import Context
 import matplotlib
 import matplotlib.pyplot as plt
@@ -67,7 +67,7 @@ async def maybe_raise_activity_tracking_disabled(guild_id: int):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket)
+@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
@@ -105,7 +105,7 @@ async def week_activity(ctx: Context):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket)
+@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option(
     "apps", 
     "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
