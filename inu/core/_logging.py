@@ -162,7 +162,6 @@ def stopwatch(
             log.info(text)
         
         if asyncio.iscoroutinefunction(func):
-            log.warning("is coro")
             @wraps(func)  # type: ignore
             async def wrapper(*args, **kwargs):
                 start = datetime.now()
@@ -173,7 +172,6 @@ def stopwatch(
             start = datetime.now()
             @wraps(func)  # type: ignore
             def wrapper(*args, **kwargs):
-                log.warning("is not coro")
                 val = func(*args, **kwargs)
                 log_text(start)
                 return val     
@@ -227,7 +225,7 @@ def getLevel(name_s: Union[List, str], log4file: bool = False):
 colorlog.getLogger = getLogger
 log = colorlog.getLogger("colorlog")
 log.setLevel("INFO")
-log.info("changed colorlog getLogger method")
+#log.info("changed colorlog getLogger method")
 main_log = colorlog.getLogger("colorlog")
 main_log.setLevel("INFO")
 # logging.getLogger = getLogger
