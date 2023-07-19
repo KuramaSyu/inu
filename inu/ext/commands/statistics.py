@@ -17,8 +17,7 @@ from lightbulb import commands, SlidingWindowCooldownAlgorithm
 from lightbulb.context import Context
 import matplotlib
 import matplotlib.pyplot as plt
-
-
+import colorcet as cc
 import pandas as pd
 import seaborn as sn
 import mplcyberpunk
@@ -478,7 +477,7 @@ async def build_activity_graph(
     df_summarized.reset_index(inplace=True)
 
     color_paletes = ["magma_r", "rocket_r", "mako_r"]
-    clean_color_paletes = ["Set3", "Set2"]
+    clean_color_paletes = [sn.color_palette(cc.glasbey, n_colors=len(activities))]#["Set3", "Set2"]
     color = random.choice(clean_color_paletes) if distinguishable_colors else random.choice(color_paletes)
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
@@ -495,6 +494,7 @@ async def build_activity_graph(
         y='hours', 
         data=df_summarized,
         hue="game", 
+        hue_order=activities,
         legend="auto", 
         markers=False,
         palette=color,
