@@ -83,14 +83,12 @@ class AnimePaginator(Paginator):
         components = super().build_default_components(position)
         if not isinstance(components, list):
             return components
-        # components[-1] = components[-1].add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_sort").set_label("sort by score").add_to_container()
         components: List[MessageActionRowBuilder] = [*components, MessageActionRowBuilder()]
         if len(self._pages) == 1:
             # remove pagination if there is only one page
             components.pop(0)
         if self._with_refresh_btn:
             pass
-           # components[-1] = components[-1].add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("show more").add_to_container()
         # add more information button
         components[-1] = (
             components[-1]

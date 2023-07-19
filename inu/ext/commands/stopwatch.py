@@ -77,20 +77,26 @@ def get_stopwatch_message_components(custom_id_json: dict) -> List[MessageAction
     args = (elapsed_time, is_running, datetime.fromtimestamp(start_time))
 
     action_row = (
-            MessageActionRowBuilder()
-            .add_interactive_button(start_stop_button, get_stopwatch_custom_id(start_or_stop, *args))
-            .set_label(start_stop_label).set_emoji(start_stop_emoji)
-            .add_to_container()
+        MessageActionRowBuilder()
+        .add_interactive_button(
+            start_stop_button,
+            get_stopwatch_custom_id(start_or_stop, *args),
+            emoji=start_stop_emoji
         )
+    )
     if not is_running:
         action_row = (
             action_row
-            .add_interactive_button(ButtonStyle.SECONDARY, get_stopwatch_custom_id("reset", *args))
-            .set_label("Reset").set_emoji("🔄")
-            .add_to_container()
-            .add_interactive_button(ButtonStyle.SECONDARY, get_stopwatch_custom_id("delete", *args))
-            .set_label("Close").set_emoji("❌")
-            .add_to_container()
+            .add_interactive_button(
+                ButtonStyle.SECONDARY,
+                get_stopwatch_custom_id("reset", *args),
+                emoji="🔄"
+            )
+            .add_interactive_button(
+                ButtonStyle.SECONDARY,
+                get_stopwatch_custom_id("delete", *args),
+                emoji="❌"
+            )
         )
     return [action_row]
     

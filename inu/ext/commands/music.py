@@ -136,7 +136,6 @@ class Interactive:
             .set_placeholder("Choose a song")
             .set_max_values(1)
             .set_min_values(1)
-            .parent
         )
         embeds: List[Embed] = []
         # building selection menu
@@ -148,13 +147,13 @@ class Interactive:
             query_print = f"{x+1} | {track.info.title}"
             if len(query_print) > 100:
                 query_print = query_print[:100]
-            menu.add_option(track.info.title[:100], str(x)).add_to_menu()
+            menu.add_option(track.info.title[:100], str(x))
             embeds.append(
                 Embed(
                     title=f"{x+1} | {track.info.title}"[:100],
                 ).set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri))
             )
-        menu = menu.add_to_container()
+        menu = menu.parent
 
         msg_proxy = await ctx.respond(component=menu)
         menu_msg = await msg_proxy.message()

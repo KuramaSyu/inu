@@ -373,13 +373,17 @@ class Poll():
                 if i % 5 == 0 and i:
                     components.append(row)
                     row = hikari.impl.MessageActionRowBuilder()
-                row = row.add_interactive_button(ButtonStyle.PRIMARY, f"vote_add_{option['reaction']}").set_label(str(option['name'])).add_to_container()
+                row = row.add_interactive_button(
+                    ButtonStyle.PRIMARY,
+                    f"vote_add_{option['reaction']}",
+                    label=str(option['name']),
+                )
             components.append(row)
         else:
-            menu = hikari.impl.MessageActionRowBuilder().add_select_menu("vote_add_menu")
+            menu = hikari.impl.MessageActionRowBuilder().add_text_menu("vote_add_menu")
             for option in options:
-                menu.add_option(str(option.get("name", "Unknown")), f"vote_add_{option['reaction']}").add_to_menu()
-            menu = menu.add_to_container()
+                menu.add_option(str(option.get("name", "Unknown")), f"vote_add_{option['reaction']}")
+            menu = menu.parent
             components.append(menu)
         return components
 

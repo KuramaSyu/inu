@@ -47,17 +47,17 @@ class MusicHistoryPaginator(Paginator):
         start = self._position * self.items_per_site
         menu = (
             MessageActionRowBuilder()
-            .add_select_menu("history menu")
+            .add_text_menu("history menu")
         )
         for x in range(self.items_per_site):
             try:
                 menu.add_option(
                     f"{x+start} | {self.song_list[x+start]['title']}"[:100],
                     str(int(x+start))
-                ).add_to_menu()
+                )
             except IndexError:
                 break
-        menu = menu.add_to_container()
+        menu = menu.parent
         components.append(menu)
         return components
     

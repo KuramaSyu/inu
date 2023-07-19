@@ -42,30 +42,44 @@ class AkinatorSI(Paginator):
             "aki_back": "<-- back",
             "aki_end": "X exit"
         }
-        components=[
+        components = [
             MessageActionRowBuilder()
-            .add_interactive_button(hikari.ButtonStyle.SUCCESS, "aki_yes")
-            .set_label("✔️ Yes")
-            .add_to_container()
-            .add_interactive_button(hikari.ButtonStyle.DANGER, "aki_no")
-            .set_label("❌ No")
-            .add_to_container()
-            .add_interactive_button(hikari.ButtonStyle.PRIMARY, "aki_idk")
-            .set_label("❔ I don't know")
-            .add_to_container()
-            .add_interactive_button(hikari.ButtonStyle.SECONDARY, "aki_maybe_yes")
-            .set_label("probably")
-            .add_to_container()
-            .add_interactive_button(hikari.ButtonStyle.SECONDARY, "aki_maybe_no")
-            .set_label("I don't think so")
-            .add_to_container(),
+            .add_interactive_button(
+                hikari.ButtonStyle.SUCCESS,
+                "aki_yes",
+                label="✔️ Yes"
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.DANGER,
+                "aki_no",
+                label="❌ No"
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.PRIMARY,
+                "aki_idk",
+                label="❔ I don't know"
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                "aki_maybe_yes",
+                label="probably"
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                "aki_maybe_no",
+                label="I don't think so"
+            ),
             MessageActionRowBuilder()
-            .add_interactive_button(hikari.ButtonStyle.PRIMARY, "aki_back")
-            .set_label("◀ Back")
-            .add_to_container()
-            .add_interactive_button(hikari.ButtonStyle.PRIMARY, "aki_end")
-            .set_label("You don't get it ⏹")
-            .add_to_container()
+            .add_interactive_button(
+                hikari.ButtonStyle.PRIMARY,
+                "aki_back",
+                label="◀ Back"
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.PRIMARY,
+                "aki_end",
+                label="You don't get it ⏹"
+            )
         ]
         i = 1
         description = ""
