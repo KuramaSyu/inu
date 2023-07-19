@@ -90,36 +90,31 @@ class AnimePaginator(Paginator):
             components.pop(0)
         if self._with_refresh_btn:
             pass
-            components[-1] = components[-1].add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("show more").add_to_container()
+           # components[-1] = components[-1].add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("show more").add_to_container()
         # add more information button
         components[-1] = (
             components[-1]
-            .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_more_info")
-            .set_label("details").add_to_container()
+            .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_more_info", label="details")
         )
         if self.has_too_many_openings:
             components[-1] = (
                 components[-1]
-                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_openings")
-                .set_label("⤵️ openings").add_to_container()
+                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_openings", label="⤵️ openings")
             )
         if self.has_too_many_openings:
             components[-1] = (
                 components[-1]
-                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_endings")
-                .set_label("⤵️ endings").add_to_container()
+                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_endings", label="⤵️ endings")
             )     
         if self.has_prequel:
             components[-1] = (
                 components[-1]
-                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_prequel")
-                .set_label("⏪ Prequel").add_to_container()
+                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_prequel", label="⏪ Prequel")
             )
         if self.has_sequel:
             components[-1] = (
                 components[-1]
-                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_sequel")
-                .set_label("Sequel ⏩").add_to_container()
+                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_sequel", label="Sequel ⏩")
             )
 
         if self._detailed:
@@ -128,8 +123,11 @@ class AnimePaginator(Paginator):
                 components.append(MessageActionRowBuilder())
             components[-1] = (
                 components[-1]
-                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_iterate_recommended")
-                .set_label("⤵️ recommendations").add_to_container()
+                .add_interactive_button(
+                    ButtonStyle.SECONDARY, 
+                    "btn_anime_iterate_recommended", 
+                    label="⤵️ recommendations"
+                )
             )
         return components
     
