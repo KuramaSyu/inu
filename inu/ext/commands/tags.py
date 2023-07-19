@@ -424,7 +424,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
     return await ctx.respond(
         f"Your tag `{name}` has been added to my storage",
-        component=MessageActionRowBuilder().add_interactive_button(ButtonStyle.SECONDARY, tag.link).set_label(tag.name).add_to_container()
+        component=MessageActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label(tag.name).add_to_container()
     )
 
 
@@ -607,7 +607,7 @@ async def tag_append(ctx: Context):
         f"""Added\n```\n{to_add.replace("`", "")}``` to `{tag.name}`""",
         component=(
             hikari.impl.MessageActionRowBuilder()
-            .add_interactive_button(ButtonStyle.SECONDARY, tag.link)
+            .add_button(ButtonStyle.SECONDARY, tag.link)
             .set_label(tag.name)
             .add_to_container()
         ),
@@ -671,7 +671,7 @@ async def tag_info(ctx: Context):
     )
     await ctx.respond(
         message,
-        component=MessageActionRowBuilder().add_interactive_button(ButtonStyle.SECONDARY, tag.link).set_label("show tag").add_to_container()
+        component=MessageActionRowBuilder().add_button(ButtonStyle.SECONDARY, tag.link).set_label("show tag").add_to_container()
     )
 
     

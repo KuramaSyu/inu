@@ -58,34 +58,34 @@ def get_counter_message_components(counter: int, title: str, all_visible: bool) 
         # add option buttons if needed
         rows.append(
         MessageActionRowBuilder()
-            .add_interactive_button(ButtonStyle.SECONDARY, get_counter_custom_id("reset", *args))
+            .add_button(ButtonStyle.SECONDARY, get_counter_custom_id("reset", *args))
                 .set_label("Reset").set_emoji("🔄").add_to_container()
-            .add_interactive_button(ButtonStyle.SECONDARY, get_counter_custom_id("resend", *args)) # bottom arrow emoji: ⬇️
+            .add_button(ButtonStyle.SECONDARY, get_counter_custom_id("resend", *args)) # bottom arrow emoji: ⬇️
                 .set_label("to bottom").set_emoji("⬇️").add_to_container()
-            .add_interactive_button(ButtonStyle.SECONDARY, get_counter_custom_id("delete", *args))
+            .add_button(ButtonStyle.SECONDARY, get_counter_custom_id("delete", *args))
                 .set_label("Close").set_emoji("❌").add_to_container()
         ),
 
     # add increment button
     rows.append(
         MessageActionRowBuilder()
-            .add_interactive_button(ButtonStyle.PRIMARY, get_counter_custom_id("incr", *args))
+            .add_button(ButtonStyle.PRIMARY, get_counter_custom_id("incr", *args))
                 .set_label("+1").add_to_container()
         )
     if all_visible:
         # add decrement button if needed
         (
             rows[-1]
-            .add_interactive_button(ButtonStyle.PRIMARY, get_counter_custom_id("decr", *args))
+            .add_button(ButtonStyle.PRIMARY, get_counter_custom_id("decr", *args))
                 .set_label("-1").add_to_container()
-            .add_interactive_button(ButtonStyle.PRIMARY, get_counter_custom_id("hide", *args))# 
+            .add_button(ButtonStyle.PRIMARY, get_counter_custom_id("hide", *args))# 
                 .set_label("<").add_to_container() 
         )
     else:
         # add show button otherwise
         (
             rows[-1]
-            .add_interactive_button(ButtonStyle.SECONDARY, get_counter_custom_id("show", *args))
+            .add_button(ButtonStyle.SECONDARY, get_counter_custom_id("show", *args))
                 .set_label(">").add_to_container()
         )
     return rows
