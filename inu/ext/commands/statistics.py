@@ -105,7 +105,15 @@ async def week_activity(ctx: Context):
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
+@lightbulb.add_cooldown(60, 5, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
+@lightbulb.option(
+    "app-amount",
+    "The amount of apps you want to see",
+    type=int,
+    default=6,
+    min_value=1,
+    max_value=24,
+)
 @lightbulb.option(
     "apps", 
     "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
@@ -144,14 +152,15 @@ async def current_games(ctx: Context):
     if not seconds:
         raise BotResponseError(
             (
-                f"Well - I've no idea what you mean with `{options.time}`"
-                f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
-                f"\nShort forms of time are also supported: `d`, `h`, `m`, `s`"
-                f"\nIf you want to see the activity of the last 10 days, just use `10 days` or `10d`"
+            f"Well - I've no idea what you mean with `{options.time}`"
+            f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+            f"\nShort forms of time are also supported: `d`, `h`, `m`, `s`"
+            f"\nIf you want to see the activity of the last 10 days, just use `10 days` or `10d`"
             ),
             ephemeral=True,
         )
     # constants
+    app_amount = options["app-amount"]
     timedelta_ = timedelta(seconds=seconds)
     show_only_games = options["show-all"] == "No"
     remove_apps: List[str] = []
@@ -272,7 +281,7 @@ async def current_games(ctx: Context):
             await CurrentGamesManager.fetch_top_games(
                 guild_id=ctx.guild_id, 
                 since=custom_time,
-                limit=6,
+                limit=app_amount,
                 remove_activities=remove_apps
             )
         ]
