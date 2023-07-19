@@ -65,7 +65,11 @@ class MangaPaginator(Paginator):
         if not isinstance(components, list):
             return components
         if self._with_refresh_btn:
-            components[-1] = components[-1].add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_re_search").set_label("more information").add_to_container()
+            components[-1] = (
+            components[-1]
+                .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_re_search", label="more information")
+            )
+
         return components
     
     @listener(hikari.InteractionCreateEvent)
