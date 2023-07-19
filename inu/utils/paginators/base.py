@@ -28,8 +28,8 @@ import textwrap
 import hikari
 from hikari.embeds import Embed
 from hikari.messages import Message
-from hikari.impl import MessageActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType
+from hikari.impl import MessageActionRowBuilder, InteractiveButtonBuilder
+from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType,ButtonComponent
 from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
@@ -425,19 +425,14 @@ class NavigationMenuBuilder():
         state: bool = disable_when_index_is(self.index)
         if not custom_id:
             custom_id = label
-    
-        btn = (
-            action_row_builder
-            .add_button(style, custom_id)
-            .set_is_disabled(state)
-        )
+        btn = InteractiveButtonBuilder(style=style, custom_id=custom_id)
         if emoji:
             btn = btn.set_emoji(emoji)
 
         if label:
             btn = btn.set_label(label)
-        btn = btn.add_to_container()
-        return btn
+        action_row_builder = action_row_builder.add_component(btn)
+        return action_row_builder
         
 
 class Paginator():
@@ -693,19 +688,15 @@ class Paginator():
         state: bool = disable_when_index_is(self._position)
         if not custom_id:
             custom_id = label
-    
-        btn = (
-            action_row_builder
-            .add_button(style, custom_id)
-            .set_is_disabled(state)
-        )
+        btn = InteractiveButtonBuilder(style=style, custom_id=custom_id)
+
         if emoji:
             btn = btn.set_emoji(emoji)
 
         if label:
             btn = btn.set_label(label)
-        btn = btn.add_to_container()
-        return btn
+        action_row_builder.add_component(btn)
+        return action_row_builder
 
     def _navigation_row(self, position = None) -> Optional[List[MessageActionRowBuilder]]:
         if not self.pagination:
@@ -1336,18 +1327,22 @@ def navigation_row(
         if not emoji:
             btn = (
                 action_row_builder
-                .add_button(style, custom_id_serializer(custom_id))
-                .set_is_disabled(state)
-                .set_label(label)
-                .add_to_container()
+                .add_interactive_button(
+                    style, 
+                    custom_id_serializer(custom_id),
+                    label=label,
+                    is_disabled=state
+                )
             )
         else:
             btn = (
                 action_row_builder
-                .add_button(style, custom_id_serializer(custom_id))
-                .set_is_disabled(state)
-                .set_emoji(emoji)
-                .add_to_container()
+                .add_interactive_button(
+                    style, 
+                    custom_id_serializer(custom_id),
+                    emoji=emoji,
+                    is_disabled=state
+                )
             )
         return btn
 
@@ -1570,19 +1565,14 @@ class StatelessPaginator(Paginator, ABC):
         state: bool = disable_when_index_is(self._position)
         if not custom_id:
             custom_id = label
-    
-        btn = (
-            action_row_builder
-            .add_button(style, self._serialize_custom_id(custom_id))
-            .set_is_disabled(state)
-        )
+        InteractiveButtonBuilder(style=style, custom_id=self._serialize_custom_id(custom_id), is_disabled=state)
         if emoji:
             btn = btn.set_emoji(emoji)
 
         if label:
             btn = btn.set_label(label)
-        btn = btn.add_to_container()
-        return btn
+        action_row_builder.add_component(btn)
+        return action_row_builder
 
     async def post_start(self, events: List[hikari.Event] = [], **kwargs):
         """
