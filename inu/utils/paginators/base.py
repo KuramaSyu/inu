@@ -1565,7 +1565,7 @@ class StatelessPaginator(Paginator, ABC):
         state: bool = disable_when_index_is(self._position)
         if not custom_id:
             custom_id = label
-        InteractiveButtonBuilder(style=style, custom_id=self._serialize_custom_id(custom_id), is_disabled=state)
+        btn = InteractiveButtonBuilder(style=style, custom_id=self._serialize_custom_id(custom_id), is_disabled=state)
         if emoji:
             btn = btn.set_emoji(emoji)
 

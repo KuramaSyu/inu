@@ -280,12 +280,16 @@ active_sessions: Set[hikari.Snowflakeish] = set()
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def calculation_tasks(ctx: Context):
     embed = Embed(title="Calculation tasks")
-    menu = MessageActionRowBuilder().add_select_menu("calculation_task_menu")
+    menu = MessageActionRowBuilder().add_text_menu("calculation_task_menu")
     for c in stages:
         embed.add_field(f"{c.display_name}", str(c), inline=True)
-        menu.add_option(f"{c.display_name.replace('_', '')}", f"{c.name}").add_to_menu()
-    menu = menu.add_to_container()
-    buttons = MessageActionRowBuilder().add_interactive_button(ButtonStyle.PRIMARY, "math_highscore_btn").set_label("highscores").add_to_container()
+        menu.add_option(f"{c.display_name.replace('_', '')}", f"{c.name}")
+    menu = menu.parent
+    buttons = MessageActionRowBuilder().add_interactive_button(
+        ButtonStyle.PRIMARY, 
+        "math_highscore_btn",
+        label="Highscores"
+    )
     if bot is None:
         raise RuntimeError
     await ctx.respond(embed=embed, components=[menu, buttons])

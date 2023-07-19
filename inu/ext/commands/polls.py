@@ -113,7 +113,11 @@ async def make_poll(ctx: context.SlashContext):
     if isinstance(ctx, context.PrefixContext):
         id = str(bot.id_creator.create_id())
         await ctx.respond(
-            component=MessageActionRowBuilder().add_interactive_button(ButtonStyle.PRIMARY, id).set_label("create").add_to_container()
+            component=MessageActionRowBuilder().add_interactive_button(
+                ButtonStyle.PRIMARY, 
+                id,
+                label="create"
+            )
         )
         _, event, interaction = await bot.wait_for_interaction(id)
         ctx_interaction = interaction

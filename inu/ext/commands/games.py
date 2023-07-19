@@ -56,8 +56,11 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     await ctx.respond(
         components=[
             MessageActionRowBuilder()
-            .add_interactive_button(hikari.ButtonStyle.PRIMARY, "connect4-activated-restart")
-            .set_emoji("🔁").add_to_container()
+            .add_interactive_button(
+                hikari.ButtonStyle.PRIMARY, 
+                "connect4-activated-restart",
+                emoji="🔁"
+            )
         ],
         update=True
     )
@@ -208,9 +211,11 @@ async def reversi(ctx: Context):
             await ctx.respond(
                 component=(
                     MessageActionRowBuilder()
-                    .add_interactive_button(hikari.ButtonStyle.LINK, data['data']["link"])
-                    .set_label(f"Reversi Lobby Code: {data['data']['code']}")
-                    .add_to_container()
+                    .add_interactive_button(
+                        hikari.ButtonStyle.LINK, 
+                        data['data']["link"], 
+                        label=f"Reversi Lobby Code: {data['data']['code']}"  
+                    )
                 )          
             )
 
