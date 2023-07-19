@@ -7,7 +7,7 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 import lightbulb.context as context
-from lightbulb import commands, cooldown_algorithms
+from lightbulb import commands, SlidingWindowCooldownAlgorithm
 from lightbulb.commands import OptionModifier as OM
 import aiohttp
 
@@ -56,7 +56,7 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     await ctx.respond(
         components=[
             MessageActionRowBuilder()
-            .add_button(hikari.ButtonStyle.PRIMARY, "connect4-activated-restart")
+            .add_interactive_button(hikari.ButtonStyle.PRIMARY, "connect4-activated-restart")
             .set_emoji("🔁").add_to_container()
         ],
         update=True
@@ -75,7 +75,7 @@ async def start_4_in_a_row(ctx: Context, rows: int, columns: int, handler: Type[
 
 @plugin.command
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("connect-4", "starts a Connect 4 game")
@@ -87,7 +87,7 @@ async def connect4(ctx: Context):
 
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("classic", "starts a Connect 4 game", aliases=["6x7"])
@@ -99,7 +99,7 @@ async def connect4_classic(ctx: Context):
 
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("square", "starts a Connect 4 game")
@@ -111,7 +111,7 @@ async def connect4_8by8(ctx: Context):
 
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("falling-rows", "A game of Connect 4 which drops rows Tetris like")
@@ -123,7 +123,7 @@ async def connect4_falling_rows(ctx: Context):
 
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option("unmemory-count", "each <unmemory-count> round you will see the normal board", type=int, default=5)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
@@ -135,7 +135,7 @@ async def connect4_memory(ctx: Context):
 
 @connect4.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket)
+@lightbulb.add_cooldown(30, 2, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
 @lightbulb.option("player2", "The second player - DEFAULT: you", type=hikari.Member, default=None)
 @lightbulb.option("player1", "A player\nNOTE: ping like @user", type=hikari.Member)
 @lightbulb.command("random-terrain", "A game of Connect 4 with a random start terrain")
@@ -208,7 +208,7 @@ async def reversi(ctx: Context):
             await ctx.respond(
                 component=(
                     MessageActionRowBuilder()
-                    .add_button(hikari.ButtonStyle.LINK, data['data']["link"])
+                    .add_interactive_button(hikari.ButtonStyle.LINK, data['data']["link"])
                     .set_label(f"Reversi Lobby Code: {data['data']['code']}")
                     .add_to_container()
                 )          

@@ -59,7 +59,7 @@ async def make_w2g_link(ctx: context.Context):
     await ctx.respond(
         component=(
             MessageActionRowBuilder()
-            .add_button(ButtonStyle.LINK, resp['room-link'])
+            .add_interactive_button(ButtonStyle.LINK, resp['room-link'])
             .set_label("Watch2Gether Room") 
             .add_to_container()
         )
