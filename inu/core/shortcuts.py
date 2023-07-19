@@ -17,7 +17,7 @@ class AutoButton:
             self._action_rows.append(MessageActionRowBuilder())
         return last_builder
 
-    def add_interactive_buttons(
+    def add_buttons(
         self,
         labels: List[str] | None = None,
         urls: List[str, None] | None = None,

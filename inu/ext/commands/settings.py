@@ -508,8 +508,8 @@ async def set_timezone(ctx: Context, kwargs: Dict[str, Any] = {"flags": hikari.M
             try:
                 btns = (
                     MessageActionRowBuilder()
-                    .add_interactive_button(ButtonStyle.PRIMARY, "1").set_emoji("✔️").add_to_container()
-                    .add_interactive_button(ButtonStyle.DANGER, "0").set_emoji("✖").add_to_container()
+                    .add_button(ButtonStyle.PRIMARY, "1").set_emoji("✔️").add_to_container()
+                    .add_button(ButtonStyle.DANGER, "0").set_emoji("✖").add_to_container()
                 )
                 await event.interaction.execute(
                     "Should I also use it as your private time?",

@@ -292,10 +292,10 @@ class HikariOnu(OnuHandler):
             if CardFunctions.CHANGE_COLOR in card.functions:
                 btns = (
                     MessageActionRowBuilder()
-                    .add_interactive_button(ButtonStyle.SECONDARY, "green").set_emoji("🟢").add_to_container()
-                    .add_interactive_button(ButtonStyle.SECONDARY, "red").set_emoji("🔴").add_to_container()
-                    .add_interactive_button(ButtonStyle.SECONDARY, "blue").set_emoji("🔵").add_to_container()
-                    .add_interactive_button(ButtonStyle.SECONDARY, "yellow").set_emoji("🟡").add_to_container()
+                    .add_button(ButtonStyle.SECONDARY, "green").set_emoji("🟢").add_to_container()
+                    .add_button(ButtonStyle.SECONDARY, "red").set_emoji("🔴").add_to_container()
+                    .add_button(ButtonStyle.SECONDARY, "blue").set_emoji("🔵").add_to_container()
+                    .add_button(ButtonStyle.SECONDARY, "yellow").set_emoji("🟡").add_to_container()
                 )
                 components.append(btns)
                 break

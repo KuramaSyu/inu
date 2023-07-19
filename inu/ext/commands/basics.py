@@ -277,7 +277,7 @@ async def purge(ctx: context.Context):
 #         ).set_thumbnail(ctx.bot.get_me().avatar_url),
 #         component=(
 #             ActionRowBuilder()
-#             .add_interactive_button(
+#             .add_button(
 #                 ButtonStyle.LINK, 
 #                 ctx.bot.conf.bot.DISCORD_INVITE_LINK
 #             ).set_label("my invite link").add_to_container()

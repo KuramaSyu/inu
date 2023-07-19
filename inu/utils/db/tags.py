@@ -404,7 +404,7 @@ class Tag():
             for link in self.tag_link_infos:
                 (
                     action_row
-                    .add_interactive_button(ButtonStyle.SECONDARY, f"tag://{link['tag_name']}.{link['scope']}")
+                    .add_button(ButtonStyle.SECONDARY, f"tag://{link['tag_name']}.{link['scope']}")
                     .set_label(link["tag_name"])
                     .add_to_container()
                 )

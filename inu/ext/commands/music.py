@@ -24,7 +24,7 @@ import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, VoiceStateUpdateEvent
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
-from lightbulb import SlashContext, commands, context, SlidingWindowCooldownAlgorithm
+from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavasnek_rs
@@ -590,7 +590,7 @@ async def _leave(guild_id: int):
 
 
 @music.command
-@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
 @lightbulb.command("play-at-position", "Advanced play features", aliases=["pl"])
@@ -708,7 +708,7 @@ async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queu
 
 
 @pl.child
-@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
 @lightbulb.command("next", "enqueue a title at the beginning of the queue", aliases=["1st"])
@@ -720,7 +720,7 @@ async def now(ctx: Context) -> None:
 
 
 @pl.child
-@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the name of the track etc.", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
 @lightbulb.command("second", "enqueue a title as the second in the queue", aliases=["2nd"])
@@ -732,7 +732,7 @@ async def second(ctx: Context) -> None:
 
 
 @pl.child
-@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("position", "the position in the queue", modifier=OM.CONSUME_REST, type=int)
 @lightbulb.option("query", "the name of the track etc.", modifier=commands.OptionModifier.CONSUME_REST, autocomplete=True)
@@ -929,7 +929,7 @@ async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Tupl
     return track, event
 
 @music.command
-@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
+@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "the title of the track", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
 @lightbulb.command("play", "play a song", aliases=["pl"])
@@ -1394,28 +1394,28 @@ async def build_music_components(
         
     action_rows = [(
         MessageActionRowBuilder()
-        .add_interactive_button(hikari.ButtonStyle.SECONDARY, "music_skip_1")
+        .add_button(hikari.ButtonStyle.SECONDARY, "music_skip_1")
             .set_emoji("1️⃣")
             .set_is_disabled(disable_all or node.is_paused)
             .add_to_container()
-        .add_interactive_button(hikari.ButtonStyle.SECONDARY, "music_skip_2")
+        .add_button(hikari.ButtonStyle.SECONDARY, "music_skip_2")
             .set_emoji("2️⃣")
             .set_is_disabled(disable_all or node.is_paused)
             .add_to_container()
-        .add_interactive_button(hikari.ButtonStyle.SECONDARY, "music_shuffle")
+        .add_button(hikari.ButtonStyle.SECONDARY, "music_shuffle")
             .set_emoji("🔀")
             .set_is_disabled(disable_all)
             .add_to_container()
-        .add_interactive_button(hikari.ButtonStyle.SECONDARY, "music_stop")
+        .add_button(hikari.ButtonStyle.SECONDARY, "music_stop")
             .set_emoji("🛑")
             .set_is_disabled(disable_all)
             .add_to_container()
     )]
     if not disable_all:
         if node.is_paused:
-            action_rows[0].add_interactive_button(hikari.ButtonStyle.PRIMARY, "music_resume").set_label("▶").add_to_container()
+            action_rows[0].add_button(hikari.ButtonStyle.PRIMARY, "music_resume").set_label("▶").add_to_container()
         else:
-            action_rows[0].add_interactive_button(hikari.ButtonStyle.SECONDARY, "music_pause").set_label("⏸").add_to_container()
+            action_rows[0].add_button(hikari.ButtonStyle.SECONDARY, "music_pause").set_label("⏸").add_to_container()
     return action_rows
 
 @position.autocomplete("query")
