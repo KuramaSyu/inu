@@ -823,6 +823,25 @@ async def tag_add_guild(ctx: Context):
     if not record:
         return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
+    mentioned_tag_links: List[str] = []
+    async def fetch_all_sub_tags(tag: str, tags: List[Tag], max_depth: int = 2, current_depth: int = 0) -> List[Tag]:
+        current_depth += 1
+        tag_link_list = [tag.link for tag in tags]        
+        for link in tag.tag_links:
+            if link in tag_link_list:
+                continue
+            sub_tag = await Tag.fetch_tag_from_link(link, guild_id=guild_id)
+            tags.append(sub_tag)
+            if sub_tag.tag_links and current_depth <= max_depth:
+                tags.extend(await fetch_all_sub_tags(sub_tag, tags, max_depth=max_depth, current_depth=current_depth))
+        return tags
+            
+    sub_tags = await fetch_all_sub_tags(tag, [tag])
+    if sub_tags:
+        await ctx.respond(
+            f"following tags where also found: {[tag.name for tag in sub_tags]}. Should I try to make them available too?"
+        )
+        # todo: ask and add to guilds
     tag.guild_ids.add(guild_id)
     await tag.save()
     await ctx.respond(
