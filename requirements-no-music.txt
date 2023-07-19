@@ -34,3 +34,4 @@ tmdb-python
 dacite
 tabulate
 expiring-dict
+colorcet
