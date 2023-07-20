@@ -2,12 +2,13 @@
 hikari-lightbulb==2.3.3
 hikari==2.0.0.dev120
 hikari-miru==3.0.2
-aiohttp
-asyncpg
 asyncache==0.1.1
 cachetools==4.2.2
+asyncpraw==7.7.1
+mplcyberpunk==0.5.1
+aiohttp
+asyncpg
 APScheduler
-asyncpraw==7.7.0 
 colorama
 python-dotenv
 typer
@@ -23,7 +24,6 @@ types-PyYAML
 pandas
 seaborn
 dataenforce
-mplcyberpunk==0.5.1
 pytimeparse
 types-pytz
 colormap
