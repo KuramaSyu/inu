@@ -85,7 +85,6 @@ async def load_tasks(event: ShardReadyEvent):
     await Reddit.init_reddit_credentials(plugin.bot)
     trigger = IntervalTrigger(minutes=1)
     plugin.bot.scheduler.add_job(pics_of_hour, trigger)
-    log.debug(plugin.bot.scheduler.running)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
 
