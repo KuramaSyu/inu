@@ -3,11 +3,12 @@ from typing import *
 
 import asyncio
 import hikari
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context, ResponseProxy
 from lightbulb.context.prefix import PrefixContext
 
-from . import InuContextProtocol, InuContext, InuContextBase, UniqueContextInstance
+from . import InuContextProtocol, InuContext, InuContextBase, UniqueContextInstance, InteractionContext
 
 
 
@@ -193,6 +194,51 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             await asyncio.sleep(after)
         await self.app.rest.delete_message(self.channel_id, message)
 
+    async def ask(
+            self, 
+            title: str, 
+            button_labels: List[str] = ["Yes", "No"], 
+            ephemeral: bool = True, 
+            timeout: int = 120
+    ) -> Tuple[str, "InteractionContext"]:
+        """
+        ask a question with buttons
+
+        Args:
+        -----
+        title : str
+            the title of the message
+        button_labels : List[str]
+            the labels of the buttons
+        ephemeral : bool
+            whether or not the message should be ephemeral
+        timeout : int
+            the timeout in seconds
+        
+        Returns:
+        --------
+        Tuple[str, "InteractionContext"]
+            the selected label and the new context
+        """
+        prefix = "ask_"
+        components: List[MessageActionRowBuilder] = []
+        for i, label in enumerate(button_labels):
+            if i % 5 == 0:
+                components.append(MessageActionRowBuilder())
+            components[0].add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                f"{prefix}{label}",
+                label=label
+            )
+        proxy = await self.respond(title, components=components, ephemeral=ephemeral)
+        selected_label, event, interaction = await self.app.wait_for_interaction(
+            custom_ids=[f"{prefix}{l}" for l in button_labels],
+            user_id=self.author.id,
+            message_id=(await proxy.message()).id,
+            timeout=timeout
+        )
+        new_ctx = InteractionContext.from_event(event)
+        return selected_label.replace(prefix, "", 1), new_ctx
 
 # class RESTMessageContext(RESTContext):
 #     def __init__(self, app: hikari.GatewayBot, event: hikari.MessageCreateEvent | hikari.Mess)
