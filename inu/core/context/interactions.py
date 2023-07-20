@@ -6,10 +6,12 @@ import functools
 
 import hikari
 from hikari import ComponentInteraction, ResponseType
+from hikari.impl import MessageActionRowBuilder
 from .._logging import getLogger
 import lightbulb
 from lightbulb.context.base import Context, ResponseProxy
 
+from ..bot import Inu
 from . import InuContext, InuContextProtocol, InuContextBase, UniqueContextInstance
 
 log = getLogger(__name__)
@@ -23,7 +25,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
     __slots__ = ("_event", "_interaction", "_default_ephemeral", "_defer_in_progress_event", "log")
 
     def __init__(
-        self, app: lightbulb.app.BotApp, event: hikari.InteractionCreateEvent
+        self, app: Inu, event: hikari.InteractionCreateEvent
     ) -> None:
         super().__init__(app)
         self._event = event
@@ -44,7 +46,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
         return self.event.interaction.id
 
     @property
-    def app(self) -> lightbulb.app.BotApp:
+    def app(self) -> Inu:
         return self._app
 
     @property
@@ -261,6 +263,52 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
         else:
             self.bot.rest.delete_message(self.interaction.message.id)
 
+
+    async def ask(
+            self, 
+            title: str, 
+            button_labels: List[str] = ["Yes", "No"], 
+            ephemeral: bool = True, 
+            timeout: int = 120
+    ) -> Tuple[str, "InteractionContext"]:
+        """
+        ask a question with buttons
+
+        Args:
+        -----
+        title : str
+            the title of the message
+        button_labels : List[str]
+            the labels of the buttons
+        ephemeral : bool
+            whether or not the message should be ephemeral
+        timeout : int
+            the timeout in seconds
+        
+        Returns:
+        --------
+        Tuple[str, "InteractionContext"]
+            the selected label and the new context
+        """
+        prefix = "ask_"
+        components: List[MessageActionRowBuilder] = []
+        for i, label in enumerate(button_labels):
+            if i % 5 == 0:
+                components.append(MessageActionRowBuilder())
+            components[0].add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                f"{prefix}{label}",
+                label=label
+            )
+        proxy = await self.respond(title, components=components, ephemeral=ephemeral)
+        selected_label, event, interaction = await self.app.wait_for_interaction(
+            custom_ids=[f"{prefix}{l}" for l in button_labels],
+            user_id=self.author.id,
+            message_id=(await proxy.message()).id,
+            timeout=timeout
+        )
+        new_ctx = InteractionContext.from_event(event)
+        return selected_label, new_ctx
 
 class InteractionContext(_InteractionContext):
     """
@@ -508,8 +556,8 @@ class InteractionContext(_InteractionContext):
 
         self._deferred = False
         return message
+    
 
-        #asyncio.create_task(self._cache_initial_response())
     
     async def _cache_initial_response(self) -> None:
         """cache the initial response message and store it in `self._message`"""
