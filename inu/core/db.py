@@ -90,7 +90,6 @@ class Database(metaclass=Singleton):
 
     async def connect(self) -> None:
         assert not self.is_connected, "Already connected."
-        log.debug(self.bot)
         pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.db.DSN)
         if not isinstance(pool, asyncpg.Pool):
             typing.cast(Inu, self.bot)
