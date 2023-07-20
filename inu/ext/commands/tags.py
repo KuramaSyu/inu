@@ -811,15 +811,17 @@ async def tag_remove_author(ctx: Context):
 )  
 @lightbulb.command("add-guild", "add a guild to your tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_add_guild(ctx: Context):
+async def tag_add_guild(_ctx: Context):
     """Remove a tag to my storage
     
     Args:
     -----
         - key: the name of the tag which you want to remove
     """
-    guild_id = guild_autocomplete_get_id(value=ctx.options.guild)
-    record = await get_tag_interactive(ctx)
+    options = _ctx.options
+    ctx = get_context(_ctx.event)
+    guild_id = guild_autocomplete_get_id(value=options.guild)
+    record = await get_tag_interactive(ctx, options.name)
     if not record:
         return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
@@ -830,22 +832,37 @@ async def tag_add_guild(ctx: Context):
         for link in tag.tag_links:
             if link in tag_link_list:
                 continue
-            sub_tag = await Tag.fetch_tag_from_link(link, guild_id=guild_id)
+            sub_tag = await Tag.fetch_tag_from_link(link, current_guild=guild_id)
             tags.append(sub_tag)
             if sub_tag.tag_links and current_depth <= max_depth:
                 tags.extend(await fetch_all_sub_tags(sub_tag, tags, max_depth=max_depth, current_depth=current_depth))
         return tags
             
     sub_tags = await fetch_all_sub_tags(tag, [tag])
+    sub_tags.remove(tag)
     if sub_tags:
-        await ctx.respond(
-            f"following tags where also found: {[tag.name for tag in sub_tags]}. Should I try to make them available too?"
+        label, new_ctx = await ctx.ask(
+            f"Your tag `{tag.name}` following sub-tags: {[tag.name for tag in sub_tags]}. Do you want to add all of them to the guild `{options.guild}`?",
         )
+        if label == "Yes":
+            failed_tags: List[str] = []
+            success_tags: List[str] = []
+            for tag in sub_tags:
+                if not tag.is_authorized_to_write(ctx.author.id):
+                    failed_tags.append(tag.name)
+                    continue
+                tag.guild_ids.add(guild_id)
+                await tag.save()
+                success_tags.append(tag.name)
+            await ctx.respond(
+                (f"Following tags could be added to the guild: {Human.list_(success_tags, with_a_or_an=False)}"
+                 f"Following tags couldn't be added to the guild: {Human.list_(failed_tags, with_a_or_an=False)}")
+            )
         # todo: ask and add to guilds
     tag.guild_ids.add(guild_id)
     await tag.save()
     await ctx.respond(
-        f"You will now be able to see `{tag.name}` in the guild `{ctx.options.guild}`",
+        f"You will now be able to see `{tag.name}` in the guild `{options.guild}`",
         **EPHEMERAL
     )
 
