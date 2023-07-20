@@ -55,7 +55,7 @@ class MyAnimeListAIOClient:
                 "Client id has to be passed into the constructor or in the .env file under key `ID`. Consider calling `set_credentails`"
             )
         self._base_url = r"https://api.myanimelist.net/v2"
-        self._session = aiohttp.ClientSession()
+        self._session = None
 
     @classmethod
     def set_credentials(cls, client_id: str):
