@@ -825,8 +825,14 @@ async def tag_add_guild(_ctx: Context):
     if not record:
         return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
-    mentioned_tag_links: List[str] = []
+    if not tag.is_authorized_to_write(ctx.author.id):
+        return await ctx.respond(
+            f"You are lacking on permissions to edit this tag",
+            ephemeral=True
+        )
+
     async def fetch_all_sub_tags(tag: str, tags: List[Tag], max_depth: int = 2, current_depth: int = 0) -> List[Tag]:
+        """fetches all tags from  links in a tag recursively"""
         current_depth += 1
         tag_link_list = [tag.link for tag in tags]        
         for link in tag.tag_links:
@@ -841,8 +847,8 @@ async def tag_add_guild(_ctx: Context):
     sub_tags = await fetch_all_sub_tags(tag, [tag])
     sub_tags.remove(tag)
     if sub_tags:
-        label, new_ctx = await ctx.ask(
-            f"Your tag `{tag.name}` following sub-tags: {[tag.name for tag in sub_tags]}. Do you want to add all of them to the guild `{options.guild}`?",
+        label, ctx = await ctx.ask(
+            f"Your tag `{tag.name}` has following sub-tags: {Human.list_([tag.name for tag in sub_tags], '`', with_a_or_an=False)}. Do you want to add all of them to the guild `{options.guild}`?",
         )
         if label == "Yes":
             failed_tags: List[str] = []
@@ -854,16 +860,20 @@ async def tag_add_guild(_ctx: Context):
                 tag.guild_ids.add(guild_id)
                 await tag.save()
                 success_tags.append(tag.name)
+            response = ""
+            if success_tags:
+                response += f"Added the following tags to the guild `{options.guild}`: {Human.list_(success_tags, '`', with_a_or_an=False)}\n"
+            if failed_tags:
+                response += f"Failed to add the following tags to the guild `{options.guild}`: {Human.list_(failed_tags, '`', with_a_or_an=False)} because of lacking permissions"
             await ctx.respond(
-                (f"Following tags could be added to the guild: {Human.list_(success_tags, with_a_or_an=False)}"
-                 f"Following tags couldn't be added to the guild: {Human.list_(failed_tags, with_a_or_an=False)}")
+                response,
+                ephemeral=True
             )
-        # todo: ask and add to guilds
     tag.guild_ids.add(guild_id)
     await tag.save()
     await ctx.respond(
         f"You will now be able to see `{tag.name}` in the guild `{options.guild}`",
-        **EPHEMERAL
+        ephemeral=True
     )
 
 @tag.child
@@ -889,7 +899,7 @@ async def tag_remove_guild(ctx: Context):
     guild_id = guild_autocomplete_get_id(value=ctx.options.guild)
     record = await get_tag_interactive(ctx)
     if not record:
-        return #await #ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.guild_ids.remove(guild_id)
