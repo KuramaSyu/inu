@@ -64,13 +64,14 @@ async def code(ctx: Context):
     '''
     size_in_bytes, lines = get_directory_size(f'{os.getcwd()}/inu')
     text = (
-        f"I am written out of\n**{num(int(size_in_bytes)*8)} bits**"
-        f" (**{num(round(float(size_in_bytes / 1000)))}Kb | "
-        f"{num(round(float(size_in_bytes / 1000 / 1000),1))}mb**)\n"
-        f"1 typical letter is 1 byte/ 8 bit big\nMeans that'"
-        f"I am written out of\n**{num(size_in_bytes)} letters**\n"
-        f"or **{num(lines)} lines** of code\n"
-        f"or **{round(float(size_in_bytes/237500), 2)} {Human.plural_('book', float(size_in_bytes/237500), with_number=False)}**"
+        f"I am written out of\n**{Human.number(int(size_in_bytes)*8)} Bits**"
+        f" (**{Human.number(round(float(size_in_bytes / 1000)))}kB | "
+        f"{Human.number(round(float(size_in_bytes / 1000 / 1000),1))}MB**)\n"
+        f"1 typical letter has a size of 1 Byte (8 Bit)\nMeans that "
+        f"I am written out of\n- **{Human.number(size_in_bytes)} letters**\n"
+        f"- or **{Human.number(lines)} lines** of code\n"
+        f"- or **{round(float(size_in_bytes/(1500 * 250)), 2)} {Human.plural_('book', float(size_in_bytes/237500), with_number=False)}**"
+        f" with 250 pages"
     )
     embed = hikari.Embed(
         title="Code",
