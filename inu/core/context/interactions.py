@@ -135,7 +135,6 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
         .. versionadded:: 2.2.0
             ``delete_after`` kwarg.
         """
-        self.log.debug("IN RESPOND")
         async def _cleanup(timeout: Union[int, float], proxy_: ResponseProxy) -> None:
             await asyncio.sleep(timeout)
 
@@ -308,7 +307,7 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
             timeout=timeout
         )
         new_ctx = InteractionContext.from_event(event)
-        return selected_label, new_ctx
+        return selected_label.replace(prefix, "", 1), new_ctx
 
 class InteractionContext(_InteractionContext):
     """
