@@ -232,7 +232,7 @@ class Inu(lightbulb.BotApp):
         user_id: Optional[int] = None, 
         channel_id: Optional[int] = None,
         message_id: Optional[int] = None,
-        interaction_instance: Any = hikari.ComponentInteraction,
+        interaction_instance: Type[hikari.PartialInteraction] = hikari.ComponentInteraction,
         timeout: int | None = None,
     ) -> Tuple[str | None, InteractionCreateEvent | None, ComponentInteraction | None]:
         """
@@ -258,6 +258,7 @@ class Inu(lightbulb.BotApp):
                     and (True if not channel_id else e.interaction.channel_id == channel_id)
                     and (True if not message_id else e.interaction.message.id == message_id)
                     and (True if not custom_ids else e.interaction.custom_id in custom_ids)
+                    
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
