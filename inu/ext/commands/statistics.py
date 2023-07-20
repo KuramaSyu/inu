@@ -373,6 +373,7 @@ async def build_activity_graph(
             resample_delta = timedelta(minutes=10)
 
     def normalize_delta(delta: timedelta, resample_rate: timedelta):
+        """normalize the timedelta, to make the chart better readable"""
         references = [
             {timedelta(hours=6): timedelta(seconds=300)},
             {timedelta(hours=12): timedelta(hours=0.25)},
@@ -406,6 +407,7 @@ async def build_activity_graph(
     last_date = max(df_summarized["r_timestamp"])
 
     def game_add_zero_r(game_name: str):
+        """Adds entries to the dataframe, so that chart is 0 instead of missing"""
         nonlocal df_summarized
         game_df: pd.DataFrame = df_summarized[df_summarized["game"] == game_name]
         added_zero = True
@@ -437,7 +439,9 @@ async def build_activity_graph(
         df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
 
     min_date = min(df_summarized["r_timestamp"])
+
     def game_add_zero_l(game_name: str):
+        """Adds entries to the dataframe, so that chart is 0 instead of missing"""
         nonlocal df_summarized
         game_df: pd.DataFrame = df_summarized[df_summarized["game"] == game_name]
         added_zero = True
@@ -463,11 +467,9 @@ async def build_activity_graph(
                 added_zero = False
             prev_date = date
         if prev_date - min_date >= resample_delta:
-            # log.debug(f"add first entry for {game_name}")
             add_row()
         else:
             pass
-            # log.debug(f"{game_name} {last_date} - {prev_date} < {resample_delta}")
         df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
 
     for game in games:
@@ -476,6 +478,7 @@ async def build_activity_graph(
 
     df_summarized.reset_index(inplace=True)
 
+    # color and style preparations
     color_paletes = ["magma_r", "rocket_r", "mako_r"]
     clean_color_paletes = [sn.color_palette(cc.glasbey, n_colors=len(activities))]#["Set3", "Set2"]
     color = random.choice(clean_color_paletes) if distinguishable_colors else random.choice(color_paletes)
@@ -503,8 +506,6 @@ async def build_activity_graph(
 
     # style chart
     mplcyberpunk.add_glow_effects(ax=ax)
-    #ax.set_xticklabels([f"{d[:2]}.{d[3:5]}" for d in ax.get_xlabel()], rotation=45, horizontalalignment='right')
-
 
     # set date formatter with guild tz
     date_format = get_date_format_by_timedelta(df_timedelta)
@@ -512,15 +513,9 @@ async def build_activity_graph(
     date_form = DateFormatter(date_format, tz=tz)
     ax.xaxis.set_major_formatter(date_form)
 
-    # set Locator
-    # if not base:
-    #     base = round(df_timedelta.days / X_LABLE_AMOUNT, 0)  # 0 or higher INT (.0)
-    # if base > 0:
-    #     loc = plticker.MultipleLocator(base=base)  # this locator puts ticks at regular intervals (when float is .0)
-    #     ax.xaxis.set_major_locator(loc)
-    # ax.figure.autofmt_xdate(rotation=45)
     ax.set_ylabel("Hours")
     ax.set_xlabel(f"Date (rounded to {humanize.naturaldelta(resample_delta)})")
+
     # save chart
     figure = fig.get_figure()    
     figure.savefig(picture_buffer, dpi=100)
