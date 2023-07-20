@@ -438,7 +438,6 @@ class Poll():
         except ZeroDivisionError:
             option_perc = 0
         option_filled_blocks = int(round(option_perc * str_len, 0))
-        print(option_perc)
         return f"{option_filled_blocks * '█'}{int(str_len - option_filled_blocks) * '░'}"
 
     def _reaction_by_id(self, id: int) -> str:
