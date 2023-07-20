@@ -130,6 +130,34 @@ class InuContext(ABC):
             wait <after> seconds, until deleting
         """
 
+    @abstractmethod
+    async def ask(
+            self, 
+            title: str, 
+            button_labels: List[str] = ["Yes", "No"], 
+            ephemeral: bool = True, 
+            timeout: int = 120
+    ) -> Tuple[str, "InuContext"]:
+        """g
+        ask a question with buttons
+
+        Args:
+        -----
+        title : str
+            the title of the message
+        button_labels : List[str]
+            the labels of the buttons
+        ephemeral : bool
+            whether or not the message should be ephemeral
+        timeout : int
+            the timeout in seconds
+        
+        Returns:
+        --------
+        Tuple[str, "InteractionContext"]
+            the selected label and the new context
+        """
+
 
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
