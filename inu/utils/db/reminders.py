@@ -529,21 +529,6 @@ class HikariReminder(BaseReminder):
         )
         
 
-    @staticmethod
-    def parse(query: str) -> Tuple[datetime.datetime, str]:
-        """
-        RETURNS:
-        --------
-            - (datetime.datetime) the datetime where the reminder should trigger 
-            - (str) the message
-        """
-        gen = PeekIterator(query, " ")
-        query.replace(" ", "")
-        num_str = ""
-        unit: Optional[TimeUnits] = None
-        for i, word in enumerate(gen):
-        
-
 
     @classmethod
     def unit_to_seconds(cls, unit: str, unit_amount: Union[int, float]) -> float:
