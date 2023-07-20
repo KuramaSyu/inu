@@ -542,7 +542,6 @@ class HikariReminder(BaseReminder):
         num_str = ""
         unit: Optional[TimeUnits] = None
         for i, word in enumerate(gen):
-            print(f"{i}: {word=}")
         
 
 
