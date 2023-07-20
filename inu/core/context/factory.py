@@ -13,7 +13,7 @@ ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
 def get_context(
     event: ContextEvent, 
     **kwargs,
-) -> InuContextProtocol:
+) -> InuContext:
     """
     Args:
     -----
