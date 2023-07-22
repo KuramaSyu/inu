@@ -530,7 +530,8 @@ async def start_lavalink() -> None:
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
                 lavasnek_rs.LavalinkBuilder(music.bot.get_me().id, music.bot.conf.bot.DISCORD_TOKEN) #, 
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
-                .set_host(music.bot.conf.lavalink.IP).set_password(music.bot.conf.lavalink.PASSWORD)
+                .set_host(music.bot.conf.lavalink.IP)
+                .set_password(music.bot.conf.lavalink.PASSWORD)
             )
             builder.set_start_gateway(False)
             lava_client = await builder.build(EventHandler())
@@ -1216,11 +1217,15 @@ async def queue(
         track = _track.track
         # increment total_delta
         pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
-        # <t:{start_timestamp:.0f}:t>
-        discord_timestamp = f"<t:{(datetime.datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
+        if node.is_paused:
+            discord_timestamp = "--:--"
+        else:
+            # <t:{start_timestamp:.0f}:t>
+            discord_timestamp = f"<t:{(datetime.datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
+
         upcomping_song_fields.append(
             hikari.EmbedField(
-                name=f"{num} - {discord_timestamp}",
+                name=f"{num}{'' if node.is_paused else ' -'} {discord_timestamp}",
                 value=f"```ml\n{Human.short_text(track.info.title, 50, '...')}```",
                 inline=True,
             )
@@ -1273,19 +1278,32 @@ async def queue(
     music_over_in = (
         datetime.datetime.now() 
         + datetime.timedelta(
-            milliseconds=int(int(track.info.length))
+            milliseconds=track.info.length-track.info.position
         )
     ).timestamp()
+    if node.is_paused:
+        paused_at = datetime.datetime.now()
+        # min:sec
+        music_over_in_str = f"<t:{paused_at.timestamp():.0f}:t>"    
+    else:
+        music_over_in_str = f'<t:{music_over_in:.0f}:t>'
 
     # create embed
     music_embed = hikari.Embed(
         colour=hikari.Color.from_rgb(71, 89, 211)
     )
-    music_embed.add_field(name = "Playing:", value=f'[{track.info.title}]({track.info.uri})', inline=True)#{"🔂 " if player.repeat else ""}
+    music_embed.add_field(
+        name = "Was played:" if node.is_paused else "Playing:", 
+        value=f'[{track.info.title}]({track.info.uri})', 
+        inline=True
+    )
     music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
-    music_embed.add_field(name = "Added from:", value=f'{requester.display_name}' , inline=True)
-    music_embed.add_field(name = "Over in:", value=f'<t:{music_over_in:.0f}:R>', inline=False)
-    #music_embed.add_field(name = "—————————————Queue——————————————", value=f'{upcoming_songs}', inline=False)  # ml was used as md
+    music_embed.add_field(name = "Added by:", value=f'{requester.display_name}' , inline=True)
+    music_embed.add_field(
+        name = "Paused at:" if node.is_paused else "Over in:", 
+        value=music_over_in_str, 
+        inline=False
+    )
     music_embed._fields.extend(upcomping_song_fields)
     kwarg = {"text": f"{queue or '/'}"}
     if create_footer_info:
