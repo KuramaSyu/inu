@@ -430,8 +430,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not (member := await bot.mrest.fetch_member(ctx.guild_id, ctx.author.id)):
         return
     ctx.auto_defer()
-    
-    log.debug(f"music message={type(message)}")
+
     if (await ctx.message()).id != message.id:
         # music message is different from message where interaction comes from
         # disable buttons from that different message
@@ -442,57 +441,94 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         )
     last_context[ctx.guild_id] = ctx   
     tasks: List[asyncio.Task] = []
+    custom_info = ""
 
     if custom_id == 'music_shuffle':
+        custom_info = f'🔀 Music was shuffled by {member.display_name}'
+        music_helper.add_to_log(
+            guild_id=guild_id, 
+            entry=custom_info
+        )
         nqueue = node.queue[1:]
         random.shuffle(nqueue)
         nqueue = [node.queue[0], *nqueue]
         node.queue = nqueue
         await lavalink.set_guild_node(guild_id, node)
-        music_helper.add_to_log(guild_id=guild_id, entry=f'🔀 Music was shuffled by {member.display_name}')
+
     elif custom_id == 'music_resume':
-        music_helper.add_to_log(guild_id = guild_id, entry = f'▶ Music was resumed by {member.display_name}')
+        custom_info = f'▶ Music was resumed by {member.display_name}'
+        music_helper.add_to_log(
+            guild_id=guild_id, 
+            entry=custom_info
+        )
         tasks.append(
             asyncio.create_task(_resume(guild_id))
         )
+
     elif custom_id == 'music_skip_1':
+        custom_info = f'1️⃣ Music was skipped by {member.display_name} (once)'
         tasks.append(
             asyncio.create_task(_skip(guild_id, amount = 1))
         )
         music_helper.add_to_log(
-            guild_id = guild_id, 
-            entry = f'1️⃣ Music was skipped by {member.display_name} (once)'
+            guild_id=guild_id, 
+            entry=custom_info
         )
+
     elif custom_id == 'music_skip_2':
+        custom_info = f'2️⃣ Music was skipped by {member.display_name} (twice)'
         tasks.append(
             asyncio.create_task(_skip(guild_id, amount = 2))
         )
         music_helper.add_to_log(
-            guild_id =guild_id, 
-            entry = f'2️⃣ Music was skipped by {member.display_name} (twice)'
+            guild_id=guild_id, 
+            entry=custom_info
         )
+    
     elif custom_id == 'music_pause':
-        music_helper.add_to_log(guild_id =guild_id, entry = f'⏸ Music was paused by {member.display_name}')
+        custom_info = f'⏸ Music was paused by {member.display_name}'
+        music_helper.add_to_log(
+            guild_id=guild_id, 
+            entry=custom_info
+        )
         tasks.append(
             asyncio.create_task(_pause(guild_id))
         )
+
     elif custom_id == 'music_stop':
-        await ctx.respond(
-            embed=(
-                Embed(title="🛑 music stopped")
-                .set_footer(text=f"music was stopped by {member.display_name}", icon=member.avatar_url)
+        custom_info = f'🛑 Music was stopped by {member.display_name}'
+        tasks.extend([
+            asyncio.create_task(
+                ctx.respond(
+                    embed=(
+                        Embed(title="🛑 music stopped")
+                        .set_footer(text=custom_info, icon=member.avatar_url)
+                    ),
+                    delete_after=30,
+                )
             ),
-            delete_after=30,
+            asyncio.create_task(
+                _leave(guild_id)
+            ),
+        ])
+        music_helper.add_to_log(
+            guild_id=guild_id, 
+            entry=custom_info
         )
-        music_helper.add_to_log(guild_id =guild_id, entry = f'🛑 Music was stopped by {member.display_name}')
-        await _leave(guild_id)
         return
-    if "music_skip" in custom_id:
-        return # skip gets handled from lavalink on_new_track handler
-    log.debug("calling queue")
+    
     if tasks:
         await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
-    await queue(ctx)
+    
+    if "music_skip" in custom_id:
+        node.set_data({"custom_info": custom_info})
+        return # skip gets handled from lavalink on_new_track handler
+    log.debug("calling queue")
+    await queue(
+        ctx=ctx,
+        create_footer_info=True,
+        custom_info=custom_info
+    )
 
 
 
@@ -1199,6 +1235,13 @@ async def queue(
         log.info("Try to reconnect to websocket")
         return
 
+    # check for custom_info in node
+    data = node.get_data()
+    log.debug(f"{data=}")
+    if data and (custom_info := data.get("custom_info")):
+        create_footer_info = True
+        node.set_data({})
+    
     numbers = ['1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'] # double 1 to make it 1 based (0 is current playing song)
     upcomping_song_fields: List[hikari.EmbedField] = []
     first_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
