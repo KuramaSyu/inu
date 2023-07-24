@@ -1200,29 +1200,28 @@ async def queue(
         return
 
     numbers = ['1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'] # double 1 to make it 1 based (0 is current playing song)
-    upcoming_songs = ''
     upcomping_song_fields: List[hikari.EmbedField] = []
     first_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
     second_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
     pre_titles_total_delta = datetime.timedelta()
     for i, items in enumerate(zip(node.queue, numbers)):
+        _track, num = items
+        track = _track.track
         if i == 0:
             # skip current playing song
+            pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
             continue
         if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
             # only show 4 upcoming songs
             break
 
-        _track, num = items
-        track = _track.track
-        # increment total_delta
-        pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
         if node.is_paused:
             discord_timestamp = "--:--"
         else:
             # <t:{start_timestamp:.0f}:t>
             discord_timestamp = f"<t:{(datetime.datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
 
+        pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
         upcomping_song_fields.append(
             hikari.EmbedField(
                 name=f"{num}{'' if node.is_paused else ' -'} {discord_timestamp}",
@@ -1286,7 +1285,7 @@ async def queue(
         # min:sec
         music_over_in_str = f"<t:{paused_at.timestamp():.0f}:t>"    
     else:
-        music_over_in_str = f'<t:{music_over_in:.0f}:t>'
+        music_over_in_str = f'<t:{music_over_in:.0f}:R>'
 
     # create embed
     music_embed = hikari.Embed(
