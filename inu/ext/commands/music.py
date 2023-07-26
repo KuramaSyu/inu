@@ -605,106 +605,7 @@ async def pl(ctx: context.Context) -> None:
 
 
 
-async def _play(ctx: Context, query: str, be_quiet: bool = True, prevent_to_queue: bool = False) -> Tuple[bool, InuContext]:
-    """
-    - Will search the query
-    - if more than one track found, ask which track to use
-    - queue the track(s)
-    - if no track found, tell the user
-    - send queue if not prevented
 
-    Args:
-    -----
-    ctx: lightbulb.Context
-        the context of the command
-    query: str
-        the query to search for
-    be_quiet: bool
-        whether to send messages else than queue or not
-    prevent_to_queue: bool
-        whether to prevent sending the queue
-        - needed when queue have to be called afterwards
-
-    Returns:
-    -------
-    bool : 
-        wether or not it fails to add a title
-
-    Note
-    ----
-    sending the queue will be automatically prevented, 
-    when only one song is in the node, hence the 
-    track start event will trigger the queue.
-    sending the queue will be also prevented, when a 
-    playlist is added and the playlist is the 
-    first element in the queue.
-    """
-    if not ctx.guild_id or not ctx.member:
-        return False # just for pylance
-    if not isinstance(ctx, InuContext):
-        ictx = get_context(ctx.event)
-    else:
-        ictx = ctx
-    # last_context[ctx.guild_id] = ictx
-    con = lavalink.get_guild_gateway_connection_info(ctx.guild_id)
-    # Join the user's voice channel if the bot is not in one.
-    if not con:
-        await _join(ictx)
-    await ictx.defer()
-    node = await lavalink.get_guild_node(ctx.guild_id)
-
-    if query.startswith(HISTORY_PREFIX):
-        # -> history -> get url from history
-        query = query.replace(HISTORY_PREFIX, "")
-        history = await MusicHistoryHandler.cached_get(ctx.guild_id)
-        if (alt_query:=[t["url"] for t in history if query in t["title"]]):
-            query=alt_query[0]
-
-    if query.startswith(MEDIA_TAG_PREFIX):
-        # -> media tag -> get url from tag
-        query = query.replace(MEDIA_TAG_PREFIX, "")
-        tag = await get_tag(ictx, query)
-        query = tag["tag_value"][0]
-
-    if 'youtube' in query and 'playlist?list=' in query:
-        # -> youtube playlist -> load playlist
-        await load_yt_playlist(ictx, query, be_quiet)
-    # not a youtube playlist -> something else
-    else:
-        # -> track from a playlist was added -> remove playlist info
-        if (
-            "watch?v=" in query
-            and "youtube" in query
-            and "&list" in query
-        ):
-            query = YouTubeHelper.remove_playlist_info(query)
-        # try to add song
-        event: Optional[hikari.InteractionCreateEvent] = None
-        try:
-            track, event = await search_track(ictx, query, be_quiet)
-            log.debug(event)
-        except BotResponseError as e:
-            raise e
-        except asyncio.TimeoutError:
-            return False
-        if track is None:
-            await ictx.respond(f"I only found a lot of empty space for `{query}`")
-            return False
-        if event:
-            # asked with menu - update context
-            ictx = get_context(event=event)
-        await load_track(ictx, track, be_quiet)
-
-
-    #await asyncio.sleep(0.2)
-    if not prevent_to_queue:
-        await queue(
-            ictx, 
-            ctx.guild_id, 
-            force_resend=True,
-            create_footer_info=True,
-        )
-    return True, ictx
 
 
 
@@ -745,189 +646,13 @@ async def position(ctx: SlashContext) -> None:
 
 
 
-async def play_at_pos(ctx: Context, pos: int, query: str):
-    """Adds a song at the <position> position of the queue. So the track will be played soon
-    
-    Args:
-    ----
-    ctx : InuContext
-        The context to use for sending the message and fetching the node
-    pos : int
-        The position where the song should be added
-    query : str
-        The query to search for
-    """
-    try:
-        ctx: InuContext = get_context(ctx.event)
-        await ctx.defer()
-        node = await lavalink.get_guild_node(ctx.guild_id)
-        if not node:
-            prevent_to_queue = False
-        else:
-            prevent_to_queue = False
-        song_added, ctx = await _play(ctx, query, prevent_to_queue=True)
-        if not song_added:
-            return
-        node = await lavalink.get_guild_node(ctx.guild_id)
-        if node is None or not ctx.guild_id:
-            return
-        node_queue = node.queue
-        track = node_queue.pop(-1)
-        node_queue.insert(pos, track)
-        node.queue = node_queue
-        await lavalink.set_guild_node(ctx.guild_id, node)
-        if not prevent_to_queue:
-            await queue(
-                ctx, 
-                ctx.guild_id, 
-                force_resend=True, 
-                create_footer_info=True,
-                custom_info=f"{track.track.info.title} added by {ctx.author.username}"
-            )
-    except Exception as e:
-        log.error(traceback.format_exc())
 
 
 
-async def load_track(ctx: Context, track: lavasnek_rs.Track, be_quiet: bool = False):
-    """Loads a track into the queue
-    
-    Args:
-    ----
-    ctx : InuContext
-        The context to use for sending the message and fetching the node
-    track : lavasnek_rs.Track
-        The track to load
-    be_quiet : bool, optional
-        If the track should be loaded without any response, by default False
-    """
-    guild_id = ctx.guild_id
-    author_id = ctx.author.id
-    if not ctx.guild_id or not guild_id:
-        raise Exception("guild_id is missing in `lightbulb.Context`")
-    try:
-        # `.queue()` To add the track to the queue rather than starting to play the track now.
-        await lavalink.play(guild_id, track).requester(
-            author_id
-        ).queue()
-    except lavasnek_rs.NoSessionPresent:
-        await ctx.respond(f"Use `/join` first")
-        return
-    
-    if not be_quiet:
-        embed = Embed(
-            title=f'Title added',
-            description=f'[{track.info.title}]({track.info.uri})'
-        ).set_thumbnail(ctx.member.avatar_url)  # type: ignore
-        await ctx.respond(embed=embed)
 
 
 
-async def load_yt_playlist(ctx: Context, query: str, be_quiet: bool = False) -> lavasnek_rs.Tracks:
-    """
-    loads a youtube playlist
 
-    Parameters
-    ----------
-    ctx : InuContext
-        The context to use for sending the message and fetching the node
-    query : str
-        The query to search for
-    be_quiet : bool, optional
-        If the track should be loaded without any response, by default False
-    
-    Returns
-    -------
-    `lavasnek_rs.Track` :
-        the first track of the playlist
-    """
-    tracks = await lavalink.get_tracks(query)
-    for track in tracks.tracks:
-        await lavalink.play(ctx.guild_id, track).requester(
-            ctx.author.id
-        ).queue()
-    if tracks.playlist_info:
-        embed = Embed(
-            title=f'Playlist added',
-            description=f'[{tracks.playlist_info.name}]({query})'
-        ).set_thumbnail(ctx.member.avatar_url)
-        music_helper.add_to_log(
-            ctx.guild_id, 
-            str(tracks.playlist_info.name), 
-        )
-        await MusicHistoryHandler.add(
-            ctx.guild_id, 
-            str(tracks.playlist_info.name),
-            query,
-        )
-        if not be_quiet:
-            await ctx.respond(embed=embed)
-    return tracks
-
-async def search_track(ctx: Context, query: str, be_quiet: bool = False) -> Tuple[Optional[lavasnek_rs.Track], Optional[hikari.InteractionCreateEvent]]:
-    """
-    searches the query and returns the Track or None
-
-    Raises:
-    ------
-    BotResponseError :
-        Given query is not available
-    asyncio.TimeoutError :
-        User hasn't responded to the menu
-    """
-
-    query_information = await lavalink.auto_search_tracks(query)
-    track = None
-    event = None
-
-    if not query_information.tracks:
-        log.debug(f"using fallback youtbue search")
-        v = VideosSearch(query, limit = 1)
-        result = await v.next()
-
-        try:
-            query_information = await lavalink.auto_search_tracks(
-                result["result"][0]["link"]
-            )
-        except IndexError:
-            return None, None
-
-    
-    if len(query_information.tracks) > 1:
-        try:
-            track, event = await interactive.ask_for_song(ctx, query, query_information=query_information)
-            if event is None:
-                # no interaction was done - delete selection menu
-                return None, None
-        except asyncio.TimeoutError as e:
-            raise e
-        except Exception:
-            log.error(traceback.format_exc())
-    elif len(query_information.tracks) == 0:
-        embed = Embed(title="Title not available")
-        url_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
-        if re.match(url_pattern, query):  # Returns Match object
-            embed.add_field(name="Typical issues", value=(
-                "• Your title has an age limit\n"
-                "• Your title is not available in my region\n"
-            ))
-            embed.add_field(name="What you can do:", value=(
-                "• search the name of your title instead of passing in the URL\n"
-                "• try other URL's\n"
-            ))
-            embed.description = f"Your [title]({query}) is not available for me"
-        else:
-            embed.add_field(name="Typical issues", value=(
-                "• You have entered a bunch of shit\n"
-            ))
-            embed.add_field(name="What you can do:", value=(
-                "• Give me shorter queries"
-            ))
-            embed.description = f"I just found a lot of empty space for `{query}`"
-        raise BotResponseError(embed=embed, ephemeral=True)
-    else:
-        track = query_information.tracks[0]
-    return track, event
 
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
@@ -975,26 +700,7 @@ async def skip(ctx: Context) -> None:
 
 
 
-async def _skip(guild_id: int, amount: int) -> bool:
-    """
-    Returns:
-    --------
-        - (bool) wether the skip(s) was/where successfull
-    """
-    for _ in range(amount):
-        skip = await lavalink.skip(guild_id)
-        
-        if not (node := await lavalink.get_guild_node(guild_id)):
-            return False
 
-        if not skip:
-            return False
-        else:
-            # If the queue is empty, the next track won't start playing (because there isn't any),
-            # so we stop the player.
-            if not node.queue and not node.now_playing:
-                await lavalink.stop(guild_id)
-    return True
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -1092,13 +798,6 @@ async def clear(ctx: Context):
     )
     await _queue(get_context(ctx.event))
 
-async def _clear(guild_id: int):
-    node = await lavalink.get_guild_node(guild_id)
-    if not node:
-        return
-    queue = [node.queue[0]]
-    node.queue = queue
-    await lavalink.set_guild_node(guild_id, node)
 
 
 @m.child
@@ -1170,226 +869,7 @@ async def music_search(ctx: context.Context):
         return await ctx.respond("No matches found")
 
 
-async def queue(
-    ctx: InuContext = None, 
-    guild_id: int = None, 
-    force_resend: bool = False,
-    create_footer_info: bool = True, 
-    custom_info: str = "",
-):
-    '''
-    refreshes the queue of the player
-    uses ctx if not None, otherwise it will fetch the last context with the guild_id
-    '''
-    AMOUNT_OF_SONGS_IN_QUEUE = 4
-    if guild_id is None:
-        guild_id = ctx.guild_id
 
-    if ctx:
-        last_context[guild_id] = ctx
-    else:
-        ctx = last_context[guild_id]
-    if not ctx.guild_id:
-        log.debug("guild_id is None in queue command;")
-        return
-
-    node = await lavalink.get_guild_node(guild_id)
-    if not node:
-        log.warning(f"node is None in queue command; {guild_id=};")
-        log.info("Try to reconnect to websocket")
-        return
-
-    numbers = ['1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'] # double 1 to make it 1 based (0 is current playing song)
-    upcoming_songs = ''
-    upcomping_song_fields: List[hikari.EmbedField] = []
-    first_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
-    second_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
-    pre_titles_total_delta = datetime.timedelta()
-    for i, items in enumerate(zip(node.queue, numbers)):
-        if i == 0:
-            # skip current playing song
-            continue
-        if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
-            # only show 4 upcoming songs
-            break
-
-        _track, num = items
-        track = _track.track
-        # increment total_delta
-        pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
-        if node.is_paused:
-            discord_timestamp = "--:--"
-        else:
-            # <t:{start_timestamp:.0f}:t>
-            discord_timestamp = f"<t:{(datetime.datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
-
-        upcomping_song_fields.append(
-            hikari.EmbedField(
-                name=f"{num}{'' if node.is_paused else ' -'} {discord_timestamp}",
-                value=f"```ml\n{Human.short_text(track.info.title, 50, '...')}```",
-                inline=True,
-            )
-        )
-    # split upcomping_song_fields into two EmbedFields
-    total_len = len(upcomping_song_fields)
-    for i, field in enumerate(upcomping_song_fields):
-        # x.5 is first field
-        if i < total_len / 2:
-            if first_field.name == " ":
-                first_field.name = field.name
-                first_field.value = field.value
-            else:
-                first_field.value += f"**{field.name}**\n{field.value}"
-        elif i >= total_len / 2:
-            if second_field.name == " ":
-                second_field.name = field.name
-                second_field.value = field.value
-            else:
-                second_field.value += f"**{field.name}**\n{field.value}"
-        else:
-            if first_field.name == " ":
-                first_field.name = field.name
-                first_field.value = field.value
-            else:
-                first_field.value += f"**{field.name}**\n{field.value}"
-    
-    upcomping_song_fields = []
-    if first_field.name != " ":
-        upcomping_song_fields.append(first_field)
-    if second_field.name != " ":
-        upcomping_song_fields.append(second_field)
-    
-    total_playtime = datetime.timedelta(milliseconds=sum(track.track.info.length for track in node.queue)) 
-
-    queue_len = len(node.queue)-3
-    if not queue_len or queue_len < 0:
-        queue_len = 0
-    queue = f"{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
-
-    try:
-        track = node.queue[0].track
-    except Exception as e:
-        return music.d.log.warning(f"can't get current playing song: {e}")
-
-    if not node.queue[0].requester:
-        music.d.log.warning("no requester of current track - returning")
-
-    requester = music.bot.cache.get_member(guild_id, node.queue[0].requester)
-    music_over_in = (
-        datetime.datetime.now() 
-        + datetime.timedelta(
-            milliseconds=track.info.length-track.info.position
-        )
-    ).timestamp()
-    if node.is_paused:
-        paused_at = datetime.datetime.now()
-        # min:sec
-        music_over_in_str = f"<t:{paused_at.timestamp():.0f}:t>"    
-    else:
-        music_over_in_str = f'<t:{music_over_in:.0f}:t>'
-
-    # create embed
-    music_embed = hikari.Embed(
-        colour=hikari.Color.from_rgb(71, 89, 211)
-    )
-    music_embed.add_field(
-        name = "Was played:" if node.is_paused else "Playing:", 
-        value=f'[{track.info.title}]({track.info.uri})', 
-        inline=True
-    )
-    music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
-    music_embed.add_field(name = "Added by:", value=f'{requester.display_name}' , inline=True)
-    music_embed.add_field(
-        name = "Paused at:" if node.is_paused else "Over in:", 
-        value=music_over_in_str, 
-        inline=False
-    )
-    music_embed._fields.extend(upcomping_song_fields)
-    kwarg = {"text": f"{queue or '/'}"}
-    if create_footer_info:
-        last_track: lavasnek_rs.TrackQueue = node.queue[-1]
-        requester = music.bot.cache.get_member(ctx.guild_id, last_track.requester)
-        if requester:
-            kwarg["icon"] = f'{requester.avatar_url}'
-            requester_str = f'{requester.display_name}'
-        else:
-            requester_str = last_track.requester
-        if custom_info:
-            kwarg["text"] += f"\n{custom_info}"
-        else:
-            kwarg["text"] += f'\n{last_track.track.info.title} added by {requester_str}'
-    music_embed.set_footer(**kwarg)
-    music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
-    
-    
-    old_music_msg = music_messages.get(guild_id, None)
-    try:
-        log.debug(f"{ctx._responses=}")
-        resp = await ctx.message()
-        if not resp:
-            music_message = None
-        else:
-            music_message = resp
-    except (hikari.NotFoundError, hikari.UnauthorizedError):
-        music_message = None
-    
-    if (
-        force_resend 
-        or old_music_msg is None   
-        or music_message is None 
-    ):
-        log.debug(f"{force_resend=}; {old_music_msg=}; {music_message=};")
-        # send new message and override
-        kwargs = {"update": True} if music_message else {}
-        log.debug(f"send new message with {kwargs=}")
-        msg = await ctx.respond(
-            embed=music_embed, 
-            content=None,
-            components=await build_music_components(node=node), 
-            **kwargs
-        )
-        new_music_msg = await msg.message()
-        try:
-            if not old_music_msg is None and not old_music_msg.id == new_music_msg.id:
-                await old_music_msg.delete()
-        except hikari.NotFoundError:
-            pass
-        music_messages[ctx.guild_id] = new_music_msg
-        return
-
-    #edit existing message
-    # only possible with component interactions
-    try:
-        timeout = 4
-        ctx_message_id = old_music_msg.id
-        async for m in music.bot.rest.fetch_messages(ctx.channel_id):
-            # edit existing message if in last messages
-            if m.id == ctx_message_id:
-                msg = await ctx.respond(
-                    embed=music_embed, 
-                    components=await build_music_components(node=node),
-                    content=None, 
-                    update=True
-                )
-                music_messages[ctx.guild_id] = await msg.message()
-                log.debug("update old")
-                return
-            timeout -= 1
-            # resend message
-            if timeout == 0:
-                log.debug("send new")
-                #await ctx.delete_inital_response()
-                await music_message.delete()
-                msg = await ctx.respond(
-                    embed=music_embed, 
-                    content=None,
-                    components=await build_music_components(node=node), 
-                    update=False
-                )
-                music_messages[ctx.guild_id] = await msg.message()
-                return
-    except Exception as e:
-        log.error(traceback.format_exc())
 
 
 async def add_music_reactions(message: hikari.Message):
@@ -1398,61 +878,6 @@ async def add_music_reactions(message: hikari.Message):
     for r in reactions:
         await message.add_reaction(str(r))
 
-async def build_music_components(
-    guild_id: Optional[int] = None,
-    node: Optional[lavasnek_rs.Node] = None,
-    disable_all: bool = False,
-) -> List[hikari.impl.MessageActionRowBuilder]:
-    if not node and not guild_id:
-        raise RuntimeError("Can't build music compoents without guild_id and node. Either one of both needs to be given")
-    if not disable_all:
-        node = node or await lavalink.get_guild_node(guild_id)
-    if not node and not disable_all:
-        raise RuntimeError("Can't fetch node")
-        
-    action_rows = [
-        (
-            MessageActionRowBuilder()
-            .add_interactive_button(
-                hikari.ButtonStyle.SECONDARY, 
-                "music_skip_1",
-                is_disabled=disable_all or node.is_paused,
-                emoji="1️⃣",
-            )
-            .add_interactive_button(
-                hikari.ButtonStyle.SECONDARY,
-                "music_skip_2",
-                emoji="2️⃣",
-                is_disabled=disable_all or node.is_paused,
-            )
-            .add_interactive_button(
-                hikari.ButtonStyle.SECONDARY,
-                "music_shuffle",
-                emoji="🔀",
-                is_disabled=disable_all,
-            )
-            .add_interactive_button(
-                hikari.ButtonStyle.SECONDARY,
-                "music_stop",
-                emoji="🛑",
-                is_disabled=disable_all,
-            )
-        )
-    ]
-    if not disable_all:
-        if node.is_paused:
-            action_rows[0].add_interactive_button(
-                hikari.ButtonStyle.PRIMARY,
-                "music_resume",
-                emoji="▶",
-            )
-        else:
-            action_rows[0].add_interactive_button(
-                hikari.ButtonStyle.SECONDARY,
-                "music_pause",
-                emoji="⏸",
-            )
-    return action_rows
 
 @position.autocomplete("query")
 @second.autocomplete("query")
@@ -1491,8 +916,648 @@ async def query_auto_complete(
     return [r[:100] for r in converted_records[:23]]
 
 
+
+class Player:
+    def __init__(
+        self,
+        guild_id: int,
+        node: lavasnek_rs.Node,
+    ):
+        self.guild_id = guild_id
+        self.node = node
+        self.ctx = None
+        self.query: str = ""
+        self.queue: "Queue" = Queue(self)
+
+    async def play(
+        self,
+        query: str,
+    ):
+        ...
+    async def _skip(self, amount: int) -> bool:
+        """
+        Returns:
+        --------
+            - (bool) wether the skip(s) was/where successfull
+        """
+        for _ in range(amount):
+            skip = await lavalink.skip(self.guild_id)
+            
+            if not (node := await lavalink.get_guild_node(self.guild_id)):
+                return False
+
+            if not skip:
+                return False
+            else:
+                # If the queue is empty, the next track won't start playing (because there isn't any),
+                # so we stop the player.
+                if not node.queue and not node.now_playing:
+                    await lavalink.stop(self.guild_id)
+        return True
     
+    async def _clear(self):
+        queue = [self.node.queue[0]]
+        self.node.queue = queue
+        await lavalink.set_guild_node(self.guild_id, self.node)
+
+    @property
+    def ctx(self):
+        if not self._ctx:
+            raise TypeError("ctx is not set")
+        return self._ctx
     
+    @ctx.setter
+    def ctx(self, ctx):
+        self._ctx = ctx
+
+
+    async def _play(self, prevent_to_queue: bool = False) -> Tuple[bool, InuContext]:
+        """
+        - Will search the query
+        - if more than one track found, ask which track to use
+        - queue the track(s)
+        - if no track found, tell the user
+        - send queue if not prevented
+
+        Args:
+        -----
+        ctx: lightbulb.Context
+            the context of the command
+        query: str
+            the query to search for
+        be_quiet: bool
+            whether to send messages else than queue or not
+        prevent_to_queue: bool
+            whether to prevent sending the queue
+            - needed when queue have to be called afterwards
+
+        Returns:
+        -------
+        bool : 
+            wether or not it fails to add a title
+
+        Note
+        ----
+        sending the queue will be automatically prevented, 
+        when only one song is in the node, hence the 
+        track start event will trigger the queue.
+        sending the queue will be also prevented, when a 
+        playlist is added and the playlist is the 
+        first element in the queue.
+        """
+        if not self.ctx.guild_id or not self.ctx.member:
+            return False # just for pylance
+        ictx = self.ctx
+        # last_context[ctx.guild_id] = ictx
+        con = lavalink.get_guild_gateway_connection_info(self.guild_id)
+        # Join the user's voice channel if the bot is not in one.
+        if not con:
+            await _join(ictx)
+        await ictx.defer()
+        node = await lavalink.get_guild_node(self.guild_id)
+
+        if query.startswith(HISTORY_PREFIX):
+            # -> history -> get url from history
+            query = query.replace(HISTORY_PREFIX, "")
+            history = await MusicHistoryHandler.cached_get(self.guild_id)
+            if (alt_query:=[t["url"] for t in history if query in t["title"]]):
+                query=alt_query[0]
+
+        if query.startswith(MEDIA_TAG_PREFIX):
+            # -> media tag -> get url from tag
+            query = query.replace(MEDIA_TAG_PREFIX, "")
+            tag = await get_tag(ictx, query)
+            query = tag["tag_value"][0]
+
+        if 'youtube' in query and 'playlist?list=' in query:
+            # -> youtube playlist -> load playlist
+            await self.load_yt_playlist()
+        # not a youtube playlist -> something else
+        else:
+            # -> track from a playlist was added -> remove playlist info
+            if (
+                "watch?v=" in query
+                and "youtube" in query
+                and "&list" in query
+            ):
+                query = YouTubeHelper.remove_playlist_info(query)
+            # try to add song
+            event: Optional[hikari.InteractionCreateEvent] = None
+            try:
+                track, event = await self.search_track(ictx, query)
+                log.debug(event)
+            except BotResponseError as e:
+                raise e
+            except asyncio.TimeoutError:
+                return False
+            if track is None:
+                await ictx.respond(f"I only found a lot of empty space for `{query}`")
+                return False
+            if event:
+                # asked with menu - update context
+                self.ctx = get_context(event=event)
+            await self.load_track(track)
+
+
+        #await asyncio.sleep(0.2)
+        if not prevent_to_queue:
+            await queue(
+                ictx, 
+                ctx.guild_id, 
+                force_resend=True,
+                create_footer_info=True,
+            )
+        return True, ictx
+
+
+    async def fallback_track_search(query: str):
+            log.debug(f"using fallback youtbue search")
+            v = VideosSearch(query, limit = 1)
+            result = await v.next()
+
+            try:
+                query_information = await lavalink.auto_search_tracks(
+                    result["result"][0]["link"]
+                )
+                return query_information
+            except IndexError:
+                return None
+
+    async def search_track(
+            self,
+            ctx: Context, 
+            query: str, 
+    ) -> Tuple[Optional[lavasnek_rs.Track], Optional[hikari.InteractionCreateEvent]]:
+        """
+        searches the query and returns the Track or None
+
+        Raises:
+        ------
+        BotResponseError :
+            Given query is not available
+        asyncio.TimeoutError :
+            User hasn't responded to the menu
+        """
+
+        query_information = await lavalink.auto_search_tracks(query)
+        track = None
+        event = None
+
+        if not query_information.tracks:
+            quert_information = await self.fallback_track_search(query)
+
+        
+        if len(query_information.tracks) > 1:
+            try:
+                track, event = await interactive.ask_for_song(ctx, query, query_information=query_information)
+                if event is None:
+                    # no interaction was done - delete selection menu
+                    return None, None
+            except asyncio.TimeoutError as e:
+                raise e
+            except Exception:
+                log.error(traceback.format_exc())
+        elif len(query_information.tracks) == 0:
+            embed = Embed(title="Title not available")
+            url_pattern = "^https?:\\/\\/(?:www\\.)?[-a-zA-Z0-9@:%._\\+~#=]{1,256}\\.[a-zA-Z0-9()]{1,6}\\b(?:[-a-zA-Z0-9()@:%_\\+.~#?&\\/=]*)$"
+            if re.match(url_pattern, query):  # Returns Match object
+                embed.add_field(name="Typical issues", value=(
+                    "• Your title has an age limit\n"
+                    "• Your title is not available in my region\n"
+                ))
+                embed.add_field(name="What you can do:", value=(
+                    "• search the name of your title instead of passing in the URL\n"
+                    "• try other URL's\n"
+                ))
+                embed.description = f"Your [title]({query}) is not available for me"
+            else:
+                embed.add_field(name="Typical issues", value=(
+                    "• You have entered a bunch of shit\n"
+                ))
+                embed.add_field(name="What you can do:", value=(
+                    "• Give me shorter queries"
+                ))
+                embed.description = f"I just found a lot of empty space for `{query}`"
+            raise BotResponseError(embed=embed, ephemeral=True)
+        else:
+            track = query_information.tracks[0]
+        return track, event
+    
+    async def load_yt_playlist(self) -> lavasnek_rs.Tracks:
+        """
+        loads a youtube playlist
+
+        Parameters
+        ----------
+        ctx : InuContext
+            The context to use for sending the message and fetching the node
+        query : str
+            The query to search for
+        be_quiet : bool, optional
+            If the track should be loaded without any response, by default False
+        
+        Returns
+        -------
+        `lavasnek_rs.Track` :
+            the first track of the playlist
+        """
+        tracks = await lavalink.get_tracks(self.query)
+        for track in tracks.tracks:
+            await lavalink.play(self.ctx.guild_id, track).requester(
+                self.ctx.author.id
+            ).queue()
+        if tracks.playlist_info:
+            embed = Embed(
+                title=f'Playlist added',
+                description=f'[{tracks.playlist_info.name}]({self.query})'
+            ).set_thumbnail(self.ctx.member.avatar_url)
+            music_helper.add_to_log(
+                self.ctx.guild_id, 
+                str(tracks.playlist_info.name), 
+            )
+            await MusicHistoryHandler.add(
+                self.ctx.guild_id, 
+                str(tracks.playlist_info.name),
+                self.query,
+            )
+            # if not be_quiet:
+            #     await ctx.respond(embed=embed)
+        return tracks
+
+    async def play_at_pos(self, pos: int):
+        """Adds a song at the <position> position of the queue. So the track will be played soon
+        
+        Args:
+        ----
+        ctx : InuContext
+            The context to use for sending the message and fetching the node
+        pos : int
+            The position where the song should be added
+        query : str
+            The query to search for
+        """
+        try:
+            ctx = self.ctx
+            await ctx.defer()
+            node = await lavalink.get_guild_node(ctx.guild_id)
+            if not node:
+                prevent_to_queue = False
+            else:
+                prevent_to_queue = False
+            song_added, ctx = await _play(ctx, self.query, prevent_to_queue=True)
+            if not song_added:
+                return
+            node = await lavalink.get_guild_node(ctx.guild_id)
+            if node is None or not ctx.guild_id:
+                return
+            node_queue = node.queue
+            track = node_queue.pop(-1)
+            node_queue.insert(pos, track)
+            node.queue = node_queue
+            await lavalink.set_guild_node(ctx.guild_id, node)
+            if not prevent_to_queue:
+                await self.queue.send(
+                    ctx, 
+                    ctx.guild_id, 
+                    force_resend=True, 
+                    create_footer_info=True,
+                    custom_info=f"{track.track.info.title} added by {ctx.author.username}"
+                )
+        except Exception as e:
+            log.error(traceback.format_exc())
+
+
+
+    async def load_track(self, track: lavasnek_rs.Track):
+        """Loads a track into the queue
+        
+        Args:
+        ----
+        ctx : InuContext
+            The context to use for sending the message and fetching the node
+        track : lavasnek_rs.Track
+            The track to load
+        be_quiet : bool, optional
+            If the track should be loaded without any response, by default False
+        """
+        guild_id = self.guild_id
+        author_id = self.ctx.author.id
+        if not self.guild_id or not guild_id:
+            raise Exception("guild_id is missing in `lightbulb.Context`")
+        try:
+            # `.queue()` To add the track to the queue rather than starting to play the track now.
+            await lavalink.play(guild_id, track).requester(
+                author_id
+            ).queue()
+        except lavasnek_rs.NoSessionPresent:
+            await self.ctx.respond(f"Use `/join` first")
+            return
+
+
+
+class Queue:
+    def __init__(
+        self,
+        player: Player,
+    ):
+        self.player = player
+        self.message = None
+        self.custom_info = None
+        self.create_footer_info = False
+
+    def reset(self):
+        self.custom_info = None
+        self.create_footer_info = False
+
+    @property
+    def node(self) -> lavasnek_rs.Node:
+        return self.player.node
+
+    def build_music_components(
+        self,
+        disable_all: bool = False,
+    ) -> List[hikari.impl.MessageActionRowBuilder]:
+        if not node and not self.player.guild_id:
+            raise RuntimeError("Can't build music compoents without guild_id and node. Either one of both needs to be given")
+        if not disable_all:
+            node = self.player.node
+        if not node and not disable_all:
+            raise RuntimeError("Can't fetch node")
+            
+        action_rows = [
+            (
+                MessageActionRowBuilder()
+                .add_interactive_button(
+                    hikari.ButtonStyle.SECONDARY, 
+                    "music_skip_1",
+                    is_disabled=disable_all or node.is_paused,
+                    emoji="1️⃣",
+                )
+                .add_interactive_button(
+                    hikari.ButtonStyle.SECONDARY,
+                    "music_skip_2",
+                    emoji="2️⃣",
+                    is_disabled=disable_all or node.is_paused,
+                )
+                .add_interactive_button(
+                    hikari.ButtonStyle.SECONDARY,
+                    "music_shuffle",
+                    emoji="🔀",
+                    is_disabled=disable_all,
+                )
+                .add_interactive_button(
+                    hikari.ButtonStyle.SECONDARY,
+                    "music_stop",
+                    emoji="🛑",
+                    is_disabled=disable_all,
+                )
+            )
+        ]
+        if not disable_all:
+            if node.is_paused:
+                action_rows[0].add_interactive_button(
+                    hikari.ButtonStyle.PRIMARY,
+                    "music_resume",
+                    emoji="▶",
+                )
+            else:
+                action_rows[0].add_interactive_button(
+                    hikari.ButtonStyle.SECONDARY,
+                    "music_pause",
+                    emoji="⏸",
+                )
+        return action_rows
+    
+    @property
+    def embed(self) -> hikari.Embed:
+        AMOUNT_OF_SONGS_IN_QUEUE = 4
+        node = self.node
+        numbers = ['1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'] # double 1 to make it 1 based (0 is current playing song)
+        upcomping_song_fields: List[hikari.EmbedField] = []
+        first_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
+        second_field: hikari.EmbedField = hikari.EmbedField(name=" ", value=" ", inline=True)
+        pre_titles_total_delta = datetime.timedelta()
+        for i, items in enumerate(zip(self.node.queue, numbers)):
+            if i == 0:
+                # skip current playing song
+                continue
+            if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
+                # only show 4 upcoming songs
+                break
+
+            _track, num = items
+            track = _track.track
+            # increment total_delta
+            pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
+            if node.is_paused:
+                discord_timestamp = "--:--"
+            else:
+                # <t:{start_timestamp:.0f}:t>
+                discord_timestamp = f"<t:{(datetime.datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
+
+            upcomping_song_fields.append(
+                hikari.EmbedField(
+                    name=f"{num}{'' if node.is_paused else ' -'} {discord_timestamp}",
+                    value=f"```ml\n{Human.short_text(track.info.title, 50, '...')}```",
+                    inline=True,
+                )
+            )
+        # split upcomping_song_fields into two EmbedFields
+        total_len = len(upcomping_song_fields)
+        for i, field in enumerate(upcomping_song_fields):
+            # x.5 is first field
+            if i < total_len / 2:
+                if first_field.name == " ":
+                    first_field.name = field.name
+                    first_field.value = field.value
+                else:
+                    first_field.value += f"**{field.name}**\n{field.value}"
+            elif i >= total_len / 2:
+                if second_field.name == " ":
+                    second_field.name = field.name
+                    second_field.value = field.value
+                else:
+                    second_field.value += f"**{field.name}**\n{field.value}"
+            else:
+                if first_field.name == " ":
+                    first_field.name = field.name
+                    first_field.value = field.value
+                else:
+                    first_field.value += f"**{field.name}**\n{field.value}"
+        
+        upcomping_song_fields = []
+        if first_field.name != " ":
+            upcomping_song_fields.append(first_field)
+        if second_field.name != " ":
+            upcomping_song_fields.append(second_field)
+        
+        total_playtime = datetime.timedelta(milliseconds=sum(track.track.info.length for track in node.queue)) 
+
+        queue_len = len(node.queue)-3
+        if not queue_len or queue_len < 0:
+            queue_len = 0
+        queue = f"{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
+
+        try:
+            track = node.queue[0].track
+        except Exception as e:
+            return music.d.log.warning(f"can't get current playing song: {e}")
+
+        if not node.queue[0].requester:
+            music.d.log.warning("no requester of current track - returning")
+
+        requester = music.bot.cache.get_member(self.player.guild_id, node.queue[0].requester)
+        music_over_in = (
+            datetime.datetime.now() 
+            + datetime.timedelta(
+                milliseconds=track.info.length-track.info.position
+            )
+        ).timestamp()
+        if node.is_paused:
+            paused_at = datetime.datetime.now()
+            # min:sec
+            music_over_in_str = f"<t:{paused_at.timestamp():.0f}:t>"    
+        else:
+            music_over_in_str = f'<t:{music_over_in:.0f}:t>'
+
+        # create embed
+        music_embed = hikari.Embed(
+            colour=hikari.Color.from_rgb(71, 89, 211)
+        )
+        music_embed.add_field(
+            name = "Was played:" if node.is_paused else "Playing:", 
+            value=f'[{track.info.title}]({track.info.uri})', 
+            inline=True
+        )
+        music_embed.add_field(name = "Author:", value=f'{track.info.author}', inline=True)
+        music_embed.add_field(name = "Added by:", value=f'{requester.display_name}' , inline=True)
+        music_embed.add_field(
+            name = "Paused at:" if node.is_paused else "Over in:", 
+            value=music_over_in_str, 
+            inline=False
+        )
+        music_embed._fields.extend(upcomping_song_fields)
+        kwarg = {"text": f"{queue or '/'}"}
+        if self.create_footer_info:
+            last_track: lavasnek_rs.TrackQueue = node.queue[-1]
+            requester = music.bot.cache.get_member(self.ctx.guild_id, last_track.requester)
+            if requester:
+                kwarg["icon"] = f'{requester.avatar_url}'
+                requester_str = f'{requester.display_name}'
+            else:
+                requester_str = last_track.requester
+            if self.custom_info:
+                kwarg["text"] += f"\n{self.custom_info}"
+            else:
+                kwarg["text"] += f'\n{last_track.track.info.title} added by {requester_str}'
+        music_embed.set_footer(**kwarg)
+        music_embed.set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri) or music.bot.me.avatar_url)
+        return music_embed
+    
+    async def send(
+        self,
+        ctx: InuContext | None = None,
+        force_resend: bool = False,
+        create_footer_info: bool = True, 
+        custom_info: str = "",
+    ):
+        '''
+        refreshes the queue of the player
+        uses ctx if not None, otherwise it will fetch the last context with the guild_id
+        '''
+        ctx = ctx or self.player.ctx
+        guild_id = ctx.guild_id
+
+        
+        if guild_id is None:
+            guild_id = ctx.guild_id
+
+        if ctx:
+            last_context[guild_id] = ctx
+        else:
+            ctx = last_context[guild_id]
+        if not ctx.guild_id:
+            log.debug("guild_id is None in queue command;")
+            return
+
+        node = await lavalink.get_guild_node(guild_id)
+        if not node:
+            log.warning(f"node is None in queue command; {guild_id=};")
+            log.info("Try to reconnect to websocket")
+            return
+        
+        music_embed = self.embed
+
+        old_music_msg = music_messages.get(guild_id, None)
+        try:
+            log.debug(f"{ctx._responses=}")
+            resp = await ctx.message()
+            if not resp:
+                music_message = None
+            else:
+                music_message = resp
+        except (hikari.NotFoundError, hikari.UnauthorizedError):
+            music_message = None
+        
+        if (
+            force_resend 
+            or old_music_msg is None   
+            or music_message is None 
+        ):
+            log.debug(f"{force_resend=}; {old_music_msg=}; {music_message=};")
+            # send new message and override
+            kwargs = {"update": True} if music_message else {}
+            log.debug(f"send new message with {kwargs=}")
+            msg = await ctx.respond(
+                embed=music_embed, 
+                content=None,
+                components=self.build_music_components(node=node), 
+                **kwargs
+            )
+            new_music_msg = await msg.message()
+            try:
+                if not old_music_msg is None and not old_music_msg.id == new_music_msg.id:
+                    await old_music_msg.delete()
+            except hikari.NotFoundError:
+                pass
+            music_messages[ctx.guild_id] = new_music_msg
+            return
+
+        #edit existing message
+        # only possible with component interactions
+        try:
+            timeout = 4
+            ctx_message_id = old_music_msg.id
+            async for m in music.bot.rest.fetch_messages(ctx.channel_id):
+                # edit existing message if in last messages
+                if m.id == ctx_message_id:
+                    msg = await ctx.respond(
+                        embed=music_embed, 
+                        components=self.build_music_components(node=node),
+                        content=None, 
+                        update=True
+                    )
+                    music_messages[ctx.guild_id] = await msg.message()
+                    log.debug("update old")
+                    return
+                timeout -= 1
+                # resend message
+                if timeout == 0:
+                    log.debug("send new")
+                    #await ctx.delete_inital_response()
+                    await music_message.delete()
+                    msg = await ctx.respond(
+                        embed=music_embed, 
+                        content=None,
+                        components=self.build_music_components(node=node), 
+                        update=False
+                    )
+                    music_messages[ctx.guild_id] = await msg.message()
+                    return
+        except Exception as e:
+            log.error(traceback.format_exc())
+
+
 
 
 def load(inu: Inu) -> None:
