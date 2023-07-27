@@ -1,3 +1,4 @@
+#!./venv/bin/python
 """Small cli program for managing the bot"""
 
 from typing import *
