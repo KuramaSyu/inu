@@ -1,3 +1,4 @@
+#!./venv/bin/python
 """Small cli program for managing the bot"""
 
 from typing import *
@@ -179,7 +180,7 @@ def clean(
     ),
 
 ):
-    """restore a backup"""
+    """clean backup folder"""
     
     files: List[str] = [file for file in os.listdir(backup_folder) if os.path.isfile(os.path.join(backup_folder, file))]
     
