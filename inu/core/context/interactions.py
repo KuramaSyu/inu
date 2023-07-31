@@ -5,11 +5,11 @@ import abc
 import functools
 
 import hikari
-from hikari import ComponentInteraction, ResponseType
+from hikari import ComponentInteraction, ResponseType, TextInputStyle
 from hikari.impl import MessageActionRowBuilder
 from .._logging import getLogger
 import lightbulb
-from lightbulb.context.base import Context, ResponseProxy
+from lightbulb.context.base import Context, ResponseProxy, OptionsProxy
 
 from ..bot import Inu
 from . import InuContext, InuContextProtocol, InuContextBase, UniqueContextInstance
@@ -20,8 +20,10 @@ T = TypeVar("T")
 REST_SENDING_MARGIN = 0.6 #seconds
 i = 0
 
+T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
-class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBase):
+
+class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBase):
     __slots__ = ("_event", "_interaction", "_default_ephemeral", "_defer_in_progress_event", "log")
 
     def __init__(
@@ -41,16 +43,16 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
             self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
         self = UniqueContextInstance.get(self)
         self._options = {}
-    
+
     @property
     def raw_options(self) -> Dict[str, Any]:
         return self._options
 
     @property
-    def options(self) -> lightbulb.OptionsProxy:
+    def options(self) -> OptionsProxy:
         """:obj:`~OptionsProxy` wrapping the options that the user invoked the command with."""
-        return lightbulb.OptionsProxy(self.raw_options)
-
+        return OptionsProxy(self.raw_options)
+    
     @property
     def id(self) -> int:
         return self.event.interaction.id
@@ -318,6 +320,37 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
         )
         new_ctx = InteractionContext.from_event(event)
         return selected_label.replace(prefix, "", 1), new_ctx
+    
+    async def ask_with_modal(
+            self, 
+            title: str, 
+            question_s: T_STR_LIST,
+            input_style_s: Union[TextInputStyle, List[Union[TextInputStyle, None]]] = TextInputStyle.PARAGRAPH,
+            placeholder_s: Optional[Union[str, List[Union[str, None]]]] = None,
+            max_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+            min_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+            pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
+            is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
+            timeout: int = 120
+    ) -> Tuple[T_STR_LIST, "InteractionContext"] | Tuple[None, None]:
+        try:
+            answer_s, interaction, event = await self.app.shortcuts.ask_with_modal(
+                modal_title=title,
+                question_s=question_s,
+                input_style_s=input_style_s,
+                placeholder_s=placeholder_s,
+                max_length_s=max_length_s,
+                min_length_s=min_length_s,
+                pre_value_s=pre_value_s,
+                is_required_s=is_required_s,
+                timeout=timeout,
+                interaction=self.interaction
+            )
+            new_ctx = InteractionContext.from_event(event)
+            return answer_s, new_ctx
+        except asyncio.TimeoutError:
+            return None, None
+        
 
 class InteractionContext(_InteractionContext):
     """
