@@ -14,7 +14,7 @@ from core import Table, getLogger, Inu, stopwatch
 from utils import Reddit, AnimeCornerAPI, AnimeCornerPaginator2
 
 log = getLogger(__name__)
-METHOD_SYNC_TIME: 60*60*24
+METHOD_SYNC_TIME: int = 60*60*6
 SYNCING = False
 TARGET_TIME = time(16,00)
 TRIGGER_NAME = "Anime Corner Trigger"
@@ -55,7 +55,10 @@ async def defer_trigger_to_time(target_time: time | None = TARGET_TIME):
 async def init_method():
     pass
 
-@stopwatch(f"Task: Fetching and caching Anime Corner Ranking")
+@stopwatch(
+    note=f"Task: Fetching and caching Anime Corner Ranking (Reddit + Anime Corner)", 
+    cache_threshold=timedelta(microseconds=1200)
+)
 async def method():
     submission = await Reddit.get_anime_of_the_week_post()
     pag = AnimeCornerPaginator2()
