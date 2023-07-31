@@ -40,7 +40,17 @@ class _InteractionContext(Context, InuContext, InuContextProtocol, InuContextBas
         except AttributeError:
             self.log = getLogger(__name__, self.__class__.__name__, f"[{i}]")
         self = UniqueContextInstance.get(self)
-        
+        self._options = {}
+    
+    @property
+    def raw_options(self) -> Dict[str, Any]:
+        return self._options
+
+    @property
+    def options(self) -> lightbulb.OptionsProxy:
+        """:obj:`~OptionsProxy` wrapping the options that the user invoked the command with."""
+        return lightbulb.OptionsProxy(self.raw_options)
+
     @property
     def id(self) -> int:
         return self.event.interaction.id
@@ -322,6 +332,8 @@ class InteractionContext(_InteractionContext):
         auto_defer: bool = False,
         update: bool = False,
     ):
+        lightbulb.SlashContext
+        self._options: Dict[str, Any] = {}
         super().__init__(event=event, app=app)
         self._interaction = event.interaction
         self._responded = False
@@ -353,6 +365,8 @@ class InteractionContext(_InteractionContext):
             self._deferred = deferred
         if responded := kwargs.get("responded"):
             self._responded = responded
+        if options := kwargs.get("options"):
+            self._options = options
 
     def auto_defer(self) -> None:
         """
