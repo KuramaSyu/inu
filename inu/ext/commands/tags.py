@@ -610,6 +610,8 @@ async def tag_append(_ctx: Context):
             "What do you want to append to the tag?",
             timeout=30*60,
         )
+        if not to_add:
+            return
     if new_page:
         tag.value.append("")
     tag.value[-1] += f"\n{to_add}"
