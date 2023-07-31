@@ -6,6 +6,7 @@ import asyncpg
 asyncpg.UniqueViolationError
 
 from core import Table, Inu, getLogger
+from utils import Human
 
 log = getLogger(__name__)
 
@@ -72,8 +73,8 @@ class BoardManager:
         cls.bot = bot
         table = Table("board.boards")
         # initialize boards
-        records = await table.fetch(f"SELECT guild_id, emoji, enabled FROM {table.name}")
-        for record in records:
+        board_records = await table.fetch(f"SELECT guild_id, emoji, enabled FROM {table.name}")
+        for record in board_records:
             if not record["enabled"]:
                 continue
             cls._cache_add_entry(
@@ -83,14 +84,14 @@ class BoardManager:
             )
         # initialize messages
         table = Table("board.entries")
-        records = await table.fetch(f"SELECT guild_id, message_id, emoji FROM {table.name}")
-        for record in records:
+        entry_records = await table.fetch(f"SELECT guild_id, message_id, emoji FROM {table.name}")
+        for record in entry_records:
             cls._cache_add_entry(
                 guild_id=record["guild_id"], 
                 emoji=record["emoji"],
                 message_id=record["message_id"],
             )
-        log.info(f"initialized BoardManager with {len(records)} entries")
+        log.info(f"[Start] BoardManager with {Human.plural_('board', len(board_records))} and {Human.plural_('entry', len(entry_records))}")
 
 
     @classmethod
