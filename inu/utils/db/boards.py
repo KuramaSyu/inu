@@ -70,7 +70,18 @@ class BoardManager:
         Set bot and build up cache from db
         """
         cls.bot = bot
-        table = Table("board.entries")
+        table = Table("board.boards")
+        # initialize boards
+        records = await table.fetch(f"SELECT guild_id, emoji, enabled FROM {table.name}")
+        for record in records:
+            if not record["enabled"]:
+                continue
+            cls._cache_add_entry(
+                guild_id=record["guild_id"], 
+                emoji=record["emoji"],
+                message_id=None,
+            )
+        # initialize messages
         records = await table.fetch(f"SELECT guild_id, message_id, emoji FROM {table.name}")
         for record in records:
             cls._cache_add_entry(
