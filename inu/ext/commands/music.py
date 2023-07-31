@@ -396,7 +396,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                 music_message = player.queue.message
                 try:
                     await music_message.edit(
-                        components=await player.queue.build_music_components(
+                        components=player.queue.build_music_components(
                         disable_all=True)
                     )
                 except hikari.NotFoundError:
@@ -468,7 +468,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         # disable buttons from that different message
         await ctx.respond(
             embeds=ctx.i.message.embeds, 
-            components=await player.queue.build_music_components(disable_all=True),
+            components=player.queue.build_music_components(disable_all=True),
             update=True,
         )
     tasks: List[asyncio.Task] = []
