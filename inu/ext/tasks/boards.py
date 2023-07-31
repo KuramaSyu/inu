@@ -246,8 +246,8 @@ async def update_message(
     )
 
     embed.description = (
-        f"Jump to the message: <#{board_entry['channel_id']}>"
-        f"({make_message_link(guild_id, channel_id, message_id)})\n{content}"
+        f"Jump to the message: "
+        f"{make_message_link(guild_id, channel_id, message_id)}\n{content}"
     )
     # embed color -> how many stars
     embed.color = Colors.from_name(color)
