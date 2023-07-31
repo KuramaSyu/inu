@@ -117,7 +117,14 @@ async def on_reaction_add(event: hikari.GuildReactionAddEvent):
         )
     except asyncpg.UniqueViolationError:
         log.debug(f"Violation error - reaction was already added")
-    await update_message(entry, message, optional_author_id=event.user_id)
+    try:
+        await update_message(entry, message, optional_author_id=event.user_id)
+    except hikari.NotFoundError as e:
+        if not e.code == 10003:
+            # not a unknown channel
+            return
+        log.info(f"[Deleted] {event.emoji_name}-baord in guild {event.guild_id} because of unknown channel")
+        await BoardManager.remove_board(event.guild_id, event.emoji_name)
 
 
 
@@ -239,7 +246,7 @@ async def update_message(
     )
 
     embed.description = (
-        f"[Jump to the message in <#{board_entry['channel_id']}>]"
+        f"Jump to the message: <#{board_entry['channel_id']}>"
         f"({make_message_link(guild_id, channel_id, message_id)})\n{content}"
     )
     # embed color -> how many stars
