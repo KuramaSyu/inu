@@ -659,7 +659,7 @@ async def pl(ctx: context.Context) -> None:
 async def now(ctx: Context) -> None:
     """Adds a song infront of the queue. So the track will be played next"""
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
-    await player.play_at_pos(ctx, 1, ctx.options.query)
+    await player.play_at_pos(1, ctx.options.query)
 
 
 
@@ -672,7 +672,7 @@ async def now(ctx: Context) -> None:
 async def second(ctx: Context) -> None:
     """Adds a song at the second position of the queue. So the track will be played soon"""
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
-    await player.play_at_pos(ctx, 2, ctx.options.query)
+    await player.play_at_pos(2, ctx.options.query)
 
 
 
@@ -686,7 +686,7 @@ async def second(ctx: Context) -> None:
 async def position(ctx: SlashContext) -> None:
     """Adds a song at the <position> position of the queue. So the track will be played soon"""
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
-    await player.play_at_pos(ctx, int(ctx.options.position), ctx.options.query)
+    await player.play_at_pos(int(ctx.options.position), ctx.options.query)
 
 
 
