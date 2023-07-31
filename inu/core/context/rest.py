@@ -5,7 +5,7 @@ import asyncio
 import hikari
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
-from lightbulb.context import Context, ResponseProxy
+from lightbulb.context import Context, ResponseProxy, OptionsProxy
 from lightbulb.context.prefix import PrefixContext
 
 from . import InuContextProtocol, InuContext, InuContextBase, UniqueContextInstance, InteractionContext
@@ -26,8 +26,17 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         self._options: Dict[str, Any] = {}
         super().__init__(app) # type: ignore
         self = UniqueContextInstance.get(self)
+        self._options: Dict[str, Any] = {}
 
-        
+    @property
+    def raw_options(self) -> Dict[str, Any]:
+        return self._options
+
+    @property
+    def options(self) -> OptionsProxy:
+        """:obj:`~OptionsProxy` wrapping the options that the user invoked the command with."""
+        return OptionsProxy(self.raw_options)
+
     @property
     def id(self):
         """Bare RESTContext can be created at anytime. There is nothing id like"""
@@ -161,8 +170,9 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         ...
 
     def set(self, **kwargs):
-        """Not needed"""
-        ...
+        """custom things to set"""
+        if options := kwargs.get("options"):
+            self._options = options
 
     async def respond_with_modal(self, *args, **kwargs) -> None:
         raise NotImplementedError(f"`respond_with_modal` does not work with {self.__class__.__name__}")
