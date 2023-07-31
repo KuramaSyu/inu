@@ -5,7 +5,7 @@ from typing import *
 from cachetools import cached, TTLCache
 from core import getLogger
 from . import InuContext
-from lightbulb import ResponseProxy
+from lightbulb import ResponseProxy, OptionsProxy
 
 log = getLogger(__name__)
 
@@ -43,6 +43,7 @@ class ContextEqualTrait:
 
 class InuContextBase(ContextEqualTrait):
     _responses: List[ResponseProxy] = []
+    _options: Dict[str, Any] = {}
     def __hash__(self) -> int:
         return self.id
     
@@ -53,3 +54,12 @@ class InuContextBase(ContextEqualTrait):
     @property
     def is_hashable(self) -> bool:
         return self.id is not None
+    
+    @property
+    def raw_options(self) -> Dict[str, Any]:
+        return self._options
+
+    @property
+    def options(self) -> OptionsProxy:
+        """:obj:`~OptionsProxy` wrapping the options that the user invoked the command with."""
+        return OptionsProxy(self.raw_options)
