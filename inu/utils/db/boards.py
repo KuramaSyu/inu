@@ -82,6 +82,7 @@ class BoardManager:
                 message_id=None,
             )
         # initialize messages
+        table = Table("board.entries")
         records = await table.fetch(f"SELECT guild_id, message_id, emoji FROM {table.name}")
         for record in records:
             cls._cache_add_entry(
