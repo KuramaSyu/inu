@@ -1324,13 +1324,13 @@ class Player:
 
             if not song_added:
                 return
-            node = await lavalink.get_guild_node(ctx.guild_id)
-            if node is None or not ctx.guild_id:
+            await self.update_node()
+            if self.node is None:
                 return
-            node_queue = node.queue
+            node_queue = self.node.queue
             track = node_queue.pop(-1)
             node_queue.insert(pos, track)
-            node.queue = node_queue
+            self.node.queue = node_queue
             await lavalink.set_guild_node(ctx.guild_id, node)
             if not prevent_to_queue:
                 await self.queue.send(
