@@ -250,12 +250,8 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         new_ctx = InteractionContext.from_event(event)
         return selected_label.replace(prefix, "", 1), new_ctx
 
-# class RESTMessageContext(RESTContext):
-#     def __init__(self, app: hikari.GatewayBot, event: hikari.MessageCreateEvent | hikari.Mess)
-#     @property
-#     def id(self):
-#         """combination of message_id and author_id"""
-#         return int(str(self.event.message_id) + str(self.event.author_id))
-#     @classmethod
-#     def from_event(cls, event: hikari.MessageCreateEvent):
-#         return cls(app=event.app, event=event)
+    async def ask_with_modal(
+            self, 
+            **kwargs
+    ) -> Tuple[str | List[str], "InteractionContext"] | Tuple[None, None]:
+        raise NotImplementedError(f"`ask_with_modal` does not work with {self.__class__.__name__}")
