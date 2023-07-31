@@ -1647,5 +1647,12 @@ class StatelessPaginator(Paginator, ABC):
         self.log.debug("post start")
         await self.post_start(events=[event])
 
+
+    async def delete_presence(self):
+        """Deletes this message, and invokation message, if invocation was in a guild"""
+        if not self.ctx._responded:
+            await self.stop()
+        await self.ctx.delete_initial_response()
+
     
 
