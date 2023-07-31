@@ -1115,6 +1115,8 @@ class Player:
         """
         if query:
             self.query = query
+        else:
+            query = self.query
         if not self.ctx.guild_id or not self.ctx.member:
             return False, None
         ictx = self.ctx
