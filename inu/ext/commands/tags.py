@@ -451,7 +451,7 @@ async def tag_edit(ctx: Context):
     ctx.raw_options["name"] = ctx.options.name.strip()
     record = await get_tag_interactive(ctx)
     if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return
     taghandler = TagHandler()
     await taghandler.start(ctx, record)
 
@@ -580,25 +580,38 @@ async def tag_execute(ctx: Context):
 
 
 @tag.child
-@lightbulb.option("silent-message", "only you see the message", type=bool, default=False)
-@lightbulb.option("text", "the text, you want to append to the current value", modifier=OM.CONSUME_REST)
+@lightbulb.option("silent-message", "only you see the sucess message", choices=["Yes", "No"], default="No")
+@lightbulb.option("new-page", "wether to write the tag on a new page or the last page", choices=["Yes", "No"], default="No")
+@lightbulb.option("text", "the text, you want to append to the current value", type=str, default=None, modifier=OM.CONSUME_REST)
 @lightbulb.option("name", "the name of your tag", autocomplete=True)  
 @lightbulb.command("append", "remove a tag you own")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_append(ctx: Context):
+async def tag_append(_ctx: Context):
     """Remove a tag to my storage
     
     Args:
     -----
         - key: the name of the tag which you want to remove
     """
-    additional_flag = EPHEMERAL if ctx.options["silent-message"] else {}
+    ctx = get_context(_ctx.event, options=_ctx._options)
+    additional_flag = True if ctx.options["silent-message"] == "Yes" else False
+    new_page = True if ctx.options["new-page"] == "Yes" else False
     ctx.raw_options["name"] = ctx.options.name.strip()
     record = await get_tag_interactive(ctx)
     if not record:
-        return # await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return
     tag: Tag = await Tag.from_record(record, ctx.author)
-    to_add = ctx.options.text.lstrip()
+    to_add = ""
+    if ctx.options.text:
+        to_add = ctx.options.text.strip()
+    else:
+        to_add, ctx = await ctx.ask_with_modal(
+            "tag append",
+            "What do you want to append to the tag?",
+            timeout=30*60,
+        )
+    if new_page:
+        tag.value.append("")
     tag.value[-1] += f"\n{to_add}"
     await tag.save()
     await ctx.respond(
@@ -611,7 +624,7 @@ async def tag_append(ctx: Context):
                 label=tag.name
             )
         ),
-        **additional_flag
+        ephemeral=additional_flag
     )
 
 
@@ -635,7 +648,7 @@ async def tag_change_name(ctx: Context):
     old_key = ctx.options.old_name
     record = await get_tag_interactive(ctx, old_key)
     if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{old_key}` where you are the owner :/")
+        return
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.name = ctx.options.new_name
     await tag.save()
@@ -698,7 +711,7 @@ async def tag_add_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/", **EPHEMERAL)
+        return
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.aliases.add(f"{ctx.options.alias.strip()}")
     await tag.save()
@@ -725,7 +738,7 @@ async def tag_remove_alias(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/", **EPHEMERAL)
+        return
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.aliases.add(f"{ctx.options.alias.strip()}")
@@ -755,7 +768,7 @@ async def tag_add_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/", **EPHEMERAL)
+        return
     tag: Tag = await Tag.from_record(record, ctx.author)
     tag.owners.add(int(ctx.options.author.id))
     await tag.save()
@@ -784,7 +797,7 @@ async def tag_remove_author(ctx: Context):
     """
     record = await get_tag_interactive(ctx)
     if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return
     tag: Tag = await Tag.from_record(record, ctx.author)
     try:
         tag.owners.remove(int(ctx.options.author.id))
@@ -823,7 +836,7 @@ async def tag_add_guild(_ctx: Context):
     guild_id = guild_autocomplete_get_id(value=options.guild)
     record = await get_tag_interactive(ctx, options.name)
     if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
+        return
     tag: Tag = await Tag.from_record(record, ctx.author)
     if not tag.is_authorized_to_write(ctx.author.id):
         return await ctx.respond(
