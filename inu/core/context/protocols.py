@@ -75,6 +75,10 @@ class InuContext(ABC):
     def id(self):
         """used to Compare `InuContext` classes"""
         ...
+
+    @property
+    def interaction(self) -> hikari.PartialInteraction | None:
+        ...
     
     @abstractmethod
     async def defer(self, background: bool = True):
@@ -170,6 +174,10 @@ class InuContextProtocol(Protocol[T]):
     def original_message(self) -> hikari.Message:
         ...
 
+    @property
+    def interaction(self) -> hikari.PartialInteraction | None:
+        ...
+    
     async def defer(self, background: bool = True):
         """
         Acknowledges the interaction if not rest is used.
