@@ -13,7 +13,7 @@ from apscheduler.triggers.interval import IntervalTrigger
 from core import Table, getLogger, Inu
 
 log = getLogger(__name__)
-METHOD_SYNC_TIME: int
+METHOD_SYNC_TIME: int = 0
 SYNCING = False
 bot: Inu
 
