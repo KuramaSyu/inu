@@ -23,13 +23,6 @@ class UniqueContextInstance:
     @classmethod
     @cached(cache=TTLCache(maxsize=1024, ttl=60))
     def _get(cls, self: InuContextT) -> InuContextT:
-        # if (instance := cls._instances.get(self.id)) is not None:
-        #     print(f"return existing instance with type {type(self)} and ID {self.id}")
-        #     return instance  # type: ignore
-        # #if self.id:
-        # print(f"create instance with type {type(self)} ID {self.id}")
-        # cls._instances[self.id] = self
-        # print(f"return instance with type {type(self)} ID {self.id}")
         return self
 
 
