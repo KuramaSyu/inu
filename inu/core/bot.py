@@ -606,6 +606,7 @@ class Shortcuts:
         pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
         is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
         components: Optional[List[ModalActionRowBuilder]] = None,
+        timeout: int = 60 * 15,
     ) -> Tuple[List[str], ModalInteraction, InteractionCreateEvent]:
         """
         Asks a question with a modal
@@ -668,7 +669,6 @@ class Shortcuts:
             components = []
             for i, question in enumerate(questions):
                 modal = TextInputBuilder(custom_id=f"modal_answer-{i}", label=question)
-                    #.add_text_input(f"modal_answer-{i}", question)
                 
 
                 # adds corresponding items to the modal
@@ -690,7 +690,7 @@ class Shortcuts:
             
         custom_id = self.bot.id_creator.create_id()
         await interaction.create_modal_response(modal_title, custom_id, components=components)
-        answer_dict, modal_interaction, event = await self.wait_for_modal(custom_id=custom_id)
+        answer_dict, modal_interaction, event = await self.wait_for_modal(custom_id=custom_id, timeout=timeout)
         if isinstance(orig_questions, str):
             return answer_dict["modal_answer-0"], modal_interaction, event
         else:
