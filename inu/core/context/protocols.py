@@ -2,10 +2,13 @@ from typing import *
 from abc import ABC, abstractmethod
 
 import hikari
+from hikari import TextInputStyle
 from lightbulb.context import Context
 
 
 T = TypeVar("T")
+
+T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 
 class InuContext(ABC):
@@ -162,6 +165,45 @@ class InuContext(ABC):
             the selected label and the new context
         """
 
+    async def ask_with_modal(
+            self, 
+            title: str, 
+            question_s: T_STR_LIST,
+            input_style_s: Union[TextInputStyle, List[Union[TextInputStyle, None]]] = TextInputStyle.PARAGRAPH,
+            placeholder_s: Optional[Union[str, List[Union[str, None]]]] = None,
+            max_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+            min_length_s: Optional[Union[int, List[Union[int, None]]]] = None,
+            pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
+            is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
+            timeout: int = 120
+    ) -> Tuple[T_STR_LIST, "InuContext"] | None:
+        """
+        ask a question with buttons
+
+        Args:
+        -----
+        title : str
+            the title of the message
+        timeout : int
+            the timeout in seconds
+        question_s : `Union[List[str], str]`
+            The question*s to ask the user
+        interaction : `ComponentInteraction`
+            The interaction to use for initial response
+        placeholder : `str` | `None`
+            The placeholder of the input
+        max_length : `int` | `None`
+            The max length of the input
+        min_length : `int` | `None`
+            The min length of the input
+
+
+        Returns:
+        --------
+        Tuple[str, "InteractionContext"]
+            the selected label and the new context
+        """
+        ...
 
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
