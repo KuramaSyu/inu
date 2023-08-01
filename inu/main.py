@@ -2,8 +2,7 @@
 import logging
 import traceback
 import time
-
-import time
+import os
 
 import aiohttp
 from core import LoggingHandler
@@ -139,4 +138,7 @@ def main():
     log.info(f"Bot shutted down!")
 
 if __name__ == "__main__":
+    if os.name != "nt":
+        import uvloop
+        uvloop.install()
     main()
