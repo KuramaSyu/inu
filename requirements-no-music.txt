@@ -35,3 +35,4 @@ dacite
 tabulate
 expiring-dict
 colorcet
+uvloop

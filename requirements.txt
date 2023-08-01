@@ -38,3 +38,4 @@ expiring-dict
 selenium
 selenium_async
 colorcet
+uvloop
