@@ -79,12 +79,15 @@ class EventHandler:
         log.warning("Track exception event happened on guild: %d", event.guild_id)
         log.warning(event.exception_message)
         # If a track was unable to be played, skip it
-        skip = await lavalink.skip(event.guild_id)
-        node = await lavalink.get_guild_node(event.guild_id)
-
-        if skip and not node is None:
-            if not node.queue and not node.now_playing:
-                await lavalink.stop(event.guild_id)
+        player = await PlayerManager.get_player(event.guild_id)
+        if not player:
+            return
+        player.queue.set_footer(
+            text="Track was unable to be played, skipping...",
+            icon=bot.me
+        )
+        await player._skip(1)
+        await player.queue.send(create_footer_info=False)
 
 class Interactive:
     """A class with methods which do some music stuff interactive"""
@@ -389,6 +392,35 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
         # bot connected (No channel -> channel)
         if event.old_state is None and event.state.channel_id:
             pass
+        # bot changed room (channel -> channel)
+        elif event.old_state and event.state.channel_id:
+            # check if room is empty
+            states = [
+                state.user_id for state in 
+                bot.cache.get_voice_states_view_for_channel(event.guild_id, event.state.channel_id).values() 
+                if state.user_id != bot.me.id
+            ]
+            player = await PlayerManager.get_player(event.state.guild_id)
+            if player.node is None:
+                return
+            if len(states) > 0:
+                log.debug(f"Bot changed room in {event.guild_id} to {event.state.channel_id}")
+                await player._resume()
+                
+                #await player.update_node()
+                player.queue.set_footer(
+                    f"▶ Music was resumed by {bot.me.username}",
+                    author=bot.me,
+                )
+                await player.queue.send()
+            elif len(states) == 0 and not player.node.is_paused:
+                await player._pause()
+                await asyncio.sleep(0.1)
+                player.queue.set_footer(
+                    f"⏸ Music was paused by {bot.me.username}",
+                    author=bot.me,
+                )
+                await player.queue.send()
         # bot disconnected
         elif event.state.channel_id is None and not event.old_state is None:
             player = await PlayerManager.get_player(event.state.guild_id)
@@ -400,8 +432,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                         disable_all=True)
                     )
                 except hikari.NotFoundError:
-                    log.error(traceback.format_exc())
-            # await ctx.respond(components=await build_music_components(event.state.guild_id, disable_all=True), update=True)
+                    log.error(traceback.format_exc()) 
             await lavalink.destroy(event.guild_id)
             await lavalink.wait_for_connection_info_remove(event.guild_id)
 
@@ -427,7 +458,19 @@ async def voice_state_update(event: hikari.VoiceStateUpdateEvent) -> None:
 
 @music.listener(hikari.VoiceServerUpdateEvent)
 async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
+    if not event.endpoint:
+        log.warning("Endpoint should never be None!")
+        return
+    player = await PlayerManager.get_player(event.guild_id)
+    if player:
+        player.queue.set_footer(
+            text=f"📡 Voice Server Update: {event.endpoint}",
+            author=bot.me
+        )
     await lavalink.raw_handle_event_voice_server_update(event.guild_id, event.endpoint, event.token)
+    await asyncio.sleep(4)
+    if player.queue.custom_info:
+        await player.queue.send()
 
 MENU_CUSTOM_IDS = [
     "music_play", 
@@ -566,10 +609,10 @@ async def start_lavalink() -> None:
     if not music.bot.conf.lavalink.connect:
         music.d.log.warning(f"Lavalink connection won't be established")
         return
-    sleep_time = 5
+    sleep_time = 3
     log.debug(f"Sleep for {sleep_time} seconds before connecting to Lavalink") 
     await asyncio.sleep(sleep_time)
-    for x in range(6):
+    for x in range(10):
         try:
             builder = (
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
@@ -585,12 +628,12 @@ async def start_lavalink() -> None:
             lavalink = lava_client
             break
         except Exception:
-            if x == 2:
+            if x == 9:
                 music.d.log.error(traceback.format_exc())
                 return
             else:
-                log.info("retrying lavalink connection in 10 seconds")
-                await asyncio.sleep(10)
+                #log.info(f"retrying lavalink connection in {} seconds")
+                await asyncio.sleep(sleep_time)
     log.info("lavalink is connected")
 
 
@@ -632,7 +675,7 @@ async def leave(ctx: context.Context) -> None:
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str)
+@lightbulb.option("query", "the title of the track etc.", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
 @lightbulb.command("play-at-position", "Advanced play features", aliases=["pl"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def pl(ctx: context.Context) -> None:
@@ -1047,32 +1090,37 @@ class Player:
 
     async def _join(self) -> Optional[hikari.Snowflake]:
         assert self.ctx.guild_id is not None
-
-        states = bot.cache.get_voice_states_view_for_guild(self.guild_id)
-        voice_state = [state for state in states.values() if state.user_id == self.ctx.author.id]
-
-        if not voice_state:
+        if not (voice_state := bot.cache.get_voice_state(self.guild_id, self.ctx.author.id)):
             raise BotResponseError("Connect to a voice channel first, please", ephemeral=True)
 
-        channel_id = voice_state[0].channel_id
+        channel_id = voice_state.channel_id
 
-        await bot.update_voice_state(self.ctx.guild_id, channel_id, self_deaf=True)
+        await bot.update_voice_state(self.guild_id, channel_id, self_deaf=True)
         connection_info = await lavalink.wait_for_full_connection_info_insert(self.ctx.guild_id)
+
         # the follwoing line causes an issue, where lavalink plays faster then normal
         # await lavalink.create_session(connection_info)
         return channel_id
 
     async def _leave(self):
-        await bot.update_voice_state(self.ctx.guild_id, None)
+        await bot.update_voice_state(self.guild_id, None)
 
     async def _fix(self):
-        await self._join()
+        if not (voice_state := bot.cache.get_voice_state(self.guild_id, self.ctx.author.id)):
+            return None
+
+        channel_id = voice_state.channel_id
+
+        await bot.update_voice_state(self.guild_id, channel_id, self_deaf=True)
+        connection_info = await lavalink.wait_for_full_connection_info_insert(self.ctx.guild_id)
+        await lavalink.create_session(connection_info) # <-- possible issue
+
         await self._pause()
         await asyncio.sleep(0.1)
         await self._resume()
 
     async def _pause(self):
-        await lavalink.pause(self.ctx.guild_id)
+        await lavalink.pause(self.guild_id)
         await self.update_node()
 
     async def _resume(self):
@@ -1171,16 +1219,13 @@ class Player:
                 self.ctx = get_context(event=event)
             await self.load_track(track)
 
-        # node was updated -> fetch node
-        self.node = await lavalink.get_guild_node(self.guild_id)
-
         if not prevent_to_queue:
-            await self.queue.send(force_resend=True, create_footer_info=True),
+            await self.queue.send(force_resend=True, create_footer_info=False),
         return True, ictx
 
 
     async def fallback_track_search(query: str):
-            log.debug(f"using fallback youtbue search")
+            log.warning(f"using fallback youtbue search")
             v = VideosSearch(query, limit = 1)
             result = await v.next()
 
@@ -1213,7 +1258,7 @@ class Player:
         event = None
 
         if not query_information.tracks:
-            quert_information = await self.fallback_track_search(query)
+            query_information = await self.fallback_track_search(query)
 
         
         if len(query_information.tracks) > 1:
@@ -1285,7 +1330,8 @@ class Player:
             ).set_thumbnail(self.ctx.member.avatar_url)
 
             playlist_name = str(tracks.playlist_info.name)
-            self.queue.custom_info = f"{playlist_name} Playlist added by {self.ctx.member.display_name}"
+            self.queue.custom_info = f"🎵 {playlist_name} Playlist added by {self.ctx.member.display_name}"
+            self.queue.custom_info_author = self.ctx.member
             music_helper.add_to_log(
                 self.ctx.guild_id, 
                 self.queue.custom_info, 
@@ -1295,6 +1341,7 @@ class Player:
                 str(tracks.playlist_info.name),
                 self.query,
             )
+            await self.update_node()
         return tracks
 
     async def play_at_pos(self, pos: int, query: str | None = None):
@@ -1314,29 +1361,27 @@ class Player:
         try:
             ctx = self.ctx
             await ctx.defer()
-            node = await lavalink.get_guild_node(ctx.guild_id)
-            if not node:
-                prevent_to_queue = False
-            else:
-                prevent_to_queue = False
-
+            prevent_to_queue = False
             song_added, ctx = await self._play(prevent_to_queue=True)
 
             if not song_added:
                 return
             await self.update_node()
-            if self.node is None:
+            if not (node := self.node):
                 return
-            node_queue = self.node.queue
+            node_queue = node.queue
             track = node_queue.pop(-1)
             node_queue.insert(pos, track)
-            self.node.queue = node_queue
+            node.queue = node_queue
             await lavalink.set_guild_node(ctx.guild_id, node)
+            await self.update_node(node)
             if not prevent_to_queue:
                 await self.queue.send(
                     force_resend=True, 
-                    create_footer_info=True,
+                    create_footer_info=False,
                 )
+        except BotResponseError as e:
+            raise e
         except Exception as e:
             log.error(traceback.format_exc())
 
@@ -1366,7 +1411,9 @@ class Player:
                 .requester(author_id)
                 .queue()
             )
-            self.queue.custom_info = f"{track.info.title} added by {bot.cache.get_member(self.guild_id, self.ctx.author.id).display_name}"
+            self.queue.custom_info = f"🎵 {track.info.title} added by {bot.cache.get_member(self.guild_id, self.ctx.author.id).display_name}"
+            self.queue.custom_info_author = self.ctx.member
+            await self.update_node()
         except lavasnek_rs.NoSessionPresent:
             await self.ctx.respond(f"Use `/join` first")
             return
@@ -1383,12 +1430,84 @@ class Queue:
     ):
         self.player = player
         self._message: hikari.Message = None
-        self.custom_info = None
+        self._custom_info = ""
+        self._custom_info_author: hikari.Member | None = None
+        self._custom_footer: hikari.EmbedFooter | None = None
         self.create_footer_info = False
 
     def reset(self):
-        self.custom_info = None
-        self.create_footer_info = False
+        self._custom_info = ""
+        self._create_footer_info = False
+        self._custom_info_author = None
+        self._custom_footer = None
+    
+    @property
+    def custom_info(self) -> str:
+        return self._custom_info
+    
+    @custom_info.setter
+    def custom_info(self, value: str):
+        add = "\n" if self._custom_info else ""
+        self._custom_info += f"{add}{value}"
+
+    @property
+    def custom_info_author(self) -> hikari.Member:
+        return self._custom_info_author
+    
+    @custom_info_author.setter
+    def custom_info_author(self, value: hikari.Member):
+        self._custom_info_author = value
+
+
+    def set_footer(
+        self, 
+        text: str = None, 
+        author: hikari.SnowflakeishOr[hikari.Member] = None, 
+        override_author: bool = False
+    ) -> None:
+        add = "\n" if self._custom_info else ""
+        if text:
+            self._custom_info += f"{add}{text}"
+        if author and (override_author or not self._custom_info_author):
+            self._custom_info_author = author
+
+    def _build_custom_footer(self) -> Dict[str, Any]:
+        kwargs = {"text": "", "icon": None}
+        last_track: lavasnek_rs.TrackQueue = self.node.queue[-1]
+        requester = music.bot.cache.get_member(
+            self.player.guild_id,
+            self.custom_info_author 
+            or self.player.ctx.author 
+            or last_track.requester
+        )
+        # custom info
+        if requester:
+            kwargs["icon"] = f'{requester.avatar_url}'
+            display_name = f'{requester.display_name}'
+        else:
+            display_name = last_track.requester
+
+        if self.custom_info:
+            kwargs["text"] += f"\n{self.custom_info}"
+        elif self.create_footer_info:
+            kwargs["text"] += f'\n{last_track.track.info.title} added by {display_name}'
+
+        # remaining in queue info
+        total_playtime = datetime.timedelta(
+            milliseconds=sum(
+                track.track.info.length 
+                for track in self.node.queue
+            )
+        ) 
+        queue_len = len(self.node.queue)-3
+        if not queue_len or queue_len < 0:
+            queue_len = 0
+        kwargs["text"] += f"\n{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
+
+        return kwargs
+
+    
+    
 
     @property
     def message(self) -> hikari.Message:
@@ -1532,18 +1651,6 @@ class Queue:
             upcomping_song_fields.append(first_field)
         if second_field.name != " ":
             upcomping_song_fields.append(second_field)
-        
-        total_playtime = datetime.timedelta(
-            milliseconds=sum(
-                track.track.info.length 
-                for track in node.queue
-            )
-        ) 
-
-        queue_len = len(node.queue)-3
-        if not queue_len or queue_len < 0:
-            queue_len = 0
-        queue = f"{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
 
         try:
             track = self.player.node.queue[0].track
@@ -1592,25 +1699,7 @@ class Queue:
             inline=False
         )
         music_embed._fields.extend(upcomping_song_fields)
-        kwarg = {"text": f"{queue or '/'}"}
-
-        last_track: lavasnek_rs.TrackQueue = node.queue[-1]
-        requester = music.bot.cache.get_member(
-            self.player.guild_id, 
-            self.player.ctx.author.id or last_track.requester
-        )
-        if requester:
-            kwarg["icon"] = f'{requester.avatar_url}'
-            requester_str = f'{requester.display_name}'
-        else:
-            requester_str = last_track.requester
-
-        if self.custom_info:
-            kwarg["text"] += f"\n{self.custom_info}"
-        elif self.create_footer_info:
-            kwarg["text"] += f'\n{last_track.track.info.title} added by {requester_str}'
-
-        music_embed.set_footer(**kwarg)
+        music_embed.set_footer(**self._build_custom_footer())
         music_embed.set_thumbnail(
             YouTubeHelper.thumbnail_from_url(track.info.uri) 
             or music.bot.me.avatar_url
@@ -1622,7 +1711,7 @@ class Queue:
         self,
         ctx: InuContext | None = None,
         force_resend: bool = False,
-        create_footer_info: bool = True, 
+        create_footer_info: bool = False, 
         custom_info: str = "",
     ):
         '''
@@ -1645,12 +1734,10 @@ class Queue:
         
         try:
             music_embed = self.embed
-            log.debug(f"{self.player.ctx=}\n{music_embed=}\n{self.custom_info=}")
             await self._send(music_embed, force_resend=force_resend)
         except Exception as e:
             log.error(traceback.format_exc())
-        self.create_footer_info = False
-        self.custom_info = None
+        self.reset()
 
 
     async def _send(self, music_embed: hikari.Embed, force_resend: bool = False):
@@ -1692,14 +1779,14 @@ class Queue:
             self.message = new_music_msg
             return
 
-        #edit existing message
+        # edit existing message
         # only possible with component interactions
         try:
             timeout = 4
             ctx_message_id = old_music_msg.id
             async for m in music.bot.rest.fetch_messages(self.player.ctx.channel_id):
-                # edit existing message if in last messages
                 if m.id == ctx_message_id:
+                    # edit existing message if in last messages
                     msg = await self.player.ctx.respond(
                         embed=music_embed, 
                         components=self.build_music_components(),
@@ -1710,10 +1797,10 @@ class Queue:
                     log.debug("update old")
                     return
                 timeout -= 1
-                # resend message
+               
                 if timeout == 0:
+                    # resend message (not in last msgs found)
                     log.debug("send new")
-                    #await ctx.delete_inital_response()
                     await music_message.delete()
                     msg = await self.player.ctx.respond(
                         embed=music_embed, 
