@@ -47,7 +47,8 @@ class SectionProxy:
 
     def __repr__(self):
         return f"<`SectionProxy` section:{self.name}; attrs: {self.options}>"
-
+    def __str__(self):
+        return f"<`SectionProxy` section: {self.name};\nattrs: {pprint.pformat(self.options)}>"
     def get(self, item, default=None):
         return self.options.get(item, default)
 
@@ -88,6 +89,10 @@ class ConfigProxy(metaclass=Singleton):
     
     def __repr__(self) -> str:
         sections = [str(s) for s in self.sections]
+        return f"<ConfigProxy sections: {sections}>"
+    
+    def __str__(self) -> str:
+        sections = ",\n".join(str(s) for s in self.sections)
         return f"<ConfigProxy sections: {sections}>"
 
     def __iter__(self):
