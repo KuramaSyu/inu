@@ -1477,6 +1477,9 @@ class Queue:
         elif self.create_footer_info:
             kwargs["text"] += f'\n{last_track.track.info.title} added by {display_name}'
 
+        if not kwargs["text"]:
+            kwargs["icon"] = bot.me.avatar_url
+            
         # remaining in queue info
         total_playtime = datetime.timedelta(
             milliseconds=sum(
@@ -1513,7 +1516,7 @@ class Queue:
         
         Args:
         ----
-        disable_all : Optional[bool]
+        disable_all : bool=False
             If all buttons should be disabled, by default False
         """
         node = None
