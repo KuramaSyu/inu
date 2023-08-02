@@ -81,9 +81,12 @@ if ENABLE:
         # remove all starboards
         ...
 
-    def load(inu: Inu):
-        global bot
-        bot = inu
-        global METHOD_SYNC_TIME
-        METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
-        inu.add_plugin(plugin)
+def load(inu: Inu):
+    if not ENABLE:
+        return
+    global bot
+    bot = inu
+    global METHOD_SYNC_TIME
+    METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
+    inu.add_plugin(plugin)
+
