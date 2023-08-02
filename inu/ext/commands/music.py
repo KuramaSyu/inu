@@ -772,8 +772,6 @@ async def skip(ctx: Context) -> None:
 
 
 
-
-
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("pause", "pause the music")
@@ -785,6 +783,7 @@ async def pause(ctx: SlashContext) -> None:
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
     await player._pause(ctx.guild_id)
     await player.queue.send()
+
 
 
 @music.command
@@ -800,6 +799,7 @@ async def resume(_ctx: SlashContext) -> None:
     await player.queue.send()
 
 
+
 @music.command
 @lightbulb.add_cooldown(20, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -812,12 +812,14 @@ async def _queue(_ctx: Context) -> None:
     await player.queue.send(force_resend=True)
 
 
+
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("music", "music related commands", aliases=["m"])
 @lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
 async def m(ctx: Context):
     pass
+
 
 
 @m.child
@@ -848,6 +850,7 @@ async def music_log(ctx: Context):
         )
     pag = Paginator(embeds)
     await pag.start(ctx)
+
 
 
 @music.command
@@ -908,6 +911,7 @@ async def restart(ctx: context.Context):
     await start_lavalink()
 
 
+
 @m.child
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.option("query", "What do you want to search?", modifier=OM.CONSUME_REST)
@@ -940,15 +944,6 @@ async def music_search(ctx: context.Context):
 
 
 
-
-
-async def add_music_reactions(message: hikari.Message):
-   
-    reactions = ['1️⃣', '2️⃣', '🔀', '🛑', '⏸'] # '🗑','3️⃣', '4️⃣',
-    for r in reactions:
-        await message.add_reaction(str(r))
-
-
 @position.autocomplete("query")
 @second.autocomplete("query")
 @now.autocomplete("query")
@@ -959,8 +954,6 @@ async def query_auto_complete(
 ) -> List[str]:
     value = option.value or ""
     records = await MusicHistoryHandler.cached_get(interaction.guild_id)
-    
-
     if not value:
         records = records[:23]
     else:
@@ -988,6 +981,7 @@ async def query_auto_complete(
 
 
 class Player:
+    """A Player which represents a guild Node and it's queue message"""
     def __init__(
         self,
         guild_id: int,
@@ -1000,6 +994,7 @@ class Player:
         self.queue: "Queue" = Queue(self)
     
     async def prepare(self):
+        """Prepares the player for usage and fetches the node"""
         if self._node is None:
             if not self.guild_id:
                 raise RuntimeError("guild_id is not set")
@@ -1011,6 +1006,7 @@ class Player:
 
     @property
     def node(self) -> lavasnek_rs.Node:
+        """Returns the node of the player"""
         if not self._node:
             raise RuntimeError("Node is not set")
         return self._node
@@ -1021,6 +1017,7 @@ class Player:
     
     @property
     def query(self):
+        """The query of the searched title"""
         return self._query
     
     @query.setter
@@ -1032,6 +1029,7 @@ class Player:
         query: str,
     ):
         ...
+
     async def _skip(self, amount: int) -> bool:
         """
         Returns:
@@ -1054,12 +1052,14 @@ class Player:
         return True
     
     async def _clear(self):
+        """Clears the node queue"""
         queue = [self.node.queue[0]]
         self.node.queue = queue
         await lavalink.set_guild_node(self.guild_id, self.node)
 
     @property
     def ctx(self) -> InuContext:
+        """The currently used context of the player"""
         if not self._ctx:
             raise TypeError("ctx is not set")
         return self._ctx
@@ -1075,20 +1075,20 @@ class Player:
         self.node = node
 
     async def _join(self) -> Optional[hikari.Snowflake]:
+        """Joins the voice channel of the author"""
         assert self.ctx.guild_id is not None
         if not (voice_state := bot.cache.get_voice_state(self.guild_id, self.ctx.author.id)):
             raise BotResponseError("Connect to a voice channel first, please", ephemeral=True)
 
         channel_id = voice_state.channel_id
-
         await bot.update_voice_state(self.guild_id, channel_id, self_deaf=True)
         connection_info = await lavalink.wait_for_full_connection_info_insert(self.ctx.guild_id)
-
         # the follwoing line causes an issue, where lavalink plays faster then normal
         # await lavalink.create_session(connection_info)
         return channel_id
 
     async def _leave(self):
+        """Leaves the voice channel"""
         await bot.update_voice_state(self.guild_id, None)
 
     async def _fix(self):
@@ -1208,7 +1208,6 @@ class Player:
         if not prevent_to_queue:
             await self.queue.send(force_resend=True, create_footer_info=False),
         return True, ictx
-
 
     async def fallback_track_search(query: str):
             log.warning(f"using fallback youtbue search")
@@ -1492,9 +1491,6 @@ class Queue:
 
         return kwargs
 
-    
-    
-
     @property
     def message(self) -> hikari.Message:
         if not self._message:
@@ -1513,6 +1509,13 @@ class Queue:
         self,
         disable_all: bool = False,
     ) -> List[hikari.impl.MessageActionRowBuilder]:
+        """builds the components for the music message
+        
+        Args:
+        ----
+        disable_all : Optional[bool]
+            If all buttons should be disabled, by default False
+        """
         node = None
         if not disable_all:
             node = self.player.node
@@ -1563,6 +1566,7 @@ class Queue:
     
     @property
     def embed(self) -> hikari.Embed:
+        """builds the embed for the music message"""
         AMOUNT_OF_SONGS_IN_QUEUE = 4
         node = self.node
         numbers = [
@@ -1692,7 +1696,6 @@ class Queue:
         )
         return music_embed
     
-
     async def send(
         self,
         ctx: InuContext | None = None,
@@ -1703,6 +1706,17 @@ class Queue:
         '''
         refreshes the queue of the player
         uses ctx if not None, otherwise it will fetch the last context with the guild_id
+
+        Args:
+        -----
+        ctx : Optional[InuContext]
+            the context to use, by default the player context
+        force_resend : bool
+            wether to force resend the queue message, by default False
+        create_footer_info : bool
+            wether to create a footer info (last added song from user), by default False
+        custom_info : str
+            custom info to add to the footer, by default ""
         '''
         if create_footer_info:
             self.create_footer_info = True
@@ -1725,8 +1739,16 @@ class Queue:
             log.error(traceback.format_exc())
         self.reset()
 
-
     async def _send(self, music_embed: hikari.Embed, force_resend: bool = False):
+        """sends/edits the queue music message
+        
+        Args:
+        -----
+        music_embed : hikari.Embed
+            the embed to send
+        force_resend : bool, optional
+            wether to force resend the message, by default False
+        """
         old_music_msg = self._message
         music_message = None
         
