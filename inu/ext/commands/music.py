@@ -404,16 +404,16 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             if player.node is None:
                 return
             if len(states) > 0:
+                # resume player if new room is not empty
                 log.debug(f"Bot changed room in {event.guild_id} to {event.state.channel_id}")
                 await player._resume()
-                
-                #await player.update_node()
                 player.queue.set_footer(
                     f"▶ Music was resumed by {bot.me.username}",
                     author=bot.me,
                 )
                 await player.queue.send()
             elif len(states) == 0 and not player.node.is_paused:
+                # pause player if new room is empty
                 await player._pause()
                 await asyncio.sleep(0.1)
                 player.queue.set_footer(
@@ -440,8 +440,6 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             await lavalink.remove_guild_node(event.guild_id)
             await lavalink.remove_guild_from_loops(event.guild_id)
             player.node = None
-            #music_messages[event.guild_id] = None
-            
     except Exception:
         log.error(traceback.format_exc())
 
@@ -469,8 +467,9 @@ async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
         )
     await lavalink.raw_handle_event_voice_server_update(event.guild_id, event.endpoint, event.token)
     await asyncio.sleep(4)
-    if player.queue.custom_info:
+    if player.queue.custom_info and not player.node.is_paused and len(player.node.queue) > 0:
         await player.queue.send()
+
 
 MENU_CUSTOM_IDS = [
     "music_play", 
@@ -603,7 +602,6 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
 
 
 
-
 async def start_lavalink() -> None:
     """Event that triggers when the hikari gateway is ready."""
     if not music.bot.conf.lavalink.connect:
@@ -650,9 +648,6 @@ async def fix(ctx: context.Context) -> None:
 
 
 
-    
-
-
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("leave", "I will leave your channel")
@@ -686,10 +681,6 @@ async def pl(ctx: context.Context) -> None:
         await player._play()
     except Exception:
         music.d.log.error(f"Error while trying to play music: {traceback.format_exc()}")
-
-
-
-
 
 
 
@@ -733,14 +724,6 @@ async def position(ctx: SlashContext) -> None:
 
 
 
-
-
-
-
-
-
-
-
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -751,6 +734,8 @@ async def play_normal(ctx: context.Context) -> None:
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
     await player._play(ctx.options.query)
 
+
+
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("stop", "stop the current title")
@@ -760,9 +745,10 @@ async def stop(_ctx: Context) -> None:
     player = await PlayerManager.get_player(_ctx.guild_id, _ctx.event)
     await player.ctx.defer()
     await lavalink.stop(player.ctx.guild_id)
-    
-    await player.ctx.respond("Stopped playings")
+    await player.ctx.respond("Stopped playing")
     await player.queue.send()
+
+
 
 @music.command
 @lightbulb.add_cooldown(1, 1, lightbulb.UserBucket)
