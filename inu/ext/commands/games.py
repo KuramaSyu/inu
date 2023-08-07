@@ -211,8 +211,7 @@ async def reversi(ctx: Context):
             await ctx.respond(
                 component=(
                     MessageActionRowBuilder()
-                    .add_interactive_button(
-                        hikari.ButtonStyle.LINK, 
+                    .add_link_button(
                         data['data']["link"], 
                         label=f"Reversi Lobby Code: {data['data']['code']}"  
                     )
