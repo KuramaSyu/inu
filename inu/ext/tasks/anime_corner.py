@@ -57,7 +57,7 @@ async def init_method():
 
 @stopwatch(
     note=f"Task: Fetching and caching Anime Corner Ranking (Reddit + Anime Corner)", 
-    cache_threshold=timedelta(microseconds=1200)
+    cache_threshold=timedelta(milliseconds=1200)
 )
 async def method():
     submission = await Reddit.get_anime_of_the_week_post()
