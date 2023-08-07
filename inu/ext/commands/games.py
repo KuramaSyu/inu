@@ -67,7 +67,7 @@ async def on_connect4_restart(event: hikari.InteractionCreateEvent):
     await handler.start(ctx)
 
     
-async def start_4_in_a_row(ctx: Context, rows: int, columns: int, handler: Type[Connect4Handler] | None = None, **kwargs):
+async def start_connect_4(ctx: Context, rows: int, columns: int, handler: Type[Connect4Handler] | None = None, **kwargs):
     if not ctx._options.get("player2"):
         ctx._options["player2"] = ctx.member
     handler = handler or Connect4Handler
@@ -96,7 +96,7 @@ async def connect4(ctx: Context):
 @lightbulb.command("classic", "starts a Connect 4 game", aliases=["6x7"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_classic(ctx: Context):
-    await start_4_in_a_row(ctx, rows=6, columns=7)
+    await start_connect_4(ctx, rows=6, columns=7)
 
 
 
@@ -108,7 +108,7 @@ async def connect4_classic(ctx: Context):
 @lightbulb.command("square", "starts a Connect 4 game")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_8by8(ctx: Context):
-    await start_4_in_a_row(ctx, rows=8, columns=8)
+    await start_connect_4(ctx, rows=8, columns=8)
 
 
 
@@ -120,7 +120,7 @@ async def connect4_8by8(ctx: Context):
 @lightbulb.command("falling-rows", "A game of Connect 4 which drops rows Tetris like")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_falling_rows(ctx: Context):
-    await start_4_in_a_row(ctx, rows=6, columns=7, handler=Connect4FallingRowsHandler)
+    await start_connect_4(ctx, rows=6, columns=7, handler=Connect4FallingRowsHandler)
 
 
 
@@ -133,7 +133,7 @@ async def connect4_falling_rows(ctx: Context):
 @lightbulb.command("memory", "A game of Connect 4 where you can't distinguish the tokens")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_memory(ctx: Context):
-    await start_4_in_a_row(ctx, rows=6, columns=7, handler=MemoryConnect4Handler, unmemory=ctx.options["unmemory-count"])
+    await start_connect_4(ctx, rows=6, columns=7, handler=MemoryConnect4Handler, unmemory=ctx.options["unmemory-count"])
 
 
 @connect4.child
@@ -144,7 +144,7 @@ async def connect4_memory(ctx: Context):
 @lightbulb.command("random-terrain", "A game of Connect 4 with a random start terrain")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def connect4_memory(ctx: Context):
-    await start_4_in_a_row(ctx, rows=6, columns=7, handler=RandomTerrainConnect4Handler)
+    await start_connect_4(ctx, rows=6, columns=7, handler=RandomTerrainConnect4Handler)
 
 
 
