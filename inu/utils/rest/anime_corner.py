@@ -1,6 +1,7 @@
 from selenium.webdriver import Firefox
 from selenium.webdriver.firefox.options import Options
 from pprint import pprint
+from datetime import timedelta
 import re
 import asyncio
 from typing import *
@@ -24,7 +25,7 @@ class AnimeCornerAPI:
     def __init__(self) -> None:
         self.link = "https://animecorner.me/spring-2023-anime-rankings-week-12/"
 
-    @stopwatch("Scraping AnimeCorner")  
+    @stopwatch("Scraping AnimeCorner", cache_threshold=timedelta(milliseconds=200))  
     async def fetch_ranking(self, link: str) -> List[AnimeMatch]:
         self.link = link
         if not (matches := self.ttl_dict.get(link)):
