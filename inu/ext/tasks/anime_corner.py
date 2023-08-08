@@ -22,13 +22,12 @@ bot: Inu
 
 plugin = lightbulb.Plugin("poll loader", "loads polls from database")
 
-@plugin.listener(hikari.ShardReadyEvent)
+@plugin.listener(hikari.StartedEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
     global SYNCING
     if SYNCING:
         return
-    else:
-        SYNCING = True
+    SYNCING = True
     await asyncio.sleep(3)
     await method()
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
@@ -57,7 +56,7 @@ async def init_method():
 
 @stopwatch(
     note=f"Task: Fetching and caching Anime Corner Ranking (Reddit + Anime Corner)", 
-    cache_threshold=timedelta(milliseconds=1200)
+    cache_threshold=timedelta(microseconds=1)
 )
 async def method():
     submission = await Reddit.get_anime_of_the_week_post()
