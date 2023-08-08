@@ -11,6 +11,7 @@ logging.setLoggerClass(LoggingHandler)
 import miru
 import hikari
 import lightbulb
+from lightbulb.ext import tasks
 from core import Inu, Table
 from utils import (
     InvokationStats, 
@@ -37,6 +38,7 @@ log.info(f"hikari-miru version:{miru.__version__}")
 def main():
     log.info("Create Inu")
     inu = Inu()
+    tasks.load(inu)
     print(inu.conf)
 
     @inu.listen(lightbulb.LightbulbStartedEvent)
