@@ -149,29 +149,6 @@ async def send_top_x_pics(subreddit: str, channel_id: int, guild_id: int, count:
 async def on_guild_leave(event: hikari.GuildLeaveEvent):
     await DailyContentChannels.remove_guild(event.guild_id)
 
-
-# DISABLED - WILL BE REMOVED
-@plugin.listener(hikari.ReactionAddEvent)
-async def on_thumb_up(event: hikari.ReactionAddEvent):
-    return
-    if event.emoji_name != "👍":
-        return
-    
-    message = await plugin.bot.rest.fetch_message(event.channel_id, event.message_id)
-    if not message or not message.author.id == plugin.bot.get_me().id:
-        return
-    
-    channel = await plugin.bot.rest.fetch_channel(event.channel_id)
-    top_channels = await DailyContentChannels.get_channels_from_guild(Col.TOP_CHANNEL_IDS, channel.guild_id)
-    log.debug("send to top channel")
-    for ch in top_channels:
-        try:
-            log.debug(ch)
-            await plugin.bot.rest.create_message(ch, embed=message.embeds[0])
-        except Exception:
-            pass
-            # await plugin.bot.rest.create_message(event.channel_id, "I can't send this message anywhere :/")
-    
          
 def load(bot: Inu):
     bot.add_plugin(plugin)
