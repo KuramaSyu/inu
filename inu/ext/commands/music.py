@@ -63,9 +63,13 @@ class EventHandler:
             await player.update_node(node)
             track = node.queue[0].track
             await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
-            if len(node.queue) in [1, 0]:
-                return  # first element added with /play -> play command will call queue    
-            await player.queue.send(create_footer_info=False)
+            if (
+                len(node.queue) in [1, 0] 
+                or player.queue.current_track == track 
+                or player.queue._last_update + datetime.timedelta(seconds=5) > datetime.datetime.now()
+            ):
+                return  # first element added with /play -> play command will call queue 
+            await player.queue.send(create_footer_info=False, debug_info="track start")
         except Exception:
             log.error(traceback.format_exc())
 
@@ -87,7 +91,7 @@ class EventHandler:
             icon=bot.me
         )
         await player._skip(1)
-        await player.queue.send(create_footer_info=False)
+        await player.queue.send(create_footer_info=False, debug_info="track exception")
 
 class Interactive:
     """A class with methods which do some music stuff interactive"""
@@ -411,7 +415,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                     f"▶ Music was resumed by {bot.me.username}",
                     author=bot.me,
                 )
-                await player.queue.send()
+                await player.queue.send(debug_info="Bot changed room")
             elif len(states) == 0 and not player.node.is_paused:
                 # pause player if new room is empty
                 await player._pause()
@@ -420,7 +424,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                     f"⏸ Music was paused by {bot.me.username}",
                     author=bot.me,
                 )
-                await player.queue.send()
+                await player.queue.send(debug_info="Bot changed room")
         # bot disconnected
         elif event.state.channel_id is None and not event.old_state is None:
             player = await PlayerManager.get_player(event.state.guild_id)
@@ -459,16 +463,16 @@ async def voice_server_update(event: hikari.VoiceServerUpdateEvent) -> None:
     if not event.endpoint:
         log.warning("Endpoint should never be None!")
         return
+    await lavalink.raw_handle_event_voice_server_update(event.guild_id, event.endpoint, event.token)
     player = await PlayerManager.get_player(event.guild_id)
     if player:
         player.queue.set_footer(
             text=f"📡 Voice Server Update: {event.endpoint}",
             author=bot.me
         )
-    await lavalink.raw_handle_event_voice_server_update(event.guild_id, event.endpoint, event.token)
-    await asyncio.sleep(4)
-    if player.queue.custom_info and not player.node.is_paused and len(player.node.queue) > 0:
-        await player.queue.send()
+    # await asyncio.sleep(4)
+    # if player.queue.custom_info and not player.node.is_paused and len(player.node.queue) > 0:
+    #     await player.queue.send(debug_info="Voice Server Update")
 
 
 MENU_CUSTOM_IDS = [
@@ -598,7 +602,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         return # skip gets handled from lavalink on_new_track handler
     
     log.debug("calling queue")
-    await player.queue.send()
+    await player.queue.send(debug_info=custom_info)
 
 
 
@@ -869,6 +873,17 @@ async def clear(ctx: Context):
     )
     await player.queue.send()
 
+
+@music.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("join", "joins the channel")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def clear(ctx: Context):
+    """clears the music queue"""
+    if not ctx.guild_id or not ctx.member:
+        return
+    player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
+    await player._join()
 
 
 @m.child
@@ -1155,7 +1170,7 @@ class Player:
             return False, None
         ictx = self.ctx
         con = lavalink.get_guild_gateway_connection_info(self.guild_id)
-
+        self.queue._last_update = datetime.datetime.now()
         # Join the user's voice channel if the bot is not in one.
         if not con:
             await self._join()
@@ -1206,7 +1221,7 @@ class Player:
             await self.load_track(track)
 
         if not prevent_to_queue:
-            await self.queue.send(force_resend=True, create_footer_info=False),
+            await self.queue.send(force_resend=True, create_footer_info=False, debug_info="from play"),
         return True, ictx
 
     async def fallback_track_search(query: str):
@@ -1364,6 +1379,7 @@ class Player:
                 await self.queue.send(
                     force_resend=True, 
                     create_footer_info=False,
+                    debug_info="play_at_pos"
                 )
         except BotResponseError as e:
             raise e
@@ -1419,6 +1435,8 @@ class Queue:
         self._custom_info_author: hikari.Member | None = None
         self._custom_footer: hikari.EmbedFooter | None = None
         self.create_footer_info = False
+        self.current_track: lavasnek_rs.Track | None = None
+        self._last_update = datetime.datetime.now()
 
     def reset(self):
         self._custom_info = ""
@@ -1705,6 +1723,7 @@ class Queue:
         force_resend: bool = False,
         create_footer_info: bool = False, 
         custom_info: str = "",
+        debug_info: str = ""
     ):
         '''
         refreshes the queue of the player
@@ -1721,6 +1740,8 @@ class Queue:
         custom_info : str
             custom info to add to the footer, by default ""
         '''
+        if debug_info:
+            log.debug(f"send queue with debug_info: {debug_info}")
         if create_footer_info:
             self.create_footer_info = True
         if custom_info:
@@ -1736,6 +1757,8 @@ class Queue:
             return
         
         try:
+            self.current_track = self.player.node.queue[0].track
+            self._last_update = datetime.datetime.now()
             music_embed = self.embed
             await self._send(music_embed, force_resend=force_resend)
         except Exception as e:
