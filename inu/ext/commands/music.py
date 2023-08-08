@@ -380,7 +380,6 @@ async def on_ready(event: hikari.ShardReadyEvent):
     if music.d is None:
         raise RuntimeError("Plugin has no datastore")
     music.d.log = logging.getLogger(__name__)
-    music.d.log.setLevel(logging.DEBUG)
     interactive = Interactive(music.bot)
     music_helper = MusicHelper()
     await start_lavalink()
