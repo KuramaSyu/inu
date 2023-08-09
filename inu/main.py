@@ -101,6 +101,7 @@ def main():
                 resp = await session.get(f"http://numbersapi.com/{activity}")
                 new_activity = (await resp.read()).decode("utf-8")
                 activity = activity if len(activity) > len(new_activity) else new_activity
+                resp.close()
         except Exception:
             log.error(traceback.format_exc())
         await event.bot.update_presence(
