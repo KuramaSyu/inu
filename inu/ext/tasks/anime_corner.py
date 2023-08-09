@@ -36,6 +36,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
 
 
 async def defer_trigger_to_time(target_time: time | None = TARGET_TIME):
+    target_datetime = None
     if target_time is not None:
         current_time = datetime.now().time()
         target_datetime = datetime.combine(date.today(), target_time)
@@ -45,9 +46,7 @@ async def defer_trigger_to_time(target_time: time | None = TARGET_TIME):
 
         wait_time = (target_datetime - datetime.now()).total_seconds()
         log.info(f"Waiting for {naturaldelta(timedelta(seconds=wait_time))} to shedule the {TRIGGER_NAME}")
-        await asyncio.sleep(wait_time)
-
-    trigger = IntervalTrigger(seconds=METHOD_SYNC_TIME)
+    trigger = IntervalTrigger(seconds=METHOD_SYNC_TIME, start_date=target_datetime)
     plugin.bot.scheduler.add_job(method, trigger)
     
 
@@ -71,5 +70,5 @@ def load(inu: Inu):
     global bot
     bot = inu
     global METHOD_SYNC_TIME
-    METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
+    METHOD_SYNC_TIME = inu.conf.commands.anime_corner_sync_time * 60 * 60
     inu.add_plugin(plugin)

@@ -63,6 +63,6 @@ async def on_guild_leave(event: hikari.GuildLeaveEvent):
 def load(inu: Inu):
     global bot
     bot = inu
-    global METHOD_SYNC_TIME
-    METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
+    # global METHOD_SYNC_TIME
+    # METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
     inu.add_plugin(plugin)

@@ -307,5 +307,5 @@ def load(inu: Inu):
     global bot
     bot = inu
     global BOARD_SYNC_TIME
-    BOARD_SYNC_TIME = inu.conf.commands.poll_sync_time
+    BOARD_SYNC_TIME = inu.conf.commands.board_sync_time * 60 * 60
     inu.add_plugin(plugin)

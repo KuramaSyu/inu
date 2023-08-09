@@ -13,7 +13,7 @@ from utils import AutoroleManager, AutoroleAllEvent
 from core import Table, getLogger, Inu
 
 log = getLogger(__name__)
-METHOD_SYNC_TIME: int
+METHOD_SYNC_TIME: int = 60*5
 SYNCING = False
 bot: Inu
 
@@ -54,6 +54,4 @@ async def on_member_join(event: hikari.MemberCreateEvent):
 def load(inu: Inu):
     global bot
     bot = inu
-    global METHOD_SYNC_TIME
-    METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
     inu.add_plugin(plugin)
