@@ -6,6 +6,7 @@ from functools import wraps, update_wrapper
 import traceback
 from datetime import datetime, timedelta
 import re
+from collections import OrderedDict
 
 import aiofiles
 import asyncpg
@@ -287,8 +288,9 @@ class Table():
     @formatter
     async def upsert(
         self, 
-        which_columns: List[str], 
-        values: List,
+        which_columns: List[str] | None = None,
+        values: List[Any] | None = None,
+        where: OrderedDict[str, Any] | None = None,
         compound_of: int = 0,
         returning: str = ""
     ) -> Optional[asyncpg.Record]:
@@ -300,6 +302,9 @@ class Table():
               and set `compound_of` to the number, how many values count 
               (until wich index + 1) to that compound
         """
+        if where:
+            which_columns = list(where.keys())
+            values = list(where.values())
         values_chain = [f'${num}' for num in range(1, len(values)+1)]
         update_set_query = ""
         for i, item in enumerate(zip(which_columns, values_chain)):
@@ -355,14 +360,18 @@ class Table():
     @formatter
     async def delete(
         self, 
-        columns: List[str], 
-        matching_values: List, 
+        columns: List[str] | None = None,
+        matching_values: List[Any] | None = None,
+        where: Dict[str, Any] | None = None,
     ) -> Optional[List[Dict[str, Any]]]:
         """
         DELETE FROM table_name
         WHERE <columns>=<matching_values>
         RETURNING *
         """
+        if where:
+            columns = [*where.keys()]
+            matching_values = [*where.values()]
         where = self.__class__.create_where_statement(columns)
 
         sql = (
