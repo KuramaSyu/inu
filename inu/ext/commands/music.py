@@ -542,9 +542,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
 
     elif custom_id == 'music_skip_1':
         custom_info = f'1️⃣ Music was skipped by {member.display_name} (once)'
-        tasks.append(
-            asyncio.create_task(player._skip(amount = 1))
-        )
+        await asyncio.create_task(player._skip(amount = 1))
         music_helper.add_to_log(
             guild_id=guild_id, 
             entry=custom_info
@@ -552,9 +550,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
 
     elif custom_id == 'music_skip_2':
         custom_info = f'2️⃣ Music was skipped by {member.display_name} (twice)'
-        tasks.append(
-            asyncio.create_task(player._skip(amount = 2))
-        )
+        await asyncio.create_task(player._skip(amount = 2))
         music_helper.add_to_log(
             guild_id=guild_id, 
             entry=custom_info
@@ -1051,11 +1047,11 @@ class Player:
             skip = await lavalink.skip(self.guild_id)
             if not skip:
                 return False
-            # if not (node := await lavalink.get_guild_node(self.guild_id)):
-            #     return False
-            # await self.update_node(node)
-            # if not skip:
-            #     return False
+            if not (node := await lavalink.get_guild_node(self.guild_id)):
+                return False
+            await self.update_node(node)
+            if not skip:
+                return False
             # else:
             #     # If the queue is empty, the next track won't start playing (because there isn't any),
             #     # so we stop the player.
