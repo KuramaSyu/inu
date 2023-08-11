@@ -1494,7 +1494,7 @@ class Queue:
         # remaining in queue info
         total_playtime = datetime.timedelta(
             milliseconds=sum(
-                max(track.track.info.length, 36_000_000)  # max 10 hours -> prevent OverflowError
+                min(track.track.info.length, 36_000_000)  # max 10 hours -> prevent OverflowError
                 for track in self.node.queue
             )
         ) 
