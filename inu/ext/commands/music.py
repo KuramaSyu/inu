@@ -515,7 +515,6 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
             components=player.queue.build_music_components(disable_all=True),
             update=True,
         )
-    await ctx.auto_defer()
     tasks: List[asyncio.Task] = []
     custom_info = ""
 
