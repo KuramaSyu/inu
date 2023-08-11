@@ -506,7 +506,6 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         )
     if not (member := await bot.mrest.fetch_member(player.ctx.guild_id, player.ctx.author.id)):
         return
-    ctx.auto_defer()
 
     if (await ctx.message()).id != message.id:
         # music message is different from message where interaction comes from
@@ -516,6 +515,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
             components=player.queue.build_music_components(disable_all=True),
             update=True,
         )
+    await ctx.auto_defer()
     tasks: List[asyncio.Task] = []
     custom_info = ""
 
