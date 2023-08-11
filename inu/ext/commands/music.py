@@ -597,9 +597,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
     
     if "music_skip" in custom_id:
-        return # skip gets handled from lavalink on_new_track handler
-    
-    log.debug("calling queue")
+        player.queue._last_update = datetime.datetime.now()
     await player.queue.send(debug_info=custom_info)
 
 
@@ -1051,17 +1049,18 @@ class Player:
         """
         for _ in range(amount):
             skip = await lavalink.skip(self.guild_id)
-            
-            if not (node := await lavalink.get_guild_node(self.guild_id)):
-                return False
-            await self.update_node(node)
             if not skip:
                 return False
-            else:
-                # If the queue is empty, the next track won't start playing (because there isn't any),
-                # so we stop the player.
-                if not node.queue and not node.now_playing:
-                    await lavalink.stop(self.guild_id)
+            # if not (node := await lavalink.get_guild_node(self.guild_id)):
+            #     return False
+            # await self.update_node(node)
+            # if not skip:
+            #     return False
+            # else:
+            #     # If the queue is empty, the next track won't start playing (because there isn't any),
+            #     # so we stop the player.
+            #     if not node.queue and not node.now_playing:
+            #         await lavalink.stop(self.guild_id)
         return True
     
     async def _clear(self):
