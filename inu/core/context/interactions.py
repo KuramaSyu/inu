@@ -17,7 +17,7 @@ from . import InuContext, InuContextProtocol, InuContextBase, UniqueContextInsta
 log = getLogger(__name__)
 
 T = TypeVar("T")
-REST_SENDING_MARGIN = 0.6 #seconds
+REST_SENDING_MARGIN = 1 #seconds
 i = 0
 
 T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
