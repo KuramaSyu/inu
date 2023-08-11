@@ -1606,7 +1606,10 @@ class Queue:
             track = _track.track
             if i == 0:
                 # skip current playing song
-                pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
+                try:
+                    pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
+                except OverflowError:  # Python int too large for C int
+                    pre_titles_total_delta += datetime.timedelta(milliseconds=36000000)  # 10 hours
                 continue
             if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
                 # only show 4 upcoming songs
