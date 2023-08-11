@@ -1668,12 +1668,15 @@ class Queue:
             music.d.log.warning("no requester of current track - returning")
 
         requester = music.bot.cache.get_member(self.player.guild_id, node.queue[0].requester)
-        music_over_in = (
-            datetime.datetime.now() 
-            + datetime.timedelta(
-                milliseconds=track.info.length-track.info.position
-            )
-        ).timestamp()
+        try:
+            music_over_in = (
+                datetime.datetime.now() 
+                + datetime.timedelta(
+                    milliseconds=track.info.length-track.info.position
+                )
+            ).timestamp()
+        except OverflowError:
+            music_over_in = (datetime.datetime.now() + datetime.timedelta(hours=10)).timestamp()
         if node.is_paused:
             paused_at = datetime.datetime.now()
             # min:sec
