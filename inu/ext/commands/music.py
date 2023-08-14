@@ -858,12 +858,13 @@ async def clear(ctx: Context):
     if not ctx.guild_id or not ctx.member:
         return
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
-    await player._clear(ctx.guild_id)
+    await player.ctx.defer()
+    await player._clear()
     music_helper.add_to_log(
         ctx.guild_id,
         f"music was cleared by {ctx.member.display_name}"
     )
-    await player.queue.send()
+    await player.queue.send(force_resend=True)
 
 
 @music.command
