@@ -64,8 +64,7 @@ class EventHandler:
             track = node.queue[0].track
             await MusicHistoryHandler.add(event.guild_id, track.info.title, track.info.uri)
             if (
-                len(node.queue) in [1, 0] 
-                or player.queue.current_track == track 
+                player.queue.current_track == track 
                 or player.queue._last_update + datetime.timedelta(seconds=5) > datetime.datetime.now()
             ):
                 return  # first element added with /play -> play command will call queue 
