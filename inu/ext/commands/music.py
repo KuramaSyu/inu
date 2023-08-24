@@ -921,7 +921,7 @@ async def restart(ctx: context.Context):
 
 @m.child
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "What do you want to search?", modifier=OM.CONSUME_REST)
+@lightbulb.option("query", "What do you want to search?", modifier=OM.CONSUME_REST, autocomplete=True)
 @lightbulb.command("search", "Searches the queue; every match will be added infront of queue", aliases=["s"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def music_search(ctx: context.Context):
@@ -930,6 +930,7 @@ async def music_search(ctx: context.Context):
     query = ctx.options.query
     if not node:
         return await player.ctx.respond("You have to play music, that I can search for songs")
+    await player.ctx.defer()
     query = query.lower()
     response = []
     tracks = []
@@ -944,11 +945,38 @@ async def music_search(ctx: context.Context):
         node.queue = new_queue
         await lavalink.set_guild_node(ctx.guild_id, node)
         resp = "Titles added:```py\n" + '\n'.join([f'{i+1}. | {resp}' for i, resp in enumerate(response)]) + "```"
-        await player.ctx.respond(resp) 
-        return await player.queue.send()
+        await player.queue.send(
+            force_resend=True,
+            custom_info=f"🔍 {ctx.member.display_name} searched and added {Human.plural_('title', len(tracks))}"
+        )
+        await player.ctx.respond(resp, delete_after=100, update=False)
+        # this message will be deleted and is not the music message
+        await player.ctx._responses.pop(-1)
     else:
         return await player.ctx.respond("No matches found")
 
+
+@music_search.autocomplete("query")
+async def query_auto_complete(
+    option: hikari.AutocompleteInteractionOption,
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    """
+    Shows search results in the autocomplete box for music search
+    """
+    if not (query := option.value):
+        return []
+    player = await PlayerManager.get_player(interaction.guild_id)
+    answers = set()
+    if not (node := player.node):
+        return answers
+    for track in node.queue:
+        if query in track.track.info.title.lower() or query in track.track.info.author.lower():
+            answers.add(track.track.info.title)
+    answers = [a[:100] for a in answers][:22]
+    answers.insert(0, query)
+    answers.insert(1, "---------- this will be added ----------")
+    return answers
 
 
 @position.autocomplete("query")
@@ -1217,7 +1245,7 @@ class Player:
             await self.queue.send(force_resend=True, create_footer_info=False, debug_info="from play"),
         return True, ictx
 
-    async def fallback_track_search(query: str):
+    async def fallback_track_search(self, query: str):
             log.warning(f"using fallback youtbue search")
             v = VideosSearch(query, limit = 1)
             result = await v.next()
