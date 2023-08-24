@@ -631,6 +631,7 @@ class InteractionContext(_InteractionContext):
             )
             return self.interaction.message
         else:
+            self._deferred = False
             if not kwargs.get("flags") is None:
                 kwargs.pop("flags")
             return await self.i.edit_initial_response(
@@ -662,10 +663,8 @@ class InteractionContext(_InteractionContext):
             kwargs["content"] = args[0]
             args = args[1:]
         
-        if self.is_valid and self._deferred:  
-            # interaction deferred
-            message: hikari.Message
-
+        if self.is_valid and self._deferred and len(self._responses) == 0:  
+            # interaction deferred and no response message was made
             if update:
                 self.log.debug("deferred message update")
                 message = await self.edit_initial_response(**kwargs)
