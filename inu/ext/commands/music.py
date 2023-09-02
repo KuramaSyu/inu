@@ -458,13 +458,15 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                     )
                 except hikari.NotFoundError:
                     log.error(traceback.format_exc()) 
+
+
             await lavalink.destroy(event.guild_id)
             await lavalink.wait_for_connection_info_remove(event.guild_id)
-
             # Destroy nor leave removes the node or the queue loop, you should do this manually.
-            await lavalink.remove_guild_node(event.guild_id)
-            await lavalink.remove_guild_from_loops(event.guild_id)
-            player.node = None
+            if player.clean_queue:
+                await lavalink.remove_guild_node(event.guild_id)
+                await lavalink.remove_guild_from_loops(event.guild_id)
+                player.node = None
     except Exception:
         log.error(traceback.format_exc())
 
