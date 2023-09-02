@@ -388,6 +388,26 @@ async def on_ready(event: hikari.ShardReadyEvent):
 async def on_voice_state_update(event: VoiceStateUpdateEvent):
     """Clear lavalink after inu leaves a channel"""
     try:
+        bot_in_channel = False
+        user_states: List[hikari.VoiceState] = []
+        for state in bot.cache.get_voice_states_view_for_channel(
+            event.guild_id, event.state.channel_id
+        ).values():
+            if state.user_id == bot.me.id:
+                bot_in_channel = True
+            else:
+                user_states.append(state)
+
+        # auto leave if bot is alone in channel
+        if bot_in_channel and len(user_states) == 0:
+            # bot is alone in channel
+            player = await PlayerManager.get_player(event.guild_id)
+            await player.on_player_lonely()
+        elif bot_in_channel and len(user_states) > 0:
+            # bot is not alone in channel
+            player = await PlayerManager.get_player(event.guild_id)
+            await player.on_human_join()
+
         # check if the user is the bot
         if not event.state.user_id == music.bot.get_me().id: # type: ignore
             return
@@ -397,15 +417,17 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
         # bot changed room (channel -> channel)
         elif event.old_state and event.state.channel_id:
             # check if room is empty
-            states = [
+            user_states = [
                 state.user_id for state in 
-                bot.cache.get_voice_states_view_for_channel(event.guild_id, event.state.channel_id).values() 
+                bot.cache.get_voice_states_view_for_channel(
+                    event.guild_id, event.state.channel_id
+                ).values() 
                 if state.user_id != bot.me.id
             ]
             player = await PlayerManager.get_player(event.state.guild_id)
             if player.node is None:
                 return
-            if len(states) > 0:
+            if len(user_states) > 0:
                 # resume player if new room is not empty
                 log.debug(f"Bot changed room in {event.guild_id} to {event.state.channel_id}")
                 await player._resume()
@@ -414,7 +436,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                     author=bot.me,
                 )
                 await player.queue.send(debug_info="Bot changed room")
-            elif len(states) == 0 and not player.node.is_paused:
+            elif len(user_states) == 0 and not player.node.is_paused:
                 # pause player if new room is empty
                 await player._pause()
                 await asyncio.sleep(0.1)
@@ -423,6 +445,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                     author=bot.me,
                 )
                 await player.queue.send(debug_info="Bot changed room")
+                await player.on_player_lonely()
         # bot disconnected
         elif event.state.channel_id is None and not event.old_state is None:
             player = await PlayerManager.get_player(event.state.guild_id)
@@ -1027,6 +1050,8 @@ class Player:
         self.ctx = None
         self._query: str = ""
         self.queue: "Queue" = Queue(self)
+        self._clean_queue: bool = True
+        self._auto_leave_task: Optional[asyncio.Task] = None
     
     async def prepare(self):
         """Prepares the player for usage and fetches the node"""
@@ -1038,6 +1063,43 @@ class Player:
 
     def reset(self):
         self.query = ""
+
+    @property
+    def clean_queue(self) -> bool:
+        """Wether the queue should be cleaned after the player left the channel"""
+        return self._clean_queue
+    
+    async def set_clean_queue(
+        self, 
+        value: bool, 
+        interval: datetime.timedelta = datetime.timedelta(minutes=1)
+    ):
+        """Sets the clean_queue value and starts the auto leave task"""
+        old_value = self._clean_queue
+        self._clean_queue = value
+        await asyncio.sleep(interval.total_seconds())
+        self._clean_queue = old_value
+
+    async def auto_leave(self):
+        await asyncio.sleep(60*10)  # 10 minutes
+        await self.update_node()
+        if len(self.node.queue) > 0:
+            await self.set_clean_queue(False)
+            await self.ctx.respond("I left the channel because I felt lonely.\nBut I saved the queue for the next time.")
+        await self._leave()
+
+    async def on_player_lonely(self):
+        """
+        gets called, when only the player is left in the voice channel. 
+        Leaving 10 Minutes later, if no one joins
+        """
+        self._auto_leave_task = asyncio.create_task(self.auto_leave())
+
+    async def on_human_join(self):
+        """gets called, when a human joins the voice channel. This cancels the leave timer"""
+        if self._auto_leave_task:
+            self._auto_leave_task.cancel()
+            self._auto_leave_task = None
 
     @property
     def node(self) -> lavasnek_rs.Node:
