@@ -30,6 +30,7 @@ from lightbulb.context import Context
 import lavasnek_rs
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
+from humanize import naturaldelta
 
 from core import Inu, get_context, InuContext, getLogger, BotResponseError
 from utils import Paginator, Colors, Human, MusicHistoryHandler, TagManager, TagType
@@ -1152,21 +1153,24 @@ class Player:
 
     
     async def auto_leave(self):
-        await asyncio.sleep(DISCONNECT_AFTER)
-        log.debug("auto_leave - update node")
-        await self.update_node()
         if len(self.node.queue) > 0:
-            log.debug("auto_leave - queue is not empty")
-            task = asyncio.create_task(self.set_clean_queue(False))
-            log.debug("auto_leave - pause")
             await self._pause()
-            log.debug("auto_leave - set footer")
+            self.queue.set_footer(
+                f"I'll leave the channel in {naturaldelta(DISCONNECT_AFTER)} - the queue will be saved", 
+                author=bot.me, 
+                override_author=True
+            )
+            await self.queue.send()
+
+        await asyncio.sleep(DISCONNECT_AFTER)
+        if len(self.node.queue) > 0:
+            asyncio.create_task(self.set_clean_queue(False))
+
             self.queue.set_footer(
                 "I left the channel, but the queue is saved", 
                 author=bot.me, 
                 override_author=True
             )
-        log.debug("auto_leave - leave")
         await self._leave()
         self._auto_leave_task = None
 
