@@ -388,26 +388,38 @@ async def on_ready(event: hikari.ShardReadyEvent):
 async def on_voice_state_update(event: VoiceStateUpdateEvent):
     """Clear lavalink after inu leaves a channel"""
     try:
-        bot_in_channel = False
-        user_states: List[hikari.VoiceState] = []
-        for state in bot.cache.get_voice_states_view_for_channel(
-            event.guild_id, event.state.channel_id
-        ).values():
-            if state.user_id == bot.me.id:
-                bot_in_channel = True
-            else:
-                user_states.append(state)
+        ## USER RELATED VOICE STATES ##
+        
+        if (
+            (
+                event.state.user_id != bot.me.id 
+                and event.old_state 
+                and not event.state.channel_id
+            ) # someone left the channel
+            or (
+                event.state.user_id == bot.me.id 
+                and event.old_state
+                and event.state.channel_id
+            ) # bot changed a channel
+        ):
+            # someone left channel or bot joined/changed channel
+            player = await PlayerManager.get_player(event.state.guild_id)
+            is_alone = player.check_if_bot_is_alone()
+            if is_alone:
+                log.debug(f"Bot is alone in {event.state.guild_id}")
+                await player.on_bot_lonely()
 
-        # auto leave if bot is alone in channel
-        if bot_in_channel and len(user_states) == 0:
-            # bot is alone in channel
-            player = await PlayerManager.get_player(event.guild_id)
-            await player.on_player_lonely()
-        elif bot_in_channel and len(user_states) > 0:
-            # bot is not alone in channel
-            player = await PlayerManager.get_player(event.guild_id)
-            await player.on_human_join()
+        if event.state.channel_id and not event.state.user_id == bot.me.id:
+            # someone joined a channel
+            player = await PlayerManager.get_player(event.state.guild_id)
+            if not player._node:  # ._node can be None, .node can't and raises error
+                return
+            bot_is_in_channel = player.check_if_bot_in_channel(event.state.channel_id)  
+            if bot_is_in_channel:
+                log.debug(f"Bot is not alone in {event.state.guild_id}")
+                await player.on_human_join()
 
+        ## BOT RELATED VOICE STATES ##
         # check if the user is the bot
         if not event.state.user_id == music.bot.get_me().id: # type: ignore
             return
@@ -445,25 +457,32 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                     author=bot.me,
                 )
                 await player.queue.send(debug_info="Bot changed room")
-                await player.on_player_lonely()
+                await player.on_bot_lonely()
         # bot disconnected
         elif event.state.channel_id is None and not event.old_state is None:
             player = await PlayerManager.get_player(event.state.guild_id)
-            with suppress(hikari.NotFoundError, IndexError):
-                music_message = player.queue.message
-                try:
-                    await music_message.edit(
-                        components=player.queue.build_music_components(
-                        disable_all=True)
-                    )
-                except hikari.NotFoundError:
-                    log.error(traceback.format_exc()) 
-
+            if player.clean_queue:
+                with suppress(hikari.NotFoundError, IndexError):
+                    music_message = player.queue.message
+                    try:
+                        await music_message.edit(
+                            components=player.queue.build_music_components(
+                            disable_all=True)
+                        )
+                    except hikari.NotFoundError:
+                        log.error(traceback.format_exc()) 
+            else:
+                # add current song again, because the current will be removed
+                queue = player.node.queue 
+                queue.insert(0, queue[0])
+                player._node.queue = queue
+                await lavalink.set_guild_node(player.guild_id, player._node)
 
             await lavalink.destroy(event.guild_id)
             await lavalink.wait_for_connection_info_remove(event.guild_id)
             # Destroy nor leave removes the node or the queue loop, you should do this manually.
             if player.clean_queue:
+                log.debug(f"cleaning queue of {event.guild_id}")
                 await lavalink.remove_guild_node(event.guild_id)
                 await lavalink.remove_guild_from_loops(event.guild_id)
                 player.node = None
@@ -612,10 +631,15 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         )
         return
     
-    player.queue.custom_info = custom_info
     if tasks:
-        await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
-    
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+        for task in [*done, *pending]:
+            task.cancel()
+            if isinstance(task.exception(), BotResponseError):
+                await ctx.respond(**task.exception().kwargs)
+                return
+
+    player.queue.custom_info = custom_info
     if "music_skip" in custom_id:
         player.queue._last_update = datetime.datetime.now()
     await player.queue.send(debug_info=custom_info)
@@ -899,8 +923,10 @@ async def clear(ctx: Context):
     """clears the music queue"""
     if not ctx.guild_id or not ctx.member:
         return
+    await ctx.defer()
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
     await player._join()
+    await player.queue.send(force_resend=True)
 
 
 @m.child
@@ -1082,20 +1108,73 @@ class Player:
         await asyncio.sleep(interval.total_seconds())
         self._clean_queue = old_value
 
+    def check_if_bot_is_alone(self) -> bool:
+        """
+        Checks if the bot is alone in the voice channel.
+        """
+        if not self.guild_id:
+            # theoretically this should never happen
+            return
+        if not (voice_state := bot.cache.get_voice_state(self.guild_id, bot.me.id)):
+            # not in a channel
+            return
+        if not (channel_id := voice_state.channel_id):
+            # not in a channel
+            return
+        other_states = [
+            state 
+            for state 
+            in bot.cache.get_voice_states_view_for_channel(
+                self.guild_id, channel_id
+            ).values() 
+            if state.user_id != bot.get_me().id
+        ]
+        if not other_states:
+            return True
+        return False
+    
+    def check_if_bot_in_channel(self, channel_id: int) -> bool:
+        """Checks if the bot is in the channel"""
+        if not self.guild_id:
+            # theoretically this should never happen
+            return
+        if not (voice_state := bot.cache.get_voice_state(self.guild_id, self.ctx.author.id)):
+            # not in a channel
+            return
+        if not (channel_id := voice_state.channel_id):
+            # not in a channel
+            return
+        if channel_id == channel_id:
+            return True
+        return False
+
+    
     async def auto_leave(self):
-        await asyncio.sleep(60*10)  # 10 minutes
+        await asyncio.sleep(5)  # 10 minutes
+        log.debug("auto_leave - update node")
         await self.update_node()
         if len(self.node.queue) > 0:
-            await self.set_clean_queue(False)
-            await self.ctx.respond("I left the channel because I felt lonely.\nBut I saved the queue for the next time.")
+            log.debug("auto_leave - queue is not empty")
+            task = asyncio.create_task(self.set_clean_queue(False))
+            log.debug("auto_leave - pause")
+            await self._pause()
+            log.debug("auto_leave - set footer")
+            self.queue.set_footer(
+                "I left the channel, but the queue is saved", 
+                author=bot.me, 
+                override_author=True
+            )
+        log.debug("auto_leave - leave")
         await self._leave()
+        self._auto_leave_task = None
 
-    async def on_player_lonely(self):
+    async def on_bot_lonely(self):
         """
         gets called, when only the player is left in the voice channel. 
         Leaving 10 Minutes later, if no one joins
         """
-        self._auto_leave_task = asyncio.create_task(self.auto_leave())
+        if not self._auto_leave_task:
+            self._auto_leave_task = asyncio.create_task(self.auto_leave())
 
     async def on_human_join(self):
         """gets called, when a human joins the voice channel. This cancels the leave timer"""
@@ -1210,6 +1289,8 @@ class Player:
         await self.update_node()
 
     async def _resume(self):
+        if not bot.cache.get_voice_state(self.guild_id, bot.me.id):
+            await self._join()
         await lavalink.resume(self.ctx.guild_id)
         await self.update_node()
     
@@ -1553,6 +1634,18 @@ class Queue:
         author: hikari.SnowflakeishOr[hikari.Member] = None, 
         override_author: bool = False
     ) -> None:
+        """
+        Sets a custom footer for the queue message
+
+        Args:
+        ----
+        text : str=None
+            The text of the footer
+        author : hikari.Member=None
+            The author of the footer
+        override_author : bool=False
+            Wether or not to force set the given author. Otherwise the given author could be ignored
+        """
         add = "\n" if self._custom_info else ""
         if text:
             self._custom_info += f"{add}{text}"
@@ -1674,7 +1767,15 @@ class Queue:
     def embed(self) -> hikari.Embed:
         """builds the embed for the music message"""
         AMOUNT_OF_SONGS_IN_QUEUE = 4
-        node = self.node
+        node = self.player._node
+        if not node:
+            return Embed(
+                description=(
+                    "Queue is currently empty.\n"
+                    "Add some songs with `/play` and the name or URL of the song\n"
+                ),
+                color=hikari.Color.from_rgb(71, 89, 211),
+            )
         numbers = [
             '1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'
         ] # double 1 to make it 1 based (0 is current playing song)
@@ -1848,7 +1949,7 @@ class Queue:
             return
         
         try:
-            self.current_track = self.player.node.queue[0].track
+            self.current_track = None if not self.player._node else self.player.node.queue[0].track
             self._last_update = datetime.datetime.now()
             music_embed = self.embed
             await self._send(music_embed, force_resend=force_resend)
