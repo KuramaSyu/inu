@@ -577,6 +577,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         await player.update_node(node)
         await lavalink.set_guild_node(guild_id, node)
     elif custom_id == 'music_resume':
+        await ctx.defer()
         custom_info = f'▶ Music was resumed by {member.display_name}'
         music_helper.add_to_log(
             guild_id=guild_id, 
