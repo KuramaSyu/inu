@@ -44,6 +44,8 @@ HIKARI_VOICE = True
 # prefix for autocomplete history values
 HISTORY_PREFIX = "History: "
 MEDIA_TAG_PREFIX = "Media Tag: "
+# if the bot is alone in a channel, then
+DISCONNECT_AFTER = 60 * 10  # seconds
 
 first_join = False
 bot: Inu
@@ -1150,7 +1152,7 @@ class Player:
 
     
     async def auto_leave(self):
-        await asyncio.sleep(5)  # 10 minutes
+        await asyncio.sleep(DISCONNECT_AFTER)
         log.debug("auto_leave - update node")
         await self.update_node()
         if len(self.node.queue) > 0:
