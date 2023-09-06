@@ -577,7 +577,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         await player.update_node(node)
         await lavalink.set_guild_node(guild_id, node)
     elif custom_id == 'music_resume':
-        await ctx.defer()
+        await ctx.defer(update=True)
         custom_info = f'▶ Music was resumed by {member.display_name}'
         music_helper.add_to_log(
             guild_id=guild_id, 
@@ -609,6 +609,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
             guild_id=guild_id, 
             entry=custom_info
         )
+        asyncio.create_task(ctx.cache_last_response())
         tasks.append(
             asyncio.create_task(player._pause())
         )
