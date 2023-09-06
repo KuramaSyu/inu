@@ -924,10 +924,11 @@ async def clear(ctx: Context):
 @lightbulb.add_checks(lightbulb.guild_only)
 @lightbulb.command("join", "joins the channel")
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def clear(ctx: Context):
+async def clear(_ctx: Context):
     """clears the music queue"""
-    if not ctx.guild_id or not ctx.member:
+    if not _ctx.guild_id or not _ctx.member:
         return
+    ctx = get_context(_ctx.event)
     await ctx.defer()
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
     await player._join()
