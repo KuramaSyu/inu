@@ -205,6 +205,12 @@ class InuContext(ABC):
         """
         ...
 
+    async def cache_last_response(self) -> None:
+        """
+        fetches the message of the last response if not already done
+        """
+        ...
+
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
         ...

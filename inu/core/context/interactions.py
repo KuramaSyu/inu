@@ -189,7 +189,6 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
                 proxy = self._responses[-1]
                 message = await proxy.edit(*args, **kwargs)
             else:
-                log.debug(f"{args=};{kwargs=}")
                 message = await self._interaction.execute(*args, **kwargs)
             proxy = ResponseProxy(
                 message,
@@ -225,7 +224,6 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
         if update:
             kwargs["response_type"] = hikari.ResponseType.MESSAGE_UPDATE
         kwargs.setdefault("response_type", hikari.ResponseType.MESSAGE_CREATE)
-        self.log.debug(kwargs)
         self._responded = True
         await self._interaction.create_initial_response(**kwargs)
 
@@ -412,7 +410,7 @@ class InteractionContext(_InteractionContext):
         """
         asyncio.create_task(self._defer_on_timelimit())
 
-    async def defer(self, background: bool = False) -> None:
+    async def defer(self, update: bool = False, background: bool = False) -> None:
         """
         Acknowledges the interaction.
         acknowledge with DEFFERED_MESSAGE_UPDATE if self._update is True,
@@ -420,13 +418,17 @@ class InteractionContext(_InteractionContext):
 
         Args:
         -----
+        update : `bool` = False
+            whether or not to make a DEFERRED_UPDATE or DEFERRED_CREATE
         background : `bool` = True
-            wether or not to defer it as background task
+            whether or not to defer it as background task
         Note:
         -----
         A task will be started, so it runs in background and returns instantly.
         `self.respond` will wait until defer is finished
         """
+        if update:
+            self._update = True
         if not self._deferred and not self._responded:
             self.log.debug(f"defer interaction {background=}")
             self._deferred = True
@@ -620,6 +622,10 @@ class InteractionContext(_InteractionContext):
         if not self._message:
             await self._cache_initial_response()
         return self._message
+    
+    async def cache_last_response(self) -> None:
+        if self.last_response:
+            await self.last_response.message()
 
     async def edit_initial_response(self, **kwargs) -> hikari.Message:
         """update the initial response"""
@@ -697,6 +703,7 @@ class InteractionContext(_InteractionContext):
         
         if not self.is_valid:
             # interaction is unvalid
+            # -> use REST to edit or create the message
             if not self.last_response:
                 raise RuntimeError("Interaction run out of time. no message to edit")
             message = None
@@ -706,6 +713,9 @@ class InteractionContext(_InteractionContext):
                 # last response was deleted
                 if len(self._responses) > 0:
                     self._responses.pop()
+            except hikari.UnauthorizedError:
+                # message of last response can't be fetched anymore
+                pass
             if update:
                 if not message:
                     log.warning("Interaction run out of time and no message to edit -> respond with new message instead of update")
@@ -722,11 +732,8 @@ class InteractionContext(_InteractionContext):
             return proxy
 
         # interaction is valid and not deferred
-        self.log.debug("call respond")
+        self.log.debug("create response; interaction is valid and not deferred")
         ret_val = await super().respond(*args, update=update, ephemeral=ephemeral, **kwargs)
-        # first response was created
-        # if old_responded == False and self._responded == True:
-            #asyncio.create_task(self._cache_initial_response())
         return ret_val
 
     respond_with_modal = lightbulb.context.ApplicationContext.respond_with_modal
