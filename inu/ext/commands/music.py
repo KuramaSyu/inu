@@ -391,34 +391,35 @@ async def on_ready(event: hikari.ShardReadyEvent):
 async def on_voice_state_update(event: VoiceStateUpdateEvent):
     """Clear lavalink after inu leaves a channel"""
     try:
+        log.debug(event.dispatches())
         ## USER RELATED VOICE STATES ##
-        
         if (
             (
                 event.state.user_id != bot.me.id 
-                and event.old_state 
-                and not event.state.channel_id
-            ) # someone left the channel
+                and not (
+                    event.old_state
+                    and event.old_state.channel_id == event.state.channel_id
+                )
+            ) # someone left/joined/changed the channel
             or (
                 event.state.user_id == bot.me.id 
                 and event.old_state
                 and event.state.channel_id
             ) # bot changed a channel
+            or (
+                event.state.user_id != bot.me.id
+                and event.old_state
+                and event.state.channel_id != event.old_state.channel_id
+            ) # user changed room
         ):
             # someone left channel or bot joined/changed channel
+            await asyncio.sleep(3)
             player = await PlayerManager.get_player(event.state.guild_id)
             is_alone = player.check_if_bot_is_alone()
             if is_alone:
                 log.debug(f"Bot is alone in {event.state.guild_id}")
                 await player.on_bot_lonely()
-
-        if event.state.channel_id and not event.state.user_id == bot.me.id:
-            # someone joined a channel
-            player = await PlayerManager.get_player(event.state.guild_id)
-            if not player._node:  # ._node can be None, .node can't and raises error
-                return
-            bot_is_in_channel = player.check_if_bot_in_channel(event.state.channel_id)  
-            if bot_is_in_channel:
+            else:
                 log.debug(f"Bot is not alone in {event.state.guild_id}")
                 await player.on_human_join()
 
