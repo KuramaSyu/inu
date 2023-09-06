@@ -391,7 +391,6 @@ async def on_ready(event: hikari.ShardReadyEvent):
 async def on_voice_state_update(event: VoiceStateUpdateEvent):
     """Clear lavalink after inu leaves a channel"""
     try:
-        log.debug(event.dispatches())
         ## USER RELATED VOICE STATES ##
         if (
             (
@@ -1156,6 +1155,7 @@ class Player:
 
     
     async def auto_leave(self):
+        log.debug("auto leave - start")
         if len(self.node.queue) > 0:
             await self._pause()
             self.queue.set_footer(
@@ -1166,6 +1166,7 @@ class Player:
             await self.queue.send()
 
         await asyncio.sleep(DISCONNECT_AFTER)
+        log.debug(f"auto leave - leave now")
         if len(self.node.queue) > 0:
             asyncio.create_task(self.set_clean_queue(False))
 
@@ -1174,6 +1175,7 @@ class Player:
                 author=bot.me, 
                 override_author=True
             )
+        # queue will be sent on leave in voice state listener
         await self._leave()
         self._auto_leave_task = None
 
