@@ -566,7 +566,7 @@ class InteractionContext(_InteractionContext):
     @property
     def is_valid(self) -> bool:
         """wether or not the interaction is valid (timerange of 15 minutes)"""
-        if not (self._responded and self._deferred):
+        if not (len(self._responses) > 0 or self._deferred):
             # timedelta is 3 seconds
             return datetime.now() < (self.created_at + timedelta(seconds=3))
         return datetime.now() < (self.created_at + timedelta(minutes=14.8))
@@ -699,10 +699,17 @@ class InteractionContext(_InteractionContext):
             # interaction is unvalid
             if not self.last_response:
                 raise RuntimeError("Interaction run out of time. no message to edit")
-            message = await (self.last_response).message()
+            message = None
+            try:
+                message = await (self.last_response).message()
+            except hikari.NotFoundError:
+                # last response was deleted
+                if len(self._responses) > 0:
+                    self._responses.pop()
             if update:
                 if not message:
-                    raise RuntimeError("Interaction run out of time. no message to edit")
+                    log.warning("Interaction run out of time and no message to edit -> respond with new message instead of update")
+                    return await self.respond(*args, update=False, ephemeral=ephemeral, **kwargs)
                 self.log.debug("edit response with rest")
                 self._message = await self.app.rest.edit_message(self.channel_id, message.id, **kwargs)
             else:
