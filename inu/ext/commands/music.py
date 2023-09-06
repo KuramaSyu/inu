@@ -1725,8 +1725,12 @@ class Queue:
             If all buttons should be disabled, by default False
         """
         node = None
+        paused_or_stopped = False
         if not disable_all:
-            node = self.player.node
+            node = self.player._node
+            if not node:
+                disable_all = True
+
             
         action_rows = [
             (
