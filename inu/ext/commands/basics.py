@@ -14,7 +14,19 @@ from lightbulb import commands, context
 from lightbulb.context import Context
 from tmdb import route
 
-from utils import Colors, Human, Paginator, Reddit, Urban, crumble, MyAnimeList, BoredAPI, IP, Facts
+from utils import (
+    Colors, 
+    Human,
+    Paginator, 
+    Reddit, 
+    Urban, 
+    crumble, 
+    MyAnimeList, 
+    BoredAPI, 
+    IP, 
+    Facts,
+    xkcdAPI
+)
 log = getLogger(__name__)
 bot: Inu = None
 
@@ -125,11 +137,19 @@ def ping_to_color_rest(ping: float) -> str:
 @lightbulb.command("ping", "is the bot alive?", auto_defer=True)
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def ping(ctx: context.Context):
-    task = asyncio.create_task(IP.fetch_public_ip())
-    fact = await Facts.fetch_random_fact()
+    task = asyncio.create_task(
+        IP.fetch_public_ip(), 
+        name="IP"
+    )
+    task_2 = asyncio.create_task(
+        xkcdAPI.fetch_comic(xkcdAPI.random_comic_endpoint()), 
+        name="comic"
+    )
+    #fact = await Facts.fetch_random_fact()
+
     embed = Embed(title="Pong")
     embed.description = (
-        f"{fact or ''}\n\n"
+        
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
         f"⚫ REST: .... ms\n\n"
     )
@@ -141,11 +161,21 @@ async def ping(ctx: context.Context):
     msg = await ctx.respond(embed=embed)
     rest_delay = datetime.now() - request_start
 
-    done, _ = await asyncio.wait([task])
-    ip = done.pop().result()
+    done, pending = await asyncio.wait([task, task_2], timeout=8)
+    ip = None
+    comic = {}
+    for d in done:
+        if d.get_name() == "IP":
+            ip = d.result()
+        if d.get_name() == "comic":
+            comic = d.result()
     
+    for p in pending:
+        p.cancel()
+
+    if (title := comic.get("title")):
+        embed.title += f" -- {title}"
     embed.description = (
-        f"{fact or ''}\n\n"
         f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
         f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
     )
@@ -154,6 +184,14 @@ async def ping(ctx: context.Context):
     embed.add_field("Public IP", ip, inline=True)
     if bot.conf.bot.domain:
         embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
+    if (comic_link := comic.get("img")):
+        embed.set_image(comic_link)
+    if comic:
+        embed.add_field("Comic", (
+            f"release date: {comic.get('year')}-{comic.get('month', '??')}-{comic.get('day', '??')}\n"
+            f"number: {comic.get('num')}\n"
+            f"[link]({comic.get('link')})\n"
+        ))
     await msg.edit(embed=embed)
 
 
@@ -188,7 +226,8 @@ async def status(ctx: context.Context):
         RestDelay("MyAnimeList API").with_coro(MyAnimeList.search_anime, ["naruto"]),
         RestDelay("Bored API").with_coro(BoredAPI.fetch_idea),
         RestDelay("Facts API").with_coro(Facts._fetch_from_rest),
-        RestDelay("TMDB API").with_coro(tmdb_coro, ["game of thrones"])
+        RestDelay("TMDB API").with_coro(tmdb_coro, ["game of thrones"]),
+        RestDelay("xkcd API").with_coro(xkcdAPI.fetch_comic(xkcdAPI.random_comic_endpoint()))
     ]
     tasks = [asyncio.create_task(api.do_request()) for api in apis]
     await asyncio.wait(tasks, timeout=20, return_when=asyncio.ALL_COMPLETED)
