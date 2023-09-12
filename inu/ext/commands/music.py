@@ -2037,7 +2037,7 @@ class Queue:
                         embed=music_embed, 
                         components=self.build_music_components(),
                         content=None, 
-                        update=True
+                        update=m.id
                     )
                     self.message = await msg.message()
                     log.debug("update old")
