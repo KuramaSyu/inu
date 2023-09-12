@@ -5,7 +5,7 @@ import abc
 import functools
 
 import hikari
-from hikari import ComponentInteraction, ResponseType, TextInputStyle
+from hikari import ComponentInteraction, ResponseType, TextInputStyle, SnowflakeishOr
 from hikari.impl import MessageActionRowBuilder
 from .._logging import getLogger
 import lightbulb
@@ -649,7 +649,7 @@ class InteractionContext(_InteractionContext):
     async def respond(
             self, 
             *args, 
-            update: bool = False, 
+            update: bool | SnowflakeishOr[hikari.Message] = False, 
             ephemeral: bool = False,
             **kwargs
     ) -> ResponseProxy:
@@ -661,6 +661,7 @@ class InteractionContext(_InteractionContext):
         - uses REST to create the message, if the webhook 
         
         """
+        update_message_id = update if isinstance(update, int) else None
         self.log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
         await self._maybe_wait_defer_complete()
 
@@ -704,24 +705,26 @@ class InteractionContext(_InteractionContext):
         if not self.is_valid:
             # interaction is unvalid
             # -> use REST to edit or create the message
-            if not self.last_response:
-                raise RuntimeError("Interaction run out of time. no message to edit")
-            message = None
-            try:
-                message = await (self.last_response).message()
-            except hikari.NotFoundError:
-                # last response was deleted
-                if len(self._responses) > 0:
-                    self._responses.pop()
-            except hikari.UnauthorizedError:
-                # message of last response can't be fetched anymore
-                pass
+
             if update:
+                # get last message
+                if not (self.last_response or update_message_id):
+                    raise RuntimeError("Interaction run out of time. no message to edit and no message(id) provided with update kwarg")
+                message = None
+                try:
+                    message = update_message_id or await (self.last_response).message()
+                except hikari.NotFoundError:
+                    # last response was deleted
+                    if len(self._responses) > 0:
+                        self._responses.pop()
+                except hikari.UnauthorizedError:
+                    # message of last response can't be fetched anymore
+                    pass
                 if not message:
                     log.warning("Interaction run out of time and no message to edit -> respond with new message instead of update")
                     return await self.respond(*args, update=False, ephemeral=ephemeral, **kwargs)
                 self.log.debug("edit response with rest")
-                self._message = await self.app.rest.edit_message(self.channel_id, message.id, **kwargs)
+                self._message = await self.app.rest.edit_message(self.channel_id, message, **kwargs)
             else:
                 self.log.debug("create response with rest")
                 self._message = await self.app.rest.create_message(self.channel_id, **kwargs)

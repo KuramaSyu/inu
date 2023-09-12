@@ -3,6 +3,7 @@ from typing import *
 
 import asyncio
 import hikari
+from hikari import SnowflakeishOr
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context, ResponseProxy, OptionsProxy
@@ -95,7 +96,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         self, 
         *args: Any, 
         delete_after: Union[int, float, None] = None, 
-        update: bool = False,
+        update: bool | SnowflakeishOr[hikari.Message] = False,
         **kwargs: Any
     ) -> ResponseProxy:
         """
@@ -118,6 +119,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         .. versionadded:: 2.2.0
             ``delete_after`` kwarg.
         """
+        update_message: SnowflakeishOr[hikari.PartialMessage] | None = update if isinstance(update, (int, hikari.PartialMessage)) else None
         self._deferred = False
 
         kwargs.pop("flags", None)
@@ -125,7 +127,9 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
 
         if args and isinstance(args[0], hikari.ResponseType):
             args = args[1:]
-        if update and self._responses:
+        if update and (self._responses or update_message):
+            if update_message:
+                msg = await self.app.rest.edit_message(*args, message=update_message, **kwargs)
             msg = await self._responses[0].edit(*args, **kwargs)
         else:
             msg = await self._event.message.respond(*args, **kwargs)
