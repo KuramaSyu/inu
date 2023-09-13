@@ -17,6 +17,7 @@ class xkcdComicDict(TypedDict):
     img: str
     title: str
     day: str
+    explanation_url: str
 
 from utils import Colors
 
@@ -53,4 +54,6 @@ class xkcdAPI:
         if not json_resp.get("link"):
             if json_resp.get("num"):
                 json_resp["link"] = cls.BaseEndpoint + str(json_resp["num"])
+        if (num := json_resp.get("num")):
+            json_resp["explanation_url"] = f"https://www.explainxkcd.com/wiki/index.php/{num}"
         return json_resp
