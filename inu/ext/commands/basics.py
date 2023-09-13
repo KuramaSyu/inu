@@ -191,6 +191,7 @@ async def ping(ctx: context.Context):
             f"release date: {comic.get('year')}-{comic.get('month', '??')}-{comic.get('day', '??')}\n"
             f"number: {comic.get('num')}\n"
             f"[link]({comic.get('link')})\n"
+            f"[explanation]({comic.get('explanation_url')})"
         ))
     await msg.edit(embed=embed)
 
