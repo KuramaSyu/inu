@@ -84,7 +84,7 @@ class InuContext(ABC):
         ...
     
     @abstractmethod
-    async def defer(self, background: bool = True):
+    async def defer(self, update: bool = False, background: bool = True):
         """
         Acknowledges the interaction if not rest is used.
         acknowledge with DEFFERED_MESSAGE_UPDATE if self._update is True,
@@ -92,6 +92,8 @@ class InuContext(ABC):
 
         Args:
         -----
+        update : bool = False
+            wether or not to update the current interaction message
         background : `bool` = True
             wether or not to defer it as background task
 
