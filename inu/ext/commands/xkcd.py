@@ -48,7 +48,7 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
     if not strip_id:
         return
     ctx = get_context(event)
-    ctx.defer(update=True)
+    await ctx.defer(update=True)
     if strip_id == "random":
         comic = await xkcdAPI.fetch_comic(
             comic_url=xkcdAPI.random_comic_endpoint()
