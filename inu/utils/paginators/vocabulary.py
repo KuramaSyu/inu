@@ -163,7 +163,7 @@ class VocabularyPaginator(Paginator):
         if task == "start_training":
             ctx = get_context(event)
             pag = TrainingPaginator(page_s=[""])
-            await pag.start(ctx, self.tag)
+            await pag.start(ctx, vocables=self._vocabulary)
         if task == "switch_languages":
             self.set_context(event=event)
             # switch everything needed
@@ -207,11 +207,10 @@ class TrainingPaginator(Paginator):
     def current_vocable(self, vocable: Vocable) -> None:
         self._current_vocable = vocable
 
-    async def start(self, ctx: InuContext, tag: Tag):
+    async def start(self, ctx: InuContext, vocables: List[Dict[str, str]]):
         self.set_context(ctx)
         self._position = 0
-        _, vocab = convert_vocabulary(tag)
-        self.vocables = [Vocable(k, v) for k, v in vocab.items()]
+        self.vocables = [Vocable(k, v) for k, v in vocables.items()]
         await self._load_details()
         if not self._pages:
             return
