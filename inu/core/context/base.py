@@ -44,9 +44,14 @@ class ContextEqualTrait:
 class InuContextBase(ContextEqualTrait):
     _responses: List[ResponseProxy] = []
     _options: Dict[str, Any] = {}
+    _update: bool
     def __hash__(self) -> int:
         return self.id
     
+    def set_update(self, value: bool):
+        """Whether to update the message or not when responding as default"""
+        self._update = value
+
     @property
     def last_response(self) -> Optional[ResponseProxy]:
         return self._responses[-1] if self._responses else None
