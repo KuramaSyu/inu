@@ -353,11 +353,10 @@ class Tag():
         msg = (
             f"your tag is: {'local' if self.is_local else 'global'} available\n"
             f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
-            #f"is the tag stored: {Human.bool_(self.is_stored)}\n"
-            f"available for guilds: {', '.join(guild_name_or_id(id) for id in self.guild_ids)}\n"
+            f"available for guilds: {', '.join(f'`{guild_name_or_id(id)}`' for id in self.guild_ids)}\n"
+            f"Characters per page: [{' | '.join([len(p) for p in self.value])}]/2048\n"
+            f"tag link: {self.link}\n"
             f"tag type: {self.tag_type.get_name(self.tag_type.value)}\n"
-            # f"Local available: {Human.bool_(self.is_local_available)}\n"
-            # f"Global available: {Human.bool_(self.is_global_available)}\n"
         )
         if self.aliases:
             msg += f"aliases: {', '.join(self.aliases)}\n"
