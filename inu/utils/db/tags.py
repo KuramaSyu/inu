@@ -350,11 +350,16 @@ class Tag():
         self._pages = [self.embed]
 
     def __str__(self) -> str:
+        characters_prefix = "["
+        characters_suffix = "]"
+        if len(self.value) == 1:
+            characters_prefix = ""
+            characters_suffix = ""
         msg = (
             f"your tag is: {'local' if self.is_local else 'global'} available\n"
             f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
             f"available for guilds: {', '.join(f'`{guild_name_or_id(id)}`' for id in self.guild_ids)}\n"
-            f"Characters per page: [{' | '.join([len(p) for p in self.value])}]/2048\n"
+            f"Characters per page: {characters_prefix}{' | '.join([str(len(p)) for p in self.value])}{characters_suffix}/2048\n"
             f"tag link: {self.link}\n"
             f"tag type: {self.tag_type.get_name(self.tag_type.value)}\n"
         )
