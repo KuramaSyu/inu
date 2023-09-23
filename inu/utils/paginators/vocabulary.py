@@ -21,6 +21,9 @@ VOCAB_BIAS: float = 1.8  # a bias for chosing a vocable. the higher the value, t
 STORED_TRIES: int = 5
 
 class Vocable:
+    """
+    Represents one vocable with its tries and success rate
+    """
     __slots__: List[str] = ["tries", "key", "value"]
 
     def __init__(
@@ -42,6 +45,8 @@ class Vocable:
         return l[:x]
     
     def _get_success_rate_of_last_x_tries(self, x: int = STORED_TRIES) -> float:
+        if x == 0:
+            return 0
         if len(self.tries) < x:
             x = max(len(self.tries), 1)
         return (sum(self.get_last_tries(x=x))/x)
@@ -79,6 +84,10 @@ class VocabularyPaginator(Paginator):
         
         self._embeds = []
         self.tag = tag
+        self.shuffle_languages = False
+
+    async def toggle_shuffle_languages(self):
+        self.shuffle_languages = not self.shuffle_languages
     
     async def parse_tag_and_create_embeds(self) -> bool:
         """
@@ -89,9 +98,13 @@ class VocabularyPaginator(Paginator):
         except BotResponseError as e:
             await self.ctx.respond(**e.context_kwargs)
             return False
+        success = self._build_embeds()
+        return success
+    
+    def _build_embeds(self) -> bool:
         bare_text = ""
         if self._languages:
-            bare_text += f"**{self._languages[0]}** - {self._languages[1]}\n\n"
+            bare_text += f"**{self._languages[0]}** -> {self._languages[1]}\n\n"
         for key, value in self._vocabulary.items():
             bare_text += f"**{key}** : {value}\n"
         for part in crumble(bare_text):
@@ -106,7 +119,26 @@ class VocabularyPaginator(Paginator):
             .add_interactive_button(
                 ButtonStyle.SECONDARY, 
                 "vocabulary_start_training",
-                label="learn ⤵️"
+                label="learn",
+                emoji="⤵️"
+            )
+            .add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                "vocabulary_switch_languages",
+                label="Switch languages",
+                emoji="🔄"
+            )
+            .add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                "vocabulary_help",
+                label="Help",
+                emoji="❓",
+            )
+            .add_interactive_button(
+                ButtonStyle.SECONDARY if not self.shuffle_languages else ButtonStyle.SUCCESS,
+                "vocabulary_shuffle_languages",
+                label="Shuffle languages ",
+                emoji="🔀"
             )
         )
         return components
@@ -141,14 +173,54 @@ class VocabularyPaginator(Paginator):
         if task == "start_training":
             ctx = get_context(event)
             pag = TrainingPaginator(page_s=[""])
-            await pag.start(ctx, self.tag)
+            await pag.start(ctx, vocables=self._vocabulary, shuffle_languages=self.shuffle_languages)
+        if task == "switch_languages":
+            self.set_context(event=event)
+            # switch everything needed
+            self._languages = (self._languages[1], self._languages[0])
+            self._vocabulary = {v: k for k, v in self._vocabulary.items()}
+            # clear and rebuild embeds
+            self._embeds = []
+            self._build_embeds()
+            self._pages = self._embeds
+            await self._update_position()
+        if task == "shuffle_languages":
+            self.set_context(event=event)
+            await self.toggle_shuffle_languages()
+            await self._update_position()
+        if task == "help":
+            self.set_context(event=event)
+            await self.ctx.respond(
+                (
+                "To create a vocabulary list, create a tag with `/tag add` with following format:\n"
+                "```\n"
+                "language1 -> language2\n"
+                "apple, Apfel\n"
+                "banana, Banane\n"
+                "carrot, Karotte\n"
+                "```"
+                "You can also use `;`, `->`, 3 spaces and 1 space to separate the vocables. It's checked in this order.\n\n"
+                "Buttons:\n----------------\n"
+                "**⤵️ learn** - start learning the vocabulary\n"
+                "**🔄 Switch languages** - switch the languages. The language at the right side is the language you will be asked out about\n"
+                "**🔀 Shuffle languages** - shuffle the languages when asking. So sometimes you need to know language A and sometimes language B\n"
+                ),
+                ephemeral=True
+            )
 
 
 
 
 class TrainingPaginator(Paginator):
-    vocables: List[Vocable] = []
+    _vocables: List[Vocable] = []
     _current_vocable: Vocable | None = None
+    shuffle_languages: bool = False
+    _last_vocables: List[Vocable] = []
+
+    def add_to_last_vocables(self, vocable: Vocable):
+        if len(self._last_vocables) > min(2, len(self._vocables)-2):
+            self._last_vocables.pop(0)
+        self._last_vocables.append(vocable)
 
     @property
     def current_vocable(self) -> Vocable:
@@ -156,15 +228,28 @@ class TrainingPaginator(Paginator):
             raise RuntimeError("Vocable is None")
         return self._current_vocable
     
+    @property
+    def vocables(self) -> List[Vocable]:
+        if self.shuffle_languages:
+            return random.choice([self._vocables, self.reversed_vocables])
+        return self._vocables
+    
     @current_vocable.setter
     def current_vocable(self, vocable: Vocable) -> None:
         self._current_vocable = vocable
 
-    async def start(self, ctx: InuContext, tag: Tag):
+    async def start(
+        self, 
+        ctx: InuContext, 
+        vocables: List[Dict[str, str]], 
+        shuffle_languages: bool = False, 
+        **kwargs
+    ):
         self.set_context(ctx)
         self._position = 0
-        _, vocab = convert_vocabulary(tag)
-        self.vocables = [Vocable(k, v) for k, v in vocab.items()]
+        self.shuffle_languages = shuffle_languages
+        self._vocables = [Vocable(k, v) for k, v in vocables.items()]
+        self.reversed_vocables = [Vocable(v, k) for k, v in vocables.items()]
         await self._load_details()
         if not self._pages:
             return
@@ -173,8 +258,14 @@ class TrainingPaginator(Paginator):
 
 
     async def _load_details(self) -> None:
+        
+
+        # get new vocable
         vocable = self._get_vocable()
         self.current_vocable = vocable
+        self.add_to_last_vocables(vocable)
+
+        # craete message
         embed = Embed(title=vocable.key)
         embed.description = f"||{vocable.value}||"
         embed.color = Colors.random_blue()
@@ -193,11 +284,23 @@ class TrainingPaginator(Paginator):
         task = event.interaction.custom_id.replace(prefix, "")
         try:
             if task == "stop":
-                self.set_context(event=event)
-                await self.delete_presence()
-                self.vocables.sort(key=lambda v: v._get_success_rate_of_last_x_tries(x=len(v.tries)))
-                results = "\n".join(v.result_str for v in self.vocables)
-                await self.ctx.respond(results, ephemeral=True)
+                ctx = get_context(event)
+                await ctx.respond("Preparing results...")
+                ctx.set_update(True)
+                vocables = [*self._vocables]
+                if self.shuffle_languages:
+                    vocables.extend(self.reversed_vocables)
+                vocables.sort(key=lambda v: v._get_success_rate_of_last_x_tries(x=len(v.tries)))
+                results = "\n".join(v.result_str for v in vocables)
+                pag = Paginator(page_s=crumble(results, 1000), timeout=60*10, compact=True, disable_paginator_when_one_site=False)
+                done, pending = await asyncio.wait([
+                    asyncio.create_task(pag.start(ctx)), 
+                    asyncio.create_task(self.delete_presence())
+                ])
+                for pend in pending:
+                    pend.cancel()
+
+                
                 return
             if task == "yes":
                 self.set_context(event=event)
@@ -266,8 +369,14 @@ def convert_vocabulary(tag: Tag) -> Tuple[Optional[Tuple[str, str]], Dict[str, s
 
 class DefaultParser:
     _language_separator_order = ["->", "|"]
-    _separator_order = [";", "  ", "    ", ",", " "]
-
+    _separator_order = [
+        ";", 
+        "  ", 
+        "    ", 
+        ",", 
+        "->", 
+        " "
+    ]
 
     def parse(self, value: str) -> Tuple[Optional[Tuple[str, str]], Dict[str, str]]:
         """

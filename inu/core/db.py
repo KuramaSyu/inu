@@ -90,18 +90,26 @@ class Database(metaclass=Singleton):
         return self._pool # normally its called ()
 
     async def connect(self) -> None:
-        assert not self.is_connected, "Already connected."
-        pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.db.DSN)
-        if not isinstance(pool, asyncpg.Pool):
-            typing.cast(Inu, self.bot)
+        #assert not self.is_connected, "Already connected."
+        pool = None
+        if self.is_connected:
+            return
+        for i in range(10):
+            try:
+                pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.db.DSN)
+                if not isinstance(pool, asyncpg.Pool):
+                    raise RuntimeError("Pool is not a pool")
+                break
+            except Exception as e:
+                await asyncio.sleep(2)
+                continue
+        if pool is None:
             msg = (
                 f"Requsting a pool from DSN `{self.bot.conf.DSN}` is not possible. "
                 f"Try to change DSN"
             )
             self.log.critical(msg)
             raise RuntimeError(msg)
-
-            
         self._pool: asyncpg.Pool = pool
         self._connected.set()
         self.log.info("Connected/Initialized to database successfully.")

@@ -914,7 +914,8 @@ class Paginator():
         else:
             raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
         log.debug(f"Sending message: {kwargs}")
-        await self.ctx.respond(update=True, **kwargs)
+        proxy = await self.ctx.respond(update=True, **kwargs)
+        self._proxy = proxy
 
     async def create_message(
             self, 

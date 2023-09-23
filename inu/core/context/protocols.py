@@ -277,8 +277,8 @@ class InuContextProtocol(Protocol[T]):
         :obj:`~hikari.interactions.command_interactions.CommandInteraction.execute`.
 
         Args:
-            update : bool
-                wether or not to update the current interaction message
+            update : bool | SnowflakeishOr[hikari.Message] = False
+                wether or not to update the current interaction message. Also message object is possible
             *args (Any): Positional arguments passed to ``CommandInteraction.create_initial_response`` or
                 ``CommandInteraction.execute``.
             delete_after (Union[:obj:`int`, :obj:`float`, ``None``]): The number of seconds to wait before deleting this response.

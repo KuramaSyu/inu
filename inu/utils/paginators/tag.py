@@ -183,7 +183,6 @@ class TagHandler(StatelessPaginator):
         
         """
         await self._rebuild_pages(update_value=update_value)
-        await self.tag.update()
         await self._update_position()
 
 
@@ -197,6 +196,7 @@ class TagHandler(StatelessPaginator):
         -----
             - event: (InteractionCreateEvent) the invoked event; passed from the listener
         """
+        TAG_MENU_PREFIX = "tag_options"
         try:
             if not isinstance(event.interaction, ComponentInteraction):
                 return
@@ -205,9 +205,12 @@ class TagHandler(StatelessPaginator):
                 return
             i = event.interaction
             try:
-                if not self.custom_id.custom_id == "tag_options":
+                if not self.custom_id.custom_id.startswith(TAG_MENU_PREFIX):
                     return
-                custom_id = event.interaction.values[0]
+                if event.interaction.values:
+                    custom_id = event.interaction.values[0]
+                else:
+                    custom_id = event.interaction.custom_id.strip(f"{TAG_MENU_PREFIX}_")
             except (IndexError, AssertionError):
                 # interaction was no menu interaction
                 return
@@ -247,8 +250,6 @@ class TagHandler(StatelessPaginator):
                 value = int(custom_id.replace("set_type_", ""))
                 self.tag.tag_type = TagType.from_value(value)
                 log.debug(self.tag.tag_type)
-                #ctx = get_context(event)
-                #await ctx.respond(f"Updated Tag Type to {TagType.get_name(self.tag.tag_type.value)}", ephemeral=True)
             elif custom_id == "add_new_page":
                 if len(self._pages) >= 20:
                     return await self.ctx.respond(
@@ -266,6 +267,9 @@ class TagHandler(StatelessPaginator):
                 self._pages.remove(self._pages[self._position])
                 self.tag.value.remove(self.tag.value[self._position])
                 self._position -= 1
+            elif custom_id == "tag_options_update":
+                await self.update_page(update_value=True, interaction=i)
+                return
             else:
                 if custom_id in self.tag.tag_links:
                     # reaction to this in in self._tag_link_task
@@ -506,9 +510,17 @@ class TagHandler(StatelessPaginator):
         self.tag.owner = user
 
     def build_default_components(self, position) -> List[MessageActionRowBuilder]:
-        rows = []
+        rows: List[MessageActionRowBuilder] = []
         navi = super().build_default_component(position)
         rows.append(navi)
+        if len(rows[-1].components) >= 5:
+            rows.append(MessageActionRowBuilder())
+        rows[-1].add_interactive_button(
+            ButtonStyle.PRIMARY, 
+            self._serialize_custom_id("tag_options_update"),
+            emoji="🔄",
+            label="update",
+        )
         menu = (
             MessageActionRowBuilder()
             .add_text_menu(self._serialize_custom_id("tag_options"))

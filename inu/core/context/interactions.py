@@ -661,6 +661,7 @@ class InteractionContext(_InteractionContext):
         - uses REST to create the message, if the webhook 
         
         """
+        update = update or self._update
         update_message_id = update if isinstance(update, int) else None
         self.log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
         await self._maybe_wait_defer_complete()
