@@ -662,7 +662,8 @@ class InteractionContext(_InteractionContext):
         
         """
         update = update or self._update
-        update_message_id = update if isinstance(update, int) else None
+        # bool can be interpreted as int, so check if it's not a bool
+        update_message_id = update if isinstance(update, int) and not isinstance(update, bool) else None
         self.log.debug(f"{self.is_valid=}, {self._deferred=}, {self._update=}")
         await self._maybe_wait_defer_complete()
 
