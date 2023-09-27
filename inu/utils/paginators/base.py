@@ -1169,8 +1169,13 @@ class Paginator():
                 await self.dispatch_event(event)
             await self.stop()
             return
+        except BotResponseError as e:
+            raise e
         except Exception:
-            self.log.error(traceback.format_exc())
+            self.log.error(
+                f"following traceback was suppressed and pagination continued:\n{traceback.format_exc()}"
+            )
+            await self.pagination_loop(**kwargs)
             
     async def dispatch_event(self, event: Event):
         """
