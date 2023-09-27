@@ -17,8 +17,12 @@ log = getLogger(__name__)
 
 
 config = ConfigProxy(ConfigType.YAML)
-VOCAB_BIAS: float = 1.8  # a bias for chosing a vocable. the higher the value, the highter the prop of a unknown vocable chosen
-STORED_TRIES: int = 5
+ # a bias for chosing a vocable. 
+ # the higher the value, the highter the prop of a unknown vocable chosen
+VOCAB_BIAS: float = 1.8 
+# how many tries are stored for each vocable 
+# (used when calculating weight)
+STORED_TRIES: int = 5 
 
 class Vocable:
     """
@@ -74,6 +78,10 @@ class Vocable:
 
 
 class VocabularyPaginator(Paginator):
+    """
+    Represents a menu with a vocabulary list given by a tag
+    """
+
     def __init__(
         self,
         tag: Tag,
@@ -170,9 +178,10 @@ class VocabularyPaginator(Paginator):
         if not event.interaction.custom_id.startswith(prefix):
             return
         task = event.interaction.custom_id.replace(prefix, "")
+
         if task == "start_training":
             ctx = get_context(event)
-            pag = TrainingPaginator(page_s=[""])
+            pag = TrainingPaginator(page_s=[""], timeout=30*60)
             await pag.start(ctx, vocables=self._vocabulary, shuffle_languages=self.shuffle_languages)
         if task == "switch_languages":
             self.set_context(event=event)
@@ -209,9 +218,10 @@ class VocabularyPaginator(Paginator):
             )
 
 
-
-
 class TrainingPaginator(Paginator):
+    """
+    Represents a question dialog for a vocabulary training prepared by `VocabularyPaginator`
+    """
     _vocables: List[Vocable] = []
     _current_vocable: Vocable | None = None
     shuffle_languages: bool = False
