@@ -29,6 +29,9 @@ log = getLogger(__name__)
 
 
 class SortBy:
+    """
+    Represents a set of functions to sort anime embeds
+    """
     @staticmethod
     def by_score(embeds: List[Embed]) -> float:
         def get_embed_score(embed: Embed):
@@ -49,11 +52,19 @@ class SortBy:
         return embeds
 
 
+
 class SortTypes(Enum):
+    """
+    Represents a list of Algorithms to sort anime embeds
+    """
     BY_SCORE = SortBy.by_score
 
 
+
 class AnimePaginator(Paginator):
+    """
+    Represents an anime from MyAnimeList. Either from REST or DB
+    """
     def __init__(
         self,
         with_refresh_btn: bool = False,
@@ -129,6 +140,7 @@ class AnimePaginator(Paginator):
             )
         return components
     
+
     @listener(hikari.InteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
         if not self.interaction_pred(event):
@@ -195,6 +207,7 @@ class AnimePaginator(Paginator):
     def _sort_embeds(self, sort_by: SortTypes):
         self._pages = sort_by(self._pages)
 
+
     async def start(self, ctx: Context, anime_name: str | None, results: List[Dict[str, Dict[str, int]]] | None = None) -> hikari.Message:
         """
         entry point for paginator
@@ -229,6 +242,7 @@ class AnimePaginator(Paginator):
         )
         return await super().start(ctx)
 
+
     async def _update_position(self, interaction: ComponentInteraction | None = None, detailed=False):
         """
         replaces embed page first with a more detailed one, before sending the message
@@ -240,6 +254,7 @@ class AnimePaginator(Paginator):
             self._detailed = True
         await super()._update_position(interaction)
         self._detailed = False
+
 
     def _fuzzy_sort_results(self, compare_name: str):
         """fuzzy sort the anime result titles of  `self._results` by given name"""
@@ -326,6 +341,7 @@ class AnimePaginator(Paginator):
             return [hikari.Embed(title="Nothing found")]
         return embeds
 
+
     async def _fetch_current_anime(self) -> Anime:
         """
         Fetches or returns already fetched anime
@@ -380,18 +396,31 @@ class AnimePaginator(Paginator):
             .add_field("Duration", f"{anime.duration / 60:.1f} min per episode", inline=True)
             .set_image(anime.image_url)
         )
+
+        # add genres
         if anime.genres:
             embed.add_field(
                 "Genres",
                 ", ".join(anime.genres),
                 inline=True,
             )
+        
+        # add dub status
+        embed.add_field(
+            "Dub Status", 
+            f"[Is it dubbed?]({anime.is_it_dubbed})", 
+            inline=True
+        )
+
+        # add studios
         if anime.studios and detailed:
             embed.add_field(
                 "Studios", 
                 ", ".join(anime.studios),
                 inline=True
             )
+
+        # add synonyms
         if anime.title_synonyms:
             synonyms = ",\n".join(anime.title_synonyms)
             embed.add_field(
@@ -399,11 +428,15 @@ class AnimePaginator(Paginator):
                 synonyms,
                 inline=len(synonyms) < 80,
             )
+        
+        # add airing time
         embed.add_field(
             "Airing Time 📅",
             anime.airing_str,
             inline=True
         )
+
+        # adding additional information
         if detailed:
             embed.add_field(
                 "Recommendations",
