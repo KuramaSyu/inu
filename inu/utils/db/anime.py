@@ -6,6 +6,7 @@ from typing import *
 from datetime import datetime, timedelta
 import time
 import traceback
+from urllib.parse import quote
 
 import aiohttp
 from jikanpy import AioJikan
@@ -144,6 +145,12 @@ class Anime:
     def mal_url(self) -> str:
         """returns the url to the anime on myanimelist"""
         return f"https://myanimelist.net/anime/{self.mal_id}"
+    
+    @property
+    def is_it_dubbed(self) -> str:
+        """returns an URL to the entry of the is it dubbed website"""
+        return f"https://isthisdubbed.com/media/search?q={quote(self.origin_title)}"
+    
 
     @property
     def rating(self) -> str:
