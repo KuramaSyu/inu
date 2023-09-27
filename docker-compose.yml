@@ -8,6 +8,8 @@ services:
       POSTGRES_USER: inu
       POSTGRES_PASSWORD: secr33t
       POSTGRES_DB: inu_db
+      LOG_STATEMENT: WARNING
+      LOG_LEVEL: INFO
     volumes:
       - ./../postgres-data:/var/lib/postgresql/data
   app:
