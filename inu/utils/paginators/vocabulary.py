@@ -226,6 +226,7 @@ class TrainingPaginator(Paginator):
     _current_vocable: Vocable | None = None
     shuffle_languages: bool = False
     _last_vocables: List[Vocable] = []
+    reversed_vocables: List[Vocable] = []
 
     def add_to_last_vocables(self, vocable: Vocable):
         if len(self._last_vocables) > min(2, len(self._vocables)-2):
@@ -282,7 +283,11 @@ class TrainingPaginator(Paginator):
         self._pages[0] = embed
     
     def _get_vocable(self) -> Vocable:
-        return random.choices(self.vocables, [v.weight for v in self.vocables])[0]
+        vocables = [vocable for vocable in self.vocables if vocable not in self._last_vocables]
+        return random.choices(
+            vocables, 
+            [v.weight for v in vocables]
+        )[0]
 
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
