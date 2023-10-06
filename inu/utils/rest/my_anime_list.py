@@ -9,6 +9,7 @@ import jikanpy
 from enum import Enum
 from copy import copy, deepcopy
 from pprint import pprint
+import traceback
 
 import aiohttp
 import dotenv
@@ -74,7 +75,7 @@ class MyAnimeListAIOClient:
         endpoint: str,
         value: Optional[str] = None,
         optional_query: Dict[str, str] = None,
-    ):
+    ) -> Dict[str, Any]:
         query = None
         if value and not value.startswith("/"):
             value = "/" + value
@@ -127,7 +128,7 @@ class MyAnimeListAIOClient:
     async def _search(self):
         pass
 
-    async def search_anime(self, query: str, include_nsfw=True) -> Dict[str, Any]:
+    async def search_anime(self, query: str, include_nsfw=True, fallback: bool = False) -> Dict[str, Any]:
         """search for anime by name
 
         Args:
@@ -136,7 +137,8 @@ class MyAnimeListAIOClient:
             the query to search for
         include_nsfw : bool
             whether to include nsfw results
-        
+        fallback : bool
+            whether or not to limit the query to 50 chars
         Returns:
         --------
         Dict[str, Any]
@@ -159,7 +161,23 @@ class MyAnimeListAIOClient:
         )
         a = datetime.now()
         kwargs = {"nsfw": "true" if include_nsfw else "false"}
-        resp = await self._make_request(endpoint="anime", optional_query={"q": query, "fields":fields, "limit":"50", **kwargs})
+        try:
+            resp = await self._make_request(
+                endpoint="anime", 
+                optional_query={
+                    "q": query, 
+                    "fields":fields, 
+                    "limit":"50", 
+                    **kwargs
+            })
+        except RuntimeError as e:
+            if fallback:
+                log.warning(f"Error while fetching anime - title len = {len(query)}")
+                log.warning(traceback.format_exc())
+                return None
+            else:
+                log.warning(f"fallback search for title {query}")
+                return await self.search_anime(query[:50], include_nsfw, True)
         log.info(f"fetched {len(resp['data'])} anime in {(datetime.now() - a).total_seconds():.2f}s")
         self.response_cache.ttl(query, deepcopy(resp), self.TTL)
         return deepcopy(resp)
