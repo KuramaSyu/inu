@@ -1,0 +1,88 @@
+bot:
+    DEFAULT_PREFIX: inu.
+    SPECIAL_ROLE_NAME: Inu.
+    DISCORD_TOKEN: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
+    owner_id: 0000000000000000
+    reboot: True
+    color: "475ad3"
+    guild_invite_url: "https://discord.gg/XXXXXXX"
+    bug_channel_id: 0000000000000000
+    domain: "example-domain.org"
+
+commands:
+    board_entry_lifetime: 30 # days
+    purge_limit: 50
+    poll_sync_time: 300
+    anime_corner_sync_time: 6 # hours
+    board_sync_time: 24 # hours
+
+logging:
+    # global will be overwritten from more specified ones
+    # specify with __name__ or __name__ . func.__name__
+    global: DEBUG
+    core: DEBUG
+    core.bot.Inu: DEBUG
+    ext: DEBUG
+    ext.commands.music: INFO
+    utils: DEBUG
+    core.context: INFO
+    ext.commands.stats: INFO
+    ext.tasks.reddit_post: INFO
+    ext.commands.polls: INFO
+    ext.commands.reddit: INFO
+    ext.tasks: INFO
+    utils.paginators: INFO
+    utils.paginators.anime_pag: INFO
+    hikari: INFO
+    lightbulb: DEBUG
+    colorlog: INFO
+
+db:
+    SQL_logging: False
+    # for Docker
+    DSN: postgresql://inu:secr33t@db/inu_db
+
+lavalink:
+    connect: True
+    PASSWORD: youshallnotpass
+    # for Docker (name of toplevel folder has to be `inu`)
+    IP: lavalink
+    # for localhost
+    # IP: 127.0.0.1
+
+tags:
+    # between 0 and 1
+    prediction_accuracy: 0.1
+
+docker:
+    PROJECT_NAME: inu
+
+rapid:
+    SECRET: XXX
+
+# MyAnimeList
+mal:
+    ID: XXX
+    SECRET: XXX
+
+reddit:
+    ID: XXX
+    SECRET: XXX
+
+# watch2gether
+w2g:
+    ID: XXX
+    API_URL: "https://api.w2g.tv"
+    default_links:
+        - "https://www.youtube.com/watch?v=Csek1JC4JzE" # satisfactory dev music
+        # - "https://www.youtube.com/watch?v=x-Si5PfCgrs" # fairy fountain
+        - "https://www.youtube.com/watch?v=xh_r_lEPfZ8" # dark world
+spotify:
+    ID: XXX
+    SECRET: XXX
+
+api_ninjas:
+    SECRET: XXX
+
+tmdb:
+    SECRET: XXX
