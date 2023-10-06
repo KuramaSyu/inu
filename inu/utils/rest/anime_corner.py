@@ -29,18 +29,22 @@ class AnimeCornerAPI:
     async def fetch_ranking(self, link: str) -> List[AnimeMatch]:
         self.link = link
         if not (matches := self.ttl_dict.get(link)):
-            matches = await selenium_async.run_sync(
-                self._fetch_ranking,
-                browser="firefox"
-            )
+            # matches = await selenium_async.run_sync(
+            #     self._fetch_ranking,
+            #     browser="chrome"
+            # )
+            # selenium_async stopped working
+            # better solution?
+            matches = await asyncio.to_thread(self._fetch_ranking)
             self.ttl_dict.ttl(link, matches, self.TTL)
         return matches
 
     
-    def _fetch_ranking(self, browser) -> List[AnimeMatch]:
+    def _fetch_ranking(self) -> List[AnimeMatch]:
         opts = Options()
         opts.add_argument('--headless')
-        #browser = selenium_async.Firefox(opts)
+        opts.log.level = "trace"
+        browser = selenium_async.Firefox(opts)
         browser.get(self.link)
         results = browser.find_elements(by='id', value='penci-post-entry-inner')#
 
