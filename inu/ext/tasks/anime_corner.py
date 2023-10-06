@@ -3,6 +3,7 @@ from typing import *
 import asyncio
 import logging
 from datetime import datetime, timedelta, time, date
+import traceback
 
 import lightbulb
 from lightbulb.commands.base import OptionModifier as OM
@@ -58,13 +59,19 @@ async def init_method():
     cache_threshold=timedelta(microseconds=1)
 )
 async def method():
-    submission = await Reddit.get_anime_of_the_week_post()
-    pag = AnimeCornerPaginator2()
-    pag.submission = submission
-    pag.title = submission.title
-    url = pag.anime_corner_url
-    api = AnimeCornerAPI()
-    await api.fetch_ranking(url)
+    try:
+        submission = await Reddit.get_anime_of_the_week_post()
+        pag = AnimeCornerPaginator2()
+        pag.submission = submission
+        pag.title = submission.title
+        url = pag.anime_corner_url
+        api = AnimeCornerAPI()
+        await api.fetch_ranking(url)
+    except Exception as e:
+        log.error(
+            f"Error while fetching Anime Corner ranking with URL `{url}`\n"
+            f"{traceback.format_exc()}"
+        )
 
 def load(inu: Inu):
     global bot
