@@ -24,6 +24,10 @@ class AnimeCornerAPI:
 
     def __init__(self) -> None:
         self.link = "https://animecorner.me/spring-2023-anime-rankings-week-12/"
+        opts = Options()
+        opts.add_argument('--headless')
+        opts.log.level = "trace"
+        self.browser: Firefox = Firefox(opts)
 
     @stopwatch("Scraping AnimeCorner", cache_threshold=timedelta(milliseconds=200))  
     async def fetch_ranking(self, link: str) -> List[AnimeMatch]:
@@ -41,10 +45,7 @@ class AnimeCornerAPI:
 
     
     def _fetch_ranking(self) -> List[AnimeMatch]:
-        opts = Options()
-        opts.add_argument('--headless')
-        opts.log.level = "trace"
-        browser = selenium_async.Firefox(opts)
+        browser = self.browser
         browser.get(self.link)
         results = browser.find_elements(by='id', value='penci-post-entry-inner')#
 
