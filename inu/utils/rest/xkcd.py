@@ -38,22 +38,25 @@ class xkcdAPI:
         return cls.BaseEndpoint + f"{comic_id}/info.0.json"
     
     @classmethod
-    async def fetch_comic(cls, comic_url: str) -> xkcdComicDict:
+    async def fetch_comic(cls, comic_url: str) -> xkcdComicDict | None:
         """
         Args:
         -----
         comic_url : str
             the url to fetch the comic from. Use one of the classmethods to get a valid url
         """
+        json_resp = None
         try:
             async with aiohttp.ClientSession() as session:
                 async with session.get(comic_url) as resp:
+                    if resp.status >= 400:
+                        return None
                     json_resp = await resp.json()
+                    if not json_resp.get("link"):
+                        if json_resp.get("num"):
+                            json_resp["link"] = cls.BaseEndpoint + str(json_resp["num"])
+                    if (num := json_resp.get("num")):
+                        json_resp["explanation_url"] = f"https://www.explainxkcd.com/wiki/index.php/{num}"
+                    return json_resp
         except aiohttp.ClientConnectorCertificateError as e:
                 raise e
-        if not json_resp.get("link"):
-            if json_resp.get("num"):
-                json_resp["link"] = cls.BaseEndpoint + str(json_resp["num"])
-        if (num := json_resp.get("num")):
-            json_resp["explanation_url"] = f"https://www.explainxkcd.com/wiki/index.php/{num}"
-        return json_resp
