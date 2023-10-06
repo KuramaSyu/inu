@@ -28,6 +28,12 @@ def get_context(
         - InteractionContext when event is InteractionCreateEvent
     **kwargs : Any
         these kwargs will be passed into InuContext.set() to specify a class
+        options: Dict[str, Any]
+            the options of the command
+        deferred: bool
+            whether the context is deferred
+        responded: bool
+            whether the context got responded
     """
 
     ctx_cls, custom_attrs = builder(event, **kwargs)
