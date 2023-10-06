@@ -52,6 +52,9 @@ class BotResponseError(Exception):
 
     @property
     def context_kwargs(self) -> Dict[str, Any]:
+        """
+        Creates context kwargs for InuContext
+        """
         context_kwargs = {}
         context_kwargs.update(self.kwargs)
         if context_kwargs.get("flags") == hikari.MessageFlag.EPHEMERAL:
