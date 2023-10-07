@@ -78,7 +78,7 @@ class Database(metaclass=Singleton):
     @bot.setter
     def bot(self, value: Inu) -> None:
         self._bot = value
-        log.info(f"set bot to: {value}")
+        # log.info(f"set bot to: {value}")
 
     @property
     def is_connected(self) -> bool:
