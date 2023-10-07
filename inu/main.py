@@ -85,7 +85,7 @@ def main():
                 count = int(record["value"])
             count += 1
             inu.restart_num = count
-            await table.upsert(where={"key": "restart_time", "value": str(count)})
+            await table.upsert(where={"key": "restart_count", "value": str(count)})
             log.info(f'RESTART NUMBER: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
         except Exception:
             log.error(traceback.format_exc())
@@ -95,7 +95,7 @@ def main():
     async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
         table = Table("bot")
         record = await table.select_row(["key"], ["restart_count"])
-        activity = str(record["value"])
+        activity = str(record["value"]) if record else 0
         try:
             async with aiohttp.ClientSession() as session:
                 resp = await session.get(f"http://numbersapi.com/{activity}")
