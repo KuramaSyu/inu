@@ -842,14 +842,15 @@ class AnimeCornerPaginator2(AnimePaginator):
         self._pages = [self.default_embed for _ in range(11)]
         super(AnimePaginator, self).__init__(
             page_s=self._pages,
-            timeout=60*4, 
+            timeout=60*14, 
             disable_paginator_when_one_site=False,
             disable_search_btn=True,
             number_button_navigation=True,
             default_page_index=-1,
         )
-        
+        # start fetching Anime Corner Matches
         self._anime_corner_task = asyncio.create_task(self.fetch_matches())
+        # create and add callback to set footer
         def _anime_corner_callback():
             self._pages[-1].set_footer(
                     f"page {len(self._pages)}/{len(self._pages)} | {self.title}"
@@ -912,6 +913,7 @@ class AnimeCornerPaginator2(AnimePaginator):
             "winter": "#32acd5",
             "spring": "#eb2b48",
             "summer": "#ffe9cc",
+            "fall": "#FF974F",
         }
         # get color for season from submission title
         color = "32acd5"
