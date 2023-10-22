@@ -27,7 +27,12 @@ class AnimeCornerAPI:
         opts = Options()
         opts.add_argument('--headless')
         opts.log.level = "trace"
-        self.browser: Firefox = Firefox(opts)
+
+    def create_browser(self) -> Firefox:
+        opts = Options()
+        opts.add_argument('--headless')
+        opts.log.level = "trace"
+        return Firefox(opts)
 
     @stopwatch("Scraping AnimeCorner", cache_threshold=timedelta(milliseconds=200))  
     async def fetch_ranking(self, link: str) -> List[AnimeMatch]:
@@ -45,7 +50,7 @@ class AnimeCornerAPI:
 
     
     def _fetch_ranking(self) -> List[AnimeMatch]:
-        browser = self.browser
+        browser = self.create_browser()
         browser.get(self.link)
         results = browser.find_elements(by='id', value='penci-post-entry-inner')#
 
@@ -61,6 +66,8 @@ class AnimeCornerAPI:
                     score=float(match.group(4))
                     )
                 )
+        # close() closes window; quit() closes browser
+        browser.quit()
         return matches
 
 if __name__ == '__main__':
