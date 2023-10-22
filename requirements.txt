@@ -6,6 +6,7 @@ asyncache==0.1.1
 cachetools==4.2.2
 asyncpraw==7.7.1
 mplcyberpunk==0.5.1
+selenium==4.14.0
 aiohttp
 asyncpg
 APScheduler
@@ -35,7 +36,6 @@ tmdb-python
 dacite
 tabulate
 expiring-dict
-selenium
 selenium_async
 colorcet
 uvloop
