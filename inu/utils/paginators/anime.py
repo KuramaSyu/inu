@@ -922,6 +922,8 @@ class AnimeCornerPaginator2(AnimePaginator):
                 color = c
                 break
         embed = Embed(title=self.title, color=color)
+        embed.add_field("Next poll:", "[polls - AnimeCorner](https://polls.animecorner.me/)", inline=True)
+        embed.add_field("Article:", f"[here]({self.anime_corner_url})", inline=True)
         embed.set_image(self.submission.url)
         if not self.anime_matches:
             embed.set_footer(text="Loading Animes...")
