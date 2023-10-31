@@ -526,6 +526,7 @@ class Paginator():
         self.count = count
         self._stop: asyncio.Event = asyncio.Event()
         self._pages: Union[List[Embed], List[str]] = page_s
+        self._old_position: int = 0
 
         self._component: Optional[MessageActionRowBuilder] = None
         self._components: Optional[List[MessageActionRowBuilder]] = None
@@ -893,14 +894,14 @@ class Paginator():
         self, 
         content: _Sendable, 
         interaction: Optional[ComponentInteraction] = None, 
+        **kwargs
     ):
         """
         sends a message with current context and adds it's component(s)
         """
-        kwargs: Dict[str, Any] = {}
-        if not self._disable_component:
+        if not self._disable_component and not kwargs.get("component"):
             kwargs["component"] = self.component
-        elif not self._disable_components:
+        elif not self._disable_components and not kwargs.get("components"):
             kwargs["components"] = self.components
         
 
@@ -1213,6 +1214,7 @@ class Paginator():
 
         """
         last_position = self._position
+        self._old_position = self._position
         self.log.debug(self._position)
         if id == "first":
             self._position = 0
