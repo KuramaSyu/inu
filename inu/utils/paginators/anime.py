@@ -892,12 +892,22 @@ class AnimeCornerPaginator2(AnimePaginator):
         # this starts the sub-anime paginator; this paginator needs to be updated first
         if self._position != len(self._pages) - 1:
             if not self._anime_corner_task.done():
-                #await self.ctx.respond("Rankings are still loading...", ephemeral=True)
                 self.ctx._update = True
-                await self.ctx.defer()
+                await self.ctx.defer(update=True)
                 await self._anime_corner_task
             if self._pages[self._position].title == self.default_embed.title:
+                # anime is not loaded yet - defer interaction
                 search = self.anime_matches[self._position]["name"]
+                page = deepcopy(self._pages[self._old_position])
+                page.set_footer(f"Loading Anime {search}...")
+                components = self.build_default_components(self._position)
+                # set current button to red
+                for i, row in enumerate(components):
+                    for j, component in enumerate(row.components):
+                        # current page is marked as stop in case of pressing again to stop
+                        if component.custom_id == f"stop":
+                            component.set_is_disabled(True)
+                await self.send(page, components=components)
                 results = await MyAnimeList.search_anime(query=search)
                 # store result list
                 self._results = results["data"]
