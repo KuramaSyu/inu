@@ -30,7 +30,7 @@ log = getLogger(__name__)
 plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
 
 # storing the last answers of users, that it can be used later
-last_ans: Dict[int, int] = {}
+last_ans: Dict[int, str] = {}
 
 @plugin.listener(hikari.MessageCreateEvent)
 async def on_message_create(event: hikari.MessageCreateEvent):
@@ -125,16 +125,28 @@ def set_answer(result: str, author_id) -> None:
     """
     Try to extract number from qalc answer and set it to `last_ans[author_id]`
     """
+    if "=" in result:
+        results = result.split("=")
+        if len(results) > 2:
+            # fractional format
+            result = results[1]
+        else:
+            result = results[-1]
+        
+        if "≈" in result:
+            result = result.split("≈")[0]
+    if "≈" in result:
+        result = result.split("≈")[0]
     try:
-        if (ans := re.findall("(\d+(?:\.\d+)?)", result.replace("'", ""))[0]):
-            if result.strip().endswith("…"):  # result is periodic
-                try:
-                    periodic_part = re.findall("\d+\.(\d+)…", result)[0]  # caputre the periodic part -> "1.333…" matches 333
-                    # add periodic part 20 times
-                    ans += str(periodic_part) * 20 
-                except Exception:
-                    pass
-            last_ans[author_id] = ans
+        # if (ans := re.findall("(\d+(?:\.\d+)?)", result.replace("'", ""))[0]):
+        #     if result.strip().endswith("…"):  # result is periodic
+        #         try:
+        #             periodic_part = re.findall("\d+\.(\d+)…", result)[0]  # caputre the periodic part -> "1.333…" matches 333
+        #             # add periodic part 20 times
+        #             ans += str(periodic_part) * 20 
+        #         except Exception:
+        #             pass
+        last_ans[author_id] = result
     except Exception:
         pass
 
