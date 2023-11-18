@@ -29,7 +29,7 @@ class Bash:
         return stdout.decode("utf-8"), stderr.decode("utf-8")
 
     @classmethod
-    async def qalc(cls, query: str, terse: bool = True, base: str | None = None) -> str:
+    async def qalc(cls, query: str, terse: bool = False, base: str | None = None) -> str:
         """
         tries to calculate a query
 
