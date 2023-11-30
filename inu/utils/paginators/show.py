@@ -197,7 +197,7 @@ class ShowPaginator(Paginator):
             embed.description += f"_{tagline}_\n"  # type: ignore
         embed.description = Human.short_text(details["overview"], 1950)
         embed.add_field("Popularity", f'{round(details["popularity"])}', inline=True)
-        embed.add_field("Score", f"{details['vote_average']:.1f}/10", inline=True)
+        embed.add_field("Score", f"||{details['vote_average']:.1f}/10||", inline=True)
         
         embed.add_field("Episodes", Human.plural_("episode", details["number_of_episodes"], True), inline=True)
         embed.add_field("Seasons", Human.plural_("season", details["number_of_seasons"], True), inline=True)
@@ -365,7 +365,7 @@ class ShowSeasonPaginator(Paginator):
         avg_score = median(
             [e["vote_average"] for e in details.get("episodes", [])] or [0]
         )
-        embed.add_field("🔹 Score", f"||{avg_score:.1f}/10||", inline=True)
+        embed.add_field("🔹 Score", f"{avg_score:.1f}/10", inline=True)
 
         # add embed field for min score episode
         if min_score_ep:
