@@ -365,7 +365,7 @@ class ShowSeasonPaginator(Paginator):
         avg_score = median(
             [e["vote_average"] for e in details.get("episodes", [])] or [0]
         )
-        embed.add_field("🔹 Score", f"{avg_score:.1f}/10", inline=True)
+        embed.add_field("🔹 Score", f"||{avg_score:.1f}/10||", inline=True)
 
         # add embed field for min score episode
         if min_score_ep:
@@ -576,7 +576,7 @@ class MoviePaginator(Paginator):
 
         # direction in emoji:  
         embed.add_field("Popularity", f'{round(details["popularity"])}', inline=True)
-        embed.add_field("Score", f"{details['vote_average']:.1f}/10", inline=True)
+        embed.add_field("Score", f"||{details['vote_average']:.1f}/10||", inline=True)
         add_key_to_field("⏱️ Runtime", "runtime")
         embed.add_field("💰 Budget", f"${details['budget']:,}", inline=True)
         embed.add_field("🎬 Genres", join_list_dict_keys("genres"), inline=True)

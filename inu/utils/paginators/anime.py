@@ -42,7 +42,7 @@ class SortBy:
                     "No field with name Score!: Embeds for `AnimePaginator` need field with name=Score and value=<num>/<num>"
                 )
             try:
-                score, _ = value.split("/")
+                score, _ = value.strip("|").split("/")
             except Exception:
                 raise RuntimeError("The field value of the field with name=Score needs to look like this: <score>/<max>")
             return float(score)
@@ -388,7 +388,7 @@ class AnimePaginator(Paginator):
         embed: hikari.Embed = (
             hikari.Embed()
             .add_field("Type", anime.type_, inline=True)
-            .add_field("Score", f"{anime.score}/10", inline=True)
+            .add_field("Score", f"||{anime.score}/10||", inline=True)
             .add_field("Episodes", f"{Human.plural_('episode', anime.episodes)}", inline=True)
             .add_field("Rank", f"{anime.rank} ", inline=True)
             .add_field("Popularity", popularity, inline=True)
