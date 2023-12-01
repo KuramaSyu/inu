@@ -97,6 +97,16 @@ class TagHandler(StatelessPaginator):
             disable_paginator_when_one_site=False,
         ) 
     
+    def interaction_pred(self, event: InteractionCreateEvent) -> bool:
+        """Checks user in tag.owners and message id of the event interaction"""
+        if not isinstance((i := event.interaction), ComponentInteraction):
+            self.log.debug("False interaction pred")
+            return False
+        return (
+            i.user.id in self.tag.owners
+            and i.message.id == self._message.id
+        )
+    
     def set_tag(self, tag: Tag) -> None:
         self.tag = tag
 
@@ -200,8 +210,7 @@ class TagHandler(StatelessPaginator):
         try:
             if not isinstance(event.interaction, ComponentInteraction):
                 return
-            if (not event.interaction.message.id == self._message.id 
-                or not event.interaction.user.id == self.ctx.author.id):
+            if (self.interaction_pred(event)): #or not event.interaction.user.id == self.ctx.author.id
                 return
             i = event.interaction
             try:
