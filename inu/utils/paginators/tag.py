@@ -111,9 +111,9 @@ class TagHandler(StatelessPaginator):
         """
         Returns wether or not the user is allowed to use this
         """
-        if (
-            not self.custom_id.is_same_user(self.ctx.interaction)
-            or not self.ctx.interaction.user.id in self.tag.owners):
+        if not (
+            self.custom_id.is_same_user(self.ctx.interaction)
+            or self.ctx.interaction.user.id in self.tag.owners):
             await self.ctx.respond(self._get_rejection_message(), ephemeral=True)
             return False
         return True
