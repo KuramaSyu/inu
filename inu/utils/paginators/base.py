@@ -1620,9 +1620,12 @@ class StatelessPaginator(Paginator, ABC):
         Returns wether or not the user is allowed to use this
         """
         if not self.custom_id.is_same_user(self.ctx.interaction):
-            await self.ctx.respond(random.choice(REJECTION_MESSAGES), ephemeral=True)
+            await self.ctx.respond(self._get_rejection_message(), ephemeral=True)
             return False
         return True
+    
+    def _get_rejection_message(self) -> str:
+        return random.choice(REJECTION_MESSAGES)
 
     @abstractmethod
     async def _rebuild(self, **kwargs):
