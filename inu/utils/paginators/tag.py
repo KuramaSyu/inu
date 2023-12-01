@@ -210,7 +210,7 @@ class TagHandler(StatelessPaginator):
         try:
             if not isinstance(event.interaction, ComponentInteraction):
                 return
-            if (self.interaction_pred(event)): #or not event.interaction.user.id == self.ctx.author.id
+            if not self.interaction_pred(event): #or not event.interaction.user.id == self.ctx.author.id
                 return
             i = event.interaction
             try:
