@@ -106,6 +106,17 @@ class TagHandler(StatelessPaginator):
             i.user.id in self.tag.owners
             and i.message.id == self._message.id
         )
+
+    async def check_user(self) -> bool:
+        """
+        Returns wether or not the user is allowed to use this
+        """
+        if (
+            not self.custom_id.is_same_user(self.ctx.interaction)
+            or not self.ctx.interaction.user.id in self.tag.owners):
+            await self.ctx.respond(self._get_rejection_message(), ephemeral=True)
+            return False
+        return True
     
     def set_tag(self, tag: Tag) -> None:
         self.tag = tag
