@@ -899,6 +899,8 @@ class Paginator():
         """
         sends a message with current context and adds it's component(s)
         """
+        if kwargs.get("update") is None:
+            kwargs["update"] = True
         if not self._disable_component and not kwargs.get("component"):
             kwargs["component"] = self.component
         elif not self._disable_components and not kwargs.get("components"):
@@ -915,7 +917,7 @@ class Paginator():
         else:
             raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
         log.debug(f"Sending message: {kwargs}")
-        proxy = await self.ctx.respond(update=True, **kwargs)
+        proxy = await self.ctx.respond(**kwargs)
         self._proxy = proxy
 
     async def create_message(
