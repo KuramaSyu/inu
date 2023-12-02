@@ -22,7 +22,7 @@ from .base import (
 )
 import asyncpg
 
-from utils import crumble, TagManager
+from utils import crumble, TagManager, add_row_when_filled
 from utils.language import Human
 from utils.db import Tag, TagType
 
@@ -230,7 +230,7 @@ class TagHandler(StatelessPaginator):
                 if event.interaction.values:
                     custom_id = event.interaction.values[0]
                 else:
-                    custom_id = event.interaction.custom_id.strip(f"{TAG_MENU_PREFIX}_")
+                    custom_id = self.custom_id.custom_id.strip(f"{TAG_MENU_PREFIX}_")
             except (IndexError, AssertionError):
                 # interaction was no menu interaction
                 return
@@ -287,8 +287,18 @@ class TagHandler(StatelessPaginator):
                 self._pages.remove(self._pages[self._position])
                 self.tag.value.remove(self.tag.value[self._position])
                 self._position -= 1
-            elif custom_id == "tag_options_update":
+            elif custom_id == "update":
                 await self.update_page(update_value=True, interaction=i)
+                return
+            elif custom_id == "resend":
+                # stopping this and restarting a new one
+                log.debug(self._proxy)
+                try:   
+                    await self.update_page(update_value=True, interaction=i)             
+                    await self._proxy.delete()
+                except Exception:
+                    log.warning(traceback.format_exc())
+                await self.send(content=self.pages[self._position], update=False)
                 return
             else:
                 if custom_id in self.tag.tag_links:
@@ -300,7 +310,10 @@ class TagHandler(StatelessPaginator):
                     await self.tag.save()
                 except Exception:
                     log.error(traceback.format_exc())
-            await self.update_page(update_value=custom_id in ["set_value", "extend_value", "add_new_page"], interaction=i)
+            await self.update_page(
+                update_value=custom_id in ["set_value", "extend_value", "add_new_page"], 
+                interaction=i
+            )
             
         except Exception:
             self.log.error(traceback.format_exc())
@@ -533,13 +546,18 @@ class TagHandler(StatelessPaginator):
         rows: List[MessageActionRowBuilder] = []
         navi = super().build_default_component(position)
         rows.append(navi)
-        if len(rows[-1].components) >= 5:
-            rows.append(MessageActionRowBuilder())
+        rows = add_row_when_filled(rows, min_empty_slots=2)
         rows[-1].add_interactive_button(
             ButtonStyle.PRIMARY, 
             self._serialize_custom_id("tag_options_update"),
             emoji="🔄",
             label="update",
+        )
+        rows[-1].add_interactive_button(
+            ButtonStyle.PRIMARY,
+            self._serialize_custom_id("tag_options_resend"),
+            emoji="⤵️",
+            label="send down",
         )
         menu = (
             MessageActionRowBuilder()
