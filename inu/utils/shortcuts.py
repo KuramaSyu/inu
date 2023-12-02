@@ -1,6 +1,7 @@
 from typing import *
 from datetime import datetime, timedelta
 import hikari
+from hikari.impl import MessageActionRowBuilder
 import aiohttp
 
 from core import Inu
@@ -66,3 +67,23 @@ async def check_website(url: str) -> Tuple[int, Optional[str]]:
                 return response.status, response.reason
     except aiohttp.ClientError as e:
         return 0, str(e)
+    
+def add_row_when_filled(row: List[MessageActionRowBuilder], position: int = -1, min_empty_slots: int = 1) -> List[MessageActionRowBuilder]:
+    """
+    Adds a MessageActionRowBuilder to the List if the last one has no free component-slots
+
+    Args:
+    -----
+    row : List[MessageActionRowBuilder]
+        the row inspect
+    position : int
+        where to insert the new row if possible
+    """
+    min_empty_slots -= 1
+    if not row:
+        return [MessageActionRowBuilder()]
+    if len(row[-1].components) >= 5 - min_empty_slots:
+        if len(row) >= 5:
+            raise RuntimeWarning("Can't add more than 5 rows")
+        row.insert(MessageActionRowBuilder(), position)
+    return row
