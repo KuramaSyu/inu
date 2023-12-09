@@ -1,5 +1,5 @@
 import asyncio
-from datetime import datetime
+from datetime import datetime, timedelta
 from typing import *
 import traceback
 
@@ -9,6 +9,7 @@ import lightbulb
 import lightbulb.utils as lightbulb_utils
 from core import BotResponseError, Inu, Table, getLogger, get_context
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ResponseType, TextInputStyle
+from tabulate import tabulate
 from lightbulb import OptionModifier as OM
 from lightbulb import commands, context
 from lightbulb.context import Context
@@ -25,8 +26,9 @@ from utils import (
     BoredAPI, 
     IP, 
     Facts,
-    xkcdAPI
+    xkcdAPI,
 )
+from utils.shortcuts import display_name_or_id
 log = getLogger(__name__)
 bot: Inu = None
 
@@ -269,38 +271,49 @@ async def status(ctx: context.Context):
     type=str,
 )
 @lightbulb.option(
-    "ammount", 
-    "The ammount of messages you want to delete, Default: 5", 
+    "amount", 
+    "The amount of messages you want to delete, Default: 5", 
     default=None, 
     type=int, 
 )
 @lightbulb.command("purge", "Delete the last messages from a channel", aliases=["clean"])
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def purge(ctx: context.Context):
+    userid_to_amount: Dict[int, int] = {}
+    MAX_AMOUNT = 100
     if not (channel := ctx.get_channel()):
         return
     if not isinstance(channel, hikari.TextableGuildChannel):
         return
-    if not ctx.options.ammount and not ctx.options.message_link:
+    if not ctx.options.amount and not ctx.options.message_link:
         raise BotResponseError(
-            f"I need the ammount of messages I should delete, or the message link until which I should delete messages"
+            f"I need the amount of messages I should delete, or the message link until which I should delete messages"
         )
-    if (ammount := ctx.options.ammount) and ammount > 50:
+    if (amount := ctx.options.amount) and amount > MAX_AMOUNT:
         raise BotResponseError("I can't delete that much messages")
     if ctx.options.message_link:
-        ammount = 50
+        amount = MAX_AMOUNT
     messages = []
-    ammount += 2
-    await ctx.respond("I'll do it. Let me some time. I'll include your message and this message")
+    amount += 2
+    table = tabulate(userid_to_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
+    delete_in = datetime.now() + timedelta(seconds=20)
+    answer = await ctx.respond(
+        f"I'll do it. Let me some time.\n<t:{delete_in.timestamp():.0f}:R>",
+        delete_after=20
+    )
     async for m in channel.fetch_history():
+        if m.author.id not in userid_to_amount:
+            userid_to_amount[m.author.id] = 0
+        userid_to_amount[m.author.id] += 1
         messages.append(m)
-        ammount -= 1
-        if ammount <= 0:
+        amount -= 1
+        if amount <= 0:
             break
         elif ctx.options.message_link and m.make_link(ctx.guild_id) == ctx.options.message_link.strip():
             break
-    if ctx.options.message_link and ammount <= 0:
-        raise BotResponseError(f"Your linked message is not under the last 50 messages")
+    if ctx.options.message_link and amount <= 0:
+        raise BotResponseError(f"Your linked message is not under the last {MAX_AMOUNT} messages")
+    messages.remove(await answer.message())
     await channel.delete_messages(messages)
 
 
@@ -406,13 +419,17 @@ async def user_info(ctx: context.UserContext):
 @lightbulb.command("purge until here", "Delete all messages until the message (including)")
 @lightbulb.implements(commands.MessageCommand)
 async def purge_until_this_message(ctx: context.MessageContext):
-    await ctx.respond(f"Let me get the trash bin ready...\nY'know, this thing is pretty heavy")
+    userid_to_amount: Dict[int, int] = {}
+    message = await ctx.respond(f"Let me get the trash bin ready...\nY'know, this thing is pretty heavy")
     try:
         bot: Inu = ctx.bot
         message_id: int = ctx.options.target.id
         messages = []
-        amount = 50
+        amount = 100
         async for m in ctx.get_channel().fetch_history():
+            if m.author.id not in userid_to_amount:
+                userid_to_amount[m.author.id] = 0
+            userid_to_amount[m.author.id] += 1
             messages.append(m)
             amount -= 1
             if amount <= 0:
@@ -421,7 +438,24 @@ async def purge_until_this_message(ctx: context.MessageContext):
                 break
         if amount <= 0:
             raise BotResponseError(f"Your linked message is not under the last 50 messages")
+        
+        user_name_amount = []
+        for user_id, amount in userid_to_amount.items():
+            user_name_amount.append([
+                    display_name_or_id(user_id, guild_id=ctx.guild_id),
+                    amount
+            ])
+        table = tabulate(user_name_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
+        delete_in = datetime.now() + timedelta(seconds=20)
+        msg = await ctx.edit_last_response(
+            f"I'll do it. Let me some time.\n```\n{table}\n```🗑️ <t:{delete_in.timestamp():.0f}:R>"
+        )
+        messages.remove(await message.message())
         await ctx.get_channel().delete_messages(messages)
+        await asyncio.sleep((delete_in - datetime.now()).total_seconds())
+        await msg.delete()
+
+
     except:
         log.error(traceback.format_exc())
 
