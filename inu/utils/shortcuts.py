@@ -44,6 +44,37 @@ def guild_name_or_id(guild_id: int, *args, **kwargs) -> str:
     guild = bot.cache.get_guild(guild_id)
     return guild.name if guild else str(guild_id)
 
+def user_name_or_id(user_id: int, *args, **kwargs) -> str:
+    """
+    returns the name of the user_id if in cache, otherwise the ID as string
+
+    Args:
+    -----
+    user_id : int
+        the id of the user
+    bot : hikari.CacheAware
+        A cache aware bot, to check if user is in cache
+    """
+    user = bot.cache.get_user(user_id)
+    return user.name if user else str(user_id)
+
+def display_name_or_id(user: hikari.SnowflakeishOr[hikari.Member], guild_id: int | None = None, *args, **kwargs) -> str:
+    """
+    returns the name of the user_id if in cache, otherwise the ID as string
+
+    Args:
+    -----
+    user_id : int
+        the id of the user
+    guild_id : int | None
+        the id of the guild if user is not a member
+
+    """
+    if guild_id or isinstance(user, hikari.Member):
+        member = bot.cache.get_member(guild_id or user.guild_id, user)
+    else:
+        member = bot.cache.get_user(user)
+    return member.display_name if member else str(user)
 
 def ts_round(delta: timedelta, round_to: timedelta) -> timedelta:
     total_seconds = delta.total_seconds()
