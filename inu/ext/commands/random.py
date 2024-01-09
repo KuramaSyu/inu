@@ -8,6 +8,7 @@ from typing import *
 import logging
 
 import hikari
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import Bucket, commands
@@ -62,7 +63,7 @@ async def number(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def list_(ctx: Context):
     SPLIT = ","
-
+    kwargs = {}
     # no options given
     if not ctx.options.list and not ctx.options["tag-with-list"]:
         try:
@@ -80,6 +81,10 @@ async def list_(ctx: Context):
     elif ctx.options["tag-with-list"]:
         tag = await Tag.fetch_tag_from_link(f"tag://{ctx.options['tag-with-list']}.local", ctx.guild_id)
         fact_list = ("".join(tag.value)).split(SPLIT)
+        kwargs["components"] = [
+            MessageActionRowBuilder()
+            .add_interactive_button(hikari.ButtonStyle.SECONDARY, f"suffle-{tag.link}", emoji=":dice:")
+        ]
     # list given
     else:
         fact_list = ctx.options.list.split(SPLIT)
@@ -126,10 +131,9 @@ async def list_(ctx: Context):
         embed = hikari.Embed()
         for part in crumble(facts_as_str, 1024):
             embed.add_field("‌‌ ", part)
-        await ctx.respond(embed=embed)
+        await ctx.respond(embed=embed, **kwargs)
     else:
-        await ctx.respond(facts_as_str)
-    
+        await ctx.respond(facts_as_str, **kwargs)
     
 
 
