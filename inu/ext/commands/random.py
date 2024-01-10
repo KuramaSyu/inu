@@ -17,7 +17,7 @@ from lightbulb import events
 from lightbulb.commands import OptionModifier as OM
 
 from .tags import tag_name_auto_complete
-from core import getLogger, Inu
+from core import getLogger, Inu, get_context
 from utils import crumble, BoredAPI, BoredIdea, Tag
 
 log = getLogger(__name__)
@@ -83,7 +83,7 @@ async def list_(ctx: Context):
         fact_list = ("".join(tag.value)).split(SPLIT)
         kwargs["components"] = [
             MessageActionRowBuilder()
-            .add_interactive_button(hikari.ButtonStyle.SECONDARY, f"suffle-{tag.link}", emoji=":dice:")
+            .add_interactive_button(hikari.ButtonStyle.SECONDARY, f"suffle-{ctx.options['tag-with-list']}", emoji="🎲")
         ]
     # list given
     else:
@@ -136,6 +136,16 @@ async def list_(ctx: Context):
         await ctx.respond(facts_as_str, **kwargs)
     
 
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_interaction(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    if not event.interaction.custom_id.startswith("suffle-"):
+        return
+    tag_name = event.interaction.custom_id.removeprefix("suffle-")
+    ctx = get_context(event, options={"tag-with-list": tag_name, "list": None})
+    ctx._update = True
+    await list_.callback(ctx)
 
 
 @plugin.command
