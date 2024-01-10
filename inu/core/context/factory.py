@@ -19,13 +19,6 @@ def get_context(
     -----
     event : `ContextEvent`
         the event to create the `InuContext` out of
-
-    
-    Returns:
-    --------
-    InuContextProtocol :
-        - RESTContext when event is MessageCreateEvent
-        - InteractionContext when event is InteractionCreateEvent
     **kwargs : Any
         these kwargs will be passed into InuContext.set() to specify a class
         options: Dict[str, Any]
@@ -34,6 +27,13 @@ def get_context(
             whether the context is deferred
         responded: bool
             whether the context got responded
+    
+    Returns:
+    --------
+    InuContextProtocol :
+        - RESTContext when event is MessageCreateEvent
+        - InteractionContext when event is InteractionCreateEvent
+
     """
 
     ctx_cls, custom_attrs = builder(event, **kwargs)
