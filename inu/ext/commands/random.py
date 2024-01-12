@@ -15,6 +15,8 @@ from lightbulb import Bucket, commands
 from lightbulb import errors
 from lightbulb import events
 from lightbulb.commands import OptionModifier as OM
+from PIL import Image, ImageEnhance
+from io import BytesIO
 
 from .tags import tag_name_auto_complete
 from core import getLogger, Inu, get_context
@@ -148,6 +150,34 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
     await list_.callback(ctx)
 
 
+def randomize_colors(input_path):
+    # Load the PNG image
+    original_image = Image.open(input_path).convert("RGBA")
+    
+    # Get the image data as a list of RGBA tuples
+    image_data = list(original_image.getdata())
+    
+    # Randomly change colors (excluding transparent pixels)
+    amount = random.randint(0,255)
+    modified_data = [
+        (r, g, b, a) if a == 0 else (r + amount % 255, g + amount % 255, b + amount % 255, a)
+        for r, g, b, a in image_data
+    ]
+    
+    # Create a new image with the modified data
+    modified_image = Image.new("RGBA", original_image.size)
+    modified_image.putdata(modified_data)
+    
+    # Save the modified image to a buffer
+    buffer = BytesIO()
+    modified_image.save(buffer, format="PNG")
+    buffer.seek(0)
+    
+    # Return the buffer containing the modified image
+    return buffer
+
+
+
 @plugin.command
 @lightbulb.add_cooldown(10, 8, lightbulb.UserBucket)
 @lightbulb.option("eyes", "How many eyes should the dice have? (1-6)", type=int, default=6)
@@ -172,11 +202,44 @@ async def dice(ctx: Context) -> None:
         f'{os.getcwd()}/inu/data/bot/dices/dice{n}.png' for n in range(1, eyes+1)
     ]
     all_eyes = [eye_ids[eye_num-1] for eye_num in range(1, eyes+1)]
+    file_name = random.choice(all_eyes)
+
     await ctx.respond(
         ".",
-        attachment=hikari.File(random.choice(all_eyes))
-        )
+        attachment=hikari.File(random.choice(all_eyes)),
+        components=[
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                f"dice-roll-{eyes}", 
+                emoji="🎲"
+            )
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY,
+                f"dice-delete-{eyes}",
+                emoji="❌"
+            )
+        ]
+    )
     return
+
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_interaction(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    if not event.interaction.custom_id.startswith("dice-"):
+        return
+    eyes = event.interaction.custom_id.split("-")[-1]
+    ctx = get_context(event, options={"eyes": int(eyes)})
+    ctx._update = True
+    if "dice-roll" in event.interaction.custom_id :
+        await dice.callback(ctx)
+    elif "dice-delete" in event.interaction.custom_id:
+        await ctx.respond("Deleting...", update=True)
+        await ctx.delete_initial_response()
+    else:
+        return
+
 
 @plugin.command
 @lightbulb.add_cooldown(1, 2.5, lightbulb.UserBucket) #type: ignore
