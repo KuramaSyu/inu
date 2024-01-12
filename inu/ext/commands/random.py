@@ -1,4 +1,5 @@
 
+import asyncio
 import random
 from fractions import Fraction
 import os
@@ -20,7 +21,7 @@ from io import BytesIO
 
 from .tags import tag_name_auto_complete
 from core import getLogger, Inu, get_context
-from utils import crumble, BoredAPI, BoredIdea, Tag
+from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button
 
 log = getLogger(__name__)
 
@@ -87,6 +88,7 @@ async def list_(ctx: Context):
             MessageActionRowBuilder()
             .add_interactive_button(hikari.ButtonStyle.SECONDARY, f"suffle-{ctx.options['tag-with-list']}", emoji="🎲")
         ]
+        kwargs["components"] = add_time_button(kwargs["components"])
     # list given
     else:
         fact_list = ctx.options.list.split(SPLIT)
@@ -204,22 +206,34 @@ async def dice(ctx: Context) -> None:
     all_eyes = [eye_ids[eye_num-1] for eye_num in range(1, eyes+1)]
     file_name = random.choice(all_eyes)
 
-    await ctx.respond(
-        ".",
-        attachment=hikari.File(random.choice(all_eyes)),
-        components=[
+    def build_components(is_disabled: bool = False) -> List[MessageActionRowBuilder]:
+        components = [
             MessageActionRowBuilder()
             .add_interactive_button(
                 hikari.ButtonStyle.SECONDARY, 
                 f"dice-roll-{eyes}", 
-                emoji="🎲"
+                emoji="🎲",
+                is_disabled=is_disabled
             )
             .add_interactive_button(
                 hikari.ButtonStyle.SECONDARY,
                 f"dice-delete-{eyes}",
-                emoji="❌"
+                emoji="❌",
+                is_disabled=is_disabled
             )
         ]
+        components = add_time_button(components)
+        return components
+    
+    await ctx.respond(
+        ".",
+        attachment=hikari.File(random.choice(all_eyes)),
+        components=build_components(True)
+    )
+    await asyncio.sleep(3)
+    await ctx.respond(
+        components=build_components(False),
+        update=True
     )
     return
 
