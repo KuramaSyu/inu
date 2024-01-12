@@ -108,7 +108,6 @@ async def list_(ctx: Context):
     gr3 = float(3.7)
     gr4 = float(4.7)
     gr5 = float(5.7)
-    log.debug(60 / longest_fact)
     if 60 / float(longest_fact) <= gr1:
         columns = 1
     elif 60 / float(longest_fact) <= gr2:
@@ -192,8 +191,6 @@ async def dice(ctx: Context) -> None:
     [Optional] eyes: how many eyes the cube should have (1-9)
     '''
     eyes = ctx.options.eyes
-    log.debug(type(eyes))
-    log.debug(eyes)
     if eyes < 1 or eyes > 6:
         await ctx.respond('I have dices with 1 to 6 sites. \
             \nI don\'t know, what kind of magic dices you have')
