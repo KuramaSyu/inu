@@ -231,9 +231,8 @@ async def dice(ctx: Context) -> None:
         components=build_components(True)
     )
     await asyncio.sleep(3)
-    await ctx.respond(
+    await ctx.edit_last_response(
         components=build_components(False),
-        update=True
     )
     return
 
