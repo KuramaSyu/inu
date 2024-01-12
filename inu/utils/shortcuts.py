@@ -118,3 +118,19 @@ def add_row_when_filled(row: List[MessageActionRowBuilder], position: int = -1, 
             raise RuntimeWarning("Can't add more than 5 rows")
         row.insert(MessageActionRowBuilder(), position)
     return row
+
+def add_time_button(row: List[MessageActionRowBuilder], time: datetime = None) -> List[MessageActionRowBuilder]:
+    """
+    Adds a time button to the last actionrowbuilder or to a new one if last one is full
+    """
+    if not time:
+        time = datetime.now()
+    row = add_row_when_filled(row)
+    row[-1].add_interactive_button(
+            hikari.ButtonStyle.SECONDARY,
+            f"ts_{time.hour}_{time.minute}",
+            label=f"⏱️ {time.minute}min {time.second}s",
+            is_disabled=True,
+        ) # stopwatch emoji: 
+    return row
+    
