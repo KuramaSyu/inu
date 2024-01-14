@@ -33,7 +33,7 @@ from fuzzywuzzy import fuzz
 from humanize import naturaldelta
 
 from core import Inu, get_context, InuContext, getLogger, BotResponseError
-from utils import Paginator, Colors, Human, MusicHistoryHandler, TagManager, TagType
+from utils import Paginator, Colors, Human, MusicHistoryHandler, TagManager, TagType, crumble
 from utils.paginators.music_history import MusicHistoryPaginator
 from .tags import get_tag
 log = getLogger(__name__)
@@ -776,12 +776,33 @@ async def position(ctx: SlashContext) -> None:
 @music.command
 @lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
 @lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option("query", "the title of the track", modifier=OM.CONSUME_REST, type=str, autocomplete=True)
+@lightbulb.option(
+    "query", 
+    "the title of the track", 
+    required=False,
+    modifier=OM.CONSUME_REST, 
+    autocomplete=True, 
+    default=None
+)
 @lightbulb.command("play", "play a song", aliases=["pl"])
 @lightbulb.implements(commands.SlashCommand)
 async def play_normal(ctx: context.Context) -> None:
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
-    await player._play(ctx.options.query)
+
+    query = ctx.options.query
+    # modal if no query was not given
+    if not ctx.options.query or ctx.options.query == "None":
+        query, _, event = await bot.shortcuts.ask_with_modal(
+            "Music", 
+            "What do you want to play?", 
+            placeholder_s="URL or title or multiple titles over multiple lines", 
+            interaction=ctx.event.interaction
+        )
+        ctx = get_context(event)
+        # ctx._deferred = True
+        player.ctx = ctx
+        await player.ctx.respond("🔍 Searching...")
+    await player._play(query)
 
 
 
@@ -1085,6 +1106,8 @@ class Player:
         self.queue: "Queue" = Queue(self)
         self._clean_queue: bool = True
         self._auto_leave_task: Optional[asyncio.Task] = None
+        self.auto_parse = False
+        self.last_added_track = None
     
     async def prepare(self):
         """Prepares the player for usage and fetches the node"""
@@ -1354,25 +1377,41 @@ class Player:
         await self.update_node()
         await ictx.defer()
 
-        if query.startswith(HISTORY_PREFIX):
+        # -> multiple lines -> play every line
+        if len(lines := query.splitlines()) > 1:
+            self.auto_parse = True
+            msg = ""
+            for i, line in enumerate(lines):
+                if not line:
+                    continue
+                await self._play(line, prevent_to_queue=True)
+                msg += f"{i+1}/{len(lines)} - {self.last_added_track.info.title or 'None'}\n"
+                asyncio.Task(ictx.respond(Human.short_text_from_center(msg, 2000), update=True))
+            self.auto_parse = False
+            self.queue.reset()
+            self.queue.set_footer(text=f"🎵 multiple titles added by {ictx.author.username}", author=ictx.author.id)
+
+        elif query.startswith(HISTORY_PREFIX):
             # -> history -> get url from history
             query = query.replace(HISTORY_PREFIX, "")
             history = await MusicHistoryHandler.cached_get(self.guild_id)
             if (alt_query:=[t["url"] for t in history if query in t["title"]]):
                 self.query=alt_query[0]
 
-        if query.startswith(MEDIA_TAG_PREFIX):
+        elif query.startswith(MEDIA_TAG_PREFIX):
             # -> media tag -> get url from tag
             query = query.replace(MEDIA_TAG_PREFIX, "")
             tag = await get_tag(ictx, query)
             self.query = tag["tag_value"][0]
 
-        query = self.query
-        if 'youtube' in query and 'playlist?list=' in query:
+        
+        elif 'youtube' in query and 'playlist?list=' in query:
             # -> youtube playlist -> load playlist
+            query = self.query
             await self.load_yt_playlist()
         # not a youtube playlist -> something else
         else:
+            query = self.query
             # -> track from a playlist was added -> remove playlist info
             if (
                 "watch?v=" in query
@@ -1440,7 +1479,10 @@ class Player:
         
         if len(query_information.tracks) > 1:
             try:
-                track, event = await interactive.ask_for_song(ctx, query, query_information=query_information)
+                if self.auto_parse:
+                    return query_information.tracks[0], None
+                else:
+                    track, event = await interactive.ask_for_song(ctx, query, query_information=query_information)
                 if event is None:
                     # no interaction was done - delete selection menu
                     return None, None
@@ -1589,6 +1631,7 @@ class Player:
                 .requester(author_id)
                 .queue()
             )
+            self.last_added_track = track
             self.queue.custom_info = f"🎵 {track.info.title} added by {bot.cache.get_member(self.guild_id, self.ctx.author.id).display_name}"
             self.queue.custom_info_author = self.ctx.member
             await self.update_node()
