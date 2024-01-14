@@ -792,14 +792,17 @@ async def play_normal(ctx: context.Context) -> None:
     query = ctx.options.query
     # modal if no query was not given
     if not ctx.options.query or ctx.options.query == "None":
-        query, _, event = await bot.shortcuts.ask_with_modal(
-            "Music", 
-            "What do you want to play?", 
-            placeholder_s="URL or title or multiple titles over multiple lines", 
-            interaction=ctx.event.interaction
-        )
-        ctx = get_context(event)
-        # ctx._deferred = True
+        try:
+            query, _, event = await bot.shortcuts.ask_with_modal(
+                "Music", 
+                "What do you want to play?", 
+                placeholder_s="URL or title or multiple titles over multiple lines", 
+                interaction=ctx.event.interaction
+            )
+            ctx = get_context(event)
+        except asyncio.TimeoutError:
+            log.warning("Timeout while waiting for query")
+            return
         player.ctx = ctx
         await player.ctx.respond("🔍 Searching...")
     await player._play(query)
