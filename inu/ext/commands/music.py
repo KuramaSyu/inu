@@ -466,14 +466,19 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             player = await PlayerManager.get_player(event.state.guild_id)
             if player.clean_queue:
                 with suppress(hikari.NotFoundError, IndexError):
-                    music_message = player.queue.message
                     try:
-                        await music_message.edit(
-                            components=player.queue.build_music_components(
-                            disable_all=True)
-                        )
-                    except hikari.NotFoundError:
-                        log.error(traceback.format_exc()) 
+                        music_message = player.queue.message
+                    except TypeError:
+                        music_message = None
+                    if music_message:
+                        try:
+                            log.info("disabling music message buttons")
+                            await music_message.edit(
+                                components=player.queue.build_music_components(
+                                disable_all=True)
+                            )
+                        except hikari.NotFoundError:
+                            log.error(traceback.format_exc()) 
             else:
                 # add current song again, because the current will be removed
                 queue = player.node.queue 
@@ -489,6 +494,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                 await lavalink.remove_guild_node(event.guild_id)
                 await lavalink.remove_guild_from_loops(event.guild_id)
                 player.node = None
+                #PlayerManager.remove_player(player.guild_id)
     except Exception:
         log.error(traceback.format_exc())
 
@@ -546,10 +552,12 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
     node = await lavalink.get_guild_node(guild_id)
     if not (message and node and len(node.queue) > 0):
+        await player._leave()
         return await ctx.respond(
             "How am I supposed to do anything without even an active radio playing music?",
             ephemeral=True
         )
+        
     if not (member := await bot.mrest.fetch_member(player.ctx.guild_id, player.ctx.author.id)):
         return
 
@@ -706,6 +714,7 @@ async def leave(ctx: context.Context) -> None:
     if not ctx.guild_id:
         return  # just for pylance
     player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
+    player._clean_queue = True
     await player._leave()
     await player.ctx.respond(
         embed=(
@@ -801,7 +810,6 @@ async def play_normal(ctx: context.Context) -> None:
             )
             ctx = get_context(event)
         except asyncio.TimeoutError:
-            log.warning("Timeout while waiting for query")
             return
         player.ctx = ctx
         await player.ctx.respond("🔍 Searching...")
@@ -1331,7 +1339,12 @@ class Player:
         await lavalink.resume(self.ctx.guild_id)
         await self.update_node()
     
-    async def _play(self, query: str | None = None, prevent_to_queue: bool = False) -> Tuple[bool, InuContext | None]:
+    async def _play(
+        self, 
+        query: str | None = None, 
+        prevent_to_queue: bool = False,
+        recursive: bool = False,
+    ) -> Tuple[bool, InuContext | None]:
         """
         - Will search the query
         - if more than one track found, ask which track to use
@@ -1365,6 +1378,7 @@ class Player:
         playlist is added and the playlist is the 
         first element in the queue.
         """
+        
         if query:
             self.query = query
         else:
@@ -1372,24 +1386,34 @@ class Player:
         if not self.ctx.guild_id or not self.ctx.member:
             return False, None
         ictx = self.ctx
-        con = lavalink.get_guild_gateway_connection_info(self.guild_id)
-        self.queue._last_update = datetime.datetime.now()
-        # Join the user's voice channel if the bot is not in one.
-        if not con:
-            await self._join()
-        await self.update_node()
-        await ictx.defer()
+
+        if not recursive:
+            con = lavalink.get_guild_gateway_connection_info(self.guild_id)
+            self.queue._last_update = datetime.datetime.now()
+            # Join the user's voice channel if the bot is not in one.
+            if not con:
+                await self._join()
+            await self.update_node()
+            await ictx.defer()
 
         # -> multiple lines -> play every line
         if len(lines := query.splitlines()) > 1:
             self.auto_parse = True
             msg = ""
+            rate_limit = 0
+            msg_id = None
             for i, line in enumerate(lines):
                 if not line:
                     continue
-                await self._play(line, prevent_to_queue=True)
-                msg += f"{i+1}/{len(lines)} - {self.last_added_track.info.title or 'None'}\n"
-                asyncio.Task(ictx.respond(Human.short_text_from_center(msg, 2000), update=True))
+                await self._play(line, prevent_to_queue=True, recursive=True)
+                msg += f"{i+1}/{len(lines)} - {self.last_added_track.info.title if self.last_added_track else 'Not found -> apply rate limit'}\n"
+                task = asyncio.Task(ictx.respond(Human.short_text_from_center(msg, 2000), update=msg_id or True))
+                if not msg_id:
+                    done, _ = await asyncio.wait([task], return_when=asyncio.FIRST_COMPLETED)
+                    msg_id = (await (done.pop().result()).message()).id
+                if self.last_added_track is None:
+                    rate_limit = 1
+                await asyncio.sleep(rate_limit)
             self.auto_parse = False
             self.queue.reset()
             self.queue.set_footer(text=f"🎵 multiple titles added by {ictx.author.username}", author=ictx.author.id)
@@ -1426,20 +1450,23 @@ class Player:
             event: Optional[hikari.InteractionCreateEvent] = None
             try:
                 track, event = await self.search_track(ictx, self.query)
-                log.debug(event)
             except BotResponseError as e:
                 raise e
             except asyncio.TimeoutError:
                 return False, None
+            except Exception:
+                log.error(traceback.format_exc())
+                raise BotResponseError("Something went wrong while searching for the title", ephemeral=True)
             if track is None:
-                await ictx.respond(f"I only found a lot of empty space for `{self.query}`")
+                if not recursive:
+                    await ictx.respond(f"I only found a lot of empty space for `{self.query}`")
                 return False, None
             if event:
                 # asked with menu - update context
                 self.ctx = get_context(event=event)
             await self.load_track(track)
 
-        if not prevent_to_queue:
+        if not prevent_to_queue and not recursive:
             await self.queue.send(force_resend=True, create_footer_info=False, debug_info="from play"),
         return True, ictx
 
@@ -1479,10 +1506,18 @@ class Player:
         if not query_information.tracks:
             query_information = await self.fallback_track_search(query)
 
+        if not query_information:
+            self.last_added_track = None
+            return None, None
         
         if len(query_information.tracks) > 1:
             try:
                 if self.auto_parse:
+                    # dont use official music videos
+                    PREVENT = ["official video", "official music video", "official audio"]
+                    for track in query_information.tracks:
+                        if not any([p in track.info.title.lower() for p in PREVENT]):
+                            return track, None
                     return query_information.tracks[0], None
                 else:
                     track, event = await interactive.ask_for_song(ctx, query, query_information=query_information)
@@ -1999,6 +2034,16 @@ class Queue:
             self.create_footer_info = True
         if custom_info:
             self.custom_info = custom_info
+        try:
+            if len(self.player.node.queue) == 0:
+                raise RuntimeError("queue is empty")
+        except Exception:
+            # return to prevent sending empty queue embed
+            if not self.player.ctx._responded:
+                await self.player.ctx.respond("The queue is empty hence I left the channel", delete_after=10)
+            self.player._clean_queue = True
+            await self.player._leave()
+            return
 
         if ctx:
             self.player.ctx = ctx
