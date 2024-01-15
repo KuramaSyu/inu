@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 import hikari
 from hikari import TextInputStyle
 from lightbulb.context import Context
+from lightbulb import ResponseProxy
 
 
 T = TypeVar("T")
@@ -120,6 +121,11 @@ class InuContext(ABC):
     def is_hashable(self) -> bool:
         """wether or not __hash__ will result in an error"""
         return self.id is not None
+    
+    @property
+    def last_response(self) -> ResponseProxy | None:
+        """the last response message"""
+        ...
     
     
     @abstractmethod
