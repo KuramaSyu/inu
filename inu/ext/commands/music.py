@@ -1386,6 +1386,7 @@ class Player:
         if not self.ctx.guild_id or not self.ctx.member:
             return False, None
         ictx = self.ctx
+        resolved = False  # bool wether the query was resolved - mainly used for multi line queries
 
         if not recursive:
             con = lavalink.get_guild_gateway_connection_info(self.guild_id)
@@ -1417,34 +1418,36 @@ class Player:
             self.auto_parse = False
             self.queue.reset()
             self.queue.set_footer(text=f"🎵 multiple titles added by {ictx.author.username}", author=ictx.author.id)
+            resolved = True
 
         elif query.startswith(HISTORY_PREFIX):
             # -> history -> get url from history
+            # only edits the query
             query = query.replace(HISTORY_PREFIX, "")
             history = await MusicHistoryHandler.cached_get(self.guild_id)
             if (alt_query:=[t["url"] for t in history if query in t["title"]]):
-                self.query=alt_query[0]
+                query = self.query = alt_query[0]
 
         elif query.startswith(MEDIA_TAG_PREFIX):
             # -> media tag -> get url from tag
+            # only edits the query
             query = query.replace(MEDIA_TAG_PREFIX, "")
             tag = await get_tag(ictx, query)
-            self.query = tag["tag_value"][0]
+            query = self.query = tag["tag_value"][0]
 
-        
-        elif 'youtube' in query and 'playlist?list=' in query:
+        query = self.query
+        if 'youtube' in query and 'playlist?list=' in query and not resolved:
             # -> youtube playlist -> load playlist
-            query = self.query
             await self.load_yt_playlist()
         # not a youtube playlist -> something else
         else:
-            query = self.query
-            # -> track from a playlist was added -> remove playlist info
+            # check for playlist
             if (
                 "watch?v=" in query
                 and "youtube" in query
                 and "&list" in query
             ):
+                # -> track from a playlist was added -> remove playlist info
                 self.query = YouTubeHelper.remove_playlist_info(query)
             # try to add song
             event: Optional[hikari.InteractionCreateEvent] = None
@@ -1456,7 +1459,10 @@ class Player:
                 return False, None
             except Exception:
                 log.error(traceback.format_exc())
-                raise BotResponseError("Something went wrong while searching for the title", ephemeral=True)
+                raise BotResponseError(
+                    "Something went wrong while searching for the title", 
+                    ephemeral=True
+                )
             if track is None:
                 if not recursive:
                     await ictx.respond(f"I only found a lot of empty space for `{self.query}`")
@@ -2124,13 +2130,21 @@ class Queue:
             async for m in music.bot.rest.fetch_messages(self.player.ctx.channel_id):
                 if m.id == ctx_message_id:
                     # edit existing message if in last messages
-                    msg = await self.player.ctx.respond(
+                    kwargs = dict(
                         embed=music_embed, 
                         components=self.build_music_components(),
                         content=None, 
                         update=m.id
                     )
-                    self.message = await msg.message()
+                    try:
+                        msg = await self.player.ctx.respond(**kwargs)
+                        self.message = await msg.message()
+                    except hikari.NotFoundError:
+                        # maybe errors with tracking of context class
+                        # e.g. not found errors for webhooks
+                        log.warning(f"Queue._send - using REST fallback: {traceback.format_exc()}")
+                        kwargs["channel"] = m.channel_id
+                        msg = await self.player.ctx.bot.rest.edit_message(**kwargs)
                     log.debug("update old")
                     return
                 timeout -= 1
