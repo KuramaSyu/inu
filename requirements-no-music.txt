@@ -5,7 +5,8 @@ hikari-miru==3.0.2
 asyncache==0.1.1
 cachetools==4.2.2
 asyncpraw==7.7.1
-mplcyberpunk==0.7
+mplcyberpunk==0.5.1
+selenium==4.14.0
 aiohttp
 asyncpg
 APScheduler
