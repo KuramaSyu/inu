@@ -56,7 +56,7 @@ def user_name_or_id(user_id: int, *args, **kwargs) -> str:
         A cache aware bot, to check if user is in cache
     """
     user = bot.cache.get_user(user_id)
-    return user.name if user else str(user_id)
+    return user.global_name or user.username if user else str(user_id)
 
 def display_name_or_id(user: hikari.SnowflakeishOr[hikari.Member], guild_id: int | None = None, *args, **kwargs) -> str:
     """
@@ -116,7 +116,10 @@ def add_row_when_filled(row: List[MessageActionRowBuilder], position: int = -1, 
     if len(row[-1].components) >= 5 - min_empty_slots:
         if len(row) >= 5:
             raise RuntimeWarning("Can't add more than 5 rows")
-        row.insert(MessageActionRowBuilder(), position)
+        if position == -1:
+            row.append(MessageActionRowBuilder())
+        else:
+            row.insert(position, MessageActionRowBuilder())
     return row
 
 def add_time_button(row: List[MessageActionRowBuilder], time: datetime = None) -> List[MessageActionRowBuilder]:
