@@ -335,6 +335,7 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
         ctx = get_context(event)
         await ctx.respond("REJECTED - Not your navigator. Did you thought you can trick me? ", ephemeral=True)
         return
+    await tag.used_now()
     pag.set_tag(tag)
     await pag.rebuild(event)
 
