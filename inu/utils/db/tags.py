@@ -357,38 +357,53 @@ class Tag():
         self.embed.add_field(name="Status", value=str(self.tag))
         self._pages = [self.embed]
 
-    def __str__(self) -> str:
-        characters_prefix = "["
-        characters_suffix = "]"
-        if len(self.value) == 1:
-            characters_prefix = ""
-            characters_suffix = ""
-        data = [
-            ["Guilds", f"{', '.join(guild_name_or_id(id) for id in self.guild_ids)}"],
-            ["Owners", f"{', '.join(user_name_or_id(o) for o in self.owners)}"],
-            ["Page size", f"{characters_prefix}{' | '.join([str(len(p)) for p in self.value])}{characters_suffix}/2048 Characters"],
-            ["Tag link", f"{self.link}"],
-        ]
-        if self.aliases:
-            data.append(["Aliases", f"{', '.join(f'`{alias}`' for alias in self.aliases)}"])
-        data_size_known = {
-            "Tag type": [f"{self.tag_type.get_name(self.tag_type.value)}"],
-            "Uses": [f"{self.uses}"],
-        }
+    def __str__(self):
+        return self.to_string()
+    
+    def to_string(self, current_page: int | None = None, fields: str = "all") -> str:
+            """
+            Convert the Tag object to a string representation.
 
-        msg = (
-            # f"Owners: {', '.join(f'<@{o}>' for o in self.owners)}\n"
-            f"```\n{tabulate(data, tablefmt='rounded_grid', maxcolwidths=[10, 50])}```"
-            f"```\n{tabulate(data_size_known, tablefmt='rounded_grid', headers=['Type', 'Uses'])}```"
-        )
-        log.debug(len(msg))
-        if self.aliases:
-            msg += f"aliases: {', '.join(self.aliases)}\n"
-        if to_do := self.to_do:
-            msg += (
-                f"\n**TO DO:**\n{to_do}"
-            )
-        return msg
+            Args:
+                current_page : int | None, optional
+                    The current page number. Defaults to None.
+                fields : Literal["all", "static", "dynamic", "to_do"], optional
+                    The fields to include in the string representation. Defaults to "all".
+                    Other Options
+
+            Returns:
+                str: The string representation of the Tag object.
+            """
+            msg = ""
+            characters_prefix = "["
+            characters_suffix = "]"
+            if len(self.value) == 1:
+                characters_prefix = ""
+                characters_suffix = ""
+            data = [
+                ["Guilds", f"{', '.join(guild_name_or_id(id) for id in self.guild_ids)}"],
+                ["Owners", f"{', '.join(user_name_or_id(o) for o in self.owners)}"],
+            ]
+            if current_page is None:
+                data.append(["Message", f"{characters_prefix}{' | '.join([str(len(p)) for p in self.value])}{characters_suffix}/2048 Letters"])
+            if self.aliases:
+                data.append(["Aliases", f"{', '.join(f'`{alias}`' for alias in self.aliases)}"])
+            data_size_known = {
+                "Tag type": [f"{self.tag_type.get_name(self.tag_type.value)}"],
+                "Uses": [f"{self.uses}"],
+            }
+            if current_page is not None:
+                data_size_known["Message"] = [f"{len(self.value[current_page])}/2048 Letters"]
+            if fields in ["all", "dynamic"]:
+                msg += f"{tabulate(data, tablefmt='rounded_grid', maxcolwidths=[10, 50])}"
+            if fields in ["all", "static"]:
+                msg += f"{tabulate(data_size_known, tablefmt='rounded_grid', headers=['Type', 'Uses', 'Page size'])}"
+
+            if to_do := self.to_do and fields in ["all", "to_do"]:
+                msg += (
+                    f"{to_do}"
+                )
+            return msg
 
     async def update(self) -> None:
         """
