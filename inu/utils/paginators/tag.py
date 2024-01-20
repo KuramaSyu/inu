@@ -85,6 +85,7 @@ class TagHandler(StatelessPaginator):
         self.bot: Inu
         self._edit_mode = edit_mode
         self._tag_link_task: asyncio.Task | None = None
+        self._info_visible = False
 
         super().__init__(
             page_s=self._pages,
@@ -175,16 +176,27 @@ class TagHandler(StatelessPaginator):
                         )
                     )
                 # skip current page and replace it
-            self._pages = pages # [*self._pages[:self._position], *pages, *self._pages[self._position+1:]]
+            self._pages = pages
+        # remove Info field
         self._pages[self._position]._fields = [
             field for field 
             in self._pages[self._position]._fields or [] 
             if not field.name == "Info"
         ]
-        self._pages[self._position].add_field(
-            name="Info",
-            value=str(self.tag or "what's the value? Thats actually a good question")
-        )
+        if self.tag.info_visible:
+            if self.tag:
+                value = f"```{self.tag.to_string(self._position, 'dynamic')}\n{self.tag.to_string(self._position, 'static')}```"
+            else:
+                value = "what's the value? Thats actually a good question"
+            self._pages[self._position].add_field(
+                name="Info",
+                value=value
+            )
+            if self.tag.to_do:
+                self._pages[self._position].add_field(
+                    name="Tag is incomplete:",
+                    value=self.tag.to_string(self._position, "to_do")
+                )
         # updating embed titles
         for page in self._pages:
             page.title = self.tag.name or "Unnamed"
@@ -230,7 +242,7 @@ class TagHandler(StatelessPaginator):
                 if event.interaction.values:
                     custom_id = event.interaction.values[0]
                 else:
-                    custom_id = self.custom_id.custom_id.strip(f"{TAG_MENU_PREFIX}_")
+                    custom_id = self.custom_id.custom_id.removeprefix(f"{TAG_MENU_PREFIX}_")
             except (IndexError, AssertionError):
                 # interaction was no menu interaction
                 return
@@ -266,6 +278,8 @@ class TagHandler(StatelessPaginator):
             elif custom_id == "ask_type":
                 await self.ask_type(get_context(event))
                 return
+            elif custom_id == "info_visible":
+                await self.change_info_visibility()
             elif custom_id.startswith("set_type_"):
                 value = int(custom_id.replace("set_type_", ""))
                 self.tag.tag_type = TagType.from_value(value)
@@ -300,6 +314,9 @@ class TagHandler(StatelessPaginator):
                     log.warning(traceback.format_exc())
                 await self.send(content=self.pages[self._position], update=False)
                 return
+            elif custom_id == "get_tag_link":
+                await self.ctx.respond(f"Here is the link to your tag: ```{self.tag.link}```",)
+                return
             else:
                 if custom_id in self.tag.tag_links:
                     # reaction to this in in self._tag_link_task
@@ -311,12 +328,15 @@ class TagHandler(StatelessPaginator):
                 except Exception:
                     log.error(traceback.format_exc())
             await self.update_page(
-                update_value=custom_id in ["set_value", "extend_value", "add_new_page"], 
+                update_value=custom_id in ["set_value", "extend_value", "add_new_page", "info_visible"], 
                 interaction=i
             )
             
         except Exception:
             self.log.error(traceback.format_exc())
+
+    async def change_info_visibility(self):
+        self.tag.info_visible = not self.tag.info_visible
 
     async def ask_type(self, ctx: Context):
         menu = (
@@ -559,6 +579,24 @@ class TagHandler(StatelessPaginator):
             emoji="⤵️",
             label="send down",
         )
+        rows = add_row_when_filled(rows, min_empty_slots=3)
+        rows[1].add_interactive_button(
+            ButtonStyle.SECONDARY,
+            self._serialize_custom_id("tag_options_set_value"),
+            emoji="📝",
+            label="Edit",
+        )
+        rows[1].add_interactive_button(
+            ButtonStyle.SECONDARY,
+            self._serialize_custom_id("tag_options_extend_value"), # plus emoji: "➕"
+            emoji="➕",
+            label="Append",
+        )
+        rows[1].add_interactive_button(
+            ButtonStyle.PRIMARY if self.tag.info_visible else ButtonStyle.SECONDARY,
+            self._serialize_custom_id("tag_options_info_visible"), # eye emoji: "👁️"
+            label="Info visible" if self.tag.info_visible else "Info hidden",
+        )
         menu = (
             MessageActionRowBuilder()
             .add_text_menu(self._serialize_custom_id("tag_options"))
@@ -575,6 +613,7 @@ class TagHandler(StatelessPaginator):
             .add_option("remove current page", "remove_this_page")
             .add_option("change tag type", "ask_type")
             .add_option("delete tag", "remove_tag")
+            .add_option("Get tag link", "get_tag_link")
             .parent
         )
         
