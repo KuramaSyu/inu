@@ -51,8 +51,9 @@ CREATE TABLE IF NOT EXISTS tags (
     guild_ids BIGINT [],
     aliases TEXT [],
     last_use TIMESTAMP NOT NULL,
-    "type" INT DEFAULT 0 NOT NULL
-
+    "type" INT DEFAULT 0 NOT NULL,
+    uses INT DEFAULT 1 NOT NULL,
+    info_visible BOOLEAN DEFAULT TRUE NOT NULL
 );
 -- supposed to work as cache, to prevent too many requests 429
 CREATE TABLE IF NOT EXISTS myanimelist (
