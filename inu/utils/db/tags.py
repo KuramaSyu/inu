@@ -27,8 +27,9 @@ from hikari.impl import MessageActionRowBuilder
 from numpy import column_stack
 from asyncache import cached
 from cachetools import TTLCache
+from tabulate import tabulate
 
-from ..shortcuts import guild_name_or_id, get_guild_or_channel_id
+from ..shortcuts import guild_name_or_id, get_guild_or_channel_id, user_name_or_id
 from ..language import Human, Multiple
 from core.db import Database, Table
 from core import Inu, BotResponseError, getLogger
@@ -87,6 +88,8 @@ class Tag():
         self.aliases: Set[str] = set()
         self.guild_ids: Set[int] = set()
         self.tag_type: TagType = TagType.NORMAL
+        self.info_visible: bool = True
+        self.uses: int = 0
         if isinstance(owner, hikari.Member):
             self.guild_ids.add(owner.guild_id)
             self._is_local = True
@@ -97,7 +100,7 @@ class Tag():
             else:
                 self.guild_ids.add(0)
                 self._is_local = False
-
+    
     @property
     def name(self):
         return self._name
@@ -213,11 +216,12 @@ class Tag():
 
     async def used_now(self):
         """Adds a asyncio task to update the tag last_use column"""
+        self.uses += 1
         asyncio.create_task(self._wait_used_now())
     
     async def _wait_used_now(self):
         """updates the last_use column and waits until finished"""
-        await TagManager._update_tag_last_use(self.id)
+        await TagManager._update_tag_last_use(self.id, self.uses)
 
     async def save(self):
         """
@@ -238,6 +242,7 @@ class Tag():
                 guild_ids=list(self.guild_ids),
                 aliases=list(self.aliases),
                 tag_type=self.tag_type.value,
+                info_visible=self.info_visible,
             )
         else:
             tag_id = await TagManager.set(
@@ -247,6 +252,7 @@ class Tag():
                 guild_ids=list(self.guild_ids),
                 aliases=list(self.aliases),
                 tag_type=self.tag_type.value,
+                info_visible=self.info_visible,
             )
             self.id = tag_id
         self.is_stored = True
@@ -277,6 +283,8 @@ class Tag():
         new_tag.aliases = set(record["aliases"])
         new_tag.owners = set(record["author_ids"])
         new_tag.tag_type = TagType.from_value(record["type"])
+        new_tag.uses = record["uses"]
+        new_tag.info_visible = record["info_visible"]
         if (
             isinstance(author, hikari.Member)
             and not 0 in record["guild_ids"]
@@ -296,7 +304,7 @@ class Tag():
         return user_id in self.owners
 
     @classmethod
-    async def from_id(cls, tag_id: int, user_id: int, guild_or_channel_id: int = 0) -> Optional[Mapping[str, Any]]:
+    async def from_id(cls, tag_id: int, user_id: int, guild_or_channel_id: int = 0) -> Optional["Tag"]:
         """
         returns a Tag created from the id
 
@@ -355,14 +363,25 @@ class Tag():
         if len(self.value) == 1:
             characters_prefix = ""
             characters_suffix = ""
+        data = [
+            ["Guilds", f"{', '.join(guild_name_or_id(id) for id in self.guild_ids)}"],
+            ["Owners", f"{', '.join(user_name_or_id(o) for o in self.owners)}"],
+            ["Page size", f"{characters_prefix}{' | '.join([str(len(p)) for p in self.value])}{characters_suffix}/2048 Characters"],
+            ["Tag link", f"{self.link}"],
+        ]
+        if self.aliases:
+            data.append(["Aliases", f"{', '.join(f'`{alias}`' for alias in self.aliases)}"])
+        data_size_known = {
+            "Tag type": [f"{self.tag_type.get_name(self.tag_type.value)}"],
+            "Uses": [f"{self.uses}"],
+        }
+
         msg = (
-            f"your tag is: {'local' if self.is_local else 'global'} available\n"
-            f"the owners are: {', '.join(f'<@{o}>' for o in self.owners)}\n"
-            f"available for guilds: {', '.join(f'`{guild_name_or_id(id)}`' for id in self.guild_ids)}\n"
-            f"Characters per page: {characters_prefix}{' | '.join([str(len(p)) for p in self.value])}{characters_suffix}/2048\n"
-            f"tag link: {self.link}\n"
-            f"tag type: {self.tag_type.get_name(self.tag_type.value)}\n"
+            # f"Owners: {', '.join(f'<@{o}>' for o in self.owners)}\n"
+            f"```\n{tabulate(data, tablefmt='rounded_grid', maxcolwidths=[10, 50])}```"
+            f"```\n{tabulate(data_size_known, tablefmt='rounded_grid', headers=['Type', 'Uses'])}```"
         )
+        log.debug(len(msg))
         if self.aliases:
             msg += f"aliases: {', '.join(self.aliases)}\n"
         if to_do := self.to_do:
@@ -492,6 +511,7 @@ class TagManager():
         aliases: List[str],
         check_if_taken: bool = True,
         tag_type: int = 0,
+        info_visible: bool = True,
     ) -> int:
         """
         Creates a db entry for given args.
@@ -522,7 +542,7 @@ class TagManager():
             await cls._do_check_if_taken(key, guild_id, check_if_taken)
         record = await cls.db.row(
             """
-            INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases, last_use, type)
+            INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases, last_use, type, info_visible)
             VALUES($1, $2, $3, $4, $5, $6, $7)
             RETURNING tag_id
             """,
@@ -533,6 +553,7 @@ class TagManager():
             aliases,
             datetime.now(),
             tag_type,
+            info_visible,
         )
         return record["tag_id"]
 
@@ -547,6 +568,7 @@ class TagManager():
         check_if_taken: bool = False,
         aliases: Optional[List[str]] = None,
         tag_type: Optional[int] = None,
+        info_visible: Optional[bool] = None,
     ) -> Mapping[str, Any]:
         """
         Updates a tag by key
@@ -587,6 +609,8 @@ class TagManager():
             new_record["tag_key"] = key
         if tag_type is not None:
             new_record["type"] = tag_type
+        if info_visible is not None:
+            new_record["info_visible"] = info_visible
         await cls.sync_record(new_record)
         return new_record
 
@@ -672,7 +696,7 @@ class TagManager():
         """
         sql = """
             UPDATE tags
-            SET (tag_value, tag_key, author_ids, guild_ids, aliases, last_use, type) = ($1, $2, $3, $4, $5, $6, $8)
+            SET (tag_value, tag_key, author_ids, guild_ids, aliases, last_use, type, info_visible) = ($1, $2, $3, $4, $5, $6, $8, $9)
             WHERE tag_id = $7
             """
         await cls.db.execute(
@@ -684,7 +708,8 @@ class TagManager():
             list(record["aliases"]),
             record["last_use"],
             record["tag_id"],
-            record["type"]
+            record["type"],
+            record["info_visible"],
         )
 
     @classmethod
@@ -796,9 +821,10 @@ class TagManager():
             raise TagIsTakenError(f"Tag `{key}` is local taken")
 
     @classmethod
-    async def _update_tag_last_use(cls, tag_id: int):
+    async def _update_tag_last_use(cls, tag_id: int, tag_uses: int):
         table = Table("tags")
-        await table.update({"last_use": datetime.now()}, {"tag_id": tag_id})
+        
+        await table.update({"last_use": datetime.now(), "uses": tag_uses}, {"tag_id": tag_id})
     
     @classmethod
     async def get_tags(
