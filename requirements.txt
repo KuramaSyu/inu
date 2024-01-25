@@ -1,7 +1,7 @@
 
-hikari-lightbulb==2.3.3
-hikari==2.0.0.dev120
-hikari-miru==3.0.2
+hikari-lightbulb==2.3.5
+hikari==2.0.0.dev122
+hikari-miru==3.3.0
 asyncache==0.1.1
 cachetools==4.2.2
 asyncpraw==7.7.1
