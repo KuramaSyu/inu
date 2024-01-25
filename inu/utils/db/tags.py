@@ -558,7 +558,7 @@ class TagManager():
         record = await cls.db.row(
             """
             INSERT INTO tags(tag_key, tag_value, author_ids, guild_ids, aliases, last_use, type, info_visible)
-            VALUES($1, $2, $3, $4, $5, $6, $7)
+            VALUES($1, $2, $3, $4, $5, $6, $7, $8)
             RETURNING tag_id
             """,
             key,
