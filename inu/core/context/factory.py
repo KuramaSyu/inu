@@ -50,6 +50,8 @@ def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, 
     """
     if isinstance(event, hikari.MessageCreateEvent):
         return RESTContext, kwargs
+    elif isinstance(event, hikari.MessageUpdateEvent):
+        return RESTContext, kwargs
     if isinstance(event, hikari.InteractionCreateEvent):
         interaction = event.interaction
         if isinstance(interaction, hikari.ComponentInteraction):
