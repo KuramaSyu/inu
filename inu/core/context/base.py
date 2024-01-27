@@ -21,7 +21,7 @@ class UniqueContextInstance:
         return cls._get(self)
 
     @classmethod
-    @cached(cache=TTLCache(maxsize=1024, ttl=60))
+    @cached(cache=TTLCache(maxsize=1024, ttl=500))
     def _get(cls, self: InuContextT) -> InuContextT:
         return self
 
