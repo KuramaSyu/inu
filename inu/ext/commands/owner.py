@@ -222,9 +222,16 @@ async def execute(_ctx: Context):
     else:
         kwargs = {"compact": True}
     _, _, pag = message_id_cache.get(ctx.id, (None, None, None))
-    if pag:
+    try:
         await pag.delete_presence()
-    pag = Paginator(page_s=page_s, **kwargs)
+    except Exception:
+        pass
+    pag = Paginator(
+        page_s=page_s, 
+        disable_paginator_when_one_site=False, 
+        timeout=10*60,
+        **kwargs, 
+    )
     message_id_cache[ctx.id] = (execute, ctx, pag)
     await pag.start(ctx)
 
