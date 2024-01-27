@@ -21,7 +21,7 @@ from expiring_dict import ExpiringDict
 from utils import crumble
 from utils import Paginator
 from utils.tree import tree as tree_
-from core import Inu
+from core import Inu, InuContext
 from utils import BaseReminder, HikariReminder, Reminders, Human, Multiple
 from utils.string_crumbler import NumberWordIterator as NWI
 from core import getLogger, get_context
@@ -32,12 +32,25 @@ log = getLogger(__name__)
 plugin = lightbulb.Plugin("Owner", "Commands, which are only accessable to the owner of the bot")
 LOG_LEVELS = {"DEBUG":1, "INFO":2, "WARNING":3, "ERROR":4, "CRITICAL":5}
 all_levels = list(LOG_LEVELS.keys())
-message_id_cache: ExpiringDict = ExpiringDict(ttl=60*10)
+
+# specific for run command - only for response update on message edit
+message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext, Paginator]] = ExpiringDict(ttl=60*10)
 
 
 @plugin.listener(hikari.events.MessageUpdateEvent)
 async def on_message_update(event: hikari.events.MessageUpdateEvent):
-    ...
+    if not event.message_id in message_id_cache:
+        return
+    # I know, that this is a nasty way
+    func, ctx, pag = message_id_cache[event.message_id]
+    ctx._event = event
+    if "run " in ctx._event.message.content:
+        ctx._options = {"code": ctx._event.message.content.split(" ", 1)[-1]}
+    elif "run\n" in ctx._event.message.content:
+        ctx._options = {"code": ctx._event.message.content.split("\n", 1)[-1]}
+    else:
+        return
+    await func(ctx)
 
 
 
@@ -194,15 +207,25 @@ async def execute(_ctx: Context):
     code: your code to execute
     '''
     code = _ctx.options.code
-    ctx = get_context(_ctx.event)
+    if isinstance(_ctx, InuContext):
+        ctx = _ctx
+    else:
+        ctx = get_context(_ctx.event, options={"code": code})
+    ctx._update = True
+    
     await ctx.defer(background=False)
+    ctx._update = True
     page_s, ms = await _execute(ctx, code)
     
     if len(page_s) > 5:
         kwargs = {"disable_search_btn": True, "compact": False}
     else:
         kwargs = {"compact": True}
+    _, _, pag = message_id_cache.get(ctx.id, (None, None, None))
+    if pag:
+        await pag.delete_presence()
     pag = Paginator(page_s=page_s, **kwargs)
+    message_id_cache[ctx.id] = (execute, ctx, pag)
     await pag.start(ctx)
 
 async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> Tuple[List[hikari.Embed], float]:
