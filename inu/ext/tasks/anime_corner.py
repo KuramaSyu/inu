@@ -59,6 +59,7 @@ async def init_method():
     cache_threshold=timedelta(microseconds=1)
 )
 async def method():
+    url = None
     try:
         submission = await Reddit.get_anime_of_the_week_post()
         pag = AnimeCornerPaginator2()
