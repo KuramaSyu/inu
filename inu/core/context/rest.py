@@ -40,8 +40,12 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
 
     @property
     def id(self):
-        """Bare RESTContext can be created at anytime. There is nothing id like"""
-        return None
+        """
+        Bare RESTContext can be created at anytime. But the cache holds one instance 
+        determined by the message id for a specific time. So MessageUpdateEvents will
+        return the exact same instance as MessageCreateEvents.
+        """
+        return self.original_message.id
 
     @property
     def event(self) -> hikari.MessageCreateEvent:
@@ -129,8 +133,10 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             args = args[1:]
         if update and (self._responses or update_message):
             if update_message:
+                kwargs.setdefault("channel_id", self.channel_id)
                 msg = await self.app.rest.edit_message(*args, message=update_message, **kwargs)
-            msg = await self._responses[0].edit(*args, **kwargs)
+            else:
+                msg = await self._responses[0].edit(*args, **kwargs)
         else:
             msg = await self._event.message.respond(*args, **kwargs)
         if delete_after is not None:
