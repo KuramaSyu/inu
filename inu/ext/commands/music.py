@@ -1336,8 +1336,18 @@ class Player:
     async def _resume(self):
         if not bot.cache.get_voice_state(self.guild_id, bot.me.id):
             await self._join()
-        await lavalink.resume(self.ctx.guild_id)
+            await lavalink.resume(self.ctx.guild_id)
+            await self._lavalink_rejoin_workaround()
+        else:
+            await lavalink.resume(self.ctx.guild_id)
         await self.update_node()
+
+    async def re_add_current_track(self):
+        queue = self.player.node.queue 
+        queue.insert(0, queue[0])
+        self.player._node.queue = queue
+        # await lavalink.set_guild_node(self.player.guild_id, self.player._node)
+        await self.update_node(node=self.player._node)
     
     async def _play(
         self, 
@@ -1683,7 +1693,14 @@ class Player:
             await self.ctx.respond(f"Use `/join` first")
             return
 
-
+    async def _lavalink_rejoin_workaround(self):
+        """
+        Readds the first song and skips the current playing.
+        Only when skipping, audio will be heard again.
+        This seems to be a lavalink issue
+        """
+        await self.re_add_current_track()
+        await self._skip(1)
 
 class Queue:
     """
