@@ -409,10 +409,8 @@ class Poll():
             text=f"Poll created by {self.bot.cache.get_member(self.guild_id, self.creator_id).display_name}",
             icon=self.bot.cache.get_member(self.guild_id, self.creator_id).avatar_url,
         )
-
-
-        embed.add_field("Legend", self.legend, inline=False)
-        embed.set_image(self._make_pie_chart())
+        #embed.add_field("Legend", self.legend, inline=False)
+        #embed.set_image(self._make_pie_chart())
         return embed
 
     @property
