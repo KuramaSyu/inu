@@ -56,7 +56,6 @@ async def on_interaction_create(event: hikari.InteractionCreateEvent):
     if ictx.user.id == bot.me.id:
         return
     if not (custom_id := ictx.i.custom_id).startswith("vote_add"):
-        log.debug("customid is not for polls")
         return
     letter = custom_id[-1]
     ctx_message_id = (await ictx.message()).id
@@ -123,36 +122,37 @@ async def make_poll(ctx: context.SlashContext):
         ctx_interaction = interaction
     else:
         ctx_interaction = ctx.interaction
-    responses, interaction, event = await bot.shortcuts.ask_with_modal(
-        modal_title="Creating a poll", 
-        question_s=[
-            "Poll Headline:", "Additional information:", "Poll Options:", 
-            "Poll Duration:", "Anonymous?"
-        ], 
-        placeholder_s=[
-            "How often do you smoke weed?", 
-            "... additional information here if needed ...", 
-            "Yes, every day, sometimes, one time, never had and never will be",
-            "3 hours 30 minutes",
-            "yes [yes|no]"
-        ],
-        interaction=ctx_interaction,
-        is_required_s=[True, False, True, True, True],
-        input_style_s=[
-            TextInputStyle.SHORT, 
-            TextInputStyle.PARAGRAPH,
-            TextInputStyle.PARAGRAPH,
-            TextInputStyle.SHORT,
-            TextInputStyle.SHORT
-        ],
-        max_length_s=[255, 2048, None, None, None],
+    try:
+        responses, interaction, event = await bot.shortcuts.ask_with_modal(
+            modal_title="Creating a poll", 
+            question_s=[
+                "Poll Headline:", "Additional information:", "Poll Options:", 
+                "Poll Duration:", "Anonymous?"
+            ], 
+            placeholder_s=[
+                "How often do you smoke weed?", 
+                "... additional information here if needed ...", 
+                "Yes, every day, sometimes, one time, never had and never will be",
+                "3 hours 30 minutes",
+                "yes [yes|no]"
+            ],
+            interaction=ctx_interaction,
+            is_required_s=[True, False, True, True, True],
+            input_style_s=[
+                TextInputStyle.SHORT, 
+                TextInputStyle.PARAGRAPH,
+                TextInputStyle.PARAGRAPH,
+                TextInputStyle.SHORT,
+                TextInputStyle.SHORT
+            ],
+            max_length_s=[255, 2048, None, None, None],
 
-    )
+        )
+    except asyncio.TimeoutError:
+        return
     ctx._interaction = interaction
     ctx._responded = False
     name, description, options, duration, anonymous = responses
-
-
     
     try:
         dummy_record = {
@@ -166,6 +166,8 @@ async def make_poll(ctx: context.SlashContext):
             "expires": datetime.now() + timedelta(seconds=timeparse(duration)),
             "anonymous": anonymous.lower() == "yes",
             "poll_type": 1,
+            "show_scale": False,
+            "amount_of_choices": -1,
         }
     except Exception:
         raise BotResponseError(
