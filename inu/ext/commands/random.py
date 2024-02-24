@@ -65,8 +65,20 @@ async def number(ctx: Context):
 @lightbulb.command("list", "shuffles a given list", aliases=["l", "facts"])
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def list_(ctx: Context):
+    colors = {
+        "R": hikari.ButtonStyle.DANGER,
+        "G": hikari.ButtonStyle.SUCCESS,
+        "B": hikari.ButtonStyle.PRIMARY,
+        "S": hikari.ButtonStyle.SECONDARY,
+    }
+    def shift_color(color: str, shift: int = 1):
+        colors = ["R", "G", "B", "S"]
+        colors.remove(color)
+        return random.choice(colors)
+    
     SPLIT = ","
-    pacman_index = ctx.options.get("pacman_index", 0)
+    pacman_index = ctx.raw_options.get("pacman_index", 0)
+    color = ctx.raw_options.get("color", "S")
     kwargs = {}
     # no options given
     if not ctx.options.list and not ctx.options["tag-with-list"]:
@@ -85,11 +97,28 @@ async def list_(ctx: Context):
     elif ctx.options["tag-with-list"]:
         tag = await Tag.fetch_tag_from_link(f"tag://{ctx.options['tag-with-list']}.local", ctx.guild_id)
         fact_list = ("".join(tag.value)).split(SPLIT)
+        length = 15
+        pacman_index += 3
+        if pacman_index > 15:
+            pacman_index -= 15
+            color = shift_color(color, 1)
         kwargs["components"] = [
             MessageActionRowBuilder()
-            .add_interactive_button(hikari.ButtonStyle.SECONDARY, f"suffle-{ctx.options['tag-with-list']}", emoji="🎲")
+            .add_interactive_button(
+                colors.get(color, hikari.ButtonStyle.SECONDARY), 
+                f"suffle-{ctx.options['tag-with-list']};;{pacman_index};;{color}", 
+                emoji="🎲"
+            )
         ]
-        kwargs["components"] = add_pacman_button(kwargs["components"], index=pacman_index)
+        
+        kwargs["components"] = add_pacman_button(
+            kwargs["components"], 
+            index=pacman_index, 
+            length=length, 
+            short=True, 
+            color=colors.get(color, hikari.ButtonStyle.SECONDARY),
+            increment=3
+        )
         
     # list given
     else:
@@ -143,23 +172,23 @@ async def list_(ctx: Context):
     if not ctx.options["tag-with-list"]:
         return
     
-    for _ in range(4):
-        pacman_index += 1
-        kwargs["components"] = (
-            MessageActionRowBuilder()
-            .add_interactive_button(
-                hikari.ButtonStyle.SECONDARY, 
-                f"suffle-{ctx.options['tag-with-list']};;{pacman_index}", 
-                emoji="🎲"
-            )
-        )
-        kwargs["components"] = add_pacman_button(kwargs["components"], index=pacman_index)
-        await asyncio.sleep(1)
-        await msg.edit(components=kwargs["components"])
+    # for _ in range(8):
+    #     pacman_index += 1
+    #     kwargs["components"] = ([
+    #         MessageActionRowBuilder()
+    #         .add_interactive_button(
+    #             hikari.ButtonStyle.SECONDARY, 
+    #             f"suffle-{ctx.options['tag-with-list']};;{pacman_index}", 
+    #             emoji="🎲"
+    #         )
+    #     ])
+    #     kwargs["components"] = add_pacman_button(kwargs["components"], index=pacman_index, legth=15, short=True)
+    #     await msg.edit(components=kwargs["components"])
     
 
 @plugin.listener(hikari.InteractionCreateEvent)
 async def on_interaction(event: hikari.InteractionCreateEvent):
+    color = "S"
     TAG_PACMAN_SPLIT = ";;"
     pacman_index = 0
     if not isinstance(event.interaction, hikari.ComponentInteraction):
@@ -168,10 +197,10 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
         return
     tag_name = event.interaction.custom_id.removeprefix("suffle-")
     if TAG_PACMAN_SPLIT in tag_name:
-        tag_name, pacman_index = tag_name.split(TAG_PACMAN_SPLIT)
+        tag_name, pacman_index, color = tag_name.split(TAG_PACMAN_SPLIT)
     ctx = get_context(
         event, 
-        options={"tag-with-list": tag_name, "list": None, "pacman_index": int(pacman_index)}
+        options={"tag-with-list": tag_name, "list": None, "pacman_index": int(pacman_index), "color": color}
     )
     ctx._update = True
     await list_.callback(ctx)
