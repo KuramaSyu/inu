@@ -102,7 +102,6 @@ async def list_(ctx: Context):
         if pacman_index > length:
             pacman_index = pacman_index % length
             color = shift_color(color, 1)
-        print(color, pacman_index)
         kwargs["components"] = [
             MessageActionRowBuilder()
             .add_interactive_button(
