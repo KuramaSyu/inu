@@ -99,7 +99,7 @@ async def list_(ctx: Context):
         fact_list = ("".join(tag.value)).split(SPLIT)
         length = 16
         pacman_index += 3
-        if pacman_index > length:
+        if pacman_index >= length:
             pacman_index = pacman_index % length
             color = shift_color(color, 1)
         kwargs["components"] = [
