@@ -21,7 +21,7 @@ from io import BytesIO
 
 from .tags import tag_name_auto_complete
 from core import getLogger, Inu, get_context
-from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button
+from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button, add_pacman_button
 
 log = getLogger(__name__)
 
@@ -66,6 +66,7 @@ async def number(ctx: Context):
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
 async def list_(ctx: Context):
     SPLIT = ","
+    pacman_index = ctx.options.get("pacman_index", 0)
     kwargs = {}
     # no options given
     if not ctx.options.list and not ctx.options["tag-with-list"]:
@@ -88,7 +89,8 @@ async def list_(ctx: Context):
             MessageActionRowBuilder()
             .add_interactive_button(hikari.ButtonStyle.SECONDARY, f"suffle-{ctx.options['tag-with-list']}", emoji="🎲")
         ]
-        kwargs["components"] = add_time_button(kwargs["components"])
+        kwargs["components"] = add_pacman_button(kwargs["components"], index=pacman_index)
+        
     # list given
     else:
         fact_list = ctx.options.list.split(SPLIT)
@@ -134,19 +136,43 @@ async def list_(ctx: Context):
         embed = hikari.Embed()
         for part in crumble(facts_as_str, 1024):
             embed.add_field("‌‌ ", part)
-        await ctx.respond(embed=embed, **kwargs)
+        msg = await ctx.respond(embed=embed, **kwargs)
     else:
-        await ctx.respond(facts_as_str, **kwargs)
+        msg = await ctx.respond(facts_as_str, **kwargs)
+
+    if not ctx.options["tag-with-list"]:
+        return
+    
+    for _ in range(4):
+        pacman_index += 1
+        kwargs["components"] = (
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                f"suffle-{ctx.options['tag-with-list']};;{pacman_index}", 
+                emoji="🎲"
+            )
+        )
+        kwargs["components"] = add_pacman_button(kwargs["components"], index=pacman_index)
+        await asyncio.sleep(1)
+        await msg.edit(components=kwargs["components"])
     
 
 @plugin.listener(hikari.InteractionCreateEvent)
 async def on_interaction(event: hikari.InteractionCreateEvent):
+    TAG_PACMAN_SPLIT = ";;"
+    pacman_index = 0
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     if not event.interaction.custom_id.startswith("suffle-"):
         return
     tag_name = event.interaction.custom_id.removeprefix("suffle-")
-    ctx = get_context(event, options={"tag-with-list": tag_name, "list": None})
+    if TAG_PACMAN_SPLIT in tag_name:
+        tag_name, pacman_index = tag_name.split(TAG_PACMAN_SPLIT)
+    ctx = get_context(
+        event, 
+        options={"tag-with-list": tag_name, "list": None, "pacman_index": int(pacman_index)}
+    )
     ctx._update = True
     await list_.callback(ctx)
 
@@ -232,6 +258,8 @@ async def dice(ctx: Context) -> None:
         components=build_components(False),
     )
     return
+
+
 
 @plugin.listener(hikari.InteractionCreateEvent)
 async def on_interaction(event: hikari.InteractionCreateEvent):
