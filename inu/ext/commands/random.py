@@ -71,14 +71,14 @@ async def list_(ctx: Context):
         "B": hikari.ButtonStyle.PRIMARY,
         "S": hikari.ButtonStyle.SECONDARY,
     }
-    def shift_color(color: str, shift: int = 1):
+    def shift_color(color: str, shift: int = 1) -> str:
         colors = ["R", "G", "B", "S"]
         colors.remove(color)
         return random.choice(colors)
     
     SPLIT = ","
     pacman_index = ctx.raw_options.get("pacman_index", 0)
-    color = ctx.raw_options.get("color", "S")
+    color: str = ctx.raw_options.get("color", "S")
     kwargs = {}
     # no options given
     if not ctx.options.list and not ctx.options["tag-with-list"]:
@@ -97,15 +97,16 @@ async def list_(ctx: Context):
     elif ctx.options["tag-with-list"]:
         tag = await Tag.fetch_tag_from_link(f"tag://{ctx.options['tag-with-list']}.local", ctx.guild_id)
         fact_list = ("".join(tag.value)).split(SPLIT)
-        length = 15
+        length = 16
         pacman_index += 3
-        if pacman_index > 15:
-            pacman_index -= 15
+        if pacman_index > length:
+            pacman_index = pacman_index % length
             color = shift_color(color, 1)
+        print(color, pacman_index)
         kwargs["components"] = [
             MessageActionRowBuilder()
             .add_interactive_button(
-                colors.get(color, hikari.ButtonStyle.SECONDARY), 
+                colors.get(color), 
                 f"suffle-{ctx.options['tag-with-list']};;{pacman_index};;{color}", 
                 emoji="🎲"
             )
@@ -116,8 +117,7 @@ async def list_(ctx: Context):
             index=pacman_index, 
             length=length, 
             short=True, 
-            color=colors.get(color, hikari.ButtonStyle.SECONDARY),
-            increment=3
+            color=colors.get(color),
         )
         
     # list given
@@ -168,22 +168,6 @@ async def list_(ctx: Context):
         msg = await ctx.respond(embed=embed, **kwargs)
     else:
         msg = await ctx.respond(facts_as_str, **kwargs)
-
-    if not ctx.options["tag-with-list"]:
-        return
-    
-    # for _ in range(8):
-    #     pacman_index += 1
-    #     kwargs["components"] = ([
-    #         MessageActionRowBuilder()
-    #         .add_interactive_button(
-    #             hikari.ButtonStyle.SECONDARY, 
-    #             f"suffle-{ctx.options['tag-with-list']};;{pacman_index}", 
-    #             emoji="🎲"
-    #         )
-    #     ])
-    #     kwargs["components"] = add_pacman_button(kwargs["components"], index=pacman_index, legth=15, short=True)
-    #     await msg.edit(components=kwargs["components"])
     
 
 @plugin.listener(hikari.InteractionCreateEvent)
