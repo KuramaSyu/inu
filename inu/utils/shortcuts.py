@@ -5,6 +5,7 @@ from hikari.impl import MessageActionRowBuilder
 import aiohttp
 
 from core import Inu
+from progress_bar import pacman
 
 # Pictures
 MAGIC_ERROR_MONSTER = "https://media.discordapp.net/attachments/818871393369718824/1106177322069012542/error-monster-1.png?width=1308&height=946"
@@ -135,5 +136,19 @@ def add_time_button(row: List[MessageActionRowBuilder], time: datetime = None) -
             label=f"⏱️ {time.minute}min {time.second}s",
             is_disabled=True,
         ) # stopwatch emoji: 
+    return row
+
+def add_pacman_button(row: List[MessageActionRowBuilder], index: int, legth: int = 15) -> List[MessageActionRowBuilder]:
+    """
+    Adds a pacman progressbar button to the last actionrowbuilder or to a new one if last one is full
+    """
+    pac = pacman(index, legth)
+    row = add_row_when_filled(row)
+    row[-1].add_interactive_button(
+            hikari.ButtonStyle.SECONDARY,
+            f"pacman",
+            label=pac.__next__(),
+            is_disabled=True,
+        )
     return row
     
