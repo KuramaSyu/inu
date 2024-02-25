@@ -235,7 +235,7 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
     try:
         name = await _tag_add(ctx)
     except BotResponseError as e:
-        await ctx.respond(e.context_kwargs)
+        await ctx.respond(**e.context_kwargs)
     if not name:
         return
     
