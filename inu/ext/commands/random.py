@@ -22,7 +22,7 @@ from io import BytesIO
 from expiring_dict import ExpiringDict
 
 from .tags import tag_name_auto_complete, _tag_add
-from core import getLogger, Inu, get_context
+from core import getLogger, Inu, get_context, BotResponseError
 from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button, add_pacman_button
 
 
@@ -232,7 +232,10 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
             event, 
             options={"name": None, "value": ", ".join(fact_list)}
     )
-    name = await _tag_add(ctx)
+    try:
+        name = await _tag_add(ctx)
+    except BotResponseError as e:
+        await ctx.respond(e.context_kwargs)
     if not name:
         return
     
