@@ -232,6 +232,7 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
             event, 
             options={"name": None, "value": ", ".join(fact_list)}
     )
+    name = None
     try:
         name = await _tag_add(ctx)
     except BotResponseError as e:
