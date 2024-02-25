@@ -38,7 +38,7 @@ log = getLogger(__name__)
 
 
 TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{}]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
-
+TAG_NOT_ALLOWED_REGEX = r"[^A-Za-z0-9\/\-,<>*()[\]{}\\\s\"\'\(\)]+"
 
 
 class TagType(Enum):
@@ -112,8 +112,9 @@ class Tag():
             raise RuntimeError("Can't store a tag with a name bigger than 256 chars")
         match = re.match(TAG_REGEX, f"tag://{value}.local")
         if not match:
-            invalid_chars = re.sub(TAG_REGEX, '', f"tag://{value}.local")
-            raise RuntimeError(f"Some characters are not allowed in the tag name: `{invalid_chars}`")
+            # get all invalid characters 
+            unallowed_characters = re.findall(TAG_NOT_ALLOWED_REGEX, value)
+            raise RuntimeError(f"Some characters are not allowed in the tag name: `{unallowed_characters}`")
         self._name = value
 
     @property
