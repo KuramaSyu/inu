@@ -7,6 +7,7 @@ import traceback
 import typing
 from typing import *
 import logging
+from copy import deepcopy
 
 import hikari
 from hikari.impl import MessageActionRowBuilder
@@ -18,10 +19,12 @@ from lightbulb import events
 from lightbulb.commands import OptionModifier as OM
 from PIL import Image, ImageEnhance
 from io import BytesIO
+from expiring_dict import ExpiringDict
 
-from .tags import tag_name_auto_complete
+from .tags import tag_name_auto_complete, _tag_add
 from core import getLogger, Inu, get_context
 from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button, add_pacman_button
+
 
 log = getLogger(__name__)
 
@@ -58,7 +61,10 @@ async def number(ctx: Context):
     # convert number to string
     emoji_number = "".join([emoji_numbers[int(i)] for i in str(number)])
     await ctx.respond(f"{emoji_number}")
+    
 
+
+user_list_cache: ExpiringDict[int, List[str]] = ExpiringDict(ttl=60*60)
 @rnd.child
 @lightbulb.option("tag-with-list", "a tag which contains the list", autocomplete=True, default=None)
 @lightbulb.option("list", 'seperate with comma -- eg: apple, kiwi, tree, stone', modifier=OM.CONSUME_REST, default=None)
@@ -80,6 +86,7 @@ async def list_(ctx: Context):
     pacman_index = ctx.raw_options.get("pacman_index", 0)
     color: str = ctx.raw_options.get("color", "S")
     kwargs = {}
+    
     # no options given
     if not ctx.options.list and not ctx.options["tag-with-list"]:
         try:
@@ -110,7 +117,6 @@ async def list_(ctx: Context):
                 emoji="🎲"
             )
         ]
-        
         kwargs["components"] = add_pacman_button(
             kwargs["components"], 
             index=pacman_index, 
@@ -118,16 +124,34 @@ async def list_(ctx: Context):
             short=True, 
             color=colors.get(color),
         )
-        
     # list given
     else:
         fact_list = ctx.options.list.split(SPLIT)
+        
     if fact_list[-1] in ["", " "]:
         fact_list.pop(-1)
+        
+    # clean list
     fact_list = [fact.strip() for fact in fact_list]
+    
+    # add component to save list
+    if not ctx.options["tag-with-list"]:
+        rand_int = random.randint(0, 10**8)
+        user_list_cache[rand_int] = deepcopy(fact_list)
+        kwargs["components"] = ([
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                f"add-rnd-list-{rand_int}",
+                emoji="➕",
+                label="Add list as tag"
+            )
+        ])   
+    # shuffle list
     random.shuffle(fact_list)
     random.shuffle(fact_list)
-
+    rand_int: int | None = None
+    
     longest_fact = max([len(fact) for fact in fact_list])
     fact_list = [f"{fact:^{longest_fact}}" for fact in fact_list]
 
@@ -164,9 +188,10 @@ async def list_(ctx: Context):
         embed = hikari.Embed()
         for part in crumble(facts_as_str, 1024):
             embed.add_field("‌‌ ", part)
-        msg = await ctx.respond(embed=embed, **kwargs)
+        await ctx.respond(embed=embed, **kwargs)
     else:
-        msg = await ctx.respond(facts_as_str, **kwargs)
+        await ctx.respond(facts_as_str, **kwargs)
+    
     
 
 @plugin.listener(hikari.InteractionCreateEvent)
@@ -187,6 +212,46 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
     )
     ctx._update = True
     await list_.callback(ctx)
+    
+    
+
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_interaction(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    if not event.interaction.custom_id.startswith("add-rnd-list-"):
+        return
+    rand_int = int(event.interaction.custom_id.removeprefix("add-rnd-list-"))
+    fact_list = user_list_cache.get(rand_int)
+    
+    if not fact_list:
+        ctx = get_context(event)
+        await ctx.respond("Your list is too old. Please create a new one.")
+        return 
+    ctx = get_context(
+            event, 
+            options={"name": None, "value": ", ".join(fact_list)}
+    )
+    name = await _tag_add(ctx)
+    if not name:
+        return
+    
+    components = add_pacman_button(
+        row = [
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                f"suffle-{name};;3;;S",
+                emoji="🎲"
+            )
+        ],
+        index = 3
+    )
+    await ctx.respond(
+        f"Your list is now saved as tag: {name}  --- and you can shuffle now",
+        components=components
+    )
+
 
 
 def randomize_colors(input_path):

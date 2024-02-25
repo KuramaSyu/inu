@@ -377,7 +377,7 @@ async def tag(ctx: Context):
 @lightbulb.option("name", "the name of your tag", required=False) 
 @lightbulb.command("add", "add a new tag")
 @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
+async def _tag_add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
     """Add a tag to my storage
     
     Args:
@@ -386,6 +386,8 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
+    await _tag_add(ctx)
+async def _tag_add(ctx: Context) -> str | None:
     interaction = ctx.interaction
 
     # get args with command
@@ -401,7 +403,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
                 interaction=ctx.interaction,
                 input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
                 placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"],
-                pre_value_s=[ctx.options.name or "", ""],
+                pre_value_s=[ctx.options.name or "", ctx.options.value or ""],
             )
         except asyncio.TimeoutError:
             return
@@ -421,7 +423,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         raise BotResponseError("Your tag is already taken", ephemeral=True)
     except RuntimeError as e:
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
-    return await ctx.respond(
+    await ctx.respond(
         f"Your tag `{name}` has been added to my storage",
         component=MessageActionRowBuilder().add_interactive_button(
             ButtonStyle.SECONDARY, 
@@ -429,6 +431,7 @@ async def add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
             label=tag.name
         )
     )
+    return name
 
 
 
