@@ -114,7 +114,7 @@ class Tag():
         if not match:
             # get all invalid characters 
             unallowed_characters = re.findall(TAG_NOT_ALLOWED_REGEX, value)
-            raise RuntimeError(f"Some characters are not allowed in the tag name: `{unallowed_characters}`")
+            raise RuntimeError(f"Some characters are not allowed in the tag name (`{value}`): `{unallowed_characters}`")
         self._name = value
 
     @property
