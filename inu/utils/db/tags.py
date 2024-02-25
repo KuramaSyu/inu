@@ -37,7 +37,7 @@ from core import Inu, BotResponseError, getLogger
 log = getLogger(__name__)
 
 
-TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{}]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
+TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{} ]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
 TAG_NOT_ALLOWED_REGEX = r"[^A-Za-z0-9\/\-,<>*()[\]{}\\\s\"\'\(\)]+"
 
 
@@ -114,7 +114,7 @@ class Tag():
         if not match:
             # get all invalid characters 
             unallowed_characters = re.findall(TAG_NOT_ALLOWED_REGEX, value)
-            raise RuntimeError(f"Some characters are not allowed in the tag name (`{value}`): `{unallowed_characters}`")
+            raise RuntimeError(f"Some characters are not allowed in `{value}`: `{unallowed_characters}`")
         self._name = value
 
     @property
