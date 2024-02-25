@@ -110,8 +110,10 @@ class Tag():
         
         if len(str(value)) > 256:
             raise RuntimeError("Can't store a tag with a name bigger than 256 chars")
-        if not re.match(TAG_REGEX, f"tag://{value}.local"):
-            raise RuntimeError("Some characters are not allowed in the tag name")
+        match = re.match(TAG_REGEX, f"tag://{value}.local")
+        if not match:
+            invalid_chars = re.sub(TAG_REGEX, '', f"tag://{value}.local")
+            raise RuntimeError(f"Some characters are not allowed in the tag name: `{invalid_chars}`")
         self._name = value
 
     @property
