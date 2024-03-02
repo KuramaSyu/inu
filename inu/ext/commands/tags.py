@@ -21,7 +21,7 @@ from fuzzywuzzy import fuzz
 
 from core import Inu, Table, BotResponseError
 from utils import TagIsTakenError, TagManager, TagScope, Human, get_guild_or_channel_id, guild_name_or_id, TagType
-from utils import crumble
+from utils import crumble, ListParser
 from utils.colors import Colors
 from utils import Paginator, StatelessPaginator
 from utils.paginators.base import navigation_row
@@ -46,11 +46,18 @@ class CheckForTagType:
     @property
     def is_media(self) -> bool:
         """Check for Youtube and Soundcloud links"""
-        return bool(re.match(r"(https?://)?(www\.)?(youtube|soundcloud)\.com", self.queue[0]))
+        return bool(re.match(r"(https?://)?(www|music)?(\.)?(youtube|soundcloud)\.com", self.queue))
+    
+    @property
+    def is_list(self) -> bool:
+        return ListParser.check_if_list(self.queue)
+        
 
     def check(self) -> Optional[TagType]:
         if self.is_media:
             return TagType.MEDIA
+        if self.is_list:
+            return TagType.LIST
         return None
     
     def _get_question(self) -> str:
@@ -59,6 +66,8 @@ class CheckForTagType:
             raise RuntimeError("No type found which could match the tag value.")
         if tag_type == TagType.MEDIA:
             return "Your tag contains a Youtube or Soundcloud link. Do you want to use this tag for `/play`?"
+        if tag_type == TagType.LIST:
+            return "Your tag contains a list. Do you want to use this tag for `/random list`?"
         raise RuntimeError(f"TagType not implemented to ask for: {tag_type}")
 
     async def ask(self, ctx: InuContext, tag: Tag) -> Optional[InuContext]:
@@ -442,7 +451,9 @@ async def _tag_add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
     await _tag_add(get_context(ctx.event, options=ctx.raw_options))
-async def _tag_add(ctx: Context) -> str | None:
+    
+    
+async def _tag_add(ctx: Context, tag_type: Optional[TagType] = None) -> str | None:
     interaction = ctx.interaction
 
     # get args with command
@@ -473,14 +484,16 @@ async def _tag_add(ctx: Context) -> str | None:
         )
         tag.name = name
         tag.value = [value]
+        if tag_type is not None:
+            tag.tag_type = tag_type
         await tag.save()
     except TagIsTakenError:
         raise BotResponseError("Your tag is already taken", ephemeral=True)
     except RuntimeError as e:
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
 
-    check = CheckForTagType(tag.value)
-    if check.check() is not None:
+    check = CheckForTagType("\n".join(tag.value))
+    if check.check() is not None and not tag_type:
         try:
             maybe_ctx = await check.ask(ctx, tag)
             if maybe_ctx is not None:
