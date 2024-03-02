@@ -20,14 +20,14 @@ import asyncpg
 from fuzzywuzzy import fuzz
 
 from core import Inu, Table, BotResponseError
-from utils import TagIsTakenError, TagManager, TagScope, Human, get_guild_or_channel_id, guild_name_or_id
+from utils import TagIsTakenError, TagManager, TagScope, Human, get_guild_or_channel_id, guild_name_or_id, TagType
 from utils import crumble
 from utils.colors import Colors
 from utils import Paginator, StatelessPaginator
 from utils.paginators.base import navigation_row
 from utils.paginators.tag import TagHandler, Tag
 
-from core import getLogger, BotResponseError, InteractionContext, get_context
+from core import getLogger, BotResponseError, InteractionContext, get_context, InuContext
 
 log = getLogger(__name__)
 
@@ -36,6 +36,61 @@ tags = lightbulb.Plugin("Tags", "Commands all arround tags")
 bot: Inu
 EPHEMERAL = {"flags": hikari.MessageFlag.EPHEMERAL}
 
+
+
+class CheckForTagType:
+    """Checks for a Tag Type and applies it"""
+    def __init__(self, tag_value: str):
+        self.queue = tag_value
+
+    @property
+    def is_media(self) -> bool:
+        """Check for Youtube and Soundcloud links"""
+        return bool(re.match(r"(https?://)?(www\.)?(youtube|soundcloud)\.com", self.queue[0]))
+
+    def check(self) -> Optional[TagType]:
+        if self.is_media:
+            return TagType.MEDIA
+        return None
+    
+    def _get_question(self) -> str:
+        tag_type = self.check()
+        if tag_type is None:
+            raise RuntimeError("No type found which could match the tag value.")
+        if tag_type == TagType.MEDIA:
+            return "Your tag contains a Youtube or Soundcloud link. Do you want to use this tag for `/play`?"
+        raise RuntimeError(f"TagType not implemented to ask for: {tag_type}")
+
+    async def ask(self, ctx: InuContext, tag: Tag) -> Optional[InuContext]:
+        """
+        Ask, if the type should be applied.
+        If yes, then type is applied.
+
+        Args:
+        -----
+        ctx : InuContext
+            The context, under which the question will be asked
+
+        Returns:
+        --------
+        InuContext | None
+            The context, if the type should be applied. None, if not.
+    
+        Raises:
+        -------
+        TimeoutError:
+            If the user doesn't respond in 30 minutes
+        """
+        question = self._get_question()
+        answer, ctx = await ctx.ask(
+            question=question, 
+            button_labels=["Yes", "No"],
+            timeout=30*60
+        )
+        if answer == "Yes":
+            tag.type = self.check()
+            return ctx
+        return ctx
 
 
 class TagPaginator(StatelessPaginator):
@@ -259,7 +314,6 @@ def records_to_embed(
     value_length: int = 80, 
     tags_per_page: int = 15
 ) -> List[hikari.Embed]:
-    desc = ""
     embeds = [hikari.Embed(title="tag_overview")]
     for i, record in enumerate(records):
         embeds[-1].add_field(record["tag_key"], f'```{textwrap.shorten(", ".join(record["tag_value"]).replace("```", ""), value_length)}```', inline=False)
@@ -423,6 +477,15 @@ async def _tag_add(ctx: Context) -> str | None:
         raise BotResponseError("Your tag is already taken", ephemeral=True)
     except RuntimeError as e:
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
+
+    check = CheckForTagType(tag.value)
+    if check.check() is not None:
+        try:
+            maybe_ctx = await check.ask(ctx, tag)
+            if maybe_ctx is not None:
+                ctx = maybe_ctx
+        except asyncio.TimeoutError:
+            pass
     await ctx.respond(
         f"Your tag `{name}` has been added to my storage",
         component=MessageActionRowBuilder().add_interactive_button(
