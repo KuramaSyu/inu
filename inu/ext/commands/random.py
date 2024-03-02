@@ -23,7 +23,7 @@ from expiring_dict import ExpiringDict
 
 from .tags import tag_name_auto_complete, _tag_add
 from core import getLogger, Inu, get_context, BotResponseError
-from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button, add_pacman_button
+from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button, add_pacman_button, ListParser, TagType
 
 
 log = getLogger(__name__)
@@ -99,11 +99,11 @@ async def list_(ctx: Context):
         except Exception:
             return
         ctx._interaction = i
-        fact_list: List[str] = facts.split(SPLIT)
+        list_text: List[str] = facts
     # tag given
     elif ctx.options["tag-with-list"]:
         tag = await Tag.fetch_tag_from_link(f"tag://{ctx.options['tag-with-list']}.local", ctx.guild_id)
-        fact_list = ("".join(tag.value)).split(SPLIT)
+        list_text = ("".join(tag.value))
         length = 16
         pacman_index += 3
         if pacman_index >= length:
@@ -126,13 +126,10 @@ async def list_(ctx: Context):
         )
     # list given
     else:
-        fact_list = ctx.options.list.split(SPLIT)
-        
-    if fact_list[-1] in ["", " "]:
-        fact_list.pop(-1)
+        list_text = ctx.options.list
         
     # clean list
-    fact_list = [fact.strip() for fact in fact_list]
+    fact_list = ListParser().parse(list_text)
     
     # add component to save list
     if not ctx.options["tag-with-list"]:
@@ -234,7 +231,7 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
     )
     name = None
     try:
-        name = await _tag_add(ctx)
+        name = await _tag_add(ctx, TagType.LIST)
     except BotResponseError as e:
         await ctx.respond(**e.context_kwargs)
     if not name:
