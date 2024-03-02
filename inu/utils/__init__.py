@@ -5,6 +5,7 @@ from .colors import Colors
 from .string_crumbler import crumble, StringCutter, WordIterator
 from .language import Human, Multiple, get_date_format_by_timedelta
 from .string_calculator import NumericStringParser, calc
+from .list_parser import ListParser
 
 from .grid import Grid
 from .rest import *
