@@ -83,12 +83,13 @@ class CheckForTagType:
         """
         question = self._get_question()
         answer, ctx = await ctx.ask(
-            question=question, 
+            title=question, 
             button_labels=["Yes", "No"],
             timeout=30*60
         )
         if answer == "Yes":
-            tag.type = self.check()
+            tag.tag_type = self.check()
+            await tag.save()
             return ctx
         return ctx
 
@@ -440,7 +441,7 @@ async def _tag_add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
         NOTE: the key is the first word you type in! Not more and not less!!!
         - value: that what the tag should return when you type in the name. The value is all after the fist word
     """
-    await _tag_add(ctx)
+    await _tag_add(get_context(ctx.event, options=ctx.raw_options))
 async def _tag_add(ctx: Context) -> str | None:
     interaction = ctx.interaction
 
