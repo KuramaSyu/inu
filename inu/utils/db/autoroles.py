@@ -372,7 +372,6 @@ class AutoroleBuilder:
                 event: AutoroleEvent = self.build()
                 await event.initial_call()
                 value = await event.add_to_db()
-                print(value)
                 self.id = value[0]["id"]
                 return True
         
