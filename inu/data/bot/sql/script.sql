@@ -187,21 +187,22 @@ CREATE TABLE IF NOT EXISTS facts (
 
 CREATE SCHEMA IF NOT EXISTS autoroles;
 
-CREATE TABLE IF NOT EXISTS autoroles.guild_roles (
+CREATE TABLE IF NOT EXISTS autoroles.events (
     id SERIAL PRIMARY KEY,
     guild_id BIGINT NOT NULL,
     event_id BIGINT NOT NULL,
     duration INTERVAL,
-    role_id BIGINT NOT NULL
+    role_id BIGINT NOT NULL,
+    CONSTRAINT unique_guild_event_role UNIQUE (guild_id, event_id, role_id)
 );
-CREATE TABLE IF NOT EXISTS autoroles.user_roles (
+CREATE TABLE IF NOT EXISTS autoroles.instances (
     id SERIAL PRIMARY KEY,
-    guild_id BIGINT NOT NULL,
     guild_role BIGINT NOT NULL
-        REFERENCES autoroles.guild_roles(id) 
+        REFERENCES autoroles.events(id) 
         ON DELETE CASCADE,
     expires_at TIMESTAMP,
-    user_id BIGINT NOT NULL
+    user_id BIGINT NOT NULL,
+    CONSTRAINT unique_user_role_guild UNIQUE (guild_role, user_id)
 );
 
 CREATE EXTENSION IF NOT EXISTS pg_trgm;
