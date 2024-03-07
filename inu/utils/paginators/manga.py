@@ -5,7 +5,6 @@ from pprint import pprint
 import random
 import traceback
 from pprint import pformat
-from async_timeout import asyncio
 
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed

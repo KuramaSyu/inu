@@ -1,4 +1,3 @@
-import imp
 import json
 from pprint import pformat
 from shutil import which
