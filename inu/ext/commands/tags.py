@@ -453,7 +453,7 @@ async def _tag_add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
     await _tag_add(get_context(ctx.event, options=ctx.raw_options))
     
     
-async def _tag_add(ctx: Context, tag_type: Optional[TagType] = None) -> str | None:
+async def _tag_add(ctx: InuContext, tag_type: Optional[TagType] = None) -> str | None:
     interaction = ctx.interaction
 
     # get args with command
@@ -463,10 +463,9 @@ async def _tag_add(ctx: Context, tag_type: Optional[TagType] = None) -> str | No
     # get args with modal
     except:
         try:
-            answers, interaction, event = await bot.shortcuts.ask_with_modal(
+            answers, ctx = await ctx.ask_with_modal(
                 "Tag", 
                 ["Name:", "Value:"], 
-                interaction=ctx.interaction,
                 input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
                 placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"],
                 pre_value_s=[ctx.options.name or "", ctx.options.value or ""],
@@ -474,8 +473,6 @@ async def _tag_add(ctx: Context, tag_type: Optional[TagType] = None) -> str | No
         except asyncio.TimeoutError:
             return
         name, value = answers
-        ctx._interaction = interaction
-        ctx._responded = False
         name = name.strip()
     try:
         tag = Tag(
