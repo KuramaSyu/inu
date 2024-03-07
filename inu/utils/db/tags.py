@@ -37,7 +37,7 @@ from core import Inu, BotResponseError, getLogger
 log = getLogger(__name__)
 
 
-TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{} ]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
+TAG_REGEX = r"tag:\/{2}(?P<tag_name>(?:\w+[\/\-_,<>*()[{}. ]*\\*\[*\)*\"*\'*\s*)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"
 TAG_NOT_ALLOWED_REGEX = r"[^A-Za-z0-9\/\-,<>*()[\]{}\\\s\"\'\(\)]+"
 
 
@@ -264,6 +264,7 @@ class Tag():
     async def from_record(cls, record: Mapping[str, Any], author: hikari.User = None, db_checks: bool = True) -> "Tag":
         """
         loads an existing tag in form of a dict like object into self.tag (`Tag`)
+        
         Args:
         -----
         record: Mapping[str, Any]
