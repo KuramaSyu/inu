@@ -29,10 +29,10 @@ RUN wget -O qalculate.tar.xz https://github.com/Qalculate/qalculate-gtk/releases
 RUN useradd -ms /bin/bash inu
 
 # Create and set permissions for /home/inu/app directory
-RUN mkdir /home/inu/app \
-    && chown -R inu:inu /home/inu/app
+RUN mkdir /home/inu \
+    && chown -R inu:inu /home/inu
 USER inu
-WORKDIR /home/inu/home/inu/app
+WORKDIR /home/inu
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
 ENV PATH="/home/inu/.cargo/bin:${PATH}"
 
