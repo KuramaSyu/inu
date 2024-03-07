@@ -8,9 +8,12 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 from hikari import Member
 
-from core import Table, Inu
+from core import Table, Inu, getLogger
 
-autorole_table = Table("autoroles")
+log = getLogger(__name__)
+
+autorole_table = Table("autoroles.events")
+autorole_user_table = Table("autoroles.instances")
 AnyAutoroleEvent = TypeVar('AnyAutoroleEvent', bound="AutoroleEvent", covariant=True)
 
 
@@ -81,12 +84,18 @@ class AutoroleEvent(ABC):
         """updates the entry in the database"""
         ...
 
+    @abstractmethod
+    async def on_delete(self, record:Dict[str,Any]):
+        """Gets called, when an entrie from the database gets deleted"""
+        ...
+
+
 
 
 class AutoroleAllEvent(AutoroleEvent):
     name = "Default Role"
     event_id = 0
-    db_event_id = None
+    id = None
 
     async def initial_call(self) -> None:
         """asigns the role to all members currently in the guild"""
@@ -106,8 +115,8 @@ class AutoroleAllEvent(AutoroleEvent):
 
     async def add_to_db(self):
         """adds the autorole to the database"""
-        if self.db_event_id is None:
-            await autorole_table.insert(
+        if self.id is None:
+            return await autorole_table.insert(
                 [],
                 values={
                     "guild_id": self.guild_id,
@@ -136,6 +145,136 @@ class AutoroleAllEvent(AutoroleEvent):
             },
             where={"id": self.id},
         )
+
+    async def on_delete(self, record:Dict[str,Any]):
+        ...
+
+
+
+class VoiceActivityEvent(AutoroleEvent):
+    name = "Voice Activity"
+    event_id = 1
+    id = None
+    user_id = None
+
+    async def initial_call(self) -> None:
+        pass
+
+    async def callback(self, event: hikari.VoiceServerUpdateEvent) -> None:
+            """
+            Callback method for handling voice server update events.
+
+            Args:
+                event (hikari.VoiceServerUpdateEvent): The voice server update event.
+
+            Returns:
+                None
+            """
+            pass
+    
+    async def renew_user_duration(self, user_id: int, guild_id: int, event_id: int = 1) -> None:
+            """
+            Renews the duration of a user's role in the autoroles system.
+
+            Args:
+                user_id (int): The ID of the user.
+                guild_id (int): The ID of the guild.
+                event_id (int, optional): The ID of the event. Defaults to 1.
+
+            Returns:
+                None
+            """
+            record = await autorole_user_table.fetch(
+                """
+                INSERT INTO autoroles.instances (user_id, guild_role, expires_at)
+                SELECT $1, gr.id, NOW() + gr.duration
+                FROM autoroles.guild_roles AS gr
+                WHERE gr.event_id = $2
+                ON CONFLICT (user_id, guild_role) DO UPDATE
+                SET expires_at = EXCLUDED.expires_at;
+                """, user_id, event_id
+            )
+            log.debug(record)
+            member = await self.bot.rest.fetch_member(guild_id, user_id)
+            await member.add_role(self.role_id)
+
+    async def delete_user_roles(self, user_id: int, guild_id: int, event_id: int = 1) -> None:
+            """
+            Deletes the user role for a specific user in a guild.
+
+            Args:
+                user_id (int): The ID of the user.
+                guild_id (int): The ID of the guild.
+                event_id (int, optional): The ID of the event. Defaults to 1.
+            """
+            records = await autorole_user_table.delete(
+                where={
+                    "user_id": user_id,
+                    "guild_id": guild_id,
+                    "event_id": event_id
+                }
+            )
+            user_ids = set([record["user_id"] for record in records])
+            for user_id in user_ids:
+                member = await self.bot.rest.fetch_member(guild_id, user_id)
+                await member.remove_role(self.role_id)
+
+    async def delete_user_role_by_id(self, record: Dict[str, Any]) -> None:
+            """
+            Deletes the user role for a specific user in a guild.
+
+            Args:
+                record (Dict[str, Any]): The record containing information about the user role.
+
+            Returns:
+                None
+            """
+            await autorole_user_table.delete_by_id("id", record["id"])
+            member = await self.bot.rest.fetch_member(record["guild_id"], record["user_id"])
+            await member.remove_role(self.role_id)
+
+    async def add_to_db(self):
+        """adds the autorole to the database"""
+        if self.id is None:
+            value = await autorole_table.insert(
+                [],
+                values={
+                    "guild_id": self.guild_id,
+                    "duration": self.duration,
+                    "role_id": self.role_id,
+                    "event_id": self.event_id
+                }
+            )
+            VoiceAutoroleCache.add(self.guild_id)
+            return value
+
+    async def remove_from_db(self):
+        """removes the autorole from the database"""
+        if self.id is None:
+            raise ValueError("id is None")
+        await autorole_table.delete_by_id("id", self.id)
+        VoiceAutoroleCache.remove(self.guild_id)
+
+    async def sync_to_db(self):
+        """syncs the autorole to the database"""
+        if self.id is None:
+            raise ValueError("id is None")
+        await autorole_table.update(
+            set={
+                "guild_id": self.guild_id,
+                "duration": self.duration,
+                "role_id": self.role_id,
+                "event_id": self.event_id
+            },
+            where={"id": self.id},
+        )
+
+    async def on_delete(self, record:Dict[str, Any]):
+        """removes the role from the user"""
+        log.info(f"deleting {record=}")
+        await self.delete_user_role_by_id(record)
+
+
 
 class AutoroleBuilder:
     _guild: int | hikari.Guild | None = None
@@ -208,25 +347,34 @@ class AutoroleBuilder:
         self._event = value
 
     async def save(self) -> bool:
-        """
-        returns wether or not the event was saved
-        """
-        if self.id:
-            # update
-            if not self._changed:
-                return False
-        
-            event: AutoroleEvent = self.build()
-            await event.sync_to_db()
-            self._changed = False
-            return True
-        else:
-            # insert
-            if not self.is_saveable:
-                return False
-            event: AutoroleEvent = self.build()
-            await event.add_to_db()
-            return True
+            """
+            Saves the AutoroleEvent object to the database.
+
+            Returns:
+                bool: True if the event was saved successfully, False otherwise.
+
+            If the event already has an id, it updates the existing record in the database.
+            If the event has no id, it inserts a new record into the database and calls the initial_call method.
+            """
+            if self.id:
+                # update
+                if not self._changed:
+                    return False
+            
+                event: AutoroleEvent = self.build()
+                await event.sync_to_db()
+                self._changed = False
+                return True
+            else:
+                # insert
+                if not self.is_saveable:
+                    return False
+                event: AutoroleEvent = self.build()
+                await event.initial_call()
+                value = await event.add_to_db()
+                print(value)
+                self.id = value[0]["id"]
+                return True
         
     async def delete(self) -> bool:
         """
@@ -305,11 +453,13 @@ class AutoroleBuilder:
 
 
 class AutoroleManager():
-    table = Table("autoroles")
+    table = Table("autoroles.events")
     id_event_map: Dict[int, Type[AutoroleEvent]] = {
-        0: AutoroleAllEvent
+        0: AutoroleAllEvent,
+        1: VoiceActivityEvent
     }
     bot: Inu
+    deletion_scheduled: set[int] = set()
     
     @classmethod
     def set_bot(cls, bot: Inu) -> None:
@@ -318,7 +468,7 @@ class AutoroleManager():
     @classmethod
     async def fetch_events(
         cls,
-        guild_id: int,
+        guild_id: int | None = None,
         event: Type[AutoroleEvent] | None = None,
     ):
         """fetches all autoroles with the given `guild_id` and `event_id`
@@ -339,7 +489,9 @@ class AutoroleManager():
             event_id = event.event_id
         else:
             event_id = None
-        where = {"guild_id": guild_id}
+        where = {}
+        if guild_id is not None:
+            where["guild_id"] = guild_id
         if event_id is not None:
             where["event_id"] = event_id
         records = await cls.table.select(where=where)
@@ -415,3 +567,96 @@ class AutoroleManager():
         `None`
         """
         await event.add_to_db()
+
+    @classmethod
+    async def remove_expired_autoroles(cls, expires_in: int) -> None:
+            """
+            Removes expired autoroles from the autorole_user_table.
+
+            Args:
+                expires_in (int): The number of seconds to delete autoroles. now + this.
+
+            Returns:
+                None
+            """
+            records = await autorole_user_table.fetch(
+                """
+                SELECT ur.id AS id, ur.user_id, ur.expires_at, gr.guild_id, gr.role_id, gr.event_id, gr.duration FROM autoroles.instances ur
+                INNER JOIN autoroles.events gr ON gr.id = guild_role
+                WHERE expires_at < $1
+                """, datetime.utcnow() + timedelta(seconds=expires_in)
+            )
+            log.debug(records)
+            for record in records:
+                await cls._schedule_deletion(record, (record["expires_at"] - datetime.now()).total_seconds())
+
+    @classmethod
+    async def _schedule_deletion(cls, record: Dict[str, Any], delay: int) -> None:
+        """
+        Schedules the deletion of an autorole.
+
+        Args:
+            event (AutoroleEvent): The autorole event.
+            delay (int): The delay in seconds.
+
+        Returns:
+            None
+        """
+        event = cls._build_event(record)
+        if event.id in cls.deletion_scheduled:
+            return
+        log.debug(f"scheduling deletion of {event.id} in {delay} seconds")
+        cls.deletion_scheduled.add(event.id)
+        await asyncio.sleep(delay)
+        await event.on_delete(record)
+        await event.remove_from_db()
+        cls.deletion_scheduled.remove(event.id)
+
+    @classmethod
+    async def delete_guild(cls, guild_id: int) -> None:
+        """deletes all autoroles for a guild
+        
+        Args:
+        -----
+        `guild_id : int`
+            the guild id to delete autoroles for
+        
+        Returns:
+        --------
+        `None`
+        """
+        await autorole_table.delete(where={"guild_id": guild_id})
+
+
+
+class MetaVoiceAutoroleCache(type):
+    _guilds: Set[int] = set()
+    def __contains__(cls, guild_id: int) -> bool:
+        return guild_id in cls._guilds
+    
+
+
+class VoiceAutoroleCache(metaclass=MetaVoiceAutoroleCache):
+    _guilds: Set[int] = set()
+
+    @classmethod
+    def add(cls, guild_id: int) -> None:
+        cls._guilds.add(guild_id)
+
+    @classmethod
+    def extend(cls, guild_ids: Iterable[int]) -> None:
+        cls._guilds.update(guild_ids)
+
+    @classmethod
+    def remove(cls, guild_id: int) -> None:
+        try:
+            cls._guilds.remove(guild_id)
+        except KeyError:
+            pass
+
+    @classmethod
+    async def sync(cls) -> None:
+        events = await AutoroleManager.fetch_events(None, VoiceActivityEvent)
+        guilds = [event.guild_id for event in events]
+        log.info(f"synced {len(guilds)} voice autoroles for cache")
+        cls._guilds.update(guilds)
