@@ -19,6 +19,8 @@ SYNCING = False
 bot: Inu
 plugin = lightbulb.Plugin("poll loader", "loads polls from database")
 
+
+
 @plugin.listener(hikari.ShardReadyEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
     global SYNCING
@@ -34,8 +36,12 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
     await init_method()
 
+
+
 async def init_method():
     await VoiceAutoroleCache.sync()
+
+
 
 async def remove_expired_autoroles():
     """removes expired autoroles"""
@@ -56,6 +62,7 @@ async def on_member_join(event: hikari.MemberCreateEvent):
     for task in events:
         tasks.append(asyncio.create_task(task.callback(event)))
     await asyncio.gather(*tasks)
+
 
 
 @plugin.listener(hikari.MemberDeleteEvent)
