@@ -18,7 +18,6 @@ from core import getLogger, InuContext, BotResponseError, Inu
 log = getLogger(__name__)
 
 
-
 class RoleSelectView(miru.View):
     author_id: int
     roles: Sequence[hikari.Role] = []
@@ -31,7 +30,6 @@ class RoleSelectView(miru.View):
     @miru.role_select(custom_id="role_select", placeholder="Select a role")
     async def role_select(self, select: miru.RoleSelect, ctx: miru.ViewContext):
         self.roles = select.values
-        log.debug(self.roles)
         self.stop()
 
     async def view_check(self, context: miru.ViewContext) -> bool:
@@ -84,7 +82,6 @@ class AutorolesView(miru.View):
             self.table = await AutoroleManager.wrap_events_in_builder(
                 await AutoroleManager.fetch_events(guild_id, None)
             )
-            log.debug(self.table)
         except IndexError:
             self.table = []
         if not self.table:
@@ -108,7 +105,7 @@ class AutorolesView(miru.View):
     @miru.button(label="➕", style=ButtonStyle.SECONDARY, custom_id="autoroles_add")
     async def button_add(self, button: miru.Button, ctx: miru.ViewContext):
         builder = AutoroleBuilder()
-        builder.guild = self.last_context.guild_id
+        builder.guild = self._last_context.guild_id
         self.table.insert(self.selected_row_index, builder)
         await self.render_table()
 
@@ -125,12 +122,10 @@ class AutorolesView(miru.View):
         await role_select.start(await msg.retrieve_message())
         await role_select.wait()
         #await msg.delete()
-        log.debug(role_select.roles)
         if not role_select.roles:
             return
         await self.start(await msg.retrieve_message())
         self.table[self.selected_row_index].role = role_select.roles[0]
-        log.debug(self.table[self.selected_row_index].role_id)
         await self.render_table()
 
 
@@ -140,12 +135,10 @@ class AutorolesView(miru.View):
         msg = await ctx.edit_response(components=event_select)
         await event_select.start(await msg.retrieve_message())
         await event_select.wait()
-        log.debug(event_select.event)
         if not event_select.event:
             return
         await self.start(await msg.retrieve_message())
         self.table[self.selected_row_index].event = event_select.event
-        log.debug(self.table[self.selected_row_index].event)
         await self.render_table()
 
 
@@ -178,19 +171,20 @@ class AutorolesView(miru.View):
     async def button_save(self, button: miru.Button, ctx: miru.ViewContext):
         await ctx.respond("Start..", flags=hikari.MessageFlag.EPHEMERAL)
         await self.save_rows()
-        
+        await ctx.edit_response("Saved!", flags=hikari.MessageFlag.EPHEMERAL)
         for builder in self.table:
             if builder.is_saveable:
                 event = builder.build()
                 await event.initial_call()
-        await ctx.edit_response("Saved!", flags=hikari.MessageFlag.EPHEMERAL)
+        
         
 
-    async def render_table(self):
+    async def render_table(self, update_db: bool = True):
         """Renders the table and updates the message."""
+        if update_db:
+            await self.save_rows()
         embed = await self.embed()
-        await self.save_rows()
-        await self.last_context.edit_response(embed=embed, components=self)
+        await self._last_context.edit_response(embed=embed, components=self)
         #await self.last_context.respond(embed=embed) 
 
     async def embed(self) -> hikari.Embed:
