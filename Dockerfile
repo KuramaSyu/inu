@@ -45,7 +45,7 @@ ENV PATH="/home/inu/.cargo/bin:${PATH}"
 ADD requirements.txt requirements.txt
 RUN pip install asyncpg matplotlib
 RUN pip install -r requirements.txt
-RUN pip install lavasnek-rs
+
 
 # Copy application files
 COPY . .
