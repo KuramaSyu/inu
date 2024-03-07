@@ -188,7 +188,7 @@ class VoiceActivityEvent(AutoroleEvent):
                 """
                 INSERT INTO autoroles.instances (user_id, guild_role, expires_at)
                 SELECT $1, gr.id, NOW() + gr.duration
-                FROM autoroles.guild_roles AS gr
+                FROM autoroles.events AS gr
                 WHERE gr.event_id = $2
                 ON CONFLICT (user_id, guild_role) DO UPDATE
                 SET expires_at = EXCLUDED.expires_at;
