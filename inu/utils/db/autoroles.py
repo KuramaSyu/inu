@@ -194,7 +194,6 @@ class VoiceActivityEvent(AutoroleEvent):
                 SET expires_at = EXCLUDED.expires_at;
                 """, user_id, event_id
             )
-            log.debug(record)
             member = await self.bot.rest.fetch_member(guild_id, user_id)
             await member.add_role(self.role_id)
 
@@ -585,7 +584,6 @@ class AutoroleManager():
                 WHERE expires_at < $1
                 """, datetime.utcnow() + timedelta(seconds=expires_in)
             )
-            log.debug(records)
             for record in records:
                 await cls._schedule_deletion(record, (record["expires_at"] - datetime.now()).total_seconds())
 
