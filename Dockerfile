@@ -8,8 +8,6 @@ RUN python -m ensurepip
 # Upgrade pip to the latest version
 RUN python -m pip install --upgrade pip
 
-
-
 # install firefox-esr for selenium
 RUN apt-get update && apt-get install -y \
     build-essential \
@@ -20,7 +18,7 @@ RUN apt-get update && apt-get install -y \
     xz-utils
 
 # manually install qalc since it is used by inu
-RUN wget -O qalculate.tar.xz https://github.com/Qalculate/qalculate-gtk/releases/download/v4.5.1/qalculate-4.5.1-x86_64.tar.xz \
+RUN wget -O qalculate.tar.xz https://github.com/Qalculate/qalculate-gtk/releases/download/v4.9.0/qalculate-4.9.0-x86_64.tar.xz \
     && tar -xf qalculate.tar.xz \
     && rm qalculate.tar.xz \
     && mv qalculate-* qalculate \
@@ -29,26 +27,20 @@ RUN wget -O qalculate.tar.xz https://github.com/Qalculate/qalculate-gtk/releases
 RUN useradd -ms /bin/bash inu
 
 # Create and set permissions for /home/inu/app directory
-# RUN mkdir /home/inu \
-#     && chown -R inu:inu /home/inu
 USER inu
 WORKDIR /home/inu
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
 ENV PATH="/home/inu/.cargo/bin:${PATH}"
-
-# # Get Rust
-# RUN curl https://sh.rustup.rs -sSf | bash -s -- -y
-
-# # ENV PATH="/root/.cargo/bin:${PATH}"
 
 # Copy requirements and install dependencies
 ADD requirements.txt requirements.txt
 RUN pip install asyncpg matplotlib
 RUN pip install -r requirements.txt
 
-
 # Copy application files
-COPY . .
+COPY dependencies dependencies
+COPY inu inu
+COPY config.yaml config.yaml
 
 # Create qalculate config directory and copy config file
 RUN mkdir -p .config/qalculate \
