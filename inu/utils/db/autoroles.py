@@ -353,7 +353,7 @@ class AutoroleBuilder:
                 bool: True if the event was saved successfully, False otherwise.
 
             If the event already has an id, it updates the existing record in the database.
-            If the event has no id, it inserts a new record into the database and calls the initial_call method.
+            If the event has no id, it inserts a new record into the database and calls the `initial_call` method.
             """
             if self.id:
                 # update
@@ -444,11 +444,6 @@ class AutoroleBuilder:
             raise ValueError("self.role is not a hikari.Role or int")
 
     
-    
-
-    
-
-
 
 class AutoroleManager():
     table = Table("autoroles.events")
@@ -463,6 +458,33 @@ class AutoroleManager():
     def set_bot(cls, bot: Inu) -> None:
         cls.bot = bot
 
+    @classmethod
+    async def fetch_instances(
+        cls,
+        guild_id: int | None = None,
+        event: Type[AutoroleEvent] | None = None,
+    ) -> List[Dict[Literal["id", "user_id", "expires_at", "event_id", "role_id"], Any]]:
+        """
+        Fetches all instances of autoroles for a specific guild from the database.
+
+        Args:
+            guild_id (int, optional): The ID of the guild. Defaults to None.
+            event (Type[AutoroleEvent], optional): The event type. Defaults to None.
+
+        Returns:
+            List[Dict[Literal["id", "user_id", "expires_at", "event_id", "role_id"], Any]]
+        """
+        records = await autorole_user_table.fetch(
+        f"""
+        SELECT events.id, inst.user_id, inst.expires_at, events.event_id, events.role_id
+        FROM {autorole_user_table.name} inst
+        INNER JOIN {autorole_table.name} events ON events.id = inst.guild_role
+        WHERE events.guild_id = $1 AND events.event_id = $2
+
+        """, guild_id, event.event_id
+        )
+        return records
+    
     @classmethod
     async def fetch_events(
         cls,
