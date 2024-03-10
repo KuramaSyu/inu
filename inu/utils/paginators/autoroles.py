@@ -112,8 +112,12 @@ class AutorolesView(miru.View):
     @miru.button(label="➖", style=ButtonStyle.SECONDARY, custom_id="autoroles_remove")
     async def button_remove(self, button: miru.Button, ctx: miru.ViewContext):
         event = self.table.pop(self.selected_row_index)
-        await event.delete()
+        maybe_deleted = await event.delete()
         await self.render_table()
+        await ctx.respond(
+            f"Event with ID {event.id} was {'' if maybe_deleted else 'not '}deleted.",
+            flags=hikari.MessageFlag.EPHEMERAL
+        )
 
     @miru.button(emoji="📌", label="Set Role", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_role", row=2)
     async def button_set_role(self, button: miru.Button, ctx: miru.ViewContext):
@@ -121,7 +125,6 @@ class AutorolesView(miru.View):
         msg = await ctx.edit_response(components=role_select)
         await role_select.start(await msg.retrieve_message())
         await role_select.wait()
-        #await msg.delete()
         if not role_select.roles:
             return
         await self.start(await msg.retrieve_message())
@@ -157,7 +160,6 @@ class AutorolesView(miru.View):
             return
         if not answer:
             return
-        #await interaction.create_initial_response(hikari.ResponseType.DEFERRED_MESSAGE_CREATE, "test")
         duration = timeparse(answer)
         ctx._interaction = interaction
         if not duration:
@@ -172,20 +174,21 @@ class AutorolesView(miru.View):
         await ctx.respond("Start..", flags=hikari.MessageFlag.EPHEMERAL)
         await self.save_rows()
         await ctx.edit_response("Saved!", flags=hikari.MessageFlag.EPHEMERAL)
-        for builder in self.table:
-            if builder.is_saveable:
-                event = builder.build()
-                await event.initial_call()
         
-        
+    @miru.button(emoji="❌", label="Stop", style=ButtonStyle.SECONDARY, custom_id="autoroles_close")
+    async def button_close(self, button: miru.Button, ctx: miru.ViewContext):
+        await self.render_table(update_db=False)
+        await (await ctx.get_last_response()).delete()
+        self.stop()
 
     async def render_table(self, update_db: bool = True):
         """Renders the table and updates the message."""
         if update_db:
             await self.save_rows()
+        if not self.table:
+            self.table.append(AutoroleBuilder())
         embed = await self.embed()
         await self._last_context.edit_response(embed=embed, components=self)
-        #await self.last_context.respond(embed=embed) 
 
     async def embed(self) -> hikari.Embed:
         """Renders the table as an embed."""
