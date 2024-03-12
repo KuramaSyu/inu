@@ -24,7 +24,7 @@ services:
   lava:
     container_name: lavalink
     restart: "unless-stopped"
-    image: fredboat/lavalink:3.7.8
+    image: fredboat/lavalink:3.7.11
     volumes:
       - ./dependencies/fredboat/application.yml:/opt/Lavalink/application.yml
 configs:
