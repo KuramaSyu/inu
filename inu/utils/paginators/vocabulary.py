@@ -74,7 +74,7 @@ class Vocable:
     
     @property
     def result_str(self) -> str:
-        return f"**{self.key}**: {self.success_rate}"
+        return f"**{self.key}**: {self.success_rate:.02f}"
 
 
 class VocabularyPaginator(Paginator):
