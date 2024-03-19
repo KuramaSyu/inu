@@ -233,7 +233,7 @@ class TagHandler(StatelessPaginator):
         try:
             if not isinstance(event.interaction, ComponentInteraction):
                 return
-            if not self.interaction_pred(event): #or not event.interaction.user.id == self.ctx.author.id
+            if not self.interaction_pred(event):
                 return
             i = event.interaction
             try:
@@ -246,7 +246,6 @@ class TagHandler(StatelessPaginator):
             except (IndexError, AssertionError):
                 # interaction was no menu interaction
                 return
-            #if not [True for unvalid in [] if custom_id in unvalid]:
                 # set_type has other message, not this one
             self.set_context(event=event)
             if custom_id == "set_name":
@@ -306,7 +305,6 @@ class TagHandler(StatelessPaginator):
                 return
             elif custom_id == "resend":
                 # stopping this and restarting a new one
-                log.debug(self._proxy)
                 try:   
                     await self.update_page(update_value=True, interaction=i)             
                     await self._proxy.delete()
@@ -379,8 +377,6 @@ class TagHandler(StatelessPaginator):
         except KeyError:
             await self.create_message("This user never actually had the rights")
             return
-        
-        #await self.bot.rest.create_message(interaction.channel_id, f"`{user_id}` added to authors of this tag")
 
     async def change_guild_ids(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
         """
@@ -427,9 +423,6 @@ class TagHandler(StatelessPaginator):
             await self.create_message("Alias's are supposed to be strings")
             return
         
-        
-
-
     async def delete(self, interaction: ComponentInteraction):
         await self.tag.delete()
         await self.create_message(
@@ -455,7 +448,6 @@ class TagHandler(StatelessPaginator):
         except RuntimeError as e:
             #ctx = InteractionContext(event=event, app=self.bot)
             await self.ctx.respond(e.args[0], ephemeral=True)
-
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
         if append:
@@ -667,59 +659,6 @@ class TagHandler(StatelessPaginator):
     @property
     def custom_id_type(self) -> str:
         return "stl-tag-edit"
-
-    
-        
-
-    # async def show_record(
-    #     self,
-    #     tag: Optional[Tag],
-    #     name: Optional[str] = None,
-    #     force_show_name: bool = False,
-    # ) -> None:
-    #     """
-    #     Sends the given tag(record) into the channel of <ctx>
-        
-    #     Args:
-    #     ----
-    #     record : `asyncpg.Record`
-    #         the record/dict, which should contain the keys `tag_value` and `tag_key`
-    #     ctx : `Context`
-    #         the context, under wich the message will be sent (important for the channel)
-    #     key : `str`
-    #         The key under which the tag was invoked. If key is an alias, the tag key will be
-    #         displayed, otherwise it wont
-    #     """
-
-    #     media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
-
-    #     messages = []
-    #     for page in tag.value:
-    #         for value in crumble(page, 1900):
-    #             message = ""
-    #             # if tag isn't just a picture and tag was not invoked with original name,
-    #             # then append original name at start of message
-    #             if (
-    #                 not (
-    #                     name == tag.name
-    #                     or re.match(media_regex, tag.value[self._position].strip())
-    #                 )
-    #                 or force_show_name
-    #             ):
-    #                 message += f"**{tag.name}**\n\n"
-    #             message += value
-    #             messages.append(message)
-    #     pag = Paginator(
-    #         page_s=messages,
-    #         compact=True,
-    #         additional_components=tag.components,
-    #         disable_component=True,
-    #     )
-    #     asyncio.create_task(pag.start(self.ctx))
-    #     # if tag.tag_links:
-    #     #     asyncio.create_task(self._wait_for_link_button(tag))
-
-
 
 
 
