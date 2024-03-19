@@ -23,13 +23,23 @@ from expiring_dict import ExpiringDict
 
 from .tags import tag_name_auto_complete, _tag_add
 from core import getLogger, Inu, get_context, BotResponseError
-from utils import crumble, BoredAPI, BoredIdea, Tag, add_time_button, add_pacman_button, ListParser, TagType
+from utils import (
+    crumble, 
+    BoredAPI, 
+    Tag, 
+    TimeButton, 
+    PacmanButton,
+    ListParser, 
+    TagType,
+    ResendButton
+)
 
 
 log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Random Commands", "Extends the commands with commands all about randomness")
 bot: Inu
+RESEND_ID = "rnd-list"
 
 
 @plugin.command
@@ -88,7 +98,7 @@ async def list_(ctx: Context):
     kwargs = {}
     
     # no options given
-    if not ctx.options.list and not ctx.options["tag-with-list"]:
+    if not ctx.options["list"] and not ctx.options["tag-with-list"]:
         try:
             facts, i, _ = await bot.shortcuts.ask_with_modal(
                 "Enter a list", 
@@ -109,20 +119,27 @@ async def list_(ctx: Context):
         if pacman_index >= length:
             pacman_index = pacman_index % length
             color = shift_color(color, 1)
+
+        custom_id_base = f"{ctx.options['tag-with-list']};;{pacman_index};;{color}"
         kwargs["components"] = [
             MessageActionRowBuilder()
             .add_interactive_button(
                 colors.get(color), 
-                f"suffle-{ctx.options['tag-with-list']};;{pacman_index};;{color}", 
+                f"shuffle-{custom_id_base}", 
                 emoji="🎲"
             )
         ]
-        kwargs["components"] = add_pacman_button(
+        kwargs["components"] = PacmanButton.add(
             kwargs["components"], 
             index=pacman_index, 
             length=length, 
             short=True, 
             color=colors.get(color),
+        )
+        kwargs["components"] = ResendButton.add(
+            kwargs["components"], 
+            f"shuffle-resend-{custom_id_base}", 
+            color=colors.get(color)
         )
     # list given
     else:
@@ -188,43 +205,81 @@ async def list_(ctx: Context):
         await ctx.respond(embed=embed, **kwargs)
     else:
         await ctx.respond(facts_as_str, **kwargs)
-    
-    
+
+
+
+def get_list_cmd_options(
+    tag_name: str,
+    pacman_index: int,
+    color: str,
+) -> Dict[str, Any]:
+    options = {
+        "tag-with-list": tag_name,
+        "list": None,
+        "pacman_index": pacman_index,
+        "color": color
+    }
+    return options
+
 
 @plugin.listener(hikari.InteractionCreateEvent)
-async def on_interaction(event: hikari.InteractionCreateEvent):
+async def on_list_interaction(event: hikari.InteractionCreateEvent):
     color = "S"
     TAG_PACMAN_SPLIT = ";;"
     pacman_index = 0
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    if not event.interaction.custom_id.startswith("suffle-"):
+    
+    custom_id = event.interaction.custom_id
+    
+    if not custom_id.startswith("shuffle-"):
+        # not a shuffle button
         return
-    tag_name = event.interaction.custom_id.removeprefix("suffle-")
-    if TAG_PACMAN_SPLIT in tag_name:
-        tag_name, pacman_index, color = tag_name.split(TAG_PACMAN_SPLIT)
+    
+    resend = False
+    if custom_id.startswith("shuffle-resend-"):
+        resend = True
+        custom_id = custom_id.removeprefix("shuffle-resend-")
+    else:
+        custom_id = custom_id.removeprefix("shuffle-")
+    
+    cmd_args = custom_id
+    if TAG_PACMAN_SPLIT in cmd_args:
+        cmd_args, pacman_index, color = cmd_args.split(TAG_PACMAN_SPLIT)
     ctx = get_context(
         event, 
-        options={"tag-with-list": tag_name, "list": None, "pacman_index": int(pacman_index), "color": color}
+        options=get_list_cmd_options(cmd_args, int(pacman_index), color)
     )
-    ctx._update = True
-    await list_.callback(ctx)
-    
+
+    if resend:
+        await ctx.respond("Resending...", update=True)
+        await ctx.delete_initial_response()
+    else:
+        ctx._update = True
+    try:
+        await list_.callback(ctx)
+    except BotResponseError as e:
+        await ctx.respond(**e.context_kwargs)
     
 
 @plugin.listener(hikari.InteractionCreateEvent)
-async def on_interaction(event: hikari.InteractionCreateEvent):
+async def on_list_add(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
+    
     if not event.interaction.custom_id.startswith("add-rnd-list-"):
+        # add list as tag
         return
     rand_int = int(event.interaction.custom_id.removeprefix("add-rnd-list-"))
     fact_list = user_list_cache.get(rand_int)
     
     if not fact_list:
+        # message from list command timed out
         ctx = get_context(event)
         await ctx.respond("Your list is too old. Please create a new one.")
         return 
+    
+    # resend message with list buttons
     ctx = get_context(
             event, 
             options={"name": None, "value": ", ".join(fact_list)}
@@ -237,12 +292,12 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
     if not name:
         return
     
-    components = add_pacman_button(
+    components = PacmanButton.add(
         row = [
             MessageActionRowBuilder()
             .add_interactive_button(
                 hikari.ButtonStyle.SECONDARY, 
-                f"suffle-{name};;3;;S",
+                f"shuffle-{name};;3;;S",  # shuffle-<tag-name>;;<pacman-index>;;<color>
                 emoji="🎲"
             )
         ],
@@ -280,7 +335,6 @@ def randomize_colors(input_path):
     
     # Return the buffer containing the modified image
     return buffer
-
 
 
 @plugin.command
@@ -323,7 +377,7 @@ async def dice(ctx: Context) -> None:
                 is_disabled=is_disabled
             )
         ]
-        components = add_time_button(components)
+        components = TimeButton.add(components)
         return components
     
     await ctx.respond(
@@ -340,7 +394,7 @@ async def dice(ctx: Context) -> None:
 
 
 @plugin.listener(hikari.InteractionCreateEvent)
-async def on_interaction(event: hikari.InteractionCreateEvent):
+async def on_list_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     if not event.interaction.custom_id.startswith("dice-"):
