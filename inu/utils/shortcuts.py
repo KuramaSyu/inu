@@ -100,62 +100,7 @@ async def check_website(url: str) -> Tuple[int, Optional[str]]:
     except aiohttp.ClientError as e:
         return 0, str(e)
     
-def add_row_when_filled(row: List[MessageActionRowBuilder], position: int = -1, min_empty_slots: int = 1) -> List[MessageActionRowBuilder]:
-    """
-    Adds a MessageActionRowBuilder to the List if the last one has no free component-slots
 
-    Args:
-    -----
-    row : List[MessageActionRowBuilder]
-        the row inspect
-    position : int
-        where to insert the new row if possible
-    """
-    min_empty_slots -= 1
-    if not row:
-        return [MessageActionRowBuilder()]
-    if len(row[-1].components) >= 5 - min_empty_slots:
-        if len(row) >= 5:
-            raise RuntimeWarning("Can't add more than 5 rows")
-        if position == -1:
-            row.append(MessageActionRowBuilder())
-        else:
-            row.insert(position, MessageActionRowBuilder())
-    return row
 
-def add_time_button(row: List[MessageActionRowBuilder], time: datetime = None) -> List[MessageActionRowBuilder]:
-    """
-    Adds a time button to the last actionrowbuilder or to a new one if last one is full
-    """
-    if not time:
-        time = datetime.now()
-    row = add_row_when_filled(row)
-    row[-1].add_interactive_button(
-            hikari.ButtonStyle.SECONDARY,
-            f"ts_{time.hour}_{time.minute}",
-            label=f"⏱️ {time.minute}min {time.second}s",
-            is_disabled=True,
-        ) # stopwatch emoji: 
-    return row
 
-def add_pacman_button(
-    row: List[MessageActionRowBuilder], 
-    index: int, 
-    length: int = 15, 
-    short: bool = True, 
-    increment: int = 1,
-    color: hikari.ButtonStyle = hikari.ButtonStyle.SECONDARY,
-) -> List[MessageActionRowBuilder]:
-    """
-    Adds a pacman progressbar button to the last actionrowbuilder or to a new one if last one is full
-    """
-    pac = pacman(index, length, short=short, increment=increment)
-    row = add_row_when_filled(row)
-    row[-1].add_interactive_button(
-        color,
-        f"pacman",
-        label=f"{pac.__next__()}",
-        is_disabled=True,
-    )
-    return row
     
