@@ -1450,7 +1450,7 @@ class Player:
             # -> youtube playlist -> load playlist
             await self.load_yt_playlist()
         # not a youtube playlist -> something else
-        else:
+        elif resolved is False:
             # check for playlist
             if (
                 "watch?v=" in query
