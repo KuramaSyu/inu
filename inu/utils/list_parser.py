@@ -107,6 +107,10 @@ class ListParser:
             traceback.print_exc()
             
             return False
+        
+    @property
+    def count_seperators(self) -> Counter:
+        return Counter([sep for sep, line in self.parsed_lines for _ in line])
             
     
 
