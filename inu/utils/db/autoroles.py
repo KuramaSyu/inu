@@ -605,7 +605,7 @@ class AutoroleManager():
                 SELECT ur.id AS id, ur.user_id, ur.expires_at, gr.guild_id, gr.role_id, gr.event_id, gr.duration FROM autoroles.instances ur
                 INNER JOIN autoroles.events gr ON gr.id = guild_role
                 WHERE expires_at < $1
-                """, datetime.utcnow() + timedelta(seconds=expires_in)
+                """, datetime.now() + timedelta(seconds=expires_in)
             )
             for record in records:
                 await cls._schedule_deletion(record, (record["expires_at"] - datetime.now()).total_seconds())
@@ -629,7 +629,6 @@ class AutoroleManager():
         cls.deletion_scheduled.add(event.id)
         await asyncio.sleep(delay)
         await event.on_delete(record)
-        await event.remove_from_db()
         cls.deletion_scheduled.remove(event.id)
 
     @classmethod
