@@ -194,8 +194,9 @@ class VoiceActivityEvent(AutoroleEvent):
                 SET expires_at = EXCLUDED.expires_at;
                 """, user_id, event_id
             )
-            member = await self.bot.rest.fetch_member(guild_id, user_id)
-            await member.add_role(self.role_id)
+            member: hikari.Member = self.bot.cache.get_member(guild_id, user_id)
+            if not self.role_id in member.role_ids:
+                await member.add_role(self.role_id)
 
     async def delete_user_roles(self, user_id: int, guild_id: int, event_id: int = 1) -> None:
             """
