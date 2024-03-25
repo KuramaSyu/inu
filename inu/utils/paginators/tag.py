@@ -66,7 +66,7 @@ class TagTypeComponents:
     def get(cls, tag_type: Type[TagType]) -> Callable[["TagHandler"], MessageActionRowBuilder]:
         return {
             TagType.LIST: cls.list_components
-        }.get(tag_type, None)
+        }.get(tag_type, lambda _: None)
         
     @staticmethod
     def list_components(tag: "TagHandler") -> MessageActionRowBuilder:
