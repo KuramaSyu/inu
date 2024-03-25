@@ -241,6 +241,9 @@ class CustomID():
         
         except (TypeError, json.JSONDecodeError):
             return cls(custom_id=custom_id)
+
+    def get(self, key: str) -> int|str|None:
+        return self._kwargs.get(key)
         
         
 class NavigationMenuBuilder():
@@ -548,6 +551,7 @@ class Paginator():
         self._custom_id_type = custom_id_type
         self._number_button_navigation = number_button_navigation
         self.button_rows = number_button_rows
+        self._with_update_button = False
 
         self.bot: lightbulb.BotApp
         self._ctx: InteractionContext | None = None
@@ -704,7 +708,7 @@ class Paginator():
         if not self.pagination:
             return None
 
-
+        rows: List[MessageActionRowBuilder] = []
         action_row = None
         if not self.compact:
             action_row = self._button_factory(
@@ -740,8 +744,16 @@ class Paginator():
                 action_row_builder=action_row,
                 disable_when_index_is=lambda p: p == len(self.pages)-1,
             )
-
-        return [action_row]
+        rows.append(action_row)
+        if self._with_update_button:
+            if len(action_row._components) >= 5:
+                rows.append(MessageActionRowBuilder())
+            rows[-1] = self._button_factory(
+                custom_id="sync",
+                emoji="🔁",
+                action_row_builder=rows[-1],
+            )
+        return rows
     
     def _number_button_navigation_row(self, position=None) -> Optional[List[MessageActionRowBuilder]]:
         if not self.pagination:
@@ -1238,7 +1250,7 @@ class Paginator():
             return
         elif id.startswith(NUMBER_BUTTON_PREFIX):
             self._position = int(id.replace(NUMBER_BUTTON_PREFIX, ""))
-        if last_position != self._position:
+        if last_position != self._position or id == "sync":
             await self._update_position()
 
     async def delete_presence(self):
@@ -1391,14 +1403,14 @@ class StatelessPaginator(Paginator, ABC):
     Abstract methods:
     -----------------
     `:obj:self._get_custom_id_kwargs(self)` : `Dict[str, int|str]`
-        method which returns importend kwargs which need to be appended in custom_id json
+        method which returns importent kwargs which need to be appended in custom_id json
     `:obj:self._rebuild(self, **kwargs)` : `None`
         coro which needs to call following methods:
             `:obj:self.set_pages(self, pages: List[str|Embed])` : `None`
                 to set `self._pages`
             `:obj:self.set_context(ctx: Cotnext, event: Event)` : `None`
                 to set `self.ctx` and `self.custom_id`
-    
+
     Abstract properties:
     --------------------
     `:obj:self.custom_id_type` : `str`
@@ -1414,7 +1426,8 @@ class StatelessPaginator(Paginator, ABC):
         method to firstly start the paginator. Override and call super()
     `:obj:self._serialize_custom_id(self, ...)` : str
         pass in the normal custom_id and get the json version with all information for stateless rebuilding
-
+    `:obj:self.set_custom_id(self, custom_id: str)` : `None`
+        intented to use as builder when rebuilding the paginator
     """
     def __init__(
         self,
