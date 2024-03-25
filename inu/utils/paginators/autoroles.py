@@ -1,6 +1,7 @@
 from typing import *
 from datetime import datetime, timedelta
 import asyncio
+import traceback
 
 from tabulate import tabulate
 import hikari
@@ -10,9 +11,10 @@ import miru
 from pytimeparse.timeparse import timeparse
 from humanize import naturaldelta
 
-from . import Paginator
+from . import Paginator, StatelessPaginator
 from ..db import AutoroleManager, AutoroleBuilder, AutoroleEvent
 
+from utils import crumble
 from core import getLogger, InuContext, BotResponseError, Inu
 
 log = getLogger(__name__)
@@ -217,3 +219,107 @@ class AutorolesView(miru.View):
     async def view_check(self, context: miru.ViewContext) -> bool:
         """predicate to check wether or not a user is allowed to use the view."""
         return context.message.id == self.message.id and context.author.id == self.author_id
+    
+class AutorolesViewer(StatelessPaginator):
+    """
+    Viewer for which person has got which role
+    by a given autorole event
+    """
+    def __init__(self):
+        super().__init__(
+            disable_paginator_when_one_site=False
+        )
+        self._autorole_id = None
+        self._with_update_button = True
+
+
+    @property
+    def custom_id_type(self):
+        return "autoroles"
+    
+    def _get_custom_id_kwargs(self):
+            """
+            Returns a dictionary containing the custom ID keyword arguments for the autorole.
+
+            autoid: int
+                The autorole ID to use
+            
+            Returns:
+                dict: A dictionary with the custom ID keyword arguments.
+            """
+            return {
+                "autoid": self._autorole_id
+            }
+    def set_autorole_id(self, autorole_id: int) -> "AutorolesViewer":
+        """
+        Set the autorole ID. This should be used in a builder chain 
+        before calling `self.start`
+
+        Parameters:
+        - autorole_id (int): The ID of the autorole.
+
+        Returns:
+        - AutoroleView: The updated AutoroleView instance.
+        """
+        self._autorole_id = autorole_id
+        return self
+    
+    async def start(self, ctx: InuContext):
+        self.set_context(ctx)
+        await self._set_pages_with_autorole_id(self._autorole_id)
+        await super().start(ctx)
+
+    async def _rebuild(self, event: hikari.ComponentInteraction):
+        self.set_context(event=event)
+        self._autorole_id = self.custom_id.get("autoid")
+        autorole_event = AutoroleManager.id_event_map.get(self._autorole_id)
+        await self._set_pages_with_autorole_id(autorole_event)
+
+    async def _set_pages_with_autorole_id(self, autorole_id: int):
+        autorole_event = AutoroleManager.id_event_map.get(self._autorole_id)
+        if not autorole_event:
+            self.set_pages(["Autorole event does not exist any longer."])
+            return
+        records = await AutoroleManager.fetch_instances(self.ctx.guild_id, event=autorole_event)
+        self.set_pages(self.make_autorole_strings(records, self.ctx.guild_id))
+        
+
+    def make_autorole_strings(
+        self,
+        records: List[Dict[Literal['id', 'user_id', 'expires_at', 'event_id', 'role_id'], Any]],
+        guild_id: int
+    ) -> List[str]:
+        AMOUNT_PER_PAGE = 15
+        def bare_table() -> Dict:
+            return {
+                "ID": [],
+                "Role": [],
+                "Member": [],
+                "Expires in": []
+            }
+        table = bare_table()
+        
+        for i, record in enumerate(records):
+            try:
+                table["ID"].append(str(record["id"]))
+            except Exception:
+                table["ID"].append("?")
+
+            try:
+                table["Role"].append(self.ctx.bot.cache.get_role(record["role_id"]).name)
+            except Exception:
+                table["Role"].append("?")
+
+            try:
+                table["Member"].append(self.ctx.bot.cache.get_member(guild_id, record["user_id"]).display_name)
+            except Exception:
+                table["Member"].append("?")
+
+            try:
+                table["Expires in"].append(naturaldelta(value=record["expires_at"] - datetime.utcnow()))
+            except Exception:
+                traceback.print_exc()
+                table["Expires in"].append("?")
+        
+        string = tabulate(table, headers=table.keys(), tablefmt="simple_grid")
+        return [f"```\n{x}\n```" for x in crumble(string, 2000, seperator="\n")]
