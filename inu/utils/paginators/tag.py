@@ -22,7 +22,7 @@ from .base import (
 )
 import asyncpg
 
-from utils import crumble, TagManager, add_row_when_filled
+from utils import crumble, TagManager, add_row_when_filled, ListParser
 from utils.language import Human
 from utils.db import Tag, TagType
 
@@ -30,6 +30,8 @@ from core import Inu, BotResponseError, InteractionContext, get_context
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
+
+
 DEFAULT_PAGE = """
 This is a new page. 
 
@@ -59,7 +61,30 @@ with LoL champions.\n\n
 __Select the type you want__:
 """
 
-
+class TagTypeComponents:
+    @classmethod
+    def get(cls, tag_type: Type[TagType]) -> Callable[["TagHandler"], MessageActionRowBuilder]:
+        return {
+            TagType.LIST: cls.list_components
+        }.get(tag_type, None)
+        
+    @staticmethod
+    def list_components(tag: "TagHandler") -> MessageActionRowBuilder:
+        return (
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                tag._serialize_custom_id("tag_options_sort"),
+                label="Sort",
+                emoji="⬇️"
+            )
+            .add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                tag._serialize_custom_id("tag_options_sort_r"),
+                label="Sort Reverse",
+                emoji="⬆️"
+            )
+        )
 
 
 
@@ -283,6 +308,10 @@ class TagHandler(StatelessPaginator):
                 value = int(custom_id.replace("set_type_", ""))
                 self.tag.tag_type = TagType.from_value(value)
                 log.debug(self.tag.tag_type)
+            elif custom_id == "sort":
+                await self.sort(reverse=False)
+            elif custom_id == "sort_r":
+                await self.sort(reverse=True)
             elif custom_id == "add_new_page":
                 if len(self._pages) >= 20:
                     return await self.ctx.respond(
@@ -320,18 +349,25 @@ class TagHandler(StatelessPaginator):
                     # reaction to this in in self._tag_link_task
                     return
                 log.warning(f"Unknown custom_id: {custom_id} - in {self.__class__.__name__}")
-            if self.tag.name and self.tag.value:
+            if self.tag.name and self.tag.value: 
                 try:
                     await self.tag.save()
                 except Exception:
                     log.error(traceback.format_exc())
             await self.update_page(
-                update_value=custom_id in ["set_value", "extend_value", "add_new_page", "info_visible"], 
+                update_value=custom_id in ["set_value", "extend_value", "add_new_page", "info_visible", "sort", "sort_r"], 
                 interaction=i
             )
             
         except Exception:
             self.log.error(traceback.format_exc())
+            
+    async def sort(self, reverse: bool = False):
+        value = self.tag.value[self._position]
+        parser = ListParser()
+        parsed = sorted(parser.parse(value), reverse=reverse, key=lambda x: x.strip())
+        most_used_delim = parser.count_seperators.most_common(1)[0][0]
+        self.tag.value[self._position] = most_used_delim.join(parsed)
 
     async def change_info_visibility(self):
         self.tag.info_visible = not self.tag.info_visible
@@ -589,6 +625,9 @@ class TagHandler(StatelessPaginator):
             self._serialize_custom_id("tag_options_info_visible"), # eye emoji: "👁️"
             label="Info visible" if self.tag.info_visible else "Info hidden",
         )
+        tag_type_components = TagTypeComponents.get(self.tag.tag_type)(self)
+        if tag_type_components:
+            rows.append(tag_type_components)
         menu = (
             MessageActionRowBuilder()
             .add_text_menu(self._serialize_custom_id("tag_options"))
@@ -608,7 +647,6 @@ class TagHandler(StatelessPaginator):
             .add_option("Get tag link", "get_tag_link")
             .parent
         )
-        
         rows.append(menu)
         if self._additional_components:
             rows.extend(self._additional_components)
