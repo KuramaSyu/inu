@@ -45,6 +45,7 @@ class TagType(Enum):
     NORMAL = 0
     MEDIA = 1
     LIST = 2
+    VOCABULARY = 3
 
     @classmethod
     def from_value(cls, value: int) -> "TagType":
