@@ -1560,9 +1560,12 @@ class Player:
             else:
                 embed.add_field(name="Typical issues", value=(
                     "• You have entered a bunch of shit\n"
+                    "• I could have problems with connecting to YouTube. "
+                    "If this problem persists with popular titles, then it's my issue\n"
                 ))
                 embed.add_field(name="What you can do:", value=(
-                    "• Give me shorter queries"
+                    "• Give me shorter queries\n"
+                    "• In case it's my issue, than open an issue here: [GitHub Issues - zp33dy/inu](https://github.com/zp33dy/inu/issues)"
                 ))
                 embed.description = f"I just found a lot of empty space for `{query}`"
             raise BotResponseError(embed=embed, ephemeral=True)
