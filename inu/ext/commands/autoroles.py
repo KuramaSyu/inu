@@ -24,7 +24,9 @@ from utils import (
     Paginator, 
     crumble,
     AutorolesView,
-    AutoroleManager
+    AutoroleManager,
+    AutorolesViewer,
+    CustomID
 )
 from core import (
     BotResponseError, 
@@ -69,14 +71,28 @@ async def autoroles_edit(ctx: context.Context):
 @lightbulb.command("view", "a command for viewing the autoroles given to members")
 @lightbulb.implements(commands.SlashSubCommand)
 async def autoroles_view(ctx: context.Context):
-    event = None
-    for v in AutoroleManager.id_event_map.values():
+    event_id = None
+    for k, v in AutoroleManager.id_event_map.items():
         if ctx.options["role"] == v.__name__:
-            event = v
+            event_id = k
             break
-    records = await AutoroleManager.fetch_instances(ctx.guild_id, event=event)
-    pag = Paginator(page_s=make_autorole_strings(records, ctx.guild_id))
-    await pag.start(ctx)
+    pag = AutorolesViewer().set_autorole_id(event_id)
+    await pag.start(get_context(ctx.event))
+    # records = await AutoroleManager.fetch_instances(ctx.guild_id, event=event)
+    # pag = Paginator(page_s=make_autorole_strings(records, ctx.guild_id))
+    # await pag.start(ctx)
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_autoroles_view_interaction(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    custom_id = CustomID.from_custom_id(event.interaction.custom_id)
+    try:
+        if not custom_id.type == "autoroles":
+            return
+    except Exception:
+        return
+    pag = AutorolesViewer().set_autorole_id(custom_id.get("autoid")).set_custom_id(event.interaction.custom_id)
+    await pag.rebuild(event)
     
 def make_autorole_strings(
     records: List[Dict[Literal['id', 'user_id', 'expires_at', 'event_id', 'role_id'], Any]],
