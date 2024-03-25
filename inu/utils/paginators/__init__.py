@@ -8,3 +8,4 @@ from .stateless import *
 from .show import ShowPaginator, MoviePaginator
 from .vocabulary import VocabularyPaginator
 from .autoroles import AutorolesView
+from .autoroles import AutorolesViewer
