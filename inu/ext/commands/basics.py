@@ -7,6 +7,7 @@ import aiohttp
 import hikari
 import lightbulb
 import lightbulb.utils as lightbulb_utils
+
 from core import BotResponseError, Inu, Table, getLogger, get_context
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ResponseType, TextInputStyle
 from tabulate import tabulate
@@ -14,7 +15,6 @@ from lightbulb import OptionModifier as OM
 from lightbulb import commands, context
 from lightbulb.context import Context
 from tmdb import route
-
 from utils import (
     Colors, 
     Human,
@@ -29,6 +29,10 @@ from utils import (
     xkcdAPI,
 )
 from utils.shortcuts import display_name_or_id
+
+# conditional
+lavalink = None
+
 log = getLogger(__name__)
 bot: Inu = None
 
@@ -69,9 +73,9 @@ class RestDelay:
         try:
             if self.coro:
                 start = datetime.now()
-                await self.coro(*self.coro_args, **self.coro_kwargs)
+                resp = await self.coro(*self.coro_args, **self.coro_kwargs)
                 self.delay = (datetime.now() - start).total_seconds() * 1000
-                self.status = 200
+                self.status = 400 if resp is False else 200
             else:
                 async with aiohttp.ClientSession() as session:
                     start = datetime.now()
@@ -95,7 +99,7 @@ class RestDelay:
         if self.delay == -1:
             return "⚫"
         elif str(self.status)[0] != "2":
-            return "⚫"
+            return "🟣"
         if self.delay >= 800:
             return "🔴"
         elif self.delay >= 500:
@@ -124,11 +128,11 @@ def ping_to_color(ping: float) -> str:
         return "🟢"
 
 def ping_to_color_rest(ping: float) -> str:
-    if ping >= 1150:
+    if ping >= 1500:
         return "🔴"
-    elif ping >= 800:
+    elif ping >= 1000:
         return "🟠"
-    elif ping >= 450:
+    elif ping >= 750:
         return "🟡"
     else:
         return "🟢"
@@ -203,7 +207,21 @@ async def tmdb_coro(search: str):
     show_json = await show_route.search(search)
     await show_route.session.close()
 
-
+async def lavalink_test_coro() -> bool:
+    """
+    Whether the lavalink connection to YT is working
+    """
+    if not bot.conf.lavalink.connect:
+        return False
+    lavalink = None
+    if bot.conf.lavalink.connect:
+        from .music import lavalink
+    test_title = "Alan Walker - Faded"
+    query_information = await lavalink.auto_search_tracks(test_title)
+    if len(query_information.tracks) == 0:
+        return False
+    return True
+        
 
 @basics.command 
 @lightbulb.add_checks(lightbulb.owner_only)
@@ -228,9 +246,10 @@ async def status(ctx: context.Context):
         RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"]),
         RestDelay("MyAnimeList API").with_coro(MyAnimeList.search_anime, ["naruto"]),
         RestDelay("Bored API").with_coro(BoredAPI.fetch_idea),
-        RestDelay("Facts API").with_coro(Facts._fetch_from_rest),
+        # RestDelay("Facts API").with_coro(Facts._fetch_from_rest),
         RestDelay("TMDB API").with_coro(tmdb_coro, ["game of thrones"]),
-        RestDelay("xkcd API").with_coro(xkcdAPI.fetch_comic(xkcdAPI.random_comic_endpoint()))
+        RestDelay("xkcd API").with_coro(xkcdAPI.fetch_comic, [xkcdAPI.random_comic_endpoint()]),
+        RestDelay("Lavalink API - YT").with_coro(lavalink_test_coro)
     ]
     tasks = [asyncio.create_task(api.do_request()) for api in apis]
     await asyncio.wait(tasks, timeout=20, return_when=asyncio.ALL_COMPLETED)
@@ -504,5 +523,6 @@ async def add_alias(ctx: context.UserContext):
 def load(inu: lightbulb.BotApp):
     global bot
     bot = inu
+
     inu.add_plugin(basics)
 
