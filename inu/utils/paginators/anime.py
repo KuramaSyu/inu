@@ -505,7 +505,7 @@ class AnimePaginator(Paginator):
             embed.add_field("Background", Human.short_text(anime.background, 200))
 
         if (len_openings := len(anime.opening_themes)) > self._max_openings:
-            embed.add_field("Opening themes", f"Too many to show here ({len_openings})", inline=True)
+            embed.add_field("Opening themes", ("\n".join(anime.opening_themes[:3]) + f"\n... ({len_openings-3})"), inline=False)
         elif len_openings == 0:
             pass
         else:
@@ -516,7 +516,7 @@ class AnimePaginator(Paginator):
 
         # add endings if not too much
         if (len_endings := len(anime.ending_themes)) > self._max_endings:
-            embed.add_field("Ending themes", f"Too many to show here ({len_endings})", inline=True)
+            embed.add_field("Ending themes", ("\n".join(anime.ending_themes[:3]) + f"\n... ({len_endings-3})"), inline=False)
         elif len_endings == 0:
             pass
         else:
