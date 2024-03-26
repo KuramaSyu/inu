@@ -110,7 +110,7 @@ class AnimePaginator(Paginator):
                 components[-1]
                 .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_openings", label="⤵️ openings")
             )
-        if self.has_too_many_openings:
+        if self.has_too_many_endings:
             components[-1] = (
                 components[-1]
                 .add_interactive_button(ButtonStyle.SECONDARY, "btn_anime_endings", label="⤵️ endings")
@@ -516,7 +516,7 @@ class AnimePaginator(Paginator):
 
         # add endings if not too much
         if (len_endings := len(anime.ending_themes)) > self._max_endings:
-            embed.add_field("Ending themes", f"Too many to show here ({len_openings})", inline=True)
+            embed.add_field("Ending themes", f"Too many to show here ({len_endings})", inline=True)
         elif len_endings == 0:
             pass
         else:
