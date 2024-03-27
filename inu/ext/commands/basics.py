@@ -100,11 +100,11 @@ class RestDelay:
             return "⚫"
         elif str(self.status)[0] != "2":
             return "🟣"
-        if self.delay >= 800:
+        if self.delay >= 1500:
             return "🔴"
-        elif self.delay >= 500:
+        elif self.delay >= 1000:
             return "🟠"
-        elif self.delay >= 200:
+        elif self.delay >= 750:
             return "🟡"
         else:
             return "🟢"
