@@ -486,19 +486,22 @@ class TagHandler(StatelessPaginator):
             await self.ctx.respond(e.args[0], ephemeral=True)
 
     async def set_value(self, interaction: ComponentInteraction, append: bool = False):
-        if append:
-            value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
-                modal_title=self.tag.name or "Tag",
-                question_s="Add to value:" if append else "Value:",
-                interaction=interaction,
-            )
-        else:
-            value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
-                modal_title=self.tag.name or "Tag",
-                question_s="Edit value:",
-                interaction=interaction,
-                pre_value_s=self.tag.value[self._position] or "",
-            )
+        try:
+            if append:
+                value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
+                    modal_title=self.tag.name or "Tag",
+                    question_s="Add to value:" if append else "Value:",
+                    interaction=interaction,
+                )
+            else:
+                value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
+                    modal_title=self.tag.name or "Tag",
+                    question_s="Edit value:",
+                    interaction=interaction,
+                    pre_value_s=self.tag.value[self._position] or "",
+                )
+        except asyncio.TimeoutError:
+            return
         self.set_context(event=event)
         if not value:
             return
