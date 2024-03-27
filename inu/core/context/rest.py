@@ -133,7 +133,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             args = args[1:]
         if update and (self._responses or update_message):
             if update_message:
-                kwargs.setdefault("channel_id", self.channel_id)
+                kwargs.setdefault("channel", self.channel_id)
                 msg = await self.app.rest.edit_message(*args, message=update_message, **kwargs)
             else:
                 msg = await self._responses[0].edit(*args, **kwargs)
