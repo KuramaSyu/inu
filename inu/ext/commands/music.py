@@ -341,6 +341,8 @@ class MusicLog:
             str_list.append(new_entry)
         return str_list
 
+
+
 class PlayerManager:
     _players: Dict[int, "Player"] = {}
 
@@ -361,7 +363,6 @@ class PlayerManager:
         await player.prepare()
         return player
         
-    
     @classmethod
     def remove_player(cls, guild_id: int) -> None:
         if guild_id in cls._players:
@@ -1514,7 +1515,6 @@ class Player:
         asyncio.TimeoutError :
             User hasn't responded to the menu
         """
-
         query_information = await lavalink.auto_search_tracks(query)
         track = None
         event = None
@@ -2164,6 +2164,7 @@ class Queue:
                         # e.g. not found errors for webhooks
                         log.warning(f"Queue._send - using REST fallback: {traceback.format_exc()}")
                         kwargs["channel"] = m.channel_id
+                        del kwargs["update"]
                         msg = await self.player.ctx.bot.rest.edit_message(**kwargs)
                     log.debug("update old")
                     return
