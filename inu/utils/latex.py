@@ -13,6 +13,7 @@ from pyparsing import (
     nums,
     alphas,
     oneOf,
+    ParseException
 )
 import math
 import operator
@@ -74,7 +75,7 @@ class NumericStringParser(object):
         equals = Literal("=") | Literal("≈")
         expr = Forward()
         atom = ((Optional(oneOf("- +")) +
-                 (x | ident + lpar + expr + ZeroOrMore(sep + expr) + rpar | pi | e | fnumber).setParseAction(self.pushFirst))
+                 ((ident + lpar + expr + ZeroOrMore(sep + expr) + rpar) | pi | e | fnumber | x).setParseAction(self.pushFirst))
                 | Optional(oneOf("- +")) + Group(lpar + expr + rpar)
                 ).setParseAction(self.pushUMinus)
         # by defining exponentiation as "atom [ ^ factor ]..." instead of
@@ -88,7 +89,8 @@ class NumericStringParser(object):
         expr << term + \
             ZeroOrMore((addop + term).setParseAction(self.pushFirst))
         equation = expr + \
-            ZeroOrMore((equals + expr).setParseAction(self.pushFirst))
+            ZeroOrMore((equals + expr).setParseAction(self.pushFirst)) + \
+            Optional(equals)
         # addop_term = ( addop + term ).setParseAction( self.pushFirst )
         # general_term = term + ZeroOrMore( addop_term ) | OneOrMore( addop_term)
         # expr <<  general_term
@@ -192,7 +194,7 @@ class NumericStringParser(object):
         else:
             return str(op)
 
-    def eval(self, num_string, parseAll=True) -> Union[float, int]:
+    def eval(self, num_string, parseAll=True) -> str:
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
         val = self.evaluateStack(self.exprStack[:])
@@ -200,7 +202,7 @@ class NumericStringParser(object):
     
 
 def latex2image(
-    latex_expression, image_size_in=(3, 2), fontsize=16, dpi=100, multiline=False
+    latex_expression: str, image_size_in=(3, 2), fontsize=16, dpi=100, multiline=False
 ) -> BytesIO:
     """
     A simple function to generate an image from a LaTeX language string.
@@ -225,13 +227,18 @@ def latex2image(
 
     """
     # over multiple lines
-    if multiline:
-      result = latex_expression[1:-1]
-      result = result.replace(" = ", "\n= ").replace(" ≈ ", "\n≈ ")
-      result = "\n".join([f"${line}$" for line in result.split("\n")])
-    else:
-      result = latex_expression
+    lines = []
+    length = len(latex_expression.splitlines())
+    for line in latex_expression.splitlines():
+      if re.match(r"^x [=≈]", line) or len(line) < 50 or length > 1 or not multiline:
+          lines.append(f"${line}$")
+          continue
+      line = line.replace(" = ", "\n= ").replace(" ≈ ", "\n≈ ")
+      lines.extend([f"${l}$" for l in line.split("\n")])
 
+    result = "\n".join(lines)
+
+    print(result)
     fig = plt.figure(figsize=image_size_in, dpi=dpi)
     fig.patch.set_alpha(0)
     text = fig.text(
@@ -256,8 +263,8 @@ def latex2image(
     return buffer
 
 def evaluation2image(evaluation: str, multiline: bool = False) -> BytesIO:
-    latex = NumericStringParser().eval(evaluation)
-    latex = f"${latex}$"
+    evaluations = [ev for ev in evaluation.splitlines()] if len(evaluation.splitlines()) > 1 else [evaluation]
+    latex = "\n".join([NumericStringParser().eval(ev) for ev in evaluations])
     image = latex2image(latex, multiline=multiline)
     return image
 
@@ -266,8 +273,10 @@ if __name__ == "__main__":
     #latex = NumericStringParser().eval("sqrt(sum(5x, 1, 10))")
     #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
     #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
-    latex = NumericStringParser().eval("sqrt(3) + (log(1'000, 10) × (5 / 60)) + (3 / 4) − 2³ + sum(x, 1, 10) = 48 + √(3) ≈ 49.7320508076")
-    latex = f"${latex}$"
-    image = latex2image(latex)
-    img = Image.open(image)
-    img.show()
+    try:
+      latex = NumericStringParser().eval("""(5 × x) = (sqrt(integrate(3 × x^2, 1, 5)) / 0.5) ≈""")
+      image = latex2image(latex)
+      img = Image.open(image)
+      img.show()
+    except ParseException as e:
+      print(e.explain())
