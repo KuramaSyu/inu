@@ -118,7 +118,7 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
     def prepare_for_latex(result: str) -> str:
         """prepares the result for latex"""
         result = result.replace("'", "") # remove number things for better readability
-        if len(result.splitlines()) > 1:
+        if len(result.splitlines()) > 1 and "warning" in result[0]:
             result = result.split("\n")[-1] # remove warnings
 
         old_to_new = {
@@ -153,7 +153,7 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
             prepare_for_latex(
                 result, 
             ),
-            multiline= (len(result) > 50) or (result.count("=") + result.count("≈") > 1)
+            multiline= (len(result) > 50)
         )
         embed.set_image(image)
     except ParseException as e:
