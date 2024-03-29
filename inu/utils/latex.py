@@ -237,8 +237,6 @@ def latex2image(
       lines.extend([f"${l}$" for l in line.split("\n")])
 
     result = "\n".join(lines)
-
-    print(result)
     fig = plt.figure(figsize=image_size_in, dpi=dpi)
     fig.patch.set_alpha(0)
     text = fig.text(
