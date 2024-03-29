@@ -13,6 +13,7 @@ import time as tm
 import random
 import logging
 
+from pyparsing import ParseException
 import asyncpraw
 import hikari
 import lightbulb
@@ -22,7 +23,7 @@ import re
 
 
 from core import getLogger, Inu, get_context, Bash, InuContext
-from utils import Human, calc
+from utils import Human, calc, evaluation2image
 
 log = getLogger(__name__)
 
@@ -50,7 +51,7 @@ async def on_message(event: hikari.MessageCreateEvent | hikari.MessageUpdateEven
     elif text.startswith("="):
         base = None
         content = str(event.message.content)
-        log.debug(content)
+        #log.debug(content)
         try:
             # extract base 
             base = re.findall(r"-(?:b|base)(?:[ ])?(\d|bin|dec|oct|hex)[ ]", content)[0]
@@ -110,16 +111,61 @@ def replace_vars(calculation: str, author_id: int) -> str:
         query = query.replace("ans", "0")
     return query
 
+
+
 async def send_result(ctx: InuContext, result: str, calculation: str, base: str | None):
     """sends the message with the result"""
+    def prepare_for_latex(result: str) -> str:
+        """prepares the result for latex"""
+        result = result.replace("'", "") # remove number things for better readability
+        if len(result.splitlines()) > 1:
+            result = result.split("\n")[-1] # remove warnings
+
+        old_to_new = {
+            "¹": "^1",
+            "²": "^2",
+            "³": "^3",
+            "⁴": "^4",
+            "⁵": "^5",
+            "⁶": "^6",
+            "⁷": "^7",
+            "⁸": "^8",
+            "⁹": "^9",
+            "⁰": "^0",
+            "−": "-",
+            "√": "sqrt",
+            "π": "pi",
+            "×": "*",
+            "÷": "/",
+        }
+        for old, new in old_to_new.items():
+            result = result.replace(old, new)
+        return result
+
     if len(result) > 100:
         embed = hikari.Embed(description=result)
-
     else:
         embed = hikari.Embed(title=result, description=f"```py\n{(calculation).strip()}```")
     if base:
         embed.set_footer(f"result with base {base}")
+    try:
+        image = evaluation2image(
+            prepare_for_latex(
+                result, 
+            ),
+            multiline= (len(result) > 50) or (result.count("=") + result.count("≈") > 1)
+        )
+        embed.set_image(image)
+    except ParseException as e:
+        log.warning(f"parsing failed:\n{e.explain()}")
+    except Exception as e:
+        log.warning(f"parsing {prepare_for_latex(result)} failed: {traceback.format_exc()}")
     await ctx.respond(embed=embed)
+
+
+
+
+
 
 def set_answer(result: str, author_id) -> None:
     """
