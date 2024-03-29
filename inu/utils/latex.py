@@ -23,7 +23,7 @@ from io import BytesIO
 import re
 from PIL import Image
 
-
+PERIOD_START = " "
 class NumericStringParser(object):
     '''
     Most of this code comes from the fourFn.py pyparsing example
@@ -58,6 +58,7 @@ class NumericStringParser(object):
         x = Literal("x")
         fnumber = Combine(Word("+-" + nums, nums) +
                           Optional(point + Optional(Word(nums))) +
+                          Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
                           Optional(Word("…")) +
                           Optional(e + Word("+-" + nums, nums)) + 
                           Optional(x)
@@ -201,9 +202,9 @@ class NumericStringParser(object):
             return str(op)
         elif "…" in op:
             part1, part2 = None, None
-            if " " in op:
+            if PERIOD_START in op:
                 # decimal partially periodic
-                part1, part2 = op.split(" ")
+                part1, part2 = op.split(PERIOD_START)
                 return f"{part1}\\overline{{{part2.replace('…', '')}}}"
             else: 
                 # decimal fully periodic
