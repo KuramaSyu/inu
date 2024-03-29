@@ -164,6 +164,37 @@ class RedditTopChannelView(SettingsMenuView):
         )
         return embed
 
+
+class LavalinkView(SettingsMenuView):
+    name = "Music"
+    
+    @miru.button(label="Soundcloud", style=hikari.ButtonStyle.SECONDARY)
+    async def soundcloud_button(self, button: miru.Button, ctx: miru.Context) -> None:
+        bot.data.preffered_music_search[ctx.guild_id] = "scsearch"
+        await ctx.edit_response(embed=await self.to_embed(), components=self.build())
+
+    @miru.button(label="YouTube", style=hikari.ButtonStyle.PRIMARY)
+    async def youtube_button(self, button: miru.Button, ctx: miru.Context) -> None:
+        bot.data.preffered_music_search[ctx.guild_id] = "ytsearch"
+        await ctx.edit_response(embed=await self.to_embed(), components=self.build())
+
+    async def to_embed(self):
+        source = "" 
+        if bot.data.preffered_music_search.get(self.lightbulb_ctx.guild_id, "ytsearch") == "ytsearch":
+            source = "YouTube"
+            self.soundcloud_button._style = hikari.ButtonStyle.SECONDARY
+            self.youtube_button._style = hikari.ButtonStyle.PRIMARY
+        else:
+            source = "Soundcloud"
+            self.soundcloud_button._style = hikari.ButtonStyle.PRIMARY
+            self.youtube_button._style = hikari.ButtonStyle.SECONDARY
+        embed = hikari.Embed(
+            title=self.total_name, 
+            description=f"The currently preferred source for music: **{source}**"
+        )
+        return embed
+    
+
 class RedditChannelView(SettingsMenuView):
     name = "Channels"
     @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
@@ -278,13 +309,19 @@ class MainView(SettingsMenuView):
     async def reddit_channels(self, button: miru.Button, ctx: miru.Context) -> None:
         await RedditView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
 
+    @miru.button(label="Music", style=hikari.ButtonStyle.PRIMARY, emoji="🎵")
+    async def lavalink_button(self, button: miru.Button, ctx: miru.Context):
+        await LavalinkView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
+
     @miru.button(label="Timezone", emoji=chr(9986), style=hikari.ButtonStyle.PRIMARY)
     async def timezone_button(self, button: miru.Button, ctx: miru.Context):
         await TimezoneView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
 
-    @miru.button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY)
+    @miru.button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY, emoji="🎮")
     async def activity_logging_button(self, button: miru.Button, ctx: miru.Context):
         await ActivityLoggingView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
+
+
 
     async def to_embed(self) -> hikari.Embed:
         embed = hikari.Embed(
