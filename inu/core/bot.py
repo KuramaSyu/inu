@@ -362,6 +362,7 @@ class Data:
 
     def __init__(self) -> None:
         self.lavalink: lavasnek_rs.Lavalink = None  # type: ignore
+        self.preffered_music_search: Mapping[int, str] = {}
 
 class Configuration():
     """Wrapper for the config file"""
@@ -373,6 +374,9 @@ class Configuration():
         if result is None:
             raise AttributeError(f"`Configuration` file `config.yaml` has no attribute `{name}`")
         return result
+    
+    def __setattr__(self, name: str, value: Any) -> None:
+        self.config[name] = value
 
 
 class MaybeRest:
