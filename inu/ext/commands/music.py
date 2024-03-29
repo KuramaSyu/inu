@@ -140,7 +140,7 @@ class Interactive:
             return None, None
         query_print = ""
         if not query_information:
-            query_information = await self.lavalink.auto_search_tracks(query)
+            query_information = await self.lavalink.search_tracks(query)
         id_ = bot.id_creator.create_id()
         menu = (
             MessageActionRowBuilder()
@@ -1459,11 +1459,17 @@ class Player:
                 and "&list" in query
             ):
                 # -> track from a playlist was added -> remove playlist info
-                self.query = YouTubeHelper.remove_playlist_info(query)
+                query = YouTubeHelper.remove_playlist_info(query)
+            if (
+                not (re.match(r"^https?:\/\/", query)) 
+                and not ("ytsearch:" in query or "scsearch:" in query)
+            ):
+                query = f"{bot.data.preffered_music_search.get(ictx.guild_id, 'ytsearch')}:{query}"
+            log.debug(f"{query=}")
             # try to add song
             event: Optional[hikari.InteractionCreateEvent] = None
             try:
-                track, event = await self.search_track(ictx, self.query)
+                track, event = await self.search_track(ictx, query)
             except BotResponseError as e:
                 raise e
             except asyncio.TimeoutError:
@@ -1476,7 +1482,7 @@ class Player:
                 )
             if track is None:
                 if not recursive:
-                    await ictx.respond(f"I only found a lot of empty space for `{self.query}`")
+                    await ictx.respond(f"I only found a lot of empty space for `{query}`")
                 return False, None
             if event:
                 # asked with menu - update context
@@ -1515,7 +1521,8 @@ class Player:
         asyncio.TimeoutError :
             User hasn't responded to the menu
         """
-        query_information = await lavalink.auto_search_tracks(query)
+        log.debug(f"search with query: {query}")
+        query_information = await lavalink.get_tracks(query)
         track = None
         event = None
 
@@ -1551,21 +1558,26 @@ class Player:
                 embed.add_field(name="Typical issues", value=(
                     "• Your title has an age limit\n"
                     "• Your title is not available in my region\n"
+                    "• I could have problems with YouTube or Soundcloud.\n"
+                    "If this problem persists with popular titles, then it's my issue\n"
                 ))
                 embed.add_field(name="What you can do:", value=(
-                    "• search the name of your title instead of passing in the URL\n"
+                    "• Do `/settings menu`, go to `Music` and change from YouTube to Soundcloud or vice versa\n"
+                    "• search by name instead of URL\n"
                     "• try other URL's\n"
+                    "• Report problem: [GitHub Issues - zp33dy/inu](https://github.com/zp33dy/inu/issues)"
                 ))
                 embed.description = f"Your [title]({query}) is not available for me"
             else:
                 embed.add_field(name="Typical issues", value=(
                     "• You have entered a bunch of shit\n"
-                    "• I could have problems with connecting to YouTube. "
+                    "• I could have problems with connecting to YouTube or SoundCloud. \n"
                     "If this problem persists with popular titles, then it's my issue\n"
                 ))
                 embed.add_field(name="What you can do:", value=(
                     "• Give me shorter queries\n"
-                    "• In case it's my issue, than open an issue here: [GitHub Issues - zp33dy/inu](https://github.com/zp33dy/inu/issues)"
+                    "• Do `/settings menu`, go to `Music` and change from YouTube to Soundcloud or vice versa\n"
+                    "• Report problem: [GitHub Issues - zp33dy/inu](https://github.com/zp33dy/inu/issues)"
                 ))
                 embed.description = f"I just found a lot of empty space for `{query}`"
             raise BotResponseError(embed=embed, ephemeral=True)
@@ -1794,13 +1806,17 @@ class Queue:
         if not kwargs["text"]:
             kwargs["icon"] = bot.me.avatar_url
             
-        # remaining in queue info
+        # remaining time rounded to seconds
         total_playtime = datetime.timedelta(
-            milliseconds=sum(
-                min(track.track.info.length, 36_000_000)  # max 10 hours -> prevent OverflowError
-                for track in self.node.queue
+            seconds=round(
+                datetime.timedelta(
+                    milliseconds=sum(
+                        min(track.track.info.length, 36_000_000)  # max 10 hours -> prevent OverflowError
+                        for track in self.node.queue
+                    )
+                ).total_seconds()
             )
-        ) 
+        )
         queue_len = len(self.node.queue)-3
         if not queue_len or queue_len < 0:
             queue_len = 0
