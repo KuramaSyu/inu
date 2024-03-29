@@ -56,7 +56,7 @@ class NumericStringParser(object):
         point = Literal(".")
         e = CaselessLiteral("E")
         x = Literal("x")
-        fnumber = Combine(Word("+-" + nums, nums) +
+        fnumber = Combine(Word("+ -" + nums, nums) +
                           Optional(point + Optional(Word(nums))) +
                           Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
                           Optional(Word("…")) +
@@ -81,7 +81,7 @@ class NumericStringParser(object):
         expr = Forward()
         parameter = expr + ZeroOrMore(sep + expr)
         atom = (
-            (Optional(oneOf("- +")) +
+            (Optional(oneOf("-+")) +
                 ((ident + lpar + parameter + rpar) | pi | e | fnumber | x).setParseAction(self.pushFirst))
             | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
         )
@@ -318,7 +318,7 @@ if __name__ == "__main__":
     #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
     #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
     try:
-      latex = NumericStringParser().eval(prepare_for_latex("""1 / 3 = 0.333…"""))
+      latex = NumericStringParser().eval(prepare_for_latex("""(1 / 6) + integrate(((1 / 4) × x) / (−6), 1, 3) + (1 / 4) = 1/4 = 0.25"""))
       image = latex2image(latex)
       img = Image.open(image)
       img.show()
