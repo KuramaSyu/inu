@@ -44,7 +44,7 @@ class NumericStringParser(object):
         expop   :: '^'
         multop  :: '*' | '/'
         addop   :: '+' | '-'
-        integer :: ['+' | '-'] '0'..'9'+
+        integer :: ['+' | '-'] '0'..'9'+ ' '? '…'? 'x'?
         sep     :: [',' | ';']
         x       :: 'x' | integer + x
         atom    :: PI | E | real | x | fn '(' expr [sep expr]* ')' | '(' expr ')'
