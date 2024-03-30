@@ -56,14 +56,13 @@ class NumericStringParser(object):
         self.exprStack.append(toks[0].replace(" ", "\\ "))
 
     def pushArray(self, strg, loc, toks):
-        print(f"Array: {toks}")
         if toks and toks[0] == '-':
             self.exprStack.append('-array')
         else:
             self.exprStack.append('array')
     
     def pushVector(self, strg, loc, toks):
-        print(f"Vector: {toks}")
+        # print(f"Vector: {toks}")
         self.exprStack.append(toks[0])
 
     def __init__(self):
@@ -323,7 +322,7 @@ def latex2image(
         s=result,
         horizontalalignment="left",
         verticalalignment="center",
-        fontsize=18,
+        fontsize=16,
         color='white',  # Set text color to white
         linespacing=1.7,
     )
