@@ -13,7 +13,8 @@ from pyparsing import (
     nums,
     alphas,
     oneOf,
-    ParseException
+    ParseException,
+    OneOrMore
 )
 import math
 import operator
@@ -22,8 +23,14 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import re
 from PIL import Image
+from pprint import pprint
 
 PERIOD_START = " "
+
+matplotlib.rcParams['text.usetex'] = True
+matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{{amsmath}}'
+
+
 class NumericStringParser(object):
     '''
     Most of this code comes from the fourFn.py pyparsing example
@@ -39,10 +46,15 @@ class NumericStringParser(object):
         self.exprStack.append(toks[0].replace(" ", "\\ "))
 
     def pushArray(self, strg, loc, toks):
+        print(f"Array: {toks}")
         if toks and toks[0] == '-':
             self.exprStack.append('-array')
         else:
             self.exprStack.append('array')
+    
+    def pushVector(self, strg, loc, toks):
+        print(f"Vector: {toks}")
+        self.exprStack.append(toks[0])
 
     def __init__(self):
         """
@@ -79,6 +91,8 @@ class NumericStringParser(object):
         div = Literal("/")
         lpar = Literal("(")
         rpar = Literal(")")
+        lbrack = Literal("[")
+        rbrack = Literal("]")
         sep = Literal(",").suppress() | Literal(";").suppress()
         
         addop = plus | minus
@@ -88,6 +102,11 @@ class NumericStringParser(object):
         equals = Literal("=") | Literal("≈")
 
         expr = Forward()
+
+
+        vec_row = expr + OneOrMore(expr)
+        vec = lbrack + vec_row + rbrack
+        matrix = lbrack + vec_row + OneOrMore(Literal(";") + vec_row) + rbrack
         parameter = expr + ZeroOrMore(sep + expr)
         unit_chain = Combine(unit + ZeroOrMore(Optional(space) + unit))
         atom = (
@@ -137,6 +156,7 @@ class NumericStringParser(object):
             "√": 1,
             "sum": 3,
             "integrate": 3,
+            "product": 3,
         }
         
         self.op_to_latex = {
@@ -145,7 +165,8 @@ class NumericStringParser(object):
             "*": "\\cdot",
             "/": "\\div",
             "^": "^",
-            "×": "\\cdot"
+            "×": "\\cdot",
+            "·": "\\cdot"
         }
     @staticmethod
     def get_latex_fn(fn_name: str) -> str:
@@ -172,7 +193,9 @@ class NumericStringParser(object):
         elif fn_name == "sgn":
             return "\\text{{sgn}}{0}"
         elif fn_name == "sum":
-            return "\\sum_{{x={1}}}^{{{0}}} {2}"
+            return "\\sum_{{i={1}}}^{{{0}}} x_i={2}"
+        elif fn_name == "product":
+            return "\\prod_{{i={1}}}^{{{0}}} x_i={2}"
         elif fn_name == "integrate":
             return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ dx"
         else:
@@ -195,7 +218,7 @@ class NumericStringParser(object):
             op2 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             op1 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             return f"\\frac{{{op1}}}{{{op2}}}"
-        if op in "+-*×=":
+        if op in "+-*×·=":
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
             return f"{op1} {self.op_to_latex[op]} {op2}"
@@ -324,6 +347,7 @@ def prepare_for_latex(result: str) -> str:
         "×": "*",
         "÷": "/",
         ":": "/",
+        "·": "*",
     }
     for old, new in old_to_new.items():
         result = result.replace(old, new)
