@@ -19,6 +19,9 @@ from pyparsing import (
 import math
 import operator
 import matplotlib
+# switch to pgf backend
+matplotlib.use('pgf')
+
 import matplotlib.pyplot as plt
 from io import BytesIO
 import re
@@ -27,9 +30,16 @@ from pprint import pprint
 
 PERIOD_START = " "
 
-matplotlib.rcParams['text.usetex'] = True
-matplotlib.rcParams['text.latex.preamble'] = r'\usepackage{{amsmath}}'
-
+# update latex preamble
+plt.rcParams.update({
+    "text.usetex": True,
+    "pgf.rcfonts": False,
+    "pgf.texsystem": 'pdflatex', # default is xetex
+    "pgf.preamble": "\n".join([
+         r"\usepackage[T1]{fontenc}",
+         r"\usepackage{mathpazo}"
+         ])
+})
 
 class NumericStringParser(object):
     '''
@@ -166,7 +176,9 @@ class NumericStringParser(object):
             "/": "\\div",
             "^": "^",
             "×": "\\cdot",
-            "·": "\\cdot"
+            "·": "\\cdot",
+            "=": "=",
+            "≈": "\\approx",
         }
     @staticmethod
     def get_latex_fn(fn_name: str) -> str:
@@ -209,7 +221,7 @@ class NumericStringParser(object):
         if op in "=≈":
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
-            return f"{op1} {op} {op2}"
+            return f"{op1} {self.op_to_latex[op]} {op2}"
         if op == 'array':
             return f"\\left( {self.evaluateStack(s)} \\right)"
         if op == '-array':
@@ -288,11 +300,19 @@ def latex2image(
     lines = []
     length = len(latex_expression.splitlines())
     for line in latex_expression.splitlines():
-      if re.match(r"^x [=≈]", line) or len(line) < 50 or length > 1 or not multiline:
-          lines.append(f"${line}$")
-          continue
-      line = line.replace(" = ", "\n= ").replace(" ≈ ", "\n≈ ")
-      lines.extend([f"${l}$" for l in line.split("\n")])
+        if re.match(r"^x [=≈]", line) or len(line) < 50 or length > 1 or not multiline:
+            lines.append(f"${line}$")
+            continue
+        line = line.replace(" = ", "\n= ").replace(" ≈ ", "\n≈ ")
+        len_ = 0
+        for i, l in enumerate(line.splitlines()):
+            if len_ + len(l) < 50 and len(lines) > 0:
+                lines[-1] = f"{lines[-1][:-1]}{l}$"
+                len_ += len(l)
+            else:
+                lines.append(f"${l}$")
+                len_ = len(l)
+    
 
     result = "\n".join(lines)
     fig = plt.figure(figsize=image_size_in, dpi=dpi)
@@ -303,8 +323,9 @@ def latex2image(
         s=result,
         horizontalalignment="left",
         verticalalignment="center",
-        fontsize=fontsize,
+        fontsize=18,
         color='white',  # Set text color to white
+        linespacing=1.7,
     )
     # Adjust image size based on the length of latex expression
     bbox = fig.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
@@ -358,7 +379,7 @@ if __name__ == "__main__":
     #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
     #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
     try:
-      latex = NumericStringParser().eval(prepare_for_latex("""(1 electronvolt) = x joules = 1.602176634E−19"""))
+      latex = NumericStringParser().eval(prepare_for_latex("""product(x, 1, 4) = 24"""))
       print(latex)
       image = latex2image(latex)
       img = Image.open(image)
