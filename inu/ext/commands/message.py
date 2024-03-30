@@ -84,7 +84,7 @@ async def calc_msg(ctx: InuContext, calculation: str, base: str | None = None):
     """base method for editing the calculation, calculating it, setting it as `last_ans` and finally sending it"""
     author_id: int = ctx.author.id
     calculation = replace_vars(
-        calculation=remove_eqauls_sign(calculation),
+        calculation=prepare(calculation),
         author_id=author_id,
     ) 
     result = await calc(calculation, base=base)
@@ -96,10 +96,13 @@ async def calc_msg(ctx: InuContext, calculation: str, base: str | None = None):
     await send_result(ctx, result, calculation, base=base)
 
 
-def remove_eqauls_sign(calculation: str) -> str:
+def prepare(calculation: str) -> str:
     """removes the equals sign at the beginning of the calculation, if there is one"""
     if calculation.startswith("="):
         calculation = calculation[1:]
+    # treats '{string without space} / {string without space}' as one fracion. 
+    # e.g. '4*5+4 / 2*3' -> '(4*5+4) / (2*3)'
+    calculation = re.sub(r'([^ ]*) \/ ([^ ]*)', r'(\1) / (\2)', calculation)
     return calculation
 
 def replace_vars(calculation: str, author_id: int) -> str:
