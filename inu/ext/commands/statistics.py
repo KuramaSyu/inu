@@ -52,6 +52,9 @@ bot: Inu
 # mapping from guild to list with top games in it
 top_games_cache = {}
 
+def switch_backend():
+    matplotlib.use("agg")
+
 async def maybe_raise_activity_tracking_disabled(guild_id: int):
     """Raises BotResponseError when guilds activity is not tracked"""
     if not await SettingsManager.fetch_activity_tracking(guild_id):
@@ -482,6 +485,8 @@ async def build_activity_graph(
     color_paletes = ["magma_r", "rocket_r", "mako_r"]
     clean_color_paletes = [sn.color_palette(cc.glasbey, n_colors=len(activities))]#["Set3", "Set2"]
     color = random.choice(clean_color_paletes) if distinguishable_colors else random.choice(color_paletes)
+    
+    switch_backend()
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
     sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
@@ -563,6 +568,8 @@ async def build_week_activity_chart(
 
     # style preparations
     color_paletes = ["magma", "rocket", "mako"]
+
+    switch_backend()
     plt.style.use("cyberpunk")
     sn.set_palette("bright")
     sn.set_context("notebook", font_scale=1.4, rc={"lines.linewidth": 1.5})
