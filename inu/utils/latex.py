@@ -43,7 +43,7 @@ def swtich_backend():
             r"\usepackage{mathpazo}"
             ])
     })
-swtich_backend()
+
 
 class NumericStringParser(object):
     '''
