@@ -1,7 +1,5 @@
 FROM ubuntu:noble
-
 FROM python:3.10.4
-
 # Install pip
 RUN python -m ensurepip
 
@@ -9,13 +7,21 @@ RUN python -m ensurepip
 RUN python -m pip install --upgrade pip
 
 # install firefox-esr for selenium
-RUN apt-get update && apt-get install -y \
+# install texlive for matplotlib
+# install wget, ez-utils for downloading qalc
+RUN apt-get update && apt-get install -y --fix-missing\
     build-essential \
     libssl-dev \
     libffi-dev \
     wget \
     firefox-esr \
-    xz-utils
+    xz-utils \
+    texlive-latex-base \
+    texlive-fonts-recommended \
+    texlive-fonts-extra \
+    texlive-latex-extra \
+    dvipng \
+    cm-super
 
 # manually install qalc since it is used by inu
 RUN wget -O qalculate.tar.xz https://github.com/Qalculate/qalculate-gtk/releases/download/v4.9.0/qalculate-4.9.0-x86_64.tar.xz \
