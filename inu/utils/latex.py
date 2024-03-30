@@ -31,7 +31,12 @@ class NumericStringParser(object):
     '''
 
     def pushFirst(self, strg, loc, toks):
+        # print(f"pushFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(toks[0])
+        
+    def pushUnitFirst(self, strg, loc, toks):
+        # print(f"pushUnitFirst: {toks[0]}; all: {toks}")
+        self.exprStack.append(toks[0].replace(" ", "\\ "))
 
     def pushArray(self, strg, loc, toks):
         if toks and toks[0] == '-':
@@ -60,10 +65,14 @@ class NumericStringParser(object):
                           Optional(point + Optional(Word(nums))) +
                           Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
                           Optional(Word("…")) +
-                          Optional(e + Word("+-" + nums, nums)) + 
-                          Optional(x)
+                          Optional(e + Word("+-" + nums, nums))
         )
         ident = Word(alphas, alphas + "_$")
+        unit_name = Word(alphas + "μ")
+        unit = unit_name
+        space = Literal(" ")
+        unit_number = Combine(fnumber + space + unit)
+        
         plus = Literal("+") 
         minus = Literal("-")
         mult = Literal("*") | Literal("×")
@@ -80,9 +89,12 @@ class NumericStringParser(object):
 
         expr = Forward()
         parameter = expr + ZeroOrMore(sep + expr)
+        unit_chain = Combine(unit + ZeroOrMore(Optional(space) + unit))
         atom = (
-            (Optional(oneOf("-+")) +
-                ((ident + lpar + parameter + rpar) | pi | e | fnumber | x).setParseAction(self.pushFirst))
+              (Optional(oneOf("-+")) + (ident + lpar + parameter + rpar).setParseAction(self.pushFirst))
+            | (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitFirst)
+            | (Optional(oneOf("-+")) + ( pi | e | fnumber)).setParseAction(self.pushFirst)
+            | (Optional(oneOf("-+")) + unit_chain).setParseAction(self.pushUnitFirst)
             | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
         )
         # by defining exponentiation as "atom [ ^ factor ]..." instead of
@@ -180,8 +192,8 @@ class NumericStringParser(object):
         if op == '-array':
             return f"- \\left( {self.evaluateStack(s)} \\right)"
         if op in "/":
-            op2 = self.evaluateStack(s)
-            op1 = self.evaluateStack(s)
+            op2 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
+            op1 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             return f"\\frac{{{op1}}}{{{op2}}}"
         if op in "+-*×=":
             op2 = self.evaluateStack(s)
@@ -192,7 +204,7 @@ class NumericStringParser(object):
             op1 = self.evaluateStack(s)
             return f"{op1}^{{{op2}}}"
         elif op == "PI":
-            return "\pi"
+            return "\\pi"
         elif op == "E":
             return "e"
         elif op in self.fn:
@@ -205,17 +217,21 @@ class NumericStringParser(object):
             if PERIOD_START in op:
                 # decimal partially periodic
                 part1, part2 = op.split(PERIOD_START)
-                return f"{part1}\\overline{{{part2.replace('…', '')}}}"
+                part3, part4 = part2.split("…")
+                return f"{part1}\\overline{{{part3}}}{part4}"
             else: 
                 # decimal fully periodic
                 part1, part2 = op.split(".")
-                return f"{part1}.\\overline{{{part2.replace('…', '')}}}"
+                part3, part4 = part2.split("…")
+                return f"{part1}.\\overline{{{part3}}}{part4}"
         else:
             return str(op)
 
     def eval(self, num_string, parseAll=True) -> str:
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
+        # print(f"results: {results}")
+        # print(f"exprStack: {self.exprStack[:]}")
         val = self.evaluateStack(self.exprStack[:])
         return val
     
@@ -318,7 +334,8 @@ if __name__ == "__main__":
     #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
     #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
     try:
-      latex = NumericStringParser().eval(prepare_for_latex("""(1 / 6) + integrate(((1 / 4) × x) / (−6), 1, 3) + (1 / 4) = 1/4 = 0.25"""))
+      latex = NumericStringParser().eval(prepare_for_latex("""(1 electronvolt) = x joules = 1.602176634E−19"""))
+      print(latex)
       image = latex2image(latex)
       img = Image.open(image)
       img.show()
