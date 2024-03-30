@@ -1,3 +1,4 @@
+from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import *
 import random
@@ -43,7 +44,6 @@ from core import (
     getLogger,
     get_context
 )
-
 log = getLogger(__name__)
 register_matplotlib_converters()
 plugin = lightbulb.Plugin("Statistics", "Shows statistics about the server")
@@ -51,9 +51,11 @@ bot: Inu
 
 # mapping from guild to list with top games in it
 top_games_cache = {}
-
+RC_PARAMS = deepcopy(plt.rcParams)
 def switch_backend():
     matplotlib.use("agg")
+    plt.rcParams.update(RC_PARAMS)
+
 
 async def maybe_raise_activity_tracking_disabled(guild_id: int):
     """Raises BotResponseError when guilds activity is not tracked"""
