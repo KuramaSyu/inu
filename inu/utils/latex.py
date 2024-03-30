@@ -20,7 +20,7 @@ import math
 import operator
 import matplotlib
 # switch to pgf backend
-matplotlib.use('pgf')
+
 
 import matplotlib.pyplot as plt
 from io import BytesIO
@@ -31,15 +31,19 @@ from pprint import pprint
 PERIOD_START = " "
 
 # update latex preamble
-plt.rcParams.update({
-    "text.usetex": True,
-    "pgf.rcfonts": False,
-    "pgf.texsystem": 'pdflatex', # default is xetex
-    "pgf.preamble": "\n".join([
-         r"\usepackage[T1]{fontenc}",
-         r"\usepackage{mathpazo}"
-         ])
-})
+def swtich_backend():
+    plt.switch_backend('pgf')
+    matplotlib.use('pgf')
+    plt.rcParams.update({
+        "text.usetex": True,
+        "pgf.rcfonts": False,
+        "pgf.texsystem": 'pdflatex', # default is xetex
+        "pgf.preamble": "\n".join([
+            r"\usepackage[T1]{fontenc}",
+            r"\usepackage{mathpazo}"
+            ])
+    })
+swtich_backend()
 
 class NumericStringParser(object):
     '''
@@ -314,6 +318,8 @@ def latex2image(
     
 
     result = "\n".join(lines)
+
+    swtich_backend()
     fig = plt.figure(figsize=image_size_in, dpi=dpi)
     fig.patch.set_alpha(0)
     text = fig.text(
