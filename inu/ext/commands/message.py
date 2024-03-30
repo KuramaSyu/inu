@@ -109,9 +109,10 @@ def replace_vars(calculation: str, author_id: int) -> str:
     """replaces the `ans` word with the last answer of that user, taken from `last_ans[author_id]` """
     query = calculation
     if (last_answer := last_ans.get(author_id)):
+        last_answer.replace("'", "")
         query = query.replace("ans", str(last_answer))
     else:
-        query = query.replace("ans", "0")
+        query = query.replace("ans", "1")
     return query
 
 
