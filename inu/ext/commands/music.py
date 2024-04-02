@@ -2175,17 +2175,15 @@ class Queue:
                     try:
                         msg = await self.player.ctx.respond(**kwargs)
                         self.message = await msg.message()
+                        log.debug("updated old")
                     except hikari.NotFoundError:
-                        # maybe errors with tracking of context class
-                        # e.g. not found errors for webhooks
                         log.warning(f"Queue._send - using REST fallback: {traceback.format_exc()}")
                         kwargs["channel"] = m.channel_id
                         del kwargs["update"]
-                        msg = await self.player.ctx.bot.rest.edit_message(**kwargs)
-                    log.debug("update old")
+                        msg = await self.player.ctx.bot.rest.edit_message(message=m.id, **kwargs)
                     return
+                
                 timeout -= 1
-               
                 if timeout == 0:
                     # resend message (not in last msgs found)
                     log.debug("send new")
