@@ -387,17 +387,19 @@ class NumericStringParser(object):
             if "E" in op:
                 # replace E x with *10^{x}
                 part1, part2 = op.split("E")
-                return f"{part1} \\cdot 10^{{{part2}}}"
-            if PERIOD_START in op:
-                # decimal partially periodic
-                part1, part2 = op.split(PERIOD_START)
-                part3, part4 = part2.split("…")
-                return f"{part1}\\overline{{{part3}}}{part4}"
-            else: 
-                # decimal fully periodic
-                part1, part2 = op.split(".")
-                part3, part4 = part2.split("…")
-                return f"{part1}.\\overline{{{part3}}}{part4}"
+                op = f"{part1} \\cdot 10^{{{part2}}}"
+            if "…" in op:
+                if PERIOD_START in op:
+                    # decimal partially periodic
+                    part1, part2 = op.split(PERIOD_START)
+                    part3, part4 = part2.split("…")
+                    op = f"{part1}\\overline{{{part3}}}{part4}"
+                else: 
+                    # decimal fully periodic
+                    part1, part2 = op.split(".")
+                    part3, part4 = part2.split("…")
+                    op = f"{part1}.\\overline{{{part3}}}{part4}"
+            return op
         else:
             return str(op)
 
@@ -524,7 +526,7 @@ if __name__ == "__main__":
     try:
       vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
       matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
-      code = """quark_s ≈ 1.69E-28±0.16E-28 kg"""
+      code = """adj([1 2 3;4 5 6;7 8 9])"""
       print(code)
       latex = NumericStringParser().eval(prepare_for_latex(code))
       print(latex)
