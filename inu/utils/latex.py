@@ -445,7 +445,7 @@ def latex2image(
     # over multiple lines
     lines = []
     includes_matrix = "pmatrix" in latex_expression
-    max_len = 50 if not includes_matrix else 200
+    max_len = 50 if not includes_matrix else 250
     length = len(latex_expression.splitlines())
     for line in latex_expression.splitlines():
         if re.match(r"^x [=≈]", line) or len(line) < max_len or length > 1 or not multiline:
@@ -454,7 +454,7 @@ def latex2image(
         line = line.replace(" = ", "\n= ").replace(" ≈ ", "\n≈ ")
         len_ = 0
         for i, l in enumerate(line.splitlines()):
-            if len_ + len(l) < 50 and len(lines) > 0:
+            if len_ + len(l) < max_len and len(lines) > 0:
                 lines[-1] = f"{lines[-1]}{l}"
                 len_ += len(l)
             else:
