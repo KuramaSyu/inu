@@ -19,7 +19,7 @@ from pyparsing import (
 import math
 import operator
 import matplotlib
-from pprint import pprint
+from p# print import p# print
 # switch to pgf backend
 
 
@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import re
 from PIL import Image
-from pprint import pprint
+from p# print import p# print
 
 PERIOD_START = " "
 
@@ -164,11 +164,12 @@ class NumericStringParser(object):
         point = Literal(".")
         e = CaselessLiteral("E")
         x = Literal("x")
-        fnumber = Combine(Word("+ -" + nums, nums) +
+        fnumber = Combine(Word("+-" + nums, nums) +
                           Optional(point + Optional(Word(nums))) +
                           Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
                           Optional(Word("…")) +
-                          Optional(e + Word("+-" + nums, nums))
+                          Optional(e + Word("+-" + nums, nums)) + 
+                          Optional(x)
         )
         ident = Word(alphas, alphas + "_$")
         unit_name = Word(alphas + "μ_")
@@ -196,7 +197,7 @@ class NumericStringParser(object):
 
         expr = Forward()
 
-        vec_row = Group(Combine(expr) + OneOrMore(Combine(expr)))
+        vec_row = Group(Combine(expr) + OneOrMore(Literal(",").suppress() + Combine(expr)))
         vec = lbrack + vec_row + rbrack
         matrix = lbrack + vec_row + ZeroOrMore(semicolon + vec_row) + rbrack
         parameter = expr + ZeroOrMore(sep + expr)
@@ -207,8 +208,9 @@ class NumericStringParser(object):
             | (Optional(oneOf("-+")) + ( pi | e | fnumber)).setParseAction(self.pushFirst)
             | (Optional(oneOf("-+")) + unit_chain).setParseAction(self.pushUnitFirst)
             | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
-            | (Optional(oneOf("-+")) + matrix).setParseAction(self.pushMatrix)
             | (Optional(oneOf("-+")) + vec).setParseAction(self.pushVector)
+            | (Optional(oneOf("-+")) + matrix).setParseAction(self.pushMatrix)
+            
         )
         # by defining exponentiation as "atom [ ^ factor ]..." instead of
         # "atom [ ^ atom ]...", we get right-to-left exponents, instead of left-to-right
@@ -407,9 +409,9 @@ class NumericStringParser(object):
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
         # print("results")
-        # results.pprint()
+        # results.p# print()
         # print("exprStack")
-        # pprint(self.exprStack)
+        # p# print(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
         return val
     
@@ -514,6 +516,7 @@ def prepare_for_latex(result: str) -> str:
         "÷": "/",
         ":": "/",
         "·": "*",
+        "  ": ", "
     }
     for old, new in old_to_new.items():
         result = result.replace(old, new)
@@ -526,12 +529,14 @@ if __name__ == "__main__":
     try:
       vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
       matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
-      code = """adj([1 2 3;4 5 6;7 8 9])"""
-      print(code)
+      #code = """[1  2  (3 − 5); 2  2  2; 3  −5  2] + [1  2  (3 − 5); 2  2  2; 3  −5  2]"""
+      code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  8  9]]) ≈ [289.5000000  −4.143593539  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −524.9840000  20.00000000  37.49600000]"
+      # print(code)
+      # print(prepare_for_latex(code))
       latex = NumericStringParser().eval(prepare_for_latex(code))
-      print(latex)
+      # print(latex)
       image = latex2image(latex)
       img = Image.open(image)
       img.show()
     except ParseException as e:
-      print(e.explain())
+      # print(e.explain())
