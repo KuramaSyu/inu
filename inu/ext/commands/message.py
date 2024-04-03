@@ -24,6 +24,7 @@ import re
 
 from core import getLogger, Inu, get_context, Bash, InuContext
 from utils import Human, calc, evaluation2image
+from utils import prepare_for_latex as replace_unsupported_chars
 
 log = getLogger(__name__)
 
@@ -124,26 +125,26 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
         result = result.replace("'", "") # remove number things for better readability
         if len(result.splitlines()) > 1 and "warning" in result[0]:
             result = result.split("\n")[-1] # remove warnings
-
-        old_to_new = {
-            "¹": "^1",
-            "²": "^2",
-            "³": "^3",
-            "⁴": "^4",
-            "⁵": "^5",
-            "⁶": "^6",
-            "⁷": "^7",
-            "⁸": "^8",
-            "⁹": "^9",
-            "⁰": "^0",
-            "−": "-",
-            "√": "sqrt",
-            "π": "pi",
-            "×": "*",
-            "÷": "/",
-        }
-        for old, new in old_to_new.items():
-            result = result.replace(old, new)
+        result = replace_unsupported_chars(result)
+        # old_to_new = {
+        #     "¹": "^1",
+        #     "²": "^2",
+        #     "³": "^3",
+        #     "⁴": "^4",
+        #     "⁵": "^5",
+        #     "⁶": "^6",
+        #     "⁷": "^7",
+        #     "⁸": "^8",
+        #     "⁹": "^9",
+        #     "⁰": "^0",
+        #     "−": "-",
+        #     "√": "sqrt",
+        #     "π": "pi",
+        #     "×": "*",
+        #     "÷": "/",
+        # }
+        # for old, new in old_to_new.items():
+        #     result = result.replace(old, new)
         return result
 
     if len(result) > 100:
