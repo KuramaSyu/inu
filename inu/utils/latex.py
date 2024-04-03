@@ -42,7 +42,8 @@ def swtich_backend():
         "pgf.preamble": "\n".join([
             r"\usepackage{amsmath}",
             r"\usepackage[T1]{fontenc}",
-            r"\usepackage{mathpazo}"
+            r"\usepackage{mathpazo}",
+            r"\renewcommand\arraystretch{1.4}"
             ])
     })
 
@@ -443,23 +444,25 @@ def latex2image(
     """
     # over multiple lines
     lines = []
+    includes_matrix = "pmatrix" in latex_expression
+    max_len = 50 if not includes_matrix else 200
     length = len(latex_expression.splitlines())
     for line in latex_expression.splitlines():
-        if re.match(r"^x [=≈]", line) or len(line) < 50 or length > 1 or not multiline:
-            lines.append(f"${line}$")
+        if re.match(r"^x [=≈]", line) or len(line) < max_len or length > 1 or not multiline:
+            lines.append(f"{line}")
             continue
         line = line.replace(" = ", "\n= ").replace(" ≈ ", "\n≈ ")
         len_ = 0
         for i, l in enumerate(line.splitlines()):
             if len_ + len(l) < 50 and len(lines) > 0:
-                lines[-1] = f"{lines[-1][:-1]}{l}$"
+                lines[-1] = f"{lines[-1]}{l}"
                 len_ += len(l)
             else:
-                lines.append(f"${l}$")
+                lines.append(f"{l}")
                 len_ = len(l)
-    
-
+    lines = [f"${line}$" for line in lines]
     result = "\n".join(lines)
+
 
     swtich_backend()
     fig = plt.figure(figsize=image_size_in, dpi=dpi)
@@ -470,9 +473,8 @@ def latex2image(
         s=result,
         horizontalalignment="left",
         verticalalignment="center",
-        fontsize=16,
         color='white',  # Set text color to white
-        linespacing=1.7,
+        linespacing=1.1 if includes_matrix else 1.7,
     )
     # Adjust image size based on the length of latex expression
     bbox = fig.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
@@ -530,9 +532,9 @@ if __name__ == "__main__":
       vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
       matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
       #code = """[1  2  (3 − 5); 2  2  2; 3  −5  2] + [1  2  (3 − 5); 2  2  2; 3  −5  2]"""
-      code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  8  9]]) ≈ [289.5000000  −4.143593539  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −524.9840000  20.00000000  37.49600000]"
+      code = "inv([1  2  3; 4  5  6; 7  8  10]) = [−(2/3)  −(4/3)  1; −(2/3)  11/3  −2; 1  −2  1] = [−0.6666666667  −1.333333333  1; −0.6666666667  3.666666667  −2; 1  −2  1]"
       # print(code)
-      # print(prepare_for_latex(code))
+      print(prepare_for_latex(code))
       latex = NumericStringParser().eval(prepare_for_latex(code))
       # print(latex)
       image = latex2image(latex)
