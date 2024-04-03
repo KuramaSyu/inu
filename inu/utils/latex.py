@@ -331,7 +331,8 @@ class NumericStringParser(object):
         if element["type"] == "vector":
             cols = int(op.split("x")[1])
             expressions = reversed([self.evaluateStack(s) for _ in range(cols)])
-            return f"\\begin{{pmatrix}} {'\\\\'.join(expressions)} \\end{{pmatrix}}"
+            content = '\\\\'.join(expressions)
+            return f"\\begin{{pmatrix}} {content} \\end{{pmatrix}}"
         if element["type"] == "matrix":
             rows = int(op.split("x")[0])
             cols = int(op.split("x")[1])
@@ -342,7 +343,6 @@ class NumericStringParser(object):
                 for _ in range(rows):
                     expressions[-1].append(self.evaluateStack(s))
                 expressions[-1].reverse()
-                
             expressions.reverse()
 
             for i, col in enumerate(expressions):
