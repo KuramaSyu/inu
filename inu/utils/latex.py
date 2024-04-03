@@ -473,6 +473,7 @@ def latex2image(
         s=result,
         horizontalalignment="left",
         verticalalignment="center",
+        fontsize=fontsize,
         color='white',  # Set text color to white
         linespacing=1.1 if includes_matrix else 1.7,
     )
