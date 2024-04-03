@@ -19,6 +19,7 @@ from pyparsing import (
 import math
 import operator
 import matplotlib
+from pprint import pprint
 # switch to pgf backend
 
 
@@ -39,6 +40,7 @@ def swtich_backend():
         "pgf.rcfonts": False,
         "pgf.texsystem": 'pdflatex', # default is xetex
         "pgf.preamble": "\n".join([
+            r"\usepackage{amsmath}",
             r"\usepackage[T1]{fontenc}",
             r"\usepackage{mathpazo}"
             ])
@@ -53,21 +55,97 @@ class NumericStringParser(object):
 
     def pushFirst(self, strg, loc, toks):
         # print(f"pushFirst: {toks[0]}; all: {toks}")
-        self.exprStack.append(toks[0])
+        self.exprStack.append(
+            {
+                "element": toks[0],
+                "type": "number"
+            }
+        )
         
     def pushUnitFirst(self, strg, loc, toks):
         # print(f"pushUnitFirst: {toks[0]}; all: {toks}")
-        self.exprStack.append(toks[0].replace(" ", "\\ "))
+        
+        if "E" in toks[0] and " " in toks[0]:
+            a, b = toks[0].split(" ")
+            # replace E x with *10^{x}
+            part1, part2 = a.split("E")
+            toks[0] = f"{part1}\\cdot10^{{{part2}}}"
+        self.exprStack.append(
+            {
+                "element": toks[0],
+                "type": "unit"
+            }
+        )
 
     def pushArray(self, strg, loc, toks):
+        # print(f"Array: all: {toks}")
         if toks and toks[0] == '-':
-            self.exprStack.append('-array')
+            self.exprStack.append(
+                {
+                    "eleement": '-array',
+                    "type": 'array'
+                }
+            )
         else:
-            self.exprStack.append('array')
+            self.exprStack.append(
+                {
+                    "element": 'array',
+                    "type": 'array'
+                }
+            )
     
     def pushVector(self, strg, loc, toks):
         # print(f"Vector: {toks}")
-        self.exprStack.append(toks[0])
+        self.exprStack.append(
+            {
+                "element": f"0x{len(toks[0])}",
+                "type": "vector"
+            }
+        )
+    def pushMatrix(self, strg, loc, toks):
+        # print(f"Matrix: {toks}")
+        self.exprStack.append(
+            {
+                "element": f"{len(toks)}x{len(toks[0])}",
+                "type": "matrix"
+            }
+        )
+    
+    def pushFactorFirst(self, strg, loc, toks):
+        # print(f"pushFactorFirst: {toks[0]}; all: {toks}")
+        self.exprStack.append(
+            {
+                "element": toks[0],
+                "type": "factor"
+            }
+        )
+
+    def pushTermFirst(self, strg, loc, toks):
+        # print(f"pushTermFirst: {toks[0]}; all: {toks}")
+        self.exprStack.append(
+            {
+                "element": toks[0],
+                "type": "term"
+            }
+        )
+
+    def pushExprFirst(self, strg, loc, toks):
+        # print(f"pushExprFirst: {toks[0]}; all: {toks}")
+        self.exprStack.append(
+            {
+                "element": toks[0],
+                "type": "expr"
+            }
+        )
+
+    def pushEquationFirst(self, strg, loc, toks):
+        # print(f"pushEquationFirst: {toks[0]}; all: {toks}")
+        self.exprStack.append(
+            {
+                "element": toks[0],
+                "type": "equation"
+            }
+        )
 
     def __init__(self):
         """
@@ -77,7 +155,7 @@ class NumericStringParser(object):
         integer :: ['+' | '-'] '0'..'9'+ ' '? '…'? 'x'?
         sep     :: [',' | ';']
         x       :: 'x' | integer + x
-        atom    :: PI | E | real | x | fn '(' expr [sep expr]* ')' | '(' expr ')'
+        atom    :: PI | E | real | x | fn '(' expr [sep expr]* ')' | '(' expr ')' | unit
         factor  :: atom [ expop factor ]*
         term    :: factor [ multop factor ]*
         expr    :: term [ addop term ]*
@@ -93,22 +171,24 @@ class NumericStringParser(object):
                           Optional(e + Word("+-" + nums, nums))
         )
         ident = Word(alphas, alphas + "_$")
-        unit_name = Word(alphas + "μ")
+        unit_name = Word(alphas + "μ_")
         unit = unit_name
         space = Literal(" ")
         unit_number = Combine(fnumber + space + unit)
         
         plus = Literal("+") 
         minus = Literal("-")
+        plusminus = Literal("±")
         mult = Literal("*") | Literal("×")
         div = Literal("/")
-        lpar = Literal("(")
-        rpar = Literal(")")
-        lbrack = Literal("[")
-        rbrack = Literal("]")
-        sep = Literal(",").suppress() | Literal(";").suppress()
+        lpar = Literal("(").suppress()
+        rpar = Literal(")").suppress()
+        lbrack = Literal("[").suppress()
+        rbrack = Literal("]").suppress()
+        semicolon = Literal(";").suppress()
+        sep = Literal(",").suppress() | semicolon
         
-        addop = plus | minus
+        addop = plus | minus | plusminus
         multop = mult | div
         expop = Literal("^")
         pi = CaselessLiteral("PI")
@@ -116,10 +196,9 @@ class NumericStringParser(object):
 
         expr = Forward()
 
-
-        vec_row = expr + OneOrMore(expr)
+        vec_row = Group(Combine(expr) + OneOrMore(Combine(expr)))
         vec = lbrack + vec_row + rbrack
-        matrix = lbrack + vec_row + OneOrMore(Literal(";") + vec_row) + rbrack
+        matrix = lbrack + vec_row + ZeroOrMore(semicolon + vec_row) + rbrack
         parameter = expr + ZeroOrMore(sep + expr)
         unit_chain = Combine(unit + ZeroOrMore(Optional(space) + unit))
         atom = (
@@ -128,19 +207,21 @@ class NumericStringParser(object):
             | (Optional(oneOf("-+")) + ( pi | e | fnumber)).setParseAction(self.pushFirst)
             | (Optional(oneOf("-+")) + unit_chain).setParseAction(self.pushUnitFirst)
             | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
+            | (Optional(oneOf("-+")) + matrix).setParseAction(self.pushMatrix)
+            | (Optional(oneOf("-+")) + vec).setParseAction(self.pushVector)
         )
         # by defining exponentiation as "atom [ ^ factor ]..." instead of
         # "atom [ ^ atom ]...", we get right-to-left exponents, instead of left-to-right
         # that is, 2^3^2 = 2^(3^2), not (2^3)^2.
         factor = Forward()
         factor << atom + \
-            ZeroOrMore((expop + factor).setParseAction(self.pushFirst))
+            ZeroOrMore((expop + factor).setParseAction(self.pushFactorFirst))
         term = factor + \
-            ZeroOrMore((multop + factor).setParseAction(self.pushFirst))
+            ZeroOrMore((multop + factor).setParseAction(self.pushTermFirst))
         expr << term + \
-            ZeroOrMore((addop + term).setParseAction(self.pushFirst))
+            ZeroOrMore((addop + term).setParseAction(self.pushExprFirst))
         equation = expr + \
-            ZeroOrMore((equals + expr).setParseAction(self.pushFirst)) + \
+            ZeroOrMore((equals + expr).setParseAction(self.pushEquationFirst)) + \
             Optional(equals)
         # addop_term = ( addop + term ).setParseAction( self.pushFirst )
         # general_term = term + ZeroOrMore( addop_term ) | OneOrMore( addop_term)
@@ -153,7 +234,9 @@ class NumericStringParser(object):
             "*": operator.mul,
             "×": operator.mul,
             "/": operator.truediv,
-            "^": operator.pow}
+            "^": operator.pow,
+            "±": None,
+        }
         # map function names to amount of parameters
         self.fn = {"sin": 1,
             "cos": 1,
@@ -170,6 +253,14 @@ class NumericStringParser(object):
             "sum": 3,
             "integrate": 3,
             "product": 3,
+            "cross": 2,
+            "dot": 2,
+            "hadamard": 2,
+            "multiply": 2,
+            "binomial": 2,
+            "adj": 1,
+            "inv": 1,
+            "det": 1,
         }
         
         self.op_to_latex = {
@@ -182,6 +273,7 @@ class NumericStringParser(object):
             "·": "\\cdot",
             "=": "=",
             "≈": "\\approx",
+            "±": "\\pm",
         }
     @staticmethod
     def get_latex_fn(fn_name: str) -> str:
@@ -213,6 +305,20 @@ class NumericStringParser(object):
             return "\\prod_{{i={1}}}^{{{0}}} x_i={2}"
         elif fn_name == "integrate":
             return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ dx"
+        elif fn_name == "cross":
+            return "{1} \\times {0}"
+        elif fn_name == "dot":
+            return "{1} \\cdot {0}"
+        elif fn_name in ["hadamard", "multiply"]:
+            return "{1} \\circ {0}"
+        elif fn_name == "binomial":
+            return "\\binom{{{1}}}{{{0}}}"
+        elif fn_name == "adj":
+            return "\\text{{adj}}{0}"
+        elif fn_name == "inv":
+            return "{0}^{{-1}}"
+        elif fn_name == "det":
+            return "\\text{{det}}{0}"
         else:
             return fn_name
 
@@ -220,7 +326,31 @@ class NumericStringParser(object):
         """
         converts the stack to latex
         """
-        op = s.pop()
+        element = s.pop()
+        op = element["element"]
+        if element["type"] == "vector":
+            cols = int(op.split("x")[1])
+            expressions = reversed([self.evaluateStack(s) for _ in range(cols)])
+            return f"\\begin{{pmatrix}} {'\\\\'.join(expressions)} \\end{{pmatrix}}"
+        if element["type"] == "matrix":
+            rows = int(op.split("x")[0])
+            cols = int(op.split("x")[1])
+            matrix_content = ""
+            expressions = []
+            for _ in range(cols):
+                expressions.append([])
+                for _ in range(rows):
+                    expressions[-1].append(self.evaluateStack(s))
+                expressions[-1].reverse()
+                
+            expressions.reverse()
+
+            for i, col in enumerate(expressions):
+                if i != 0:
+                    matrix_content += " \\\\"
+                matrix_content += " & ".join(col)
+
+            return f"\\begin{{pmatrix}} {matrix_content} \\end{{pmatrix}}"
         if op in "=≈":
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
@@ -233,7 +363,7 @@ class NumericStringParser(object):
             op2 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             op1 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             return f"\\frac{{{op1}}}{{{op2}}}"
-        if op in "+-*×·=":
+        if op in "+-*×·=±":
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
             return f"{op1} {self.op_to_latex[op]} {op2}"
@@ -249,9 +379,15 @@ class NumericStringParser(object):
             format_values = [self.evaluateStack(s) for _ in range(self.fn[op])]
             return self.get_latex_fn(op).format(*format_values)
         elif str(op[0]).isalpha():
+            if "_" in op:
+                op = op.replace("_", "\_")
             return str(op)
-        elif "…" in op:
+        elif element["type"] == "number":
             part1, part2 = None, None
+            if "E" in op:
+                # replace E x with *10^{x}
+                part1, part2 = op.split("E")
+                return f"{part1} \\cdot 10^{{{part2}}}"
             if PERIOD_START in op:
                 # decimal partially periodic
                 part1, part2 = op.split(PERIOD_START)
@@ -268,8 +404,10 @@ class NumericStringParser(object):
     def eval(self, num_string, parseAll=True) -> str:
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
-        # print(f"results: {results}")
-        # print(f"exprStack: {self.exprStack[:]}")
+        # print("results")
+        # results.pprint()
+        # print("exprStack")
+        # pprint(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
         return val
     
@@ -384,7 +522,11 @@ if __name__ == "__main__":
     #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
     #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
     try:
-      latex = NumericStringParser().eval(prepare_for_latex("""product(x, 1, 4) = 24"""))
+      vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
+      matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
+      code = """quark_s ≈ 1.69E-28±0.16E-28 kg"""
+      print(code)
+      latex = NumericStringParser().eval(prepare_for_latex(code))
       print(latex)
       image = latex2image(latex)
       img = Image.open(image)
