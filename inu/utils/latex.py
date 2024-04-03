@@ -19,7 +19,7 @@ from pyparsing import (
 import math
 import operator
 import matplotlib
-from p# print import p# print
+from pprint import pprint
 # switch to pgf backend
 
 
@@ -27,7 +27,7 @@ import matplotlib.pyplot as plt
 from io import BytesIO
 import re
 from PIL import Image
-from p# print import p# print
+from pprint import pprint
 
 PERIOD_START = " "
 
@@ -539,4 +539,4 @@ if __name__ == "__main__":
       img = Image.open(image)
       img.show()
     except ParseException as e:
-      # print(e.explain())
+      print(e.explain())
