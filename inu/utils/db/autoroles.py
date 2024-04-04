@@ -230,7 +230,11 @@ class VoiceActivityEvent(AutoroleEvent):
                 None
             """
             await autorole_user_table.delete_by_id("id", record["id"])
-            member = await self.bot.rest.fetch_member(record["guild_id"], record["user_id"])
+            try:
+                member = await self.bot.mrest.fetch_member(record["guild_id"], record["user_id"])
+            except hikari.NotFoundError:
+                # member left guild?
+                return
             await member.remove_role(self.role_id)
 
     async def add_to_db(self):
@@ -477,7 +481,7 @@ class AutoroleManager():
         """
         records = await autorole_user_table.fetch(
         f"""
-        SELECT events.id, inst.user_id, inst.expires_at, events.event_id, events.role_id
+        SELECT inst.id, inst.user_id, inst.expires_at, events.event_id, events.role_id
         FROM {autorole_user_table.name} inst
         INNER JOIN {autorole_table.name} events ON events.id = inst.guild_role
         WHERE events.guild_id = $1 AND events.event_id = $2
