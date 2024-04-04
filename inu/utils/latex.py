@@ -218,6 +218,7 @@ class NumericStringParser(object):
         point = Literal(".")
         e = CaselessLiteral("E")
         x = Literal("x")
+        i = Literal("i")
         fnumber = Combine(
             Optional(oneOf("+ -")) +
             Word(nums) +
@@ -225,6 +226,7 @@ class NumericStringParser(object):
             Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
             Optional(Word("…")) +
             Optional(e + Word("+-" + nums, nums)) + 
+            Optional(i) +
             Optional(x)
         )
         ident = Word(alphas, alphas + "_$")
