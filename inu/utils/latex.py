@@ -14,7 +14,8 @@ from pyparsing import (
     alphas,
     oneOf,
     ParseException,
-    OneOrMore
+    OneOrMore,
+    FollowedBy
 )
 import math
 import operator
@@ -56,47 +57,99 @@ class NumericStringParser(object):
 
     def pushFirst(self, strg, loc, toks):
         # print(f"pushFirst: {toks[0]}; all: {toks}")
+        number = self.prepare_number(toks[0])
         self.exprStack.append(
             {
-                "element": toks[0],
+                "element": number,
                 "type": "number"
             }
         )
-        
+
+    def prepare_number(self, number: str) -> str:
+        if "E" in number:
+            # replace E x with *10^{x}
+            number, exponent = number.split("E")
+            number = f"{number}\\cdot10^{{{exponent}}}"
+        if "…" in number:
+            # replace … with \overline
+            if PERIOD_START in number:
+                # decimal partially periodic
+                num, period = number.split(PERIOD_START)
+                period, after_period = period.split("…")
+                number = f"{num}\\overline{{{period}}}{after_period}"
+            else: 
+                # decimal fully periodic
+                num, period = number.split(".")
+                period, after_period = period.split("…")
+                number = f"{num}.\\overline{{{period}}}{after_period}"
+        return number
+    
+    def prepare_unit(self, unit: str) -> str:
+        old_to_new = {
+            " ": "\\ ",
+            "μ": "\\mu ",
+            "_": "\\_"
+        }
+        for old, new in old_to_new.items():
+            unit = unit.replace(old, new)
+        return unit
+    
     def pushUnitFirst(self, strg, loc, toks):
         # print(f"pushUnitFirst: {toks[0]}; all: {toks}")
-        
-        if "E" in toks[0] and " " in toks[0]:
-            a, b = toks[0].split(" ")
-            # replace E x with *10^{x}
-            part1, part2 = a.split("E")
-            toks[0] = f"{part1}\\cdot10^{{{part2}}}"
+        unit = self.prepare_unit(toks[0])
         self.exprStack.append(
             {
-                "element": toks[0],
-                "type": "unit"
+                "type": "unit",
+                "element": unit,
+                
+            }
+        )
+    def pushUnitNumberFirst(self, strg, loc, toks):
+        # print(f"pushUnitNumberFirst: {toks[0]}; all: {toks}")
+        array = toks[0].split(" ")
+        number, unit = array[0], " ".join(array[1:])
+        number = self.prepare_number(number)
+        unit = self.prepare_unit(unit)
+
+        self.exprStack.append(
+            {
+                "type": "unit",
+                "unit": unit,
+                "number": number,
+                "element": f"{number} {unit}",
+                
             }
         )
 
     def pushArray(self, strg, loc, toks):
         # print(f"Array: all: {toks}")
+        negate = False
         if toks and toks[0] == '-':
-            self.exprStack.append(
-                {
-                    "eleement": '-array',
-                    "type": 'array'
-                }
-            )
-        else:
-            self.exprStack.append(
-                {
-                    "element": 'array',
-                    "type": 'array'
-                }
-            )
+            negate = True
+        self.exprStack.append(
+            {
+                "type": 'array',
+                "element": 'array',
+                "negate": negate
+            }
+        )
+
+    def pushFunction(self, strg, loc, toks):
+        # print(f"Function: {toks[0]}; all: {toks}")
+        negate = False
+        if toks and toks[0] == '-':
+            negate = True
+            toks = toks[1:]
+        self.exprStack.append(
+            {
+                "element": toks[0],
+                "type": "function",
+                "negative": negate
+            }
+        )
     
     def pushVector(self, strg, loc, toks):
-        # print(f"Vector: {toks}")
+        # print(f"Vector 0x{len(toks[0])}: {toks}")
         self.exprStack.append(
             {
                 "element": f"0x{len(toks[0])}",
@@ -104,7 +157,7 @@ class NumericStringParser(object):
             }
         )
     def pushMatrix(self, strg, loc, toks):
-        # print(f"Matrix: {toks}")
+        # print(f"Matrix {len(toks)}x{len(toks[0])}: {toks}")
         self.exprStack.append(
             {
                 "element": f"{len(toks)}x{len(toks[0])}",
@@ -165,12 +218,14 @@ class NumericStringParser(object):
         point = Literal(".")
         e = CaselessLiteral("E")
         x = Literal("x")
-        fnumber = Combine(Word("+-" + nums, nums) +
-                          Optional(point + Optional(Word(nums))) +
-                          Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
-                          Optional(Word("…")) +
-                          Optional(e + Word("+-" + nums, nums)) + 
-                          Optional(x)
+        fnumber = Combine(
+            Optional(oneOf("+ -")) +
+            Word(nums) +
+            Optional(point + Optional(Word(nums))) +
+            Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
+            Optional(Word("…")) +
+            Optional(e + Word("+-" + nums, nums)) + 
+            Optional(x)
         )
         ident = Word(alphas, alphas + "_$")
         unit_name = Word(alphas + "μ_")
@@ -199,19 +254,23 @@ class NumericStringParser(object):
         expr = Forward()
 
         vec_row = Group(Combine(expr) + OneOrMore(Literal(",").suppress() + Combine(expr)))
-        vec = lbrack + vec_row + rbrack
-        matrix = lbrack + vec_row + ZeroOrMore(semicolon + vec_row) + rbrack
+        vec = lbrack + vec_row + rbrack 
+        matrix = (
+            (lbrack + vec_row + OneOrMore(semicolon + vec_row) + rbrack)
+            ^ (lbrack + vec + OneOrMore(semicolon + vec) + rbrack)
+        )
         parameter = expr + ZeroOrMore(sep + expr)
         unit_chain = Combine(unit + ZeroOrMore(Optional(space) + unit))
         atom = (
-              (Optional(oneOf("-+")) + (ident + lpar + parameter + rpar).setParseAction(self.pushFirst))
-            | (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitFirst)
+              (Optional(oneOf("- +")) + ZeroOrMore(space) + ident + lpar + parameter + rpar).setParseAction(self.pushFunction)
+            | (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
             | (Optional(oneOf("-+")) + ( pi | e | fnumber)).setParseAction(self.pushFirst)
             | (Optional(oneOf("-+")) + unit_chain).setParseAction(self.pushUnitFirst)
             | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
-            | (Optional(oneOf("-+")) + vec).setParseAction(self.pushVector)
-            | (Optional(oneOf("-+")) + matrix).setParseAction(self.pushMatrix)
-            
+            | (
+                (Optional(oneOf("-+")) + matrix).setParseAction(self.pushMatrix)
+                ^ (Optional(oneOf("-+")) + vec).setParseAction(self.pushVector)
+            )  
         )
         # by defining exponentiation as "atom [ ^ factor ]..." instead of
         # "atom [ ^ atom ]...", we get right-to-left exponents, instead of left-to-right
@@ -336,9 +395,10 @@ class NumericStringParser(object):
             expressions = reversed([self.evaluateStack(s) for _ in range(cols)])
             content = '\\\\'.join(expressions)
             return f"\\begin{{pmatrix}} {content} \\end{{pmatrix}}"
+        
         if element["type"] == "matrix":
-            rows = int(op.split("x")[0])
-            cols = int(op.split("x")[1])
+            cols = int(op.split("x")[0])
+            rows = int(op.split("x")[1])
             matrix_content = ""
             expressions = []
             for _ in range(cols):
@@ -354,71 +414,60 @@ class NumericStringParser(object):
                 matrix_content += " & ".join(col)
 
             return f"\\begin{{pmatrix}} {matrix_content} \\end{{pmatrix}}"
+        
         if op in "=≈":
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
             return f"{op1} {self.op_to_latex[op]} {op2}"
+        
         if op == 'array':
-            return f"\\left( {self.evaluateStack(s)} \\right)"
-        if op == '-array':
-            return f"- \\left( {self.evaluateStack(s)} \\right)"
+            prefix = "- " if element["negate"] else ""
+            return f"{prefix}\\left( {self.evaluateStack(s)} \\right)"
         if op in "/":
             op2 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             op1 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             return f"\\frac{{{op1}}}{{{op2}}}"
+        
         if op in "+-*×·=±":
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
             return f"{op1} {self.op_to_latex[op]} {op2}"
+        
         if op in "^":
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
             return f"{op1}^{{{op2}}}"
+        
         elif op == "PI":
             return "\\pi"
+        
         elif op == "E":
             return "e"
+        
         elif op in self.fn:
             format_values = [self.evaluateStack(s) for _ in range(self.fn[op])]
-            return self.get_latex_fn(op).format(*format_values)
-        elif str(op[0]).isalpha():
-            if "_" in op:
-                op = op.replace("_", "\_")
-            return str(op)
-        elif element["type"] == "number":
-            part1, part2 = None, None
-            if "E" in op:
-                # replace E x with *10^{x}
-                part1, part2 = op.split("E")
-                op = f"{part1} \\cdot 10^{{{part2}}}"
-            if "…" in op:
-                if PERIOD_START in op:
-                    # decimal partially periodic
-                    part1, part2 = op.split(PERIOD_START)
-                    part3, part4 = part2.split("…")
-                    op = f"{part1}\\overline{{{part3}}}{part4}"
-                else: 
-                    # decimal fully periodic
-                    part1, part2 = op.split(".")
-                    part3, part4 = part2.split("…")
-                    op = f"{part1}.\\overline{{{part3}}}{part4}"
+            prefix = "- " if element["negative"] else ""
+            return f"{prefix}{self.get_latex_fn(op).format(*format_values)}"
+        
+        elif element["type"] in ["unit", "number"]:
             return op
+        
         else:
             return str(op)
 
     def eval(self, num_string, parseAll=True) -> str:
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
-        # print("results")
-        # results.p# print()
-        # print("exprStack")
-        # p# print(self.exprStack)
+        #print("results")
+        #results.pprint()
+        #print("exprStack")
+        #pprint(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
         return val
     
 
 def latex2image(
-    latex_expression: str, image_size_in=(3, 2), fontsize=16, dpi=100, multiline=False
+    latex_expression: str, image_size_in=(3, 2), fontsize=16, dpi=100, multiline=True
 ) -> BytesIO:
     """
     A simple function to generate an image from a LaTeX language string.
@@ -445,13 +494,13 @@ def latex2image(
     # over multiple lines
     lines = []
     includes_matrix = "pmatrix" in latex_expression
-    max_len = 50 if not includes_matrix else 250
+    max_len = 50 if not includes_matrix else 300
     length = len(latex_expression.splitlines())
     for line in latex_expression.splitlines():
         if re.match(r"^x [=≈]", line) or len(line) < max_len or length > 1 or not multiline:
             lines.append(f"{line}")
             continue
-        line = line.replace(" = ", "\n= ").replace(" ≈ ", "\n≈ ")
+        line = line.replace(" = ", "\n= ").replace(r"\approx", "\n \\approx")
         len_ = 0
         for i, l in enumerate(line.splitlines()):
             if len_ + len(l) < max_len and len(lines) > 0:
@@ -533,11 +582,11 @@ if __name__ == "__main__":
       vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
       matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
       #code = """[1  2  (3 − 5); 2  2  2; 3  −5  2] + [1  2  (3 − 5); 2  2  2; 3  −5  2]"""
-      code = "inv([1  2  3; 4  5  6; 7  8  10]) = [−(2/3)  −(4/3)  1; −(2/3)  11/3  −2; 1  −2  1] = [−0.6666666667  −1.333333333  1; −0.6666666667  3.666666667  −2; 1  −2  1]"
-      # print(code)
+      code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  9]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"#  = [1  (9+ 3)  3] = [1  3/2; 1  2] = [1  1.5; 1  2]
+
       print(prepare_for_latex(code))
       latex = NumericStringParser().eval(prepare_for_latex(code))
-      # print(latex)
+      print(latex)
       image = latex2image(latex)
       img = Image.open(image)
       img.show()
