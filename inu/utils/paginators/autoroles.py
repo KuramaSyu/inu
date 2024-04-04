@@ -298,7 +298,7 @@ class AutorolesViewer(StatelessPaginator):
                 "Expires in": []
             }
         table = bare_table()
-        
+        records.sort(key=lambda x: x["expires_at"])
         for i, record in enumerate(records):
             try:
                 table["ID"].append(str(record["id"]))
