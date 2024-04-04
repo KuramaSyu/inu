@@ -189,10 +189,10 @@ class VoiceActivityEvent(AutoroleEvent):
                 INSERT INTO autoroles.instances (user_id, guild_role, expires_at)
                 SELECT $1, gr.id, NOW() + gr.duration
                 FROM autoroles.events AS gr
-                WHERE gr.event_id = $2
+                WHERE gr.event_id = $2 AND gr.guild_id = $3
                 ON CONFLICT (user_id, guild_role) DO UPDATE
                 SET expires_at = EXCLUDED.expires_at;
-                """, user_id, event_id
+                """, user_id, event_id, guild_id
             )
             member: hikari.Member = self.bot.cache.get_member(guild_id, user_id)
             if not self.role_id in member.role_ids:
