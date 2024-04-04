@@ -190,9 +190,9 @@ CREATE SCHEMA IF NOT EXISTS autoroles;
 CREATE TABLE IF NOT EXISTS autoroles.events (
     id SERIAL PRIMARY KEY,
     guild_id BIGINT NOT NULL,
-    event_id BIGINT NOT NULL,
+    event_id BIGINT NOT NULL,  -- which Autorole Event ID
     duration INTERVAL,
-    role_id BIGINT NOT NULL,
+    role_id BIGINT NOT NULL,  -- which Discord role ID
     CONSTRAINT unique_guild_event_role UNIQUE (guild_id, event_id, role_id)
 );
 CREATE TABLE IF NOT EXISTS autoroles.instances (
