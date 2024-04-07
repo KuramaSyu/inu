@@ -449,6 +449,7 @@ class NumericStringParser(object):
             prefix = "- " if element["negate"] else ""
             return f"{prefix}\\left( {self.evaluateStack(s)} \\right)"
         if op in "/":
+            self.needs_latex = True
             op2 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             op1 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
             return f"\\frac{{{op1}}}{{{op2}}}"
@@ -460,6 +461,7 @@ class NumericStringParser(object):
             return f"{op1} {self.op_to_latex[op]} {op2}"
         
         if op in "^":
+            self.needs_latex = True
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
             return f"{op1}^{{{op2}}}"
