@@ -2187,7 +2187,10 @@ class Queue:
                 if timeout == 0:
                     # resend message (not in last msgs found)
                     log.debug("send new")
-                    await music_message.delete()
+                    try:
+                        await music_message.delete()
+                    except hikari.NotFoundError:
+                        pass
                     msg = await self.player.ctx.respond(
                         embed=music_embed, 
                         content=None,
