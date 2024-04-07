@@ -15,7 +15,9 @@ from pyparsing import (
     oneOf,
     ParseException,
     OneOrMore,
-    FollowedBy
+    FollowedBy,
+    QuotedString,
+    alphanums
 )
 import math
 import operator
@@ -116,7 +118,7 @@ class NumericStringParser(object):
                 "type": "unit",
                 "unit": unit,
                 "number": number,
-                "element": f"{number} {unit}",
+                "element": f"{number}\\ {unit}",
                 
             }
         )
@@ -144,7 +146,8 @@ class NumericStringParser(object):
             {
                 "element": toks[0],
                 "type": "function",
-                "negative": negate
+                "negative": negate,
+                "number_args": len(toks) -1
             }
         )
     
@@ -219,6 +222,13 @@ class NumericStringParser(object):
         e = CaselessLiteral("E")
         x = Literal("x")
         i = Literal("i")
+        space = Literal(" ")
+        string_start = Literal('"')
+
+        string = QuotedString('"', esc_char='""', unquote_results=True)
+        binary_number_part = Combine(ZeroOrMore(Literal("b")) + Word("01"))
+        binary_number = Combine(Optional(oneOf("+ -")) + binary_number_part + ZeroOrMore(Combine(space, binary_number_part)))
+        
         fnumber = Combine(
             Optional(oneOf("+ -")) +
             Word(nums) +
@@ -232,7 +242,7 @@ class NumericStringParser(object):
         ident = Word(alphas, alphas + "_$")
         unit_name = Word(alphas + "μ_")
         unit = unit_name
-        space = Literal(" ")
+        
         unit_number = Combine(fnumber + space + unit)
         
         plus = Literal("+") 
@@ -261,14 +271,15 @@ class NumericStringParser(object):
             (lbrack + vec_row + OneOrMore(semicolon + vec_row) + rbrack)
             ^ (lbrack + vec + OneOrMore(semicolon + vec) + rbrack)
         )
-        parameter = expr + ZeroOrMore(sep + expr)
+        parameter = Combine(expr) + ZeroOrMore(sep + Combine(expr))
         unit_chain = Combine(unit + ZeroOrMore(Optional(space) + unit))
         atom = (
               (Optional(oneOf("- +")) + ZeroOrMore(space) + ident + lpar + parameter + rpar).setParseAction(self.pushFunction)
             | (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
-            | (Optional(oneOf("-+")) + ( pi | e | fnumber)).setParseAction(self.pushFirst)
+            | (Optional(oneOf("-+")) + ( pi | e | fnumber | binary_number)).setParseAction(self.pushFirst)
             | (Optional(oneOf("-+")) + unit_chain).setParseAction(self.pushUnitFirst)
             | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
+            | (string).setParseAction(self.pushFirst)
             | (
                 (Optional(oneOf("-+")) + matrix).setParseAction(self.pushMatrix)
                 ^ (Optional(oneOf("-+")) + vec).setParseAction(self.pushVector)
@@ -340,8 +351,12 @@ class NumericStringParser(object):
             "≈": "\\approx",
             "±": "\\pm",
         }
-    @staticmethod
-    def get_latex_fn(fn_name: str) -> str:
+
+        self.needs_latex = False
+
+    def get_latex_fn(self, fn_name: str, number_args) -> str:
+        if fn_name not in ["planet", "element"]:
+            self.needs_latex = True
         if fn_name == "sin":
             return "\\sin({0})"
         elif fn_name == "cos":
@@ -386,8 +401,11 @@ class NumericStringParser(object):
             return "{0}^{{-1}}"
         elif fn_name == "det":
             return "\\text{{det}}{0}"
+        elif fn_name in ["arcsin", "arccos", "arctan"]:
+            return "\\text{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
         else:
-            return fn_name
+            return f"{fn_name}\\left({', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)]))}\\right)"
+        
 
     def evaluateStack(self, s) -> str:
         """
@@ -396,12 +414,14 @@ class NumericStringParser(object):
         element = s.pop()
         op = element["element"]
         if element["type"] == "vector":
+            self.needs_latex = True
             cols = int(op.split("x")[1])
             expressions = reversed([self.evaluateStack(s) for _ in range(cols)])
             content = '\\\\'.join(expressions)
             return f"\\begin{{pmatrix}} {content} \\end{{pmatrix}}"
         
         if element["type"] == "matrix":
+            self.needs_latex = True
             cols = int(op.split("x")[0])
             rows = int(op.split("x")[1])
             matrix_content = ""
@@ -434,6 +454,7 @@ class NumericStringParser(object):
             return f"\\frac{{{op1}}}{{{op2}}}"
         
         if op in "+-*×·=±":
+            self.needs_latex = True
             op2 = self.evaluateStack(s)
             op1 = self.evaluateStack(s)
             return f"{op1} {self.op_to_latex[op]} {op2}"
@@ -444,15 +465,18 @@ class NumericStringParser(object):
             return f"{op1}^{{{op2}}}"
         
         elif op == "PI":
+            self.needs_latex = True
             return "\\pi"
         
         elif op == "E":
+            self.needs_latex = True
             return "e"
         
-        elif op in self.fn:
-            format_values = [self.evaluateStack(s) for _ in range(self.fn[op])]
+        elif element["type"] == "function":
+            number_args = self.fn.get(op) or element["number_args"]
+            format_values = [self.evaluateStack(s) for _ in range(number_args)]
             prefix = "- " if element["negative"] else ""
-            return f"{prefix}{self.get_latex_fn(op).format(*format_values)}"
+            return f"{prefix}{self.get_latex_fn(op, number_args).format(*format_values)}"
         
         elif element["type"] in ["unit", "number"]:
             return op
@@ -463,10 +487,10 @@ class NumericStringParser(object):
     def eval(self, num_string, parseAll=True) -> str:
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
-        #print("results")
-        #results.pprint()
-        #print("exprStack")
-        #pprint(self.exprStack)
+        # print("results")
+        results.pprint()
+        # print("exprStack")
+        pprint(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
         return val
     
@@ -545,7 +569,12 @@ def latex2image(
 
 def evaluation2image(evaluation: str, multiline: bool = False) -> BytesIO:
     evaluations = [ev for ev in evaluation.splitlines()] if len(evaluation.splitlines()) > 1 else [evaluation]
-    latex = "\n".join([NumericStringParser().eval(ev) for ev in evaluations])
+    parser = NumericStringParser()
+    evaluations = [parser.eval(ev) for ev in evaluations]
+    if not parser.needs_latex:
+        # print("No latex needed")
+        return None
+    latex = "\n".join(evaluations)
     image = latex2image(latex, multiline=multiline)
     return image
 
@@ -587,11 +616,11 @@ if __name__ == "__main__":
       vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
       matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
       code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  9]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"
-      print(prepare_for_latex(code))
+      # print(prepare_for_latex(code))
       latex = NumericStringParser().eval(prepare_for_latex(code))
-      print(latex)
+      # print(latex)
       image = latex2image(latex)
       img = Image.open(image)
       img.show()
     except ParseException as e:
-      print(e.explain())
+      # print(e.explain())
