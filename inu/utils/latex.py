@@ -488,9 +488,9 @@ class NumericStringParser(object):
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
         # print("results")
-        results.pprint()
+        # results.pprint()
         # print("exprStack")
-        pprint(self.exprStack)
+        # pprint(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
         return val
     
@@ -613,14 +613,14 @@ if __name__ == "__main__":
     #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
     #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
     try:
-      vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
-      matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
-      code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  9]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"
-      # print(prepare_for_latex(code))
-      latex = NumericStringParser().eval(prepare_for_latex(code))
-      # print(latex)
-      image = latex2image(latex)
-      img = Image.open(image)
-      img.show()
+        vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
+        matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
+        code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  9]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"
+        # print(prepare_for_latex(code))
+        latex = NumericStringParser().eval(prepare_for_latex(code))
+        # print(latex)
+        image = latex2image(latex)
+        img = Image.open(image)
+        img.show()
     except ParseException as e:
-      # print(e.explain())
+        print(e.explain())
