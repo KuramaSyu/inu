@@ -29,7 +29,7 @@ from utils import (
 )
 import lavasnek_rs
 from core import getLogger
-from utils import Multiple
+from utils import Human
 
 
 log = getLogger(__name__)
@@ -115,7 +115,7 @@ def main():
                 number_fact = (await fetch_response(new_number)).replace(str(new_number), "")
                 pattern = re.compile(str(new_number) + r"\b")
                 sub_number = pattern.sub(f"-{new_number}-", activity)
-                bot_description = f"{sub_number} {'Well its looking empty this time' if len(activity) > len(number_fact) else number_fact}"
+                bot_description = f"{sub_number}{' Well its looking empty this time' if len(activity) > len(number_fact) else number_fact}"
             else:
                 bot_description = f"{number_fact}"
         except Exception:
@@ -125,7 +125,8 @@ def main():
             await event.bot.update_presence(
                 status=hikari.Status.IDLE, 
                 activity=hikari.Activity(
-                    name=bot_description,
+                    name=f"Restart Nr {activity}",
+                    state=Human.short_text(bot_description, 128),
                     type=hikari.ActivityType.CUSTOM
                 )
             )
