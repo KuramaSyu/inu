@@ -550,7 +550,7 @@ class NumericStringParser(object):
         # print("exprStack")
         # pprint(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
-        pprint(val)
+        # pprint(val)
         return val['content']
     
 
