@@ -1,5 +1,5 @@
 import os
-from typing import Union
+from typing import Union, Dict, Any, List, Tuple
 import re
 from pyparsing import (
     Literal,
@@ -354,6 +354,12 @@ class NumericStringParser(object):
 
         self.needs_latex = False
 
+    @staticmethod
+    def unpack_array(op: Dict[str, Any]) -> str:
+        if op["type"] == "array" and op["negated"] == False:
+            return op["old"][0]
+        return op["content"]
+
     def get_latex_fn(self, fn_name: str, number_args) -> str:
         if fn_name not in ["planet", "element"]:
             self.needs_latex = True
@@ -405,7 +411,6 @@ class NumericStringParser(object):
             return "\\text{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
         else:
             return f"{fn_name}\\left({', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)]))}\\right)"
-        
 
     def evaluateStack(self, s) -> str:
         """
@@ -416,9 +421,13 @@ class NumericStringParser(object):
         if element["type"] == "vector":
             self.needs_latex = True
             cols = int(op.split("x")[1])
-            expressions = reversed([self.evaluateStack(s) for _ in range(cols)])
+            expressions = reversed([self.evaluateStack(s)['content'] for _ in range(cols)])
             content = '\\\\'.join(expressions)
-            return f"\\begin{{pmatrix}} {content} \\end{{pmatrix}}"
+            return {
+                "content": f"\\begin{{pmatrix}} {content} \\end{{pmatrix}}",
+                "type": "vector",
+                "old": expressions
+            }
         
         if element["type"] == "matrix":
             self.needs_latex = True
@@ -429,7 +438,7 @@ class NumericStringParser(object):
             for _ in range(cols):
                 expressions.append([])
                 for _ in range(rows):
-                    expressions[-1].append(self.evaluateStack(s))
+                    expressions[-1].append(self.evaluateStack(s)['content'])
                 expressions[-1].reverse()
             expressions.reverse()
 
@@ -438,53 +447,100 @@ class NumericStringParser(object):
                     matrix_content += " \\\\"
                 matrix_content += " & ".join(col)
 
-            return f"\\begin{{pmatrix}} {matrix_content} \\end{{pmatrix}}"
+            return {
+                "content": f"\\begin{{pmatrix}} {matrix_content} \\end{{pmatrix}}",
+                "type": "matrix",
+                "old": expressions
+            }
         
         if op in "=≈":
-            op2 = self.evaluateStack(s)
-            op1 = self.evaluateStack(s)
-            return f"{op1} {self.op_to_latex[op]} {op2}"
+            op2 = self.unpack_array(self.evaluateStack(s))
+            op1 = self.unpack_array(self.evaluateStack(s))
+            return {
+                "content": f"{op1} {self.op_to_latex[op]} {op2}",
+                "type": "equal",
+                "old": [op1, op2]
+            }
         
         if op == 'array':
             prefix = "- " if element["negate"] else ""
-            return f"{prefix}\\left( {self.evaluateStack(s)} \\right)"
+            expr = self.evaluateStack(s)
+            if expr['type'] in ['array', 'fraction']:
+                return expr
+            return {
+                "content": f"{prefix}\\left( {expr['content']} \\right)",
+                "type": "array",
+                "negated": element["negate"],
+                "old": [expr['content']]
+            }
         if op in "/":
             self.needs_latex = True
-            op2 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
-            op1 = self.evaluateStack(s).removeprefix(r"\left(").removesuffix(r"\right)")
-            return f"\\frac{{{op1}}}{{{op2}}}"
+            op2 = self.unpack_array(self.evaluateStack(s))
+            op1 = self.unpack_array(self.evaluateStack(s))
+            return {
+                "content": f"\\frac{{{op1}}}{{{op2}}}",
+                "type": "fraction",
+                "old": [op1, op2] 
+            }
         
         if op in "+-*×·=±":
             self.needs_latex = True
-            op2 = self.evaluateStack(s)
-            op1 = self.evaluateStack(s)
-            return f"{op1} {self.op_to_latex[op]} {op2}"
+            op2 = self.evaluateStack(s)['content']
+            op1 = self.evaluateStack(s)['content']
+            return {
+                "content": f"{op1} {self.op_to_latex[op]} {op2}",
+                "type": "op",
+                "old": [op1, op2]
+            }
         
         if op in "^":
             self.needs_latex = True
-            op2 = self.evaluateStack(s)
-            op1 = self.evaluateStack(s)
-            return f"{op1}^{{{op2}}}"
+            op2 = self.evaluateStack(s)['content']
+            op1 = self.evaluateStack(s)['content']
+            return {
+                "content": f"{op1}^{{{op2}}}",
+                "type": "exp",
+                "old": [op1, op2]
+            }
         
         elif op == "PI":
             self.needs_latex = True
-            return "\\pi"
+            return {
+                "content": "\\pi",
+                "type": "number",
+                "old": op
+            }
         
         elif op == "E":
             self.needs_latex = True
-            return "e"
+            return {
+                "content": "e",
+                "type": "number",
+                "old": op
+            }
         
         elif element["type"] == "function":
             number_args = self.fn.get(op) or element["number_args"]
-            format_values = [self.evaluateStack(s) for _ in range(number_args)]
+            format_values = [self.evaluateStack(s)['content'] for _ in range(number_args)]
             prefix = "- " if element["negative"] else ""
-            return f"{prefix}{self.get_latex_fn(op, number_args).format(*format_values)}"
+            return {
+                "content": f"{prefix}{self.get_latex_fn(op, number_args).format(*format_values)}",
+                "type": "function",
+                "old": format_values
+            }
         
         elif element["type"] in ["unit", "number"]:
-            return op
-        
+            return {
+                "content": op,
+                "type": element["type"],
+                "old": op
+            }
         else:
-            return str(op)
+            return {
+                "content": op,
+                "type": element["type"],
+                "old": op
+            }
 
     def eval(self, num_string, parseAll=True) -> str:
         self.exprStack = []
@@ -494,7 +550,8 @@ class NumericStringParser(object):
         # print("exprStack")
         # pprint(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
-        return val
+        pprint(val)
+        return val['content']
     
 
 def latex2image(
@@ -618,6 +675,7 @@ if __name__ == "__main__":
         vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
         matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
         code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  9]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"
+        #code = "(((((1+2)/3)))) = (2+3) * 5"
         # print(prepare_for_latex(code))
         latex = NumericStringParser().eval(prepare_for_latex(code))
         # print(latex)
