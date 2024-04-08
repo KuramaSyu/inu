@@ -82,6 +82,10 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
     @property
     def command(self) -> None:
         return None
+    
+    @property
+    def message_id(self) -> hikari.Snowflake:
+        return self.event.message_id
 
     @property
     def original_message(self) -> hikari.Message:
@@ -123,7 +127,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         .. versionadded:: 2.2.0
             ``delete_after`` kwarg.
         """
-        update_message: SnowflakeishOr[hikari.PartialMessage] | None = update if isinstance(update, (int, hikari.PartialMessage)) else None
+        update_message: SnowflakeishOr[hikari.PartialMessage] | None = update if isinstance(update, (hikari.Snowflake, hikari.PartialMessage)) else None
         self._deferred = False
 
         kwargs.pop("flags", None)
