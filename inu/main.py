@@ -3,6 +3,8 @@ import logging
 import traceback
 import time
 import os
+import re
+from pprint import pprint 
 
 import aiohttp
 from core import LoggingHandler
@@ -27,6 +29,7 @@ from utils import (
 )
 import lavasnek_rs
 from core import getLogger
+from utils import Multiple
 
 
 log = getLogger(__name__)
@@ -39,7 +42,7 @@ def main():
     log.info("Create Inu")
     inu = Inu()
     tasks.load(inu)
-    print(inu.conf)
+    inu.conf.pprint()
 
     @inu.listen(lightbulb.LightbulbStartedEvent)
     async def sync_prefixes(event: hikari.ShardReadyEvent):
@@ -86,39 +89,49 @@ def main():
             count += 1
             inu.restart_num = count
             await table.upsert(where={"key": "restart_count", "value": str(count)})
-            log.info(f'RESTART NUMBER: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
+            log.info(f'[Start] Number: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
         except Exception:
             log.error(traceback.format_exc())
 
 
     @inu.listen(lightbulb.LightbulbStartedEvent)
     async def on_bot_ready(event : lightbulb.LightbulbStartedEvent):
+        async def fetch_response(number: int):
+            """Fetches a response from the numbersapi.com API"""
+            async with aiohttp.ClientSession() as session:
+                async with session.get(f"http://numbersapi.com/{number}") as resp:
+                    return (await resp.read()).decode("utf-8")
+                
+
         table = Table("bot")
         record = await table.select_row(["key"], ["restart_count"])
         activity = str(record["value"]) if record else 0
+        bot_description = ""
         try:
-            async with aiohttp.ClientSession() as session:
-                resp = await session.get(f"http://numbersapi.com/{activity}")
-                new_activity = (await resp.read()).decode("utf-8")
-                activity = activity if len(activity) > len(new_activity) else new_activity
-                resp.close()
+            negative_answers = ["an uninteresting number", "a boring number", "we're missing a fact", "an unremarkable number"]
+            number_fact = await fetch_response(int(activity))
+            if any(answer in number_fact for answer in negative_answers):
+                new_number = int(activity) % 100
+                number_fact = (await fetch_response(new_number)).replace(str(new_number), "")
+                pattern = re.compile(str(new_number) + r"\b")
+                sub_number = pattern.sub(f"-{new_number}-", activity)
+                bot_description = f"{sub_number} {'Well its looking empty this time' if len(activity) > len(number_fact) else number_fact}"
+            else:
+                bot_description = f"{number_fact}"
         except Exception:
             log.error(traceback.format_exc())
-        await event.bot.update_presence(
-            status=hikari.Status.IDLE, 
-            activity=hikari.Activity(
-                name=activity,
+        log.info(f"[Start] Bot is online: {bot_description}")
+        try:
+            await event.bot.update_presence(
+                status=hikari.Status.IDLE, 
+                activity=hikari.Activity(
+                    name=bot_description,
+                    type=hikari.ActivityType.CUSTOM
+                )
             )
-        )
+        except Exception:
+            log.error(f"[Start] failed to set presence: {traceback.format_exc()}")
 
-
-    # @inu.listen(lightbulb.events.CommandInvocationEvent)
-    # async def on_event(event: lightbulb.events.CommandInvocationEvent):
-    #     log.debug(
-    #         (
-    #             f"[{event.context.user.id}] {event.context.author.username} called {event.command.name}"
-    #         )
-    #     )
     
     stop = False
     while not stop:
