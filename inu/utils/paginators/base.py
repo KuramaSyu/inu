@@ -461,6 +461,7 @@ class Paginator():
         custom_id_type: str | None = None,
         number_button_navigation: bool = False,
         number_button_rows: int = 4,
+        hide_components_when_one_site: bool = False,
     ):
         """
         ### A Paginator with many options
@@ -552,6 +553,7 @@ class Paginator():
         self._number_button_navigation = number_button_navigation
         self.button_rows = number_button_rows
         self._with_update_button = False
+        self._hide_components_when_one_site = hide_components_when_one_site
 
         self.bot: lightbulb.BotApp
         self._ctx: InteractionContext | None = None
@@ -610,11 +612,6 @@ class Paginator():
     @ctx.setter
     def ctx(self, ctx: InuContext) -> None:
         self._ctx = ctx
-
-    # @property
-    # def custom_id_prefix(self) -> str:
-    #     """The prefix which should be added before every custom_id"""
-    #     return self._custom_id_prefix
 
     @property
     def pages(self):
@@ -830,6 +827,19 @@ class Paginator():
             action_rows.extend(self._additional_components)    
         return action_rows
     
+    def add_page(self, page: Union[Embed, str]):
+        self._pages.append(page)
+
+    async def move_to_page(self, index: int):
+        if index < 0 or index >= len(self._pages):
+            index = len(self._pages) - 1
+        
+        if self._stopped:
+            self._position = index
+            await self.start()
+        else:
+            await self.paginate(index)
+
     @property
     def download(self) -> Optional[str]:
         if not self._download:
@@ -913,9 +923,9 @@ class Paginator():
         """
         if kwargs.get("update") is None:
             kwargs["update"] = True
-        if not self._disable_component and not kwargs.get("component"):
+        if not self._disable_component and not kwargs.get("component") and not (len(self.pages) == 1 and self._hide_components_when_one_site):
             kwargs["component"] = self.component
-        elif not self._disable_components and not kwargs.get("components"):
+        elif not self._disable_components and not kwargs.get("components") and not (len(self.pages) == 1 and self._hide_components_when_one_site):
             kwargs["components"] = self.components
         
 
@@ -1038,6 +1048,7 @@ class Paginator():
         -------
             - (hikari.Message) the message, which was used by the paginator
         """
+        self._stopped = False
         if not isinstance(ctx, InuContext):
             self.log.debug("get context")
             self.ctx = get_context(ctx.event)
@@ -1068,13 +1079,14 @@ class Paginator():
 
         if self._default_page_index < 0:
             self._default_page_index = len(self._pages) + self._default_page_index  # otherwise stop btn displays "0/x"
-        self._position = self._default_page_index
+        if self._position in [None, 0]:
+            self._position = self._default_page_index
 
         # make kwargs for first message
         kwargs = self._first_message_kwargs
-        if not self._disable_component:
+        if not self._disable_component and not (len(self.pages) == 1 and self._hide_components_when_one_site):
             kwargs["component"] = self.component
-        elif not self._disable_components:
+        elif not self._disable_components and not (len(self.pages) == 1 and self._hide_components_when_one_site):
             kwargs["components"] = self.components
         if (download := self.download):
             kwargs["attachment"] = hikari.Bytes(download, self._download_name)
@@ -1216,7 +1228,7 @@ class Paginator():
                 await self.paginate(id=event.interaction.custom_id or None)  # type: ignore
         await self.listener.notify(event)
 
-    async def paginate(self, id: str):
+    async def paginate(self, id: str | KeyboardInterrupt):
         """
         paginates the message
 
@@ -1230,7 +1242,9 @@ class Paginator():
         last_position = self._position
         self._old_position = self._position
         self.log.debug(self._position)
-        if id == "first":
+        if isinstance(id, int):
+            self._position = id
+        elif id == "first":
             self._position = 0
         elif id == "previous":
             if self._position == 0:
@@ -1250,7 +1264,7 @@ class Paginator():
             return
         elif id.startswith(NUMBER_BUTTON_PREFIX):
             self._position = int(id.replace(NUMBER_BUTTON_PREFIX, ""))
-        if last_position != self._position or id == "sync":
+        if last_position != self._position or str(id) == "sync":
             await self._update_position()
 
     async def delete_presence(self):
