@@ -30,6 +30,7 @@ class SectionProxy:
         self.case_insensitive = case_insensitive
         self.name = section_name
         self.options = {}
+        self._options = section_options
         for key, value in section_options.items():
             if isinstance(value, dict):
                 self.options[str(key)] = self._dict_to_section_proxy(key, value)
@@ -47,8 +48,19 @@ class SectionProxy:
 
     def __repr__(self):
         return f"<`SectionProxy` section:{self.name}; attrs: {self.options}>"
+    
     def __str__(self):
-        return f"<`SectionProxy` section: {self.name};\nattrs: {pprint.pformat(self.options)}>"
+        return f"{self.name}: {pprint.pformat(self.options)}"
+    
+    def pprint(self):
+        pprint.pprint(
+            {self.name: self._options},
+            indent=4,
+            compact=False,
+            underscore_numbers=True
+        )
+
+
     def get(self, item, default=None):
         return self.options.get(item, default)
 
@@ -72,7 +84,7 @@ class ConfigProxy(metaclass=Singleton):
     ):
         if config_type is None:
             raise RuntimeError("config_type cannot be None when initialized first time")
-        self.sections = config_type(path)  #type: ignore
+        self.sections, self._config = config_type(path)  #type: ignore
 
     def __getattr__(self, name: str) -> str:
         name = name.lower()
@@ -97,6 +109,14 @@ class ConfigProxy(metaclass=Singleton):
 
     def __iter__(self):
         return (s for s in self.sections)
+    
+    def pprint(self):
+        return pprint.pprint(
+            self._config,
+            indent=4,
+            compact=False,
+            underscore_numbers=True
+        )
 
     @staticmethod
     def create(config_type: Optional[Callable] = None, path: Optional[str] = None) -> "ConfigProxy":
@@ -112,17 +132,17 @@ class ConfigProxy(metaclass=Singleton):
 
 class ConfigAlgorithms:
     @staticmethod
-    def yaml_config(path: Optional[str] = None):
+    def yaml_config(path: Optional[str] = None) -> Tuple[List[SectionProxy], Dict[str, Any]]:
         if path is None:
             path = f"{os.getcwd()}/config.yaml"
         stream = ""
         with open(path, "r", encoding="utf-8") as f:
             stream = f.read()
         config = yaml.load(stream, Loader=yaml.CLoader)
-        return [SectionProxy(k, v) for k, v in config.items()]
+        return [SectionProxy(k, v) for k, v in config.items()], config
 
     @staticmethod
-    def ini_config(path: Optional[str] = None):
+    def ini_config(path: Optional[str] = None) -> Tuple[List[SectionProxy], List[str]]:
         config = ConfigParser(allow_no_value=True)
         config.read(f"{os.getcwd()}/config.ini")
 
@@ -133,7 +153,7 @@ class ConfigAlgorithms:
                 tmp_options[option] = config.get(section, option)
             section_proxies.append(SectionProxy(section, tmp_options))
         #section_proxies.append(SectionProxy("env", dotenv_values()))       
-        return section_proxies
+        return section_proxies, config
 
 
 class ConfigType(Enum):
@@ -153,6 +173,6 @@ class ConfigType(Enum):
 if __name__ == "__main__":
     config = ConfigProxy(ConfigType.YAML)
     for s in config:
-        print(s)
+        pprint.pprint(s)
         
     
