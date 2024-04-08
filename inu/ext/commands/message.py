@@ -7,7 +7,9 @@ from typing import (
     Dict,
     Any,
     Optional,
-    Union
+    Union,
+    Tuple,
+    Callable,
 )
 import time as tm
 import random
@@ -20,11 +22,11 @@ import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
 import re
-
+from expiring_dict import ExpiringDict
 
 from core import getLogger, Inu, get_context, Bash, InuContext
 from utils import Human, calc, evaluation2image
-from utils import prepare_for_latex as replace_unsupported_chars
+from utils import prepare_for_latex as replace_unsupported_chars, Paginator
 
 log = getLogger(__name__)
 
@@ -33,6 +35,8 @@ plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
 
 # storing the last answers of users, that it can be used later
 last_ans: Dict[int, str] = {}
+# specific for calculate - only for response update on message edit
+message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext, Paginator]] = ExpiringDict(ttl=60*60)
 
 @plugin.listener(hikari.MessageCreateEvent)
 async def on_message_create(event: hikari.MessageCreateEvent):
@@ -40,7 +44,11 @@ async def on_message_create(event: hikari.MessageCreateEvent):
     
 @plugin.listener(hikari.MessageUpdateEvent)
 async def on_message_update(event: hikari.MessageUpdateEvent):
-    await on_message(event)
+    if event.message_id in message_id_cache:
+        func, _, _ = message_id_cache[event.message_id]
+        await func(get_context(event), event.message.content)
+    else:
+        await on_message(event)
 
 async def on_message(event: hikari.MessageCreateEvent | hikari.MessageUpdateEvent):
     message = event.message
@@ -126,25 +134,6 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
         if len(result.splitlines()) > 1 and "warning" in result[0]:
             result = result.split("\n")[-1] # remove warnings
         result = replace_unsupported_chars(result)
-        # old_to_new = {
-        #     "¹": "^1",
-        #     "²": "^2",
-        #     "³": "^3",
-        #     "⁴": "^4",
-        #     "⁵": "^5",
-        #     "⁶": "^6",
-        #     "⁷": "^7",
-        #     "⁸": "^8",
-        #     "⁹": "^9",
-        #     "⁰": "^0",
-        #     "−": "-",
-        #     "√": "sqrt",
-        #     "π": "pi",
-        #     "×": "*",
-        #     "÷": "/",
-        # }
-        # for old, new in old_to_new.items():
-        #     result = result.replace(old, new)
         return result
 
     if len(result) > 100:
@@ -165,7 +154,21 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
         log.warning(f"parsing failed:\n{e.explain()}")
     except Exception as e:
         log.warning(f"parsing {prepare_for_latex(result)} failed: {traceback.format_exc()}")
-    await ctx.respond(embed=embed)
+
+    if not message_id_cache.get(ctx.message_id):
+        pag = Paginator(
+            [embed], 
+            disable_paginator_when_one_site=False, 
+            hide_components_when_one_site=True
+        )
+        message_id_cache[ctx.message_id] = (calc_msg, ctx, pag)
+        await pag.start(ctx)
+    else:
+        _, ctx, pag = message_id_cache[ctx.message_id]
+        pag.add_page(embed)
+        message_id_cache[ctx.message_id] = (calc_msg, ctx, pag)
+        await pag.move_to_page(-1)
+    
 
 
 
