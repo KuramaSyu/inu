@@ -17,7 +17,8 @@ from pyparsing import (
     OneOrMore,
     FollowedBy,
     QuotedString,
-    alphanums
+    alphanums,
+    NotAny
 )
 import math
 import operator
@@ -222,13 +223,19 @@ class NumericStringParser(object):
         e = CaselessLiteral("E")
         x = Literal("x")
         i = Literal("i")
-        space = Literal(" ")
+        space = Literal(" ").suppress()
         string_start = Literal('"')
 
         string = QuotedString('"', esc_char='""', unquote_results=True)
         binary_number_part = Combine(ZeroOrMore(Literal("b")) + Word("01"))
         binary_number = Combine(Optional(oneOf("+ -")) + binary_number_part + ZeroOrMore(Combine(space, binary_number_part)))
         
+        plus = Literal("+") 
+        minus = Literal("-")
+        plusminus = Literal("±")
+        mult = Literal("*") | Literal("×")
+        div = Literal("/")
+
         fnumber = Combine(
             Optional(oneOf("+ -")) +
             Word(nums) +
@@ -236,20 +243,17 @@ class NumericStringParser(object):
             Optional(Combine(Word(PERIOD_START) + Word(nums, nums))) + # 0.1 666… -> support the period start sign
             Optional(Word("…")) +
             Optional(e + Word("+-" + nums, nums)) + 
-            Optional(i) +
-            Optional(x)
+            Optional(i)
         )
+        
         ident = Word(alphas, alphas + "_$")
         unit_name = Word(alphas + "μ_")
         unit = unit_name
+        xnumber = Combine(fnumber + Optional(Optional(space) + mult.suppress() + Optional(space)) + x) + NotAny(unit) 
         
         unit_number = Combine(fnumber + space + unit)
         
-        plus = Literal("+") 
-        minus = Literal("-")
-        plusminus = Literal("±")
-        mult = Literal("*") | Literal("×")
-        div = Literal("/")
+
         lpar = Literal("(").suppress()
         rpar = Literal(")").suppress()
         lbrack = Literal("[").suppress()
@@ -264,19 +268,20 @@ class NumericStringParser(object):
         equals = Literal("=") | Literal("≈")
 
         expr = Forward()
+        equation = Forward()
 
-        vec_row = Group(Combine(expr) + OneOrMore(Literal(",").suppress() + Combine(expr)))
+        vec_row = Group(Combine(equation) + OneOrMore(Literal(",").suppress() + Combine(equation)))
         vec = lbrack + vec_row + rbrack 
         matrix = (
             (lbrack + vec_row + OneOrMore(semicolon + vec_row) + rbrack)
             ^ (lbrack + vec + OneOrMore(semicolon + vec) + rbrack)
         )
-        parameter = Combine(expr) + ZeroOrMore(sep + Combine(expr))
+        parameter = Combine(equation) + ZeroOrMore(sep + Combine(equation))
         unit_chain = Combine(unit + ZeroOrMore(Optional(space) + unit))
         atom = (
               (Optional(oneOf("- +")) + ZeroOrMore(space) + ident + lpar + parameter + rpar).setParseAction(self.pushFunction)
             | (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
-            | (Optional(oneOf("-+")) + ( pi | e | fnumber | binary_number)).setParseAction(self.pushFirst)
+            | (Optional(oneOf("-+")) + ( pi | e | xnumber | fnumber | binary_number)).setParseAction(self.pushFirst)
             | (Optional(oneOf("-+")) + unit_chain).setParseAction(self.pushUnitFirst)
             | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
             | (string).setParseAction(self.pushFirst)
@@ -295,7 +300,7 @@ class NumericStringParser(object):
             ZeroOrMore((multop + factor).setParseAction(self.pushTermFirst))
         expr << term + \
             ZeroOrMore((addop + term).setParseAction(self.pushExprFirst))
-        equation = expr + \
+        equation << expr + \
             ZeroOrMore((equals + expr).setParseAction(self.pushEquationFirst)) + \
             Optional(equals)
         # addop_term = ( addop + term ).setParseAction( self.pushFirst )
@@ -410,7 +415,7 @@ class NumericStringParser(object):
         elif fn_name in ["arcsin", "arccos", "arctan"]:
             return "\\text{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
         else:
-            return f"{fn_name}\\left({', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)]))}\\right)"
+            return "\\text{{" + fn_name + "}}" + f"\\left( {', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)]))} \\right)"
 
     def evaluateStack(self, s) -> str:
         """
@@ -466,6 +471,8 @@ class NumericStringParser(object):
             prefix = "- " if element["negate"] else ""
             expr = self.evaluateStack(s)
             if expr['type'] in ['array', 'fraction']:
+                return expr
+            elif expr['type'] in ['number', 'exp'] and not expr['content'].startswith("-"):
                 return expr
             return {
                 "content": f"{prefix}\\left( {expr['content']} \\right)",
@@ -674,11 +681,12 @@ if __name__ == "__main__":
     try:
         vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
         matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
-        code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  9]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"
-        #code = "(((((1+2)/3)))) = (2+3) * 5"
+        code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"
+        code = "solve((((3 × x^2) + (3 × x)) / ((-4 × x^2) − 21)) = 0) = [−1  0]"
+        #code = "solve(3x = 0) = 0"
         # print(prepare_for_latex(code))
         latex = NumericStringParser().eval(prepare_for_latex(code))
-        # print(latex)
+        print(latex)
         image = latex2image(latex)
         img = Image.open(image)
         img.show()
