@@ -164,10 +164,10 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
         message_id_cache[ctx.message_id] = (calc_msg, ctx, pag)
         await pag.start(ctx)
     else:
-        _, ctx, pag = message_id_cache[ctx.message_id]
+        _, _, pag = message_id_cache[ctx.message_id]
         pag.add_page(embed)
         message_id_cache[ctx.message_id] = (calc_msg, ctx, pag)
-        await pag.move_to_page(-1)
+        await pag.move_to_page(-1, ctx)
     
 
 
