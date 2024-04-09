@@ -830,13 +830,20 @@ class Paginator():
     def add_page(self, page: Union[Embed, str]):
         self._pages.append(page)
 
-    async def move_to_page(self, index: int):
+    async def move_to_page(self, index: int, ctx: InuContext | None = None):
+        """
+        Moves to the page on the given index.
+
+        Args:
+            index (int): The index of the page to move to.
+            ctx (InuContext | None, optional): The context to use, if the paginator needs to restart.
+        """
         if index < 0 or index >= len(self._pages):
             index = len(self._pages) - 1
         
         if self._stopped:
             self._position = index
-            await self.start()
+            await self.start(ctx or self.ctx)
         else:
             await self.paginate(index)
 
