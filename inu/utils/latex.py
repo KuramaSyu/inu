@@ -263,11 +263,7 @@ class NumericStringParser(object):
             Optional(i)
         )
         
-        ident = Word(alphas, alphas + "_$")
-        unit = Word(alphas + "μ_")
-        xnumber = Combine(fnumber + Optional(Optional(space) + mult.suppress() + Optional(space)) + x) + NotAny(unit) 
-        
-        unit_number = Combine(fnumber + space + unit)
+
         
 
         lpar = Literal("(").suppress()
@@ -286,6 +282,12 @@ class NumericStringParser(object):
         expr = Forward()
         equation = Forward()
 
+        ident = Word(alphas, alphas + "_$")
+        unit = Word(alphas + "μ_") + NotAny(lpar)
+        xnumber = Combine(fnumber + Optional(Optional(space) + mult.suppress() + Optional(space)) + x) + NotAny(unit)  
+        
+        unit_number = Combine(fnumber + space + unit)
+
         vec_row = Group(Combine(equation) + OneOrMore(Literal(",").suppress() + Combine(equation)))
         vec = lbrack + vec_row + rbrack 
         matrix = (
@@ -293,8 +295,10 @@ class NumericStringParser(object):
             ^ (lbrack + vec + OneOrMore(semicolon + vec) + rbrack)
         )
         parameter = Combine(equation) + ZeroOrMore(sep + Combine(equation))
+
         array = (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
         function = (Optional(oneOf("- +")) + ZeroOrMore(space) + ident + lpar + parameter + rpar).setParseAction(self.pushFunction)
+        
         unit.setParseAction(self.pushUnitFirst)
         # unit_chain = Combine(unit + ZeroOrMore(Optional(Literal(" ")) + unit))
         atom = (
@@ -316,16 +320,19 @@ class NumericStringParser(object):
         factor << atom + (
             ZeroOrMore(
                 (expop + factor).setParseAction(self.pushFactorFirst)
-                | (Optional(space) + (function | array | unit)).setParseAction(self.pushImplicitMult)
-            )
-        )
+                | (Optional(space) + (unit)).setParseAction(self.pushImplicitMult)
+        ))
             #| ZeroOrMore(Optional(space) + unit).setParseAction(self.pushImplicitMult)
         
         term = factor + \
             ZeroOrMore((multop + factor).setParseAction(self.pushTermFirst))
  
         expr << term + \
-            ZeroOrMore((addop + term).setParseAction(self.pushExprFirst))
+            ZeroOrMore(
+                (addop + term).setParseAction(self.pushExprFirst)
+                | (Optional(space) + term).setParseAction(self.pushImplicitMult)
+            )
+            
         equation << expr + \
             ZeroOrMore((equals + expr).setParseAction(self.pushEquationFirst)) + \
             Optional(equals)
@@ -732,8 +739,8 @@ def tests():
 
 if __name__ == "__main__":
     try:
-        code = "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)"
-        tests()
+        code = "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s"
+        #tests()
         logging.debug(prepare_for_latex(code))
         latex = NumericStringParser().eval(prepare_for_latex(code))
         print(latex)
