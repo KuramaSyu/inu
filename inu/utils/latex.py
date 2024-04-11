@@ -23,7 +23,7 @@ from pyparsing import (
 import math
 import operator
 import matplotlib
-from pprint import pprint
+from pprint import pformat
 import traceback
 # switch to pgf backend
 
@@ -265,7 +265,6 @@ class NumericStringParser(object):
         
         ident = Word(alphas, alphas + "_$")
         unit = Word(alphas + "μ_")
-        unit.setParseAction(self.pushUnitFirst)
         xnumber = Combine(fnumber + Optional(Optional(space) + mult.suppress() + Optional(space)) + x) + NotAny(unit) 
         
         unit_number = Combine(fnumber + space + unit)
@@ -295,9 +294,11 @@ class NumericStringParser(object):
         )
         parameter = Combine(equation) + ZeroOrMore(sep + Combine(equation))
         array = (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
+        function = (Optional(oneOf("- +")) + ZeroOrMore(space) + ident + lpar + parameter + rpar).setParseAction(self.pushFunction)
+        unit.setParseAction(self.pushUnitFirst)
         # unit_chain = Combine(unit + ZeroOrMore(Optional(Literal(" ")) + unit))
         atom = (
-              (Optional(oneOf("- +")) + ZeroOrMore(space) + ident + lpar + parameter + rpar).setParseAction(self.pushFunction)
+              (function)
             | (Optional(oneOf("-+")) + (unit))
             #| (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
             | (Optional(oneOf("-+")) + ( pi | e | xnumber | fnumber | binary_number)).setParseAction(self.pushFirst)
@@ -315,7 +316,7 @@ class NumericStringParser(object):
         factor << atom + (
             ZeroOrMore(
                 (expop + factor).setParseAction(self.pushFactorFirst)
-                | (Optional(space) + unit).setParseAction(self.pushImplicitMult)
+                | (Optional(space) + (function | array | unit)).setParseAction(self.pushImplicitMult)
             )
         )
             #| ZeroOrMore(Optional(space) + unit).setParseAction(self.pushImplicitMult)
@@ -493,12 +494,14 @@ class NumericStringParser(object):
             }
         
         if op == 'array':
-            prefix = "- " if element["negate"] else ""
+            negated = element["negate"]
+            prefix = "- " if negated else ""
             expr = self.evaluateStack(s)
-            if expr['type'] in ['array', 'fraction', 'mul']:
-                return expr
-            elif expr['type'] in ['number', 'exp'] and not expr['content'].startswith("-"):
-                return expr
+            if not negated:
+                if expr['type'] in ['array', 'fraction', 'mul']:
+                    return expr
+                elif expr['type'] in ['number', 'exp'] and not expr['content'].startswith("-"):
+                    return expr
             return {
                 "content": f"{prefix}\\left( {expr['content']} \\right)",
                 "type": "array",
@@ -590,7 +593,7 @@ class NumericStringParser(object):
         logging.debug("results")
         # results.pprint()
         logging.debug("exprStack")
-        logging.debug(self.exprStack)
+        logging.debug(pformat(self.exprStack))
         val = self.evaluateStack(self.exprStack[:])
         # pprint(val)
         return val['content']
@@ -716,7 +719,8 @@ def tests():
         "matrix": "[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]",
         "matrix + function chained": "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]",
         "physics 1": "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s",
-        "solve": "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]"
+        "solve": "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]",
+        "implicit multiplication": "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)"
     }
     for name, test in tests.items():
         try:
@@ -727,12 +731,8 @@ def tests():
             logging.error(traceback.format_exc())
 
 if __name__ == "__main__":
-    #latex = NumericStringParser().eval("sqrt(sum(5x, 1, 10))")
-    #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
-    #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
     try:
-        code = "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s"
-        #code = "4 meters * sec/m"
+        code = "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)"
         tests()
         logging.debug(prepare_for_latex(code))
         latex = NumericStringParser().eval(prepare_for_latex(code))
