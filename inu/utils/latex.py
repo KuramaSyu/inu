@@ -24,6 +24,7 @@ import math
 import operator
 import matplotlib
 from pprint import pprint
+import traceback
 # switch to pgf backend
 
 
@@ -32,6 +33,13 @@ from io import BytesIO
 import re
 from PIL import Image
 from pprint import pprint
+import logging
+
+logging.basicConfig(
+    level=logging.INFO, 
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
 
 PERIOD_START = " "
 
@@ -59,7 +67,7 @@ class NumericStringParser(object):
     '''
 
     def pushFirst(self, strg, loc, toks):
-        # print(f"pushFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushFirst: {toks[0]}; all: {toks}")
         number = self.prepare_number(toks[0])
         self.exprStack.append(
             {
@@ -98,7 +106,7 @@ class NumericStringParser(object):
         return unit
     
     def pushUnitFirst(self, strg, loc, toks):
-        # print(f"pushUnitFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushUnitFirst: {toks[0]}; all: {toks}")
         unit = self.prepare_unit(toks[0])
         self.exprStack.append(
             {
@@ -108,7 +116,7 @@ class NumericStringParser(object):
             }
         )
     def pushUnitNumberFirst(self, strg, loc, toks):
-        # print(f"pushUnitNumberFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushUnitNumberFirst: {toks[0]}; all: {toks}")
         array = toks[0].split(" ")
         number, unit = array[0], " ".join(array[1:])
         number = self.prepare_number(number)
@@ -125,7 +133,7 @@ class NumericStringParser(object):
         )
 
     def pushArray(self, strg, loc, toks):
-        # print(f"Array: all: {toks}")
+        logging.debug(f"Array: all: {toks}")
         negate = False
         if toks and toks[0] == '-':
             negate = True
@@ -138,7 +146,7 @@ class NumericStringParser(object):
         )
 
     def pushFunction(self, strg, loc, toks):
-        # print(f"Function: {toks[0]}; all: {toks}")
+        logging.debug(f"Function: {toks[0]}; all: {toks}")
         negate = False
         if toks and toks[0] == '-':
             negate = True
@@ -153,7 +161,7 @@ class NumericStringParser(object):
         )
     
     def pushVector(self, strg, loc, toks):
-        # print(f"Vector 0x{len(toks[0])}: {toks}")
+        logging.debug(f"Vector 0x{len(toks[0])}: {toks}")
         self.exprStack.append(
             {
                 "element": f"0x{len(toks[0])}",
@@ -161,7 +169,7 @@ class NumericStringParser(object):
             }
         )
     def pushMatrix(self, strg, loc, toks):
-        # print(f"Matrix {len(toks)}x{len(toks[0])}: {toks}")
+        logging.debug(f"Matrix {len(toks)}x{len(toks[0])}: {toks}")
         self.exprStack.append(
             {
                 "element": f"{len(toks)}x{len(toks[0])}",
@@ -170,7 +178,7 @@ class NumericStringParser(object):
         )
     
     def pushFactorFirst(self, strg, loc, toks):
-        # print(f"pushFactorFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushFactorFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             {
                 "element": toks[0],
@@ -179,7 +187,7 @@ class NumericStringParser(object):
         )
 
     def pushTermFirst(self, strg, loc, toks):
-        # print(f"pushTermFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushTermFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             {
                 "element": toks[0],
@@ -188,7 +196,7 @@ class NumericStringParser(object):
         )
 
     def pushExprFirst(self, strg, loc, toks):
-        # print(f"pushExprFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushExprFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             {
                 "element": toks[0],
@@ -196,8 +204,17 @@ class NumericStringParser(object):
             }
         )
 
+    def pushImplicitMult(self, strg, loc, toks):
+        logging.debug(f"pushImplicitMult: *; all: {toks}")
+        self.exprStack.append(
+            {
+                "element": "*",
+                "type": "implicit_mult"
+            }
+        )
+
     def pushEquationFirst(self, strg, loc, toks):
-        # print(f"pushEquationFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushEquationFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             {
                 "element": toks[0],
@@ -223,7 +240,7 @@ class NumericStringParser(object):
         e = CaselessLiteral("E")
         x = Literal("x")
         i = Literal("i")
-        space = Literal(" ").suppress()
+        space = Literal(" ")
         string_start = Literal('"')
 
         string = QuotedString('"', esc_char='""', unquote_results=True)
@@ -247,8 +264,8 @@ class NumericStringParser(object):
         )
         
         ident = Word(alphas, alphas + "_$")
-        unit_name = Word(alphas + "μ_")
-        unit = unit_name
+        unit = Word(alphas + "μ_")
+        unit.setParseAction(self.pushUnitFirst)
         xnumber = Combine(fnumber + Optional(Optional(space) + mult.suppress() + Optional(space)) + x) + NotAny(unit) 
         
         unit_number = Combine(fnumber + space + unit)
@@ -277,13 +294,14 @@ class NumericStringParser(object):
             ^ (lbrack + vec + OneOrMore(semicolon + vec) + rbrack)
         )
         parameter = Combine(equation) + ZeroOrMore(sep + Combine(equation))
-        unit_chain = Combine(unit + ZeroOrMore(Optional(space) + unit))
+        array = (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
+        # unit_chain = Combine(unit + ZeroOrMore(Optional(Literal(" ")) + unit))
         atom = (
               (Optional(oneOf("- +")) + ZeroOrMore(space) + ident + lpar + parameter + rpar).setParseAction(self.pushFunction)
-            | (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
+            | (Optional(oneOf("-+")) + (unit))
+            #| (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
             | (Optional(oneOf("-+")) + ( pi | e | xnumber | fnumber | binary_number)).setParseAction(self.pushFirst)
-            | (Optional(oneOf("-+")) + unit_chain).setParseAction(self.pushUnitFirst)
-            | (Optional(oneOf("- +")) + ZeroOrMore(Literal(" ")) + Group(lpar + expr + rpar)).setParseAction(self.pushArray)
+            | (array)
             | (string).setParseAction(self.pushFirst)
             | (
                 (Optional(oneOf("-+")) + matrix).setParseAction(self.pushMatrix)
@@ -294,10 +312,17 @@ class NumericStringParser(object):
         # "atom [ ^ atom ]...", we get right-to-left exponents, instead of left-to-right
         # that is, 2^3^2 = 2^(3^2), not (2^3)^2.
         factor = Forward()
-        factor << atom + \
-            ZeroOrMore((expop + factor).setParseAction(self.pushFactorFirst))
+        factor << atom + (
+            ZeroOrMore(
+                (expop + factor).setParseAction(self.pushFactorFirst)
+                | (Optional(space) + unit).setParseAction(self.pushImplicitMult)
+            )
+        )
+            #| ZeroOrMore(Optional(space) + unit).setParseAction(self.pushImplicitMult)
+        
         term = factor + \
             ZeroOrMore((multop + factor).setParseAction(self.pushTermFirst))
+ 
         expr << term + \
             ZeroOrMore((addop + term).setParseAction(self.pushExprFirst))
         equation << expr + \
@@ -562,10 +587,10 @@ class NumericStringParser(object):
     def eval(self, num_string, parseAll=True) -> str:
         self.exprStack = []
         results = self.bnf.parseString(num_string, parseAll)
-        # print("results")
+        logging.debug("results")
         # results.pprint()
-        # print("exprStack")
-        # pprint(self.exprStack)
+        logging.debug("exprStack")
+        logging.debug(self.exprStack)
         val = self.evaluateStack(self.exprStack[:])
         # pprint(val)
         return val['content']
@@ -648,7 +673,7 @@ def evaluation2image(evaluation: str, multiline: bool = False) -> BytesIO:
     parser = NumericStringParser()
     evaluations = [parser.eval(ev) for ev in evaluations]
     if not parser.needs_latex:
-        # print("No latex needed")
+        logging.debug("No latex needed")
         return None
     latex = "\n".join(evaluations)
     image = latex2image(latex, multiline=multiline)
@@ -684,21 +709,40 @@ def prepare_for_latex(result: str) -> str:
         result = result.replace(old, new)
     return result
 
+def tests():
+    parser = NumericStringParser()
+    tests = {
+        "vectors": "cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]",
+        "matrix": "[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]",
+        "matrix + function chained": "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]",
+        "physics 1": "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s",
+        "solve": "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]"
+    }
+    for name, test in tests.items():
+        try:
+            latex = parser.eval(prepare_for_latex(test))
+            logging.info(f"Passed test: {name}")
+        except Exception as e:
+            logging.warning(f"Failed test: {name}")
+            logging.error(traceback.format_exc())
+
 if __name__ == "__main__":
     #latex = NumericStringParser().eval("sqrt(sum(5x, 1, 10))")
     #latex = NumericStringParser().eval("3 + 5 * 6 * sum(sqrt((9x + 16.9999x) / (2 * 7)),2,20) - 8 = 3")  # 10.0
     #latex = NumericStringParser().eval("20 × x × log(sqrt(3), e) = 10 × ln(3) × x ≈ x^integrate(3x, 0, 10)")
     try:
-        vectors = """cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]"""
-        matrices = """[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]"""
-        code = "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]"
-        code = "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]"
-        #code = "solve(3x = 0) = 0"
-        # print(prepare_for_latex(code))
+        code = "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s"
+        #code = "4 meters * sec/m"
+        tests()
+        logging.debug(prepare_for_latex(code))
         latex = NumericStringParser().eval(prepare_for_latex(code))
         print(latex)
         image = latex2image(latex)
         img = Image.open(image)
         img.show()
+
     except ParseException as e:
         print(e.explain())
+
+
+        
