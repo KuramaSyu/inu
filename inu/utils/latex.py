@@ -55,7 +55,8 @@ def swtich_backend():
             r"\usepackage{amsmath}",
             r"\usepackage[T1]{fontenc}",
             r"\usepackage{mathpazo}",
-            r"\renewcommand\arraystretch{1.4}"
+            r"\renewcommand\arraystretch{1.4}",
+            r"\usepackage[official]{eurosym}"
             ])
     })
 
@@ -99,7 +100,9 @@ class NumericStringParser(object):
         old_to_new = {
             " ": "\\ ",
             "μ": "\\mu ",
-            "_": "\\_"
+            "_": "\\_",
+            "€": "EUR",
+
         }
         for old, new in old_to_new.items():
             unit = unit.replace(old, new)
@@ -283,10 +286,9 @@ class NumericStringParser(object):
         equation = Forward()
 
         ident = Word(alphas, alphas + "_$")
-        unit = Word(alphas + "μ_") + NotAny(lpar)
+        unit = Word(alphas + "μ_€") + NotAny(lpar)
         xnumber = Combine(fnumber + Optional(Optional(space) + mult.suppress() + Optional(space)) + x) + NotAny(unit)  
         
-        unit_number = Combine(fnumber + space + unit)
 
         vec_row = Group(Combine(equation) + OneOrMore(Literal(",").suppress() + Combine(equation)))
         vec = lbrack + vec_row + rbrack 
@@ -303,9 +305,9 @@ class NumericStringParser(object):
         # unit_chain = Combine(unit + ZeroOrMore(Optional(Literal(" ")) + unit))
         atom = (
               (function)
-            | (Optional(oneOf("-+")) + (unit))
             #| (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
             | (Optional(oneOf("-+")) + ( pi | e | xnumber | fnumber | binary_number)).setParseAction(self.pushFirst)
+            | (Optional(oneOf("-+")) + (unit))
             | (array)
             | (string).setParseAction(self.pushFirst)
             | (
@@ -739,8 +741,8 @@ def tests():
 
 if __name__ == "__main__":
     try:
-        code = "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s"
-        #tests()
+        code = "pi pi * €"
+        tests()
         logging.debug(prepare_for_latex(code))
         latex = NumericStringParser().eval(prepare_for_latex(code))
         print(latex)
