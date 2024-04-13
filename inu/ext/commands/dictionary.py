@@ -33,7 +33,7 @@ async def urban_search(ctx: context.Context):
                 )
                 .add_field(
                     "Example",
-                    f"{d['example'].replace('[', '').replace(']', '')}\n\n" or "---",
+                    f"{d['example'].replace('[', '').replace(']', '')}" or "---",
                     inline=False,
                 )
                 .set_footer(
