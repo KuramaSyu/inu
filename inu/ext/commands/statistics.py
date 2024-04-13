@@ -220,6 +220,13 @@ async def current_games(ctx: Context):
             game_records = [g for g in activity_records if g['game'] in apps]
         else:
             game_records = [g for g in activity_records if g['game'] not in remove_apps]
+
+        tabulate_kwargs = {
+            "tabular_data": field_value,
+            "headers": ["App", "Time"],
+            "tablefmt": "rounded_grid",
+            "maxcolwidths": [32, 18]
+        }
         for i, game in enumerate(game_records):
             if i > 150:
                 break
@@ -232,7 +239,7 @@ async def current_games(ctx: Context):
 
             if i % 10 == 9 and i:
                 title = f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}"
-                table = tabulate(field_value, headers=["App", "Time"], tablefmt="simple_outline", maxcolwidths=[26, 20])
+                table = tabulate(**tabulate_kwargs)
                 embeds[-1].description = (
                     
                     f"{title}\n```{table[:2040]}```"
@@ -243,7 +250,7 @@ async def current_games(ctx: Context):
         # add last remaining games
         if field_value:
             title = f"Games"
-            table = tabulate(field_value, headers=["App", "Time"], tablefmt="simple_outline", maxcolwidths=[26, 20])
+            table = tabulate(**tabulate_kwargs)
             embeds[-1].description = (
                 f"{title}\n```{table[:2040]}```"
             )
