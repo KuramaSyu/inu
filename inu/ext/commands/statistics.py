@@ -26,6 +26,7 @@ from pandas.plotting import register_matplotlib_converters
 from matplotlib.dates import DateFormatter
 import matplotlib.ticker as plticker 
 import humanize
+from tabulate import tabulate
 
 from utils import (
     Human, 
@@ -210,7 +211,7 @@ async def current_games(ctx: Context):
                     f"({Human.plural_('day', timedelta_days, True, 'days')})")
                 )
 
-        field_value = ""
+        field_value = []
         embeds.append(embed)
 
         # enuerate all games
@@ -222,23 +223,29 @@ async def current_games(ctx: Context):
         for i, game in enumerate(game_records):
             if i > 150:
                 break
-            if i < max_ranking_num:
-                field_value += f"{i+1}. {game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
-            else:
-                field_value += f"{game['game']:<40}{str(timedelta(minutes=int(game['amount']*10)))}\n"
+            field_value.append(
+                [
+                    f"{i+1:02d}. {game['game']}", 
+                    humanize.naturaldelta(timedelta(minutes=float(game['amount']*10)), months=False)
+                ]
+            )
+
             if i % 10 == 9 and i:
+                title = f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}"
+                table = tabulate(field_value, headers=["App", "Time"], tablefmt="simple_outline", maxcolwidths=[26, 20])
                 embeds[-1].description = (
-                    f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}"
-                    f"```{field_value[:2000]}```"
+                    
+                    f"{title}\n```{table[:2040]}```"
                 )
                 embeds.append(hikari.Embed())
-                field_value = ""
+                field_value = []
         
         # add last remaining games
         if field_value:
+            title = f"Games"
+            table = tabulate(field_value, headers=["App", "Time"], tablefmt="simple_outline", maxcolwidths=[26, 20])
             embeds[-1].description = (
-                f"Less played games"
-                f"```{field_value[:2000]}```"
+                f"{title}\n```{table[:2040]}```"
             )
         else:
             embeds.pop()
