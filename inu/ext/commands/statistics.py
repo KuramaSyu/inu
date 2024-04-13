@@ -10,6 +10,7 @@ import hikari
 import lightbulb
 from dataenforce import Dataset
 from pytimeparse.timeparse import timeparse
+import re
 
 from hikari import (
     Embed, 
@@ -221,7 +222,7 @@ async def current_games(ctx: Context):
         else:
             game_records = [g for g in activity_records if g['game'] not in remove_apps]
 
-        maxcolwidths = [32, 18]
+        maxcolwidths = [33, 16]
         tabulate_kwargs = {
             "headers": ["App", "Time"],
             "tablefmt": "rounded_outline",
@@ -235,7 +236,7 @@ async def current_games(ctx: Context):
             field_value.append(
                 [
                     f"{i+1:02d}. {Human.short_text(game['game'], maxcolwidths[0]-4, '..', False)}", 
-                    delta
+                    re.sub(r"[ ]?day[s]?", "d", str(delta))
                 ]
             )
 
