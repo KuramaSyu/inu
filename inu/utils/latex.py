@@ -61,6 +61,33 @@ def swtich_backend():
     })
 
 
+class Element:
+    def __init__(
+        self, 
+        element: str, 
+        type_: str,
+        negate: bool = False,
+        unit: str | None = None,
+        number: str | None = None,
+        number_args: int | None = None
+    ):
+        self.element = element
+        self.type = type_
+        self.negate = negate
+        self.unit = unit
+        self.number = number
+        self.number_args = number_args
+
+    @property
+    def is_negated(self) -> bool:
+        return self.negate
+    
+class Unit(Element):
+    ...
+    
+
+
+
 class NumericStringParser(object):
     '''
     Most of this code comes from the fourFn.py pyparsing example
@@ -70,6 +97,7 @@ class NumericStringParser(object):
     def pushFirst(self, strg, loc, toks):
         logging.debug(f"pushFirst: {toks[0]}; all: {toks}")
         number = self.prepare_number(toks[0])
+        
         self.exprStack.append(
             {
                 "element": number,
