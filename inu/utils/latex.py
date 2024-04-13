@@ -35,7 +35,6 @@ import re
 from PIL import Image
 from pprint import pprint
 import logging
-from tree import tree
 
 
 
