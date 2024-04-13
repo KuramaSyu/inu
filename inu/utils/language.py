@@ -262,22 +262,41 @@ class Human():
         return out
 
     @staticmethod
-    def short_text(text: Optional[str], max_lengh: int, suffix: str = " [...]") -> str:
+    def short_text(text: Optional[str], max_length: int, suffix: str = " [...]", intelligent: bool = True) -> str:
         """
+        Truncates the given text to the specified maximum length and appends a suffix if necessary.
+
+        Parameters:
+        -----------
+        text : Optional[str]
+            The text to be truncated.
+        max_length : int
+            The maximum length of the truncated text.
+        suffix : str, optional
+            The suffix to be appended if the text is truncated, by default "..".
+        intelligent : bool, optional
+            If True, the truncation will be done intelligently by considering word boundaries, 
+            otherwise it will be a simple character-based truncation, by default True.
+
         Returns:
         --------
-            - (str) the text until max_lengh with ... or complete text
+        str
+            The truncated text.
+
         """
         text = str(text)
-        if len(text) <= max_lengh:
+        if len(text) <= max_length:
             return text
         short_text = ""
-        for word in WordIterator(text):
-            if len(short_text) + len(word) + len(suffix) < max_lengh:
-                short_text += word
-            else:
-                short_text += suffix
-                break
+        if intelligent:
+            for word in WordIterator(text):
+                if len(short_text) + len(word) + len(suffix) < max_length:
+                    short_text += word
+                else:
+                    short_text += suffix
+                    break
+        else:
+            short_text = text[:max_length - len(suffix)] + suffix
         return short_text
 
     @staticmethod
