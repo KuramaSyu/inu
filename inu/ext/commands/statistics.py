@@ -221,25 +221,27 @@ async def current_games(ctx: Context):
         else:
             game_records = [g for g in activity_records if g['game'] not in remove_apps]
 
+        maxcolwidths = [32, 18]
         tabulate_kwargs = {
-            "tabular_data": field_value,
             "headers": ["App", "Time"],
-            "tablefmt": "rounded_grid",
-            "maxcolwidths": [32, 18]
+            "tablefmt": "rounded_outline",
+            "maxcolwidths": maxcolwidths,
+            "maxheadercolwidths": maxcolwidths,
         }
         for i, game in enumerate(game_records):
             if i > 150:
                 break
+            delta = timedelta(minutes=float(game['amount']*10))
             field_value.append(
                 [
-                    f"{i+1:02d}. {game['game']}", 
-                    humanize.naturaldelta(timedelta(minutes=float(game['amount']*10)), months=False)
+                    f"{i+1:02d}. {Human.short_text(game['game'], maxcolwidths[0]-4, '..', False)}", 
+                    delta
                 ]
             )
 
             if i % 10 == 9 and i:
                 title = f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}"
-                table = tabulate(**tabulate_kwargs)
+                table = tabulate(field_value, **tabulate_kwargs)
                 embeds[-1].description = (
                     
                     f"{title}\n```{table[:2040]}```"
@@ -249,8 +251,8 @@ async def current_games(ctx: Context):
         
         # add last remaining games
         if field_value:
-            title = f"Games"
-            table = tabulate(**tabulate_kwargs)
+            title = f"Less played games"
+            table = tabulate(field_value, **tabulate_kwargs)
             embeds[-1].description = (
                 f"{title}\n```{table[:2040]}```"
             )
