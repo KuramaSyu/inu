@@ -25,6 +25,7 @@ import operator
 import matplotlib
 from pprint import pformat
 import traceback
+from abc import ABC, abstractmethod
 # switch to pgf backend
 
 
@@ -34,7 +35,7 @@ import re
 from PIL import Image
 from pprint import pprint
 import logging
-
+from tree import tree
 
 
 
@@ -66,23 +67,253 @@ class Element:
         negate: bool = False,
         unit: str | None = None,
         number: str | None = None,
-        number_args: int | None = None
+        number_args: int | None = None,
     ):
         self.element = element
-        self.type = type_
+        self._type = type_
         self.negate = negate
         self.unit = unit
         self.number = number
         self.number_args = number_args
+        self.children: List["Element"] = []
+        self.parent: "Element" | None = None
 
+    def add_child(self, child: "Element") -> None:
+        self.add_children([child])
+
+    def add_children(self, children: List["Element"]) -> None:
+        def set_parent(child: "Element") -> None:
+            if isinstance(child, Element):
+                child.parent = self
+            elif isinstance(child, list):
+                for ch in child:
+                    set_parent(ch)
+        for child in children:
+            set_parent(child)
+        self.children.extend(children)
+        logging.debug(f"children:{str(self)}: {[str(ch) for ch in children]}")
+
+
+    @property
+    def type(self) -> str:
+        return self._type
+    
     @property
     def is_negated(self) -> bool:
         return self.negate
     
+    @abstractmethod
+    def to_latex(self) -> str:
+        pass
+
+    @staticmethod
+    def unpack_array(op: "Element") -> "Element":
+        if op.type == "array" and not op.is_negated:
+            return op.children[0]
+        return op
+    
+    def __repr__(self) -> str:
+        return f"type: {self.type}, element: {self.element}"
+
+    
 class Unit(Element):
-    ...
+    def prepare_unit(self, unit: str) -> str:
+        old_to_new = {
+            " ": "\\ ",
+            "μ": "\\mu ",
+            "_": "\\_",
+            "€": "EUR",
+        }
+        for old, new in old_to_new.items():
+            unit = unit.replace(old, new)
+        return unit
+    
+    def to_latex(self) -> str:
+        return self.prepare_unit(self.element)
     
 
+class Number(Element):
+    def prepare_number(self, number: str) -> str:
+        if "E" in number:
+            # replace E x with *10^{x}
+            number, exponent = number.split("E")
+            number = f"{number}\\cdot10^{{{exponent}}}"
+        if "…" in number:
+            # replace … with \overline
+            if PERIOD_START in number:
+                # decimal partially periodic
+                num, period = number.split(PERIOD_START)
+                period, after_period = period.split("…")
+                number = f"{num}\\overline{{{period}}}{after_period}"
+            else: 
+                # decimal fully periodic
+                num, period = number.split(".")
+                period, after_period = period.split("…")
+                number = f"{num}.\\overline{{{period}}}{after_period}"
+        return number
+    
+    def to_latex(self) -> str:
+        if self.element == "PI":
+            return "\\pi"
+        if self.element == "E":
+            return "e"
+        return self.prepare_number(self.element)
+    
+
+class Vector(Element):
+    def to_latex(self) -> str:
+        cols = int(self.element.split("x")[1])
+        content = '\\\\'.join(ch.to_latex() for ch in self.children)
+        return f"\\begin{{pmatrix}} {content} \\end{{pmatrix}}"
+    
+
+class Matrix(Element):
+    def to_latex(self) -> str:
+        cols = int(self.element.split("x")[0])
+        rows = int(self.element.split("x")[1])
+        matrix_content = ""
+        for i, col in enumerate(self.children):
+            if i != 0:
+                matrix_content += " \\\\"
+            matrix_content += " & ".join(ch.to_latex() for ch in col)
+
+        return f"\\begin{{pmatrix}} {matrix_content} \\end{{pmatrix}}"
+    
+
+class Equation(Element):
+    op_to_latex = {
+        "=": "=",
+        "≈": "\\approx",
+    }
+    def to_latex(self) -> str:
+        op1, op2 = self.children
+        return f"{op1.to_latex()} {self.op_to_latex[self.element]} {op2.to_latex()}"
+
+
+class Array(Element):
+
+    @property
+    def type(self) -> str:
+        if self.ignore_self:
+            return self.children[0].type
+        return self._type
+    
+    @property
+    def ignore_self(self) -> bool:
+        if not self.is_negated and self.children:
+            child_type = self.children[0].type
+            if child_type in ['array']:
+                return True
+            if child_type in  ['mulop', "implicit_mulop"] and not (self.parent and self.parent.type == "exp"):
+                return True
+            elif child_type in ['fraction'] and not (self.parent and self.parent.type == "exp"):
+                return True
+            elif child_type in ['number', 'exp'] and not self.children[0].is_negated:
+                return True
+        return False
+    
+    def to_latex(self) -> str:
+        negated = self.negate
+        prefix = "- " if negated else ""
+        expr = self.children[0]
+        if self.ignore_self:
+            return expr.to_latex()
+        return f"{prefix}\\left( {expr.to_latex()} \\right)"
+
+
+class Fraction(Element):
+    def to_latex(self) -> str:
+        op1, op2 = self.children
+        return f"\\frac{{{op1.to_latex()}}}{{{op2.to_latex()}}}"
+
+class AddOp(Element):
+    op_to_latex = {
+        "+": "+",
+        "-": "-",
+        "±": "\\pm",
+    }
+    def to_latex(self) -> str:
+        op1, op2 = self.children
+        return f"{op1.to_latex()} {self.op_to_latex[self.element]} {op2.to_latex()}"
+
+class MulOp(Element):
+    op_to_latex = {
+        "*": "\\cdot",
+        "×": "\\cdot",
+        "·": "\\cdot",
+        "/": "\\div",
+    }
+    def to_latex(self) -> str:
+        op1, op2 = self.children
+        if op1.type in ["number", "exp"] and op2.type == "unit":
+            return f"{op1.to_latex()}\\ {op2.to_latex()}"
+        return f"{op1.to_latex()} {self.op_to_latex[self.element]} {op2.to_latex()}"
+
+
+class Exp(Element):
+    def to_latex(self) -> str:
+        op1, op2 = self.children
+        return f"{op1.to_latex()}^{op2.to_latex()}"
+
+
+class Function(Element):
+    def get_latex_fn(self, fn_name: str, number_args) -> str:
+        if fn_name not in ["planet", "element"]:
+            self.needs_latex = True
+        if fn_name == "sin":
+            return "\\sin({0})"
+        elif fn_name == "cos":
+            return "\\cos({0})"
+        elif fn_name == "tan":
+            return "\\tan({0})"
+        elif fn_name == "e":
+            return "\\exp({0})"
+        elif fn_name == "log":
+            return "\\log_{{{0}}}{1}"
+        elif fn_name == "ln":
+            return "\\ln({0})"
+        elif fn_name == "sqrt":
+            return "\\sqrt{{{0}}}"
+        elif fn_name == "root":
+            return "\\sqrt[{0}]{{{1}}}"
+        elif fn_name == "abs":
+            return "\\left| {0} \\right|"
+        elif fn_name == "trunc":
+            return "\\text{{trunc}}({0})"
+        elif fn_name == "round":
+            return "\\text{{round}}\\left( {0} \\right)"
+        elif fn_name == "sgn":
+            return "\\text{{sgn}}{0}"
+        elif fn_name == "sum":
+            return "\\sum_{{i={1}}}^{{{0}}} x_i={2}"
+        elif fn_name == "product":
+            return "\\prod_{{i={1}}}^{{{0}}} x_i={2}"
+        elif fn_name == "integrate":
+            return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ dx"
+        elif fn_name == "cross":
+            return "{1} \\times {0}"
+        elif fn_name == "dot":
+            return "{1} \\cdot {0}"
+        elif fn_name in ["hadamard", "multiply"]:
+            return "{1} \\circ {0}"
+        elif fn_name == "binomial":
+            return "\\binom{{{1}}}{{{0}}}"
+        elif fn_name == "adj":
+            return "\\text{{adj}}{0}"
+        elif fn_name == "inv":
+            return "{0}^{{-1}}"
+        elif fn_name == "det":
+            return "\\text{{det}}{0}"
+        elif fn_name in ["arcsin", "arccos", "arctan"]:
+            return "\\text{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
+        else:
+            return "\\text{{" + fn_name + "}}" + f"\\left( {', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)]))} \\right)"
+
+    def to_latex(self) -> str:
+        number_args = self.number_args
+        format_values = [child.to_latex() for child in self.children]
+        prefix = "- " if self.is_negated else ""
+        return f"{prefix}{self.get_latex_fn(self.element, number_args).format(*format_values)}"
 
 
 class NumericStringParser(object):
@@ -93,13 +324,10 @@ class NumericStringParser(object):
 
     def pushFirst(self, strg, loc, toks):
         logging.debug(f"pushFirst: {toks[0]}; all: {toks}")
-        number = self.prepare_number(toks[0])
+        #number = self.prepare_number(toks[0])
         
         self.exprStack.append(
-            {
-                "element": number,
-                "type": "number"
-            }
+            Number(toks[0], "number")
         )
 
     def prepare_number(self, number: str) -> str:
@@ -137,27 +365,7 @@ class NumericStringParser(object):
         logging.debug(f"pushUnitFirst: {toks[0]}; all: {toks}")
         unit = self.prepare_unit(toks[0])
         self.exprStack.append(
-            {
-                "type": "unit",
-                "element": unit,
-                
-            }
-        )
-    def pushUnitNumberFirst(self, strg, loc, toks):
-        logging.debug(f"pushUnitNumberFirst: {toks[0]}; all: {toks}")
-        array = toks[0].split(" ")
-        number, unit = array[0], " ".join(array[1:])
-        number = self.prepare_number(number)
-        unit = self.prepare_unit(unit)
-
-        self.exprStack.append(
-            {
-                "type": "unit",
-                "unit": unit,
-                "number": number,
-                "element": f"{number}\\ {unit}",
-                
-            }
+            Unit(toks[0], "unit")
         )
 
     def pushArray(self, strg, loc, toks):
@@ -166,11 +374,7 @@ class NumericStringParser(object):
         if toks and toks[0] == '-':
             negate = True
         self.exprStack.append(
-            {
-                "type": 'array',
-                "element": 'array',
-                "negate": negate
-            }
+            Array("array", "array", negate=negate)
         )
 
     def pushFunction(self, strg, loc, toks):
@@ -180,74 +384,60 @@ class NumericStringParser(object):
             negate = True
             toks = toks[1:]
         self.exprStack.append(
-            {
-                "element": toks[0],
-                "type": "function",
-                "negative": negate,
-                "number_args": len(toks) -1
-            }
+            Function(
+                element=toks[0], 
+                type_="function", 
+                negate=negate, 
+                number_args=self.fn.get(toks[0], None) or len(toks)-1
+            )
         )
     
     def pushVector(self, strg, loc, toks):
         logging.debug(f"Vector 0x{len(toks[0])}: {toks}")
         self.exprStack.append(
-            {
-                "element": f"0x{len(toks[0])}",
-                "type": "vector"
-            }
+            Vector(
+                element=f"0x{len(toks[0])}",
+                type_="vector"
+            )
         )
+
     def pushMatrix(self, strg, loc, toks):
         logging.debug(f"Matrix {len(toks)}x{len(toks[0])}: {toks}")
         self.exprStack.append(
-            {
-                "element": f"{len(toks)}x{len(toks[0])}",
-                "type": "matrix"
-            }
+            Matrix(
+                element=f"{len(toks)}x{len(toks[0])}",
+                type_="matrix"
+            )
         )
     
     def pushFactorFirst(self, strg, loc, toks):
         logging.debug(f"pushFactorFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
-            {
-                "element": toks[0],
-                "type": "factor"
-            }
+            Exp(toks[0], "exp")
         )
 
     def pushTermFirst(self, strg, loc, toks):
         logging.debug(f"pushTermFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
-            {
-                "element": toks[0],
-                "type": "term"
-            }
+            MulOp(toks[0], "mulop")
         )
 
     def pushExprFirst(self, strg, loc, toks):
         logging.debug(f"pushExprFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
-            {
-                "element": toks[0],
-                "type": "expr"
-            }
+            AddOp(toks[0], "addop")
         )
 
     def pushImplicitMult(self, strg, loc, toks):
         logging.debug(f"pushImplicitMult: *; all: {toks}")
         self.exprStack.append(
-            {
-                "element": "*",
-                "type": "implicit_mult"
-            }
+            MulOp("*", "implicit_mulop")
         )
 
     def pushEquationFirst(self, strg, loc, toks):
         logging.debug(f"pushEquationFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
-            {
-                "element": toks[0],
-                "type": "equation"
-            }
+            Equation(toks[0], "equation")
         )
 
     def __init__(self):
@@ -419,218 +609,107 @@ class NumericStringParser(object):
 
         self.needs_latex = False
 
-    @staticmethod
-    def unpack_array(op: Dict[str, Any]) -> str:
-        if op["type"] == "array" and op["negated"] == False:
-            return op["old"][0]
-        return op["content"]
-
-    def get_latex_fn(self, fn_name: str, number_args) -> str:
-        if fn_name not in ["planet", "element"]:
-            self.needs_latex = True
-        if fn_name == "sin":
-            return "\\sin({0})"
-        elif fn_name == "cos":
-            return "\\cos({0})"
-        elif fn_name == "tan":
-            return "\\tan({0})"
-        elif fn_name == "e":
-            return "\\exp({0})"
-        elif fn_name == "log":
-            return "\\log_{{{0}}}{1}"
-        elif fn_name == "ln":
-            return "\\ln({0})"
-        elif fn_name == "sqrt":
-            return "\\sqrt{{{0}}}"
-        elif fn_name == "root":
-            return "\\sqrt[{0}]{{{1}}}"
-        elif fn_name == "abs":
-            return "\\left| {0} \\right|"
-        elif fn_name == "trunc":
-            return "\\text{{trunc}}({0})"
-        elif fn_name == "round":
-            return "\\text{{round}}\\left( {0} \\right)"
-        elif fn_name == "sgn":
-            return "\\text{{sgn}}{0}"
-        elif fn_name == "sum":
-            return "\\sum_{{i={1}}}^{{{0}}} x_i={2}"
-        elif fn_name == "product":
-            return "\\prod_{{i={1}}}^{{{0}}} x_i={2}"
-        elif fn_name == "integrate":
-            return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ dx"
-        elif fn_name == "cross":
-            return "{1} \\times {0}"
-        elif fn_name == "dot":
-            return "{1} \\cdot {0}"
-        elif fn_name in ["hadamard", "multiply"]:
-            return "{1} \\circ {0}"
-        elif fn_name == "binomial":
-            return "\\binom{{{1}}}{{{0}}}"
-        elif fn_name == "adj":
-            return "\\text{{adj}}{0}"
-        elif fn_name == "inv":
-            return "{0}^{{-1}}"
-        elif fn_name == "det":
-            return "\\text{{det}}{0}"
-        elif fn_name in ["arcsin", "arccos", "arctan"]:
-            return "\\text{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
-        else:
-            return "\\text{{" + fn_name + "}}" + f"\\left( {', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)]))} \\right)"
-
-    def evaluateStack(self, s) -> str:
+    def evaluateStack(self, s: List[Element]) -> str:
         """
         converts the stack to latex
         """
         element = s.pop()
-        op = element["element"]
-        if element["type"] == "vector":
+        op = element.element
+        if element.type == "vector":
             self.needs_latex = True
             cols = int(op.split("x")[1])
-            expressions = reversed([self.evaluateStack(s)['content'] for _ in range(cols)])
-            content = '\\\\'.join(expressions)
-            return {
-                "content": f"\\begin{{pmatrix}} {content} \\end{{pmatrix}}",
-                "type": "vector",
-                "old": expressions
-            }
+            expressions = [self.evaluateStack(s) for _ in range(cols)]
+            expressions.reverse()
+            element.add_children(expressions)
+            return element
         
-        if element["type"] == "matrix":
+        if element.type == "matrix":
             self.needs_latex = True
             cols = int(op.split("x")[0])
             rows = int(op.split("x")[1])
-            matrix_content = ""
             expressions = []
             for _ in range(cols):
                 expressions.append([])
                 for _ in range(rows):
-                    expressions[-1].append(self.evaluateStack(s)['content'])
+                    expressions[-1].append(self.evaluateStack(s))
                 expressions[-1].reverse()
             expressions.reverse()
 
-            for i, col in enumerate(expressions):
-                if i != 0:
-                    matrix_content += " \\\\"
-                matrix_content += " & ".join(col)
-
-            return {
-                "content": f"\\begin{{pmatrix}} {matrix_content} \\end{{pmatrix}}",
-                "type": "matrix",
-                "old": expressions
-            }
+            element.add_children(expressions)
+            return element
         
         if op in "=≈":
-            op2 = self.unpack_array(self.evaluateStack(s))
-            op1 = self.unpack_array(self.evaluateStack(s))
-            return {
-                "content": f"{op1} {self.op_to_latex[op]} {op2}",
-                "type": "equal",
-                "old": [op1, op2]
-            }
+            op2 = self.evaluateStack(s)
+            op1 = self.evaluateStack(s)
+            element.add_children([op1, op2])
+            return element
         
         if op == 'array':
-            negated = element["negate"]
-            prefix = "- " if negated else ""
             expr = self.evaluateStack(s)
-            if not negated:
-                if expr['type'] in ['array', 'fraction', 'mul']:
-                    return expr
-                elif expr['type'] in ['number', 'exp'] and not expr['content'].startswith("-"):
-                    return expr
-            return {
-                "content": f"{prefix}\\left( {expr['content']} \\right)",
-                "type": "array",
-                "negated": element["negate"],
-                "old": [expr['content']]
-            }
+            element.add_child(expr)
+            return element
+        
         if op in "/":
             self.needs_latex = True
-            op2 = self.unpack_array(self.evaluateStack(s))
-            op1 = self.unpack_array(self.evaluateStack(s))
-            return {
-                "content": f"\\frac{{{op1}}}{{{op2}}}",
-                "type": "fraction",
-                "old": [op1, op2] 
-            }
+            op2 = self.evaluateStack(s)
+            op1 = self.evaluateStack(s)
+            new = Fraction("/", "fraction")
+            new.add_children([op1, op2])
+            return new
         
         if op in "+-*×·=±":
             op_name = {
-                "+": "add",
-                "-": "sub",
-                "*": "mul",
-                "×": "mul",
-                "·": "mul",
-                "/": "div",
-                "=": "eq",
-                "±": "pm",
+                "+": AddOp,
+                "-": AddOp,
+                "*": MulOp,
+                "×": MulOp,
+                "·": MulOp,
+                "/": MulOp,
+                "±": AddOp,
             }
             self.needs_latex = True
-            op2 = self.evaluateStack(s)['content']
-            op1 = self.evaluateStack(s)['content']
-            return {
-                "content": f"{op1} {self.op_to_latex[op]} {op2}",
-                "type": op_name[op],
-                "old": [op1, op2]
-            }
+            op2 = self.evaluateStack(s)
+            op1 = self.evaluateStack(s)
+            
+            element.add_children([op1, op2])
+            return element
+
         
         if op in "^":
             self.needs_latex = True
-            op2 = self.evaluateStack(s)['content']
-            op1 = self.evaluateStack(s)['content']
-            return {
-                "content": f"{op1}^{{{op2}}}",
-                "type": "exp",
-                "old": [op1, op2]
-            }
+            op2 = self.evaluateStack(s)
+            op1 = self.evaluateStack(s)
+            element.add_children([op1, op2])
+            return element
         
         elif op == "PI":
             self.needs_latex = True
-            return {
-                "content": "\\pi",
-                "type": "number",
-                "old": op
-            }
+            return element
         
         elif op == "E":
             self.needs_latex = True
-            return {
-                "content": "e",
-                "type": "number",
-                "old": op
-            }
+            return element
         
-        elif element["type"] == "function":
-            number_args = self.fn.get(op) or element["number_args"]
-            format_values = [self.evaluateStack(s)['content'] for _ in range(number_args)]
-            prefix = "- " if element["negative"] else ""
-            return {
-                "content": f"{prefix}{self.get_latex_fn(op, number_args).format(*format_values)}",
-                "type": "function",
-                "old": format_values
-            }
-        
-        elif element["type"] in ["unit", "number"]:
-            return {
-                "content": op,
-                "type": element["type"],
-                "old": op
-            }
+        elif element.type == "function":
+            number_args = element.number_args
+            children = [self.evaluateStack(s) for _ in range(number_args)]
+            element.add_children(children)
+            return element
+
         else:
-            return {
-                "content": op,
-                "type": element["type"],
-                "old": op
-            }
+            return element
 
     def eval(self, num_string, parseAll=True) -> str:
-        self.exprStack = []
+        self.exprStack: List[Element] = []
         results = self.bnf.parseString(num_string, parseAll)
         logging.debug("results")
         # results.pprint()
         logging.debug("exprStack")
         logging.debug(pformat(self.exprStack))
         val = self.evaluateStack(self.exprStack[:])
+        logging.debug(f"{val}")
         # pprint(val)
-        return val['content']
+        return val.to_latex()
     
 
 def latex2image(
@@ -746,17 +825,21 @@ def prepare_for_latex(result: str) -> str:
         result = result.replace(old, new)
     return result
 
-def tests():
-    parser = NumericStringParser()
-    tests = {
+
+test_calculations = {
         "vectors": "cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]",
         "matrix": "[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]",
         "matrix + function chained": "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]",
         "physics 1": "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s",
         "solve": "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]",
         "implicit multiplication": "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)"
-    }
-    for name, test in tests.items():
+}
+
+
+def tests():
+    parser = NumericStringParser()
+
+    for name, test in test_calculations.items():
         try:
             latex = parser.eval(prepare_for_latex(test))
             logging.info(f"Passed test: {name}")
@@ -770,14 +853,17 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     try:
-        code = "pi pi * €"
         tests()
-        logging.debug(prepare_for_latex(code))
+        code = test_calculations["vectors"]
+        # for name, code in test_calculations.items():
+        #     logging.info(name)
+        logging.info(prepare_for_latex(code))
         latex = NumericStringParser().eval(prepare_for_latex(code))
-        print(latex)
+        logging.info(f"Latex: {latex}")
         image = latex2image(latex)
         img = Image.open(image)
         img.show()
+        input("Press enter to continue")
 
     except ParseException as e:
         print(e.explain())
