@@ -35,10 +35,7 @@ from PIL import Image
 from pprint import pprint
 import logging
 
-logging.basicConfig(
-    level=logging.INFO, 
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+
 
 
 PERIOD_START = " "
@@ -768,6 +765,10 @@ def tests():
             logging.error(traceback.format_exc())
 
 if __name__ == "__main__":
+    logging.basicConfig(
+        level=logging.INFO, 
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    )
     try:
         code = "pi pi * €"
         tests()
