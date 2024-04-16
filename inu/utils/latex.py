@@ -290,12 +290,18 @@ class MulOp(Element):
 
 
 class Exp(Element):
+    """
+    Represents an exp expression `factor^factor` where both factors are the children
+    """
     def to_latex(self) -> str:
         op1, op2 = self.children
         return f"{op1.to_latex()}^{op2.to_latex()}"
 
 
 class Function(Element):
+    """
+    Represents any type of fuction with it's arguments as children
+    """
     def get_latex_fn(self, fn_name: str, number_args) -> str:
         if fn_name not in ["planet", "element"]:
             self.needs_latex = True
