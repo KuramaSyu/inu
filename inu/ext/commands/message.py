@@ -92,7 +92,7 @@ async def qalc(ctx: Context):
 async def calc_msg(ctx: InuContext, calculation: str, base: str | None = None):
     """base method for editing the calculation, calculating it, setting it as `last_ans` and finally sending it"""
     author_id: int = ctx.author.id
-    calculation = replace_vars(
+    calculation = replace_last_ans(
         calculation=prepare(calculation),
         author_id=author_id,
     ) 
@@ -114,14 +114,15 @@ def prepare(calculation: str) -> str:
     calculation = re.sub(r'([^ ]*) \/ ([^ ]*)', r'(\1) / (\2)', calculation)
     return calculation
 
-def replace_vars(calculation: str, author_id: int) -> str:
+def replace_last_ans(calculation: str, author_id: int) -> str:
     """replaces the `ans` word with the last answer of that user, taken from `last_ans[author_id]` """
     query = calculation
+    pattern = re.compile(r"\bans\b")
     if (last_answer := last_ans.get(author_id)):
         last_answer = last_answer.replace("'", "")
-        query = query.replace("ans", str(last_answer))
+        query = pattern.sub(last_answer, query)
     else:
-        query = query.replace("ans", "1")
+        query = pattern.sub(1, query)
     return query
 
 
