@@ -78,15 +78,20 @@ class Element:
         self.parent: "Element" | None = None
 
     def add_child(self, child: "Element") -> None:
+        """Adds one child element of type `Element`"""
         self.add_children([child])
 
     def add_children(self, children: List["Element"]) -> None:
+        """Adds multiple children of type `Element`"""
+
         def set_parent(child: "Element") -> None:
+            """Sets recursivly parents"""
             if isinstance(child, Element):
                 child.parent = self
             elif isinstance(child, list):
                 for ch in child:
                     set_parent(ch)
+
         for child in children:
             set_parent(child)
         self.children.extend(children)
@@ -99,14 +104,17 @@ class Element:
     
     @property
     def is_negated(self) -> bool:
+        """whether or not the element has `-` as prefix"""
         return self.negate
     
     @abstractmethod
     def to_latex(self) -> str:
+        """the latex representation of the element"""
         pass
 
     @staticmethod
     def unpack_array(op: "Element") -> "Element":
+        """removed the array from the given element if the array is not negated"""
         if op.type == "array" and not op.is_negated:
             return op.children[0]
         return op
@@ -116,6 +124,9 @@ class Element:
 
     
 class Unit(Element):
+    """
+    Represents a unit like `meter` or `megabyte`
+    """
     def prepare_unit(self, unit: str) -> str:
         old_to_new = {
             " ": "\\ ",
@@ -132,6 +143,10 @@ class Unit(Element):
     
 
 class Number(Element):
+    """
+    Represents a number like `8`, `56.55`, `234.3333...`, `pi`, `e`, `2E10`
+    and so on
+    """
     def prepare_number(self, number: str) -> str:
         if "E" in number:
             # replace E x with *10^{x}
@@ -160,6 +175,10 @@ class Number(Element):
     
 
 class Vector(Element):
+    """
+    Represents Vektors like `[1  2  3] or [1  2]`. The inner part can be any type of 
+    expression
+    """
     def to_latex(self) -> str:
         cols = int(self.element.split("x")[1])
         content = '\\\\'.join(ch.to_latex() for ch in self.children)
@@ -167,6 +186,9 @@ class Vector(Element):
     
 
 class Matrix(Element):
+    """
+    Represents Matrices like `[[1  2]; [3  4]]` or `[[1  sqrt(4)]; [sqrt(9)  6-2]]`
+    """
     def to_latex(self) -> str:
         cols = int(self.element.split("x")[0])
         rows = int(self.element.split("x")[1])
@@ -180,6 +202,9 @@ class Matrix(Element):
     
 
 class Equation(Element):
+    """
+    Represents any type of calculation with `=` or `≈` in between
+    """
     op_to_latex = {
         "=": "=",
         "≈": "\\approx",
@@ -190,7 +215,10 @@ class Equation(Element):
 
 
 class Array(Element):
-
+    """
+    Represents parantheseses arround an expression like `(3+4)` or
+    `-(sqrt(9) - 1)`
+    """
     @property
     def type(self) -> str:
         if self.ignore_self:
@@ -221,11 +249,19 @@ class Array(Element):
 
 
 class Fraction(Element):
+    """
+    Represents a div operation `expr / expr` where `expr` are the children.
+    Every div operation is displayed as fraction
+    """
     def to_latex(self) -> str:
         op1, op2 = self.children
         return f"\\frac{{{op1.to_latex()}}}{{{op2.to_latex()}}}"
 
+
 class AddOp(Element):
+    """
+    Represents an add operation `expr [+-] expr` where `expr` are the children.
+    """
     op_to_latex = {
         "+": "+",
         "-": "-",
@@ -235,7 +271,11 @@ class AddOp(Element):
         op1, op2 = self.children
         return f"{op1.to_latex()} {self.op_to_latex[self.element]} {op2.to_latex()}"
 
+
 class MulOp(Element):
+    """
+    Represents multiplication operations `expr [*] expr` without div since it's handled on its own
+    """
     op_to_latex = {
         "*": "\\cdot",
         "×": "\\cdot",
