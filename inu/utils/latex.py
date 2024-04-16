@@ -795,7 +795,7 @@ def evaluation2image(evaluation: str, multiline: bool = False) -> BytesIO:
     return image
 
 def prepare_for_latex(result: str) -> str:
-    """prepares the result for latex"""
+    """prepares the result for latex by removing unicode characters like √ or π"""
     result = result.replace("'", "") # remove number things for better readability
     if len(result.splitlines()) > 1 and "warning" in result[0]:
         result = result.split("\n")[-1] # remove warnings
