@@ -32,6 +32,10 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
     @property
     def raw_options(self) -> Dict[str, Any]:
         return self._options
+    
+    @property
+    def last_response(self) -> ResponseProxy:
+        return self._responses[-1]
 
     @property
     def options(self) -> OptionsProxy:
@@ -129,6 +133,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         """
         update_message: SnowflakeishOr[hikari.PartialMessage] | None = update if isinstance(update, (hikari.Snowflake, hikari.PartialMessage)) else None
         self._deferred = False
+        msg = None
 
         kwargs.pop("flags", None)
         kwargs.pop("response_type", None)
