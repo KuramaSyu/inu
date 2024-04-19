@@ -303,8 +303,6 @@ class Function(Element):
     Represents any type of fuction with it's arguments as children
     """
     def get_latex_fn(self, fn_name: str, number_args) -> str:
-        if fn_name not in ["planet", "element"]:
-            self.needs_latex = True
         if fn_name == "sin":
             return "\\sin({0})"
         elif fn_name == "cos":
@@ -736,6 +734,8 @@ class NumericStringParser(object):
             return element
         
         elif element.type == "function":
+            if element.element not in ["planet", "element"]:
+                self.needs_latex = True
             number_args = element.number_args
             children = [self.evaluateStack(s) for _ in range(number_args)]
             element.add_children(children)
