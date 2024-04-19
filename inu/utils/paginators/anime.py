@@ -645,7 +645,7 @@ class AnimeCornerPaginator(Paginator):
         **kwargs
     ):
         self.anime_matches = []
-        self.submission = None
+        self.submission: asyncpraw.models.Submission | None = None
         self.anime_paginators = []
         self.title = ""
         self.active_anime_paginator = None
@@ -793,7 +793,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         **kwargs
     ):
         self.anime_matches = []
-        self.submission = None
+        self.submission: asyncpraw.models.Submission = None
         self.anime_paginators = []
         self.title = ""
         self.active_anime_paginator = None
@@ -837,7 +837,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         """
         self.ctx = ctx
         self.anime_paginators = []
-        self.submission = submission
+        self.submission: asyncpraw.models.Submission = submission
         self.title = title
         self._pages = [self.default_embed for _ in range(11)]
         super(AnimePaginator, self).__init__(
@@ -934,6 +934,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         embed = Embed(title=self.title, color=color)
         embed.add_field("Next poll:", "[polls - AnimeCorner](https://polls.animecorner.me/)", inline=True)
         embed.add_field("Article:", f"[here]({self.anime_corner_url})", inline=True)
+        embed.add_field("Reddit Post:", f"[here](https://reddit.com{self.submission.permalink})", inline=True)
         embed.set_image(self.submission.url)
         if not self.anime_matches:
             embed.set_footer(text="Loading Animes...")
