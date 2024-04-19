@@ -14,6 +14,7 @@ import lightbulb
 from lightbulb import Plugin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
+from asyncpg import StringDataRightTruncationError
 
 from utils import Reddit
 from core.db import Database
@@ -58,7 +59,10 @@ async def fetch_current_games(bot: Inu):
                         games[guild.id][act_name] = 1
     for guild_id, game_dict in games.items():
         for game, amount in game_dict.items():
-            await CurrentGamesManager.add(guild_id, game, amount)
+            try:
+                await CurrentGamesManager.add(guild_id, game, amount)
+            except StringDataRightTruncationError as e:
+                log.warning(f"Current Games ignored: `{game}` with len of {len(game)}")
 
 async def log_current_activity(bot: Inu):
     for _, guild in await bot.cache.get_guilds_view().items():
