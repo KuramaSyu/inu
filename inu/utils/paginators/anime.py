@@ -875,7 +875,7 @@ class AnimeCornerPaginator2(AnimePaginator):
     def anime_corner_url(self) -> str:
         # https://animecorner.me/spring-2023-anime-rankings-week-12/
         # Top 10 Anime of the Week #01 - Summer 2023 (Anime Corner)
-        REGEX = r"^Top 10 Anime of the Week #(?P<week_number>\d+) - (?P<season>\w+) (?P<year>\d+)(?: \(Anime Corner\))?$"
+        REGEX = r"^Top 10 Anime of the Week #(?P<week_number>\d+) - (?P<season>\w+) (?P<year>\d+)(?: \(Anime (Corner|Trending)\))?$"
         match_ = re.match(REGEX, self.title)
         if not match_:
             raise RuntimeError(f"Couldn't match title {self.title} with regex {REGEX}")
