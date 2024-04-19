@@ -230,7 +230,10 @@ class Reddit():
                     continue
                 if skip_stickied and submission.stickied:
                     continue
-                if title_filter and not any(True for f in title_filter if f.lower() in submission.title.lower()):
+                if (
+                    title_filter 
+                    and not all(f.lower() in submission.title.lower() for f in title_filter)
+                ):
                     continue
                 post_list.append(submission)
             
