@@ -295,7 +295,7 @@ class Exp(Element):
     """
     def to_latex(self) -> str:
         op1, op2 = self.children
-        return f"{op1.to_latex()}^{op2.to_latex()}"
+        return f"{op1.to_latex()}^{{{op2.to_latex()}}}"
 
 
 class Function(Element):
@@ -805,29 +805,33 @@ def latex2image(
 
 
     swtich_backend()
-    fig = plt.figure(figsize=image_size_in, dpi=dpi)
-    fig.patch.set_alpha(0)
-    text = fig.text(
-        x=0.5,
-        y=0.5,
-        s=result,
-        horizontalalignment="left",
-        verticalalignment="center",
-        fontsize=fontsize,
-        color='white',  # Set text color to white
-        linespacing=1.1 if includes_matrix else 1.7,
-    )
-    # Adjust image size based on the length of latex expression
-    bbox = fig.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
-    width, height = bbox.width, bbox.height
-    image_size_in = (width, height)
-    
-    fig.set_size_inches(image_size_in)
-    buffer = BytesIO()
-    plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.0)
-    buffer.seek(0)
+    try:
+        fig = plt.figure(figsize=image_size_in, dpi=dpi)
+        fig.patch.set_alpha(0)
+        text = fig.text(
+            x=0.5,
+            y=0.5,
+            s=result,
+            horizontalalignment="left",
+            verticalalignment="center",
+            fontsize=fontsize,
+            color='white',  # Set text color to white
+            linespacing=1.1 if includes_matrix else 1.7,
+        )
+        # Adjust image size based on the length of latex expression
+        bbox = fig.get_window_extent().transformed(fig.dpi_scale_trans.inverted())
+        width, height = bbox.width, bbox.height
+        image_size_in = (width, height)
+        
+        fig.set_size_inches(image_size_in)
+        buffer = BytesIO()
+        plt.savefig(buffer, format='png', bbox_inches='tight', pad_inches=0.0)
+        buffer.seek(0)
 
-    return buffer
+        return buffer
+    except Exception as e:
+        logging.error(f"LaTeX: {result}\nError:{traceback.format_exc()}")
+        return None
 
 def evaluation2image(evaluation: str, multiline: bool = False) -> BytesIO:
     evaluations = [ev for ev in evaluation.splitlines()] if len(evaluation.splitlines()) > 1 else [evaluation]
