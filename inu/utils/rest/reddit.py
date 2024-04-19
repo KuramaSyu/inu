@@ -170,7 +170,7 @@ class Reddit():
                 limit=10,
                 media_filter=["png", "jpg"],
                 time_filter="month",
-                title_filter="top 10 anime of the week #",
+                title_filter=["top 10 anime of the week #", "Anime Corner"],
                 skip_stickied=False,
 
             ))[0]
@@ -185,8 +185,9 @@ class Reddit():
         limit: int = 10,
         time_filter: str = 'day',
         media_filter: List[str] | None= ["png", "jpg"],
-        title_filter: Optional[str] = None,
+        title_filter: Optional[str | List[str]] = None,
         skip_stickied: bool = True,
+        sort_by: str = "relevance",
     ) -> List[asyncpraw.models.Submission]:
         """
         Fetch submissions with given settings using search method. No cache implemented
@@ -209,12 +210,14 @@ class Reddit():
             raise UnvalidRedditClient
         if not media_filter:
             media_filter = [""]
+        if isinstance(title_filter, str):
+            title_filter = [title_filter]
 
         post_list: List[asyncpraw.reddit.Submission] = []
         try:
             subreddit_obj: asyncpraw.reddit.Subreddit = await cls.reddit_client.subreddit(subreddit)
             posts = subreddit_obj.search(
-                query=title_filter,
+                query=title_filter[0],
                 sort="relevance",
                 time_filter=time_filter,
                 limit=limit,
@@ -227,7 +230,7 @@ class Reddit():
                     continue
                 if skip_stickied and submission.stickied:
                     continue
-                if title_filter and not title_filter.lower() in submission.title.lower():
+                if title_filter and not any(True for f in title_filter if f.lower() in submission.title.lower()):
                     continue
                 post_list.append(submission)
             
