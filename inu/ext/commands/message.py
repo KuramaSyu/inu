@@ -63,9 +63,9 @@ async def on_message(event: hikari.MessageCreateEvent | hikari.MessageUpdateEven
         #log.debug(content)
         try:
             # extract base 
-            base = re.findall(r"-(?:b|base)(?:[ ])?(\d|bin|dec|oct|hex)[ ]", content)[0]
+            base = re.findall(r"-(-)?(?:b|base)(?:[ ])?(\d|bin|dec|oct|hex)[ ]", content)[0]
             # remove base option from calculation
-            content = re.sub(r"(-(?:b|base)(?:[ ])?(?:\d|bin|dec|oct|hex)[ ])", "", content, count=1)
+            content = re.sub(r"(-(-)?(?:b|base)(?:[ ])?(?:\d|bin|dec|oct|hex)[ ])", "", content, count=1)
         except (IndexError, TypeError):
             pass
         return await calc_msg(get_context(event), content, base)
@@ -122,7 +122,7 @@ def replace_last_ans(calculation: str, author_id: int) -> str:
         last_answer = last_answer.replace("'", "")
         query = pattern.sub(last_answer, query)
     else:
-        query = pattern.sub(1, query)
+        query = pattern.sub("1", query)
     return query
 
 
