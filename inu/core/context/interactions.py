@@ -185,7 +185,7 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
                 **kwargs_: Any,
             ) -> hikari.Message:
                 return await self.app.rest.edit_webhook_message(_wh_id, _tkn, _m_id, *args_, **kwargs_)
-            if update:
+            if update and self._responses:
                 proxy = self._responses[-1]
                 message = await proxy.edit(*args, **kwargs)
             else:
