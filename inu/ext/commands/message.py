@@ -31,7 +31,7 @@ from utils import prepare_for_latex as replace_unsupported_chars, Paginator
 log = getLogger(__name__)
 
 
-plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
+plugin = lightbulb.Plugin("Message Content Processing", include_datastore=True)
 
 # storing the last answers of users, that it can be used later
 last_ans: Dict[int, str] = {}
