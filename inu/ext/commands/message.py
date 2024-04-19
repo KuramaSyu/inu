@@ -36,7 +36,7 @@ plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
 # storing the last answers of users, that it can be used later
 last_ans: Dict[int, str] = {}
 # specific for calculate - only for response update on message edit
-message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext, Paginator]] = ExpiringDict(ttl=60*60)
+message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext]] = ExpiringDict(ttl=60*60*3)
 
 @plugin.listener(hikari.MessageCreateEvent)
 async def on_message_create(event: hikari.MessageCreateEvent):
@@ -45,8 +45,8 @@ async def on_message_create(event: hikari.MessageCreateEvent):
 @plugin.listener(hikari.MessageUpdateEvent)
 async def on_message_update(event: hikari.MessageUpdateEvent):
     if event.message_id in message_id_cache:
-        func, _, _ = message_id_cache[event.message_id]
-        await func(get_context(event), event.message.content)
+        func, ctx = message_id_cache[event.message_id]
+        await func(ctx, event.message.content)
     else:
         await on_message(event)
 
@@ -157,18 +157,12 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
         log.warning(f"parsing {prepare_for_latex(result)} failed: {traceback.format_exc()}")
 
     if not message_id_cache.get(ctx.message_id):
-        pag = Paginator(
-            [embed], 
-            disable_paginator_when_one_site=False, 
-            hide_components_when_one_site=True
-        )
-        message_id_cache[ctx.message_id] = (calc_msg, ctx, pag)
-        await pag.start(ctx)
+        await ctx.respond(embed)
+        message_id_cache[ctx.message_id] = (calc_msg, ctx)
     else:
-        _, _, pag = message_id_cache[ctx.message_id]
-        pag.add_page(embed)
-        message_id_cache[ctx.message_id] = (calc_msg, ctx, pag)
-        await pag.move_to_page(-1, ctx)
+        await ctx.last_response.edit(embed=embed)
+        message_id_cache[ctx.message_id] = (calc_msg, ctx)
+
     
 
 
