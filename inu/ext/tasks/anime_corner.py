@@ -46,7 +46,7 @@ async def defer_trigger_to_time(target_time: time | None = TARGET_TIME):
             target_datetime += timedelta(days=1)
 
         wait_time = (target_datetime - datetime.now()).total_seconds()
-        log.info(f"Waiting for {naturaldelta(timedelta(seconds=wait_time))} to shedule the {TRIGGER_NAME}")
+        log.info(f"Waiting for {naturaldelta(timedelta(seconds=wait_time))} to shedule the {TRIGGER_NAME}", prefix="task")
     trigger = IntervalTrigger(seconds=METHOD_SYNC_TIME, start_date=target_datetime)
     plugin.bot.scheduler.add_job(method, trigger)
     
@@ -70,8 +70,9 @@ async def method():
         await api.fetch_ranking(url)
     except Exception as e:
         log.error(
-            f"Error while fetching Anime Corner ranking with URL `{url}`\n"
-            f"{traceback.format_exc()}"
+            f"Error while fetching Anime Corner ranking with URL `{url}`\n",
+            f"{traceback.format_exc()}",
+            prefix="task"
         )
 
 def load(inu: Inu):

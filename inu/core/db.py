@@ -126,7 +126,7 @@ class Database(metaclass=Singleton):
         await self.execute_script(os.path.join(os.getcwd(), "inu/data/bot/sql/script.sql"), self.bot.conf.bot.DEFAULT_PREFIX)
 
 
-        self.log.info("Synchronised database.")
+        self.log.info("Synchronised database.", prefix="init")
 
     @acquire
     async def execute(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> Optional[asyncpg.Record]:

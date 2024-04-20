@@ -690,7 +690,7 @@ async def start_lavalink() -> None:
             else:
                 #log.info(f"retrying lavalink connection in {} seconds")
                 await asyncio.sleep(sleep_time)
-    log.info("lavalink is connected")
+    log.info("lavalink is connected", prefix="init")
 
 
 

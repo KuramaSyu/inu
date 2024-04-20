@@ -62,7 +62,7 @@ async def fetch_current_games(bot: Inu):
             try:
                 await CurrentGamesManager.add(guild_id, game, amount)
             except StringDataRightTruncationError as e:
-                log.warning(f"Current Games ignored: `{game}` with len of {len(game)}")
+                log.warning(f"Current Games ignored: `{game}` with len of {len(game)}", prefix="task")
                 banned_act_names.append(game)
 
 async def log_current_activity(bot: Inu):

@@ -243,8 +243,10 @@ class Reddit():
 
         except asyncprawcore.NotFound:
             raise RedditError(f"Subreddit {subreddit} not found")
+        except asyncprawcore.ResponseException as e:
+            log.error(f'Reddit.search - failed with status code {e.response.status}', prefix="api")
         except Exception as e:
-            log.error(f'Reddit.search - exception log {traceback.print_exc()}')
+            log.error(f'Reddit.search - exception log {traceback.format_exception()}')
         return []
     
     @classmethod

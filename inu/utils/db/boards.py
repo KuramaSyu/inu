@@ -91,7 +91,7 @@ class BoardManager:
                 emoji=record["emoji"],
                 message_id=record["message_id"],
             )
-        log.info(f"[Start] BoardManager with {Human.plural_('board', len(board_records))} and {Human.plural_('entry', len(entry_records))}")
+        log.info(f"BoardManager with {Human.plural_('board', len(board_records))} and {Human.plural_('entry', len(entry_records))}", prefix="init")
 
 
     @classmethod

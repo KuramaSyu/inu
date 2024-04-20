@@ -59,7 +59,7 @@ def main():
         records = await inu.db.fetch("SELECT * FROM guilds")
         for record in records:
             inu.db.bot._prefixes[record["guild_id"]] = record["prefixes"]
-        log.debug("Synced Prefixes")
+        log.debug("Synced Prefixes", prefix="init")
 
     @inu.listen(hikari.StartingEvent)
     async def on_ready(event : hikari.StartingEvent):
@@ -89,7 +89,7 @@ def main():
             count += 1
             inu.restart_num = count
             await table.upsert(where={"key": "restart_count", "value": str(count)})
-            log.info(f'[Start] Number: {(await table.select_row(["key"], ["restart_count"]))["value"]}')
+            log.info(f'Number: {(await table.select_row(["key"], ["restart_count"]))["value"]}', prefix="init")
         except Exception:
             log.error(traceback.format_exc())
 
@@ -120,7 +120,7 @@ def main():
                 bot_description = f"{number_fact}"
         except Exception:
             log.error(traceback.format_exc())
-        log.info(f"[Start] Bot is online: {bot_description}")
+        log.info(f"Bot is online: {bot_description}", prefix="init")
         try:
             await event.bot.update_presence(
                 status=hikari.Status.IDLE, 
@@ -131,7 +131,7 @@ def main():
                 )
             )
         except Exception:
-            log.error(f"[Start] failed to set presence: {traceback.format_exc()}")
+            log.error(f"failed to set presence: {traceback.format_exc()}", prefix="start")
 
     
     stop = False

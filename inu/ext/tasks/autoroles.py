@@ -46,7 +46,7 @@ async def init_method():
 async def remove_expired_autoroles():
     """removes expired autoroles"""
     try:
-        log.debug("removing expired autoroles")
+        log.debug("removing expired autoroles", prefix="task")
         await AutoroleManager.remove_expired_autoroles(expires_in=METHOD_SYNC_TIME)
     except Exception:
         log.warning(traceback.format_exc())
@@ -57,7 +57,7 @@ async def remove_expired_autoroles():
 async def on_member_join(event: hikari.MemberCreateEvent):
     """used to call the default role callback"""
     events = await AutoroleManager.fetch_events(event.guild_id, AutoroleAllEvent)
-    log.debug(f"found {len(events)} events for guild {event.guild_id}")
+    log.debug(f"found {len(events)} events for guild {event.guild_id}", prefix="task")
     tasks: List[asyncio.Task] = []
     for task in events:
         tasks.append(asyncio.create_task(task.callback(event)))
@@ -86,10 +86,10 @@ async def on_voice_state_update(event: hikari.VoiceStateUpdateEvent):
     
     if not event.guild_id in VoiceAutoroleCache:
         # to prevent to many db calls
-        log.debug(f"guild {event.guild_id} not in VoiceAutoroleCache")
+        log.debug(f"guild {event.guild_id} not in VoiceAutoroleCache", prefix="task")
         return
     events: List[VoiceActivityEvent] = await AutoroleManager.fetch_events(event.guild_id, VoiceActivityEvent)
-    log.debug(f"found {len(events)} events for guild {event.guild_id}")
+    log.debug(f"found {len(events)} events for guild {event.guild_id}", prefix="task")
     tasks: List[asyncio.Task] = []
     for task in events:
         tasks.append(asyncio.create_task(
