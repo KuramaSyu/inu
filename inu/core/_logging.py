@@ -88,6 +88,24 @@ ignored = {
 class LoggingHandler(logging.Logger):
     def trace(self, message: str):
         self.log(5, message)
+
+    def debug(self, message: str, *args, prefix: str = "", **kwargs):
+        self.log(logging.DEBUG, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+
+    def info(self, message: str, *args, prefix: str = "", **kwargs):
+        self.log(logging.INFO, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+
+    def warning(self, message: str, *args, prefix: str = "", **kwargs):
+        self.log(logging.WARNING, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+
+    def error(self, message: str, *args, prefix: str = "", **kwargs):
+        self.log(logging.ERROR, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+
+    def critical(self, message: str, *args, prefix: str = "", **kwargs):
+        self.log(logging.CRITICAL, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+
+    def _convert_prefix(self, prefix: str):
+        return f"[{prefix.upper()}] " if prefix else ""
     
     def handle(self, record: logging.LogRecord) -> None:
         # if record.msg in ignored.get(record.name, ()):
