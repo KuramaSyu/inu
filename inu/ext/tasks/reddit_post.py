@@ -135,11 +135,10 @@ async def send_top_x_pics(subreddit: str, channel_id: int, guild_id: int, count:
             embed.title = f'{Human.short_text(posts[x].title, 256)}'
             embed.set_image(posts[x].url)
             embed.description = f'[{posts[x].subreddit_name_prefixed}](https://www.reddit.com/{posts[x].subreddit._path})'
-            log.debug(channel_id)
             try:
                 await plugin.bot.rest.create_message(channel_id, embed=embed)
-            except hikari.ForbiddenError:
-                log.debug(f"remove channel: {channel_id}")
+            except (hikari.ForbiddenError, hikari.NotFoundError):
+                log.info(f"Delete Reddit post channel (not found / forbidden): {channel_id}")
                 await DailyContentChannels.remove_channel(Col.CHANNEL_IDS, channel_id, guild_id)
     except IndexError:
         pass
