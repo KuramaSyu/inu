@@ -68,7 +68,7 @@ class CurrentGamesManager:
         amount: int,
     ) -> Optional[Mapping[str, Any]]:
         """inserts guild_id and game into database. Timestamp will be time of method call"""
-        table = Table("current_games")
+        table = Table("current_games", error_log=False)
         now = datetime.now()
         about_now = datetime(
             year=now.year,

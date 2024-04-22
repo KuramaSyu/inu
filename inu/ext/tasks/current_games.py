@@ -35,10 +35,9 @@ plugin = lightbulb.Plugin(
 
 # Mapping from guild_id to a mapping from game name to amount of users playing it
 games: Dict[int, Dict[str, int]] = {}
-
+banned_act_names = ["Custom Status"]
 async def fetch_current_games(bot: Inu):
     games: Dict[int, Dict[str, int]] = {}
-    banned_act_names = ["Custom Status"]
     guild: hikari.Guild
     now = datetime.now()
     if now.hour == 0:
@@ -61,7 +60,7 @@ async def fetch_current_games(bot: Inu):
         for game, amount in game_dict.items():
             try:
                 await CurrentGamesManager.add(guild_id, game, amount)
-            except StringDataRightTruncationError as e:
+            except StringDataRightTruncationError:
                 log.warning(f"Current Games ignored: `{game}` with len of {len(game)}", prefix="task")
                 banned_act_names.append(game)
 
