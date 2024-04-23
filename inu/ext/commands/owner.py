@@ -279,7 +279,7 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     env.update(globals())
     result = None
     raw_code = code
-    clean_code = ""
+    cleaned_code = ""
 
     error = None
     str_obj = io.StringIO()
@@ -288,8 +288,8 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     traceback_list = []
 
     try:
-        clean_code, parsed, fn_name = clean_code(code)
-        log.warning(f"/run used by {ctx.author.username} [{ctx.author.id}]")
+        wraped_code, cleaned_code, parsed, fn_name = clean_code(code)
+        log.warning(f"/run used by {ctx.author.username} [{ctx.author.id}]", prefix="owner")
         exec(compile(parsed, filename="<eval>", mode='exec'), env)
         func = env[fn_name]
         start = datetime.now()
@@ -332,8 +332,8 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         # add code
         if add_code_to_embed:
             if (
-                len(clean_code) < 1000 and len(embeds) > 0 
-                and len(str(embeds[0].description)) - len(clean_code) < 2000 
+                len(cleaned_code) < 1000 and len(embeds) > 0 
+                and len(str(embeds[0].description)) + len(cleaned_code) < 2000 
                 and str(output) in ["", "None"]
             ):
                 em = embeds[0]
@@ -341,7 +341,7 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
             else:
                 em = hikari.Embed(description="**CODE**\n")
                 embeds.append(em)
-            em.description = f'{em.description or ""}```py\n{clean_code}```\n'
+            em.description = f'{em.description or ""}```py\n{cleaned_code}```\n'
 
         # add stdout
         if output and str(output) != "None":
@@ -368,20 +368,33 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         return embeds, round(ms, 4)
 
 
-def clean_code(code) -> Tuple[str, ast.AST, str]:
+def clean_code(code) -> Tuple[str, str, ast.AST, str]:
+    """
+    Cleans the given code by removing leading and trailing backticks, as well as the 'py' prefix if present.
+    Wraps the cleaned code into an async function and returns the cleaned code, the original code without async,
+    the parsed AST, and the name of the function.
+
+    Args:
+        code (str): The code to be cleaned.
+
+    Returns:
+        Tuple[str, str, ast.AST, str]: A tuple containing the cleaned code, the original code without async,
+        the parsed AST, and the name of the function.
+    """
     while code.startswith("`"):
         code = code[1:]
     while code.endswith("`"):
         code = code[:-1]
     while code.startswith("py\n"):
         code = code[3:]
+    un_asynced_code = code
     code, fn_name = wrap_into_async(code)
     # cleans code and wraps into async
     parsed = ast.parse(code)
     body = parsed.body[0].body  # type: ignore
     insert_returns(body)
 
-    return code, parsed, fn_name
+    return code, un_asynced_code, parsed, fn_name
 
 def wrap_into_async(code):
     func_name = '_to_execute'
