@@ -42,7 +42,7 @@ async def on_message_update(event: hikari.events.MessageUpdateEvent):
     if not event.message_id in message_id_cache:
         return
     # I know, that this is a nasty way
-    func, ctx, pag = message_id_cache[event.message_id]
+    func, ctx, _ = message_id_cache[event.message_id]
     ctx._event = event
     if "run " in ctx._event.message.content:
         ctx._options = {"code": ctx._event.message.content.split(" ", 1)[-1]}
@@ -279,6 +279,7 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     env.update(globals())
     result = None
     raw_code = code
+    clean_code = ""
 
     error = None
     str_obj = io.StringIO()
@@ -287,8 +288,8 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
     traceback_list = []
 
     try:
-        code, parsed, fn_name = clean_code(code)
-        log.warning(f"code gets executed:\n<<<\n{code}\n>>>")
+        clean_code, parsed, fn_name = clean_code(code)
+        log.warning(f"/run used by {ctx.author.username} [{ctx.author.id}]")
         exec(compile(parsed, filename="<eval>", mode='exec'), env)
         func = env[fn_name]
         start = datetime.now()
@@ -331,8 +332,8 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         # add code
         if add_code_to_embed:
             if (
-                len(raw_code) < 300 and len(embeds) > 0 
-                and len(str(embeds[0].description)) - len(raw_code) < 2000 
+                len(clean_code) < 1000 and len(embeds) > 0 
+                and len(str(embeds[0].description)) - len(clean_code) < 2000 
                 and str(output) in ["", "None"]
             ):
                 em = embeds[0]
@@ -340,7 +341,7 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
             else:
                 em = hikari.Embed(description="**CODE**\n")
                 embeds.append(em)
-            em.description = f'{em.description or ""}```py\n{raw_code}```\n'
+            em.description = f'{em.description or ""}```py\n{clean_code}```\n'
 
         # add stdout
         if output and str(output) != "None":
