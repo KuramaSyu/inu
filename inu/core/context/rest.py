@@ -228,7 +228,9 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             title: str, 
             button_labels: List[str] = ["Yes", "No"], 
             ephemeral: bool = True, 
-            timeout: int = 120
+            timeout: int = 120,
+            delete_after_timeout: bool = True,
+            allowed_users: List[hikari.SnowflakeishOr[hikari.User]] | None = None
     ) -> Tuple[str, "InteractionContext"]:
         """
         ask a question with buttons
@@ -243,6 +245,8 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             whether or not the message should be ephemeral
         timeout : int
             the timeout in seconds
+        allowed_users : List[hikari.User]
+            the users allowed to interact with the buttons
         
         Returns:
         --------
@@ -262,7 +266,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         proxy = await self.respond(title, components=components, ephemeral=ephemeral)
         selected_label, event, interaction = await self.app.wait_for_interaction(
             custom_ids=[f"{prefix}{l}" for l in button_labels],
-            user_id=self.author.id,
+            user_ids=allowed_users or self.author.id,
             message_id=(await proxy.message()).id,
             timeout=timeout
         )

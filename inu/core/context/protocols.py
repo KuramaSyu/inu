@@ -151,7 +151,9 @@ class InuContext(ABC):
             title: str, 
             button_labels: List[str] = ["Yes", "No"], 
             ephemeral: bool = True, 
-            timeout: int = 120
+            timeout: int = 120,
+            delete_after_timeout: bool = False,
+            allowed_users: List[hikari.SnowflakeishOr[hikari.User]] | None = None
     ) -> Tuple[str, "InuContext"]:
         """g
         ask a question with buttons
@@ -166,6 +168,10 @@ class InuContext(ABC):
             whether or not the message should be ephemeral
         timeout : int
             the timeout in seconds
+        delete_after_timeout : bool (default: False)
+            wether or not to delete the message after the timeout
+        allowed_users : List[hikari.User] | None
+            the allowed users to interact with the buttons
         
         Returns:
         --------
