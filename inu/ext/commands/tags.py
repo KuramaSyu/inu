@@ -956,7 +956,7 @@ async def tag_add_guild(_ctx: Context):
     if not record:
         return
     main_tag: Tag = await Tag.from_record(record, ctx.author)
-    if not tag.is_authorized_to_write(ctx.author.id):
+    if not main_tag.is_authorized_to_write(ctx.author.id):
         return await ctx.respond(
             f"You are lacking on permissions to edit this tag",
             ephemeral=True
@@ -981,7 +981,7 @@ async def tag_add_guild(_ctx: Context):
     sub_tags.remove(main_tag)
     if sub_tags:
         label, ctx = await ctx.ask(
-            f"Your tag `{tag.name}` has following sub-tags: {Human.list_([tag.name for tag in sub_tags], '`', with_a_or_an=False)}. Do you want to add all of them to the guild `{options.guild}`?",
+            f"Your tag `{main_tag.name}` has following sub-tags: {Human.list_([tag.name for tag in sub_tags], '`', with_a_or_an=False)}. Do you want to add all of them to the guild `{options.guild}`?",
         )
         if ctx is None:
             return
