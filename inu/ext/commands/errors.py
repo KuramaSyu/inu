@@ -92,7 +92,7 @@ async def on_error(event: events.CommandErrorEvent):
             custom_id, _, interaction = await bot.wait_for_interaction(
                 custom_ids=["error_send_dev", "error_show", "error_send_dev_silent"],
                 message_id=message.id,
-                user_id=ctx.user.id
+                user_ids=ctx.user.id
             )
             # await interaction.delete_message(message)
             embeds: List[Embed] = [Embed(title=f"Bug #{error_id}", description=str(error)[:2000])]

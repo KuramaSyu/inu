@@ -111,7 +111,7 @@ class AkinatorSI(Paginator):
                 )
             answer, event, interaction = await bot.wait_for_interaction(
                 custom_ids=["aki_yes", "aki_maybe_yes", "aki_maybe_no", "aki_no", "aki_back", "aki_idk", "aki_end"],
-                user_id=ctx.author.id,
+                user_ids=ctx.author.id,
                 channel_id=ctx.channel_id,
             )
             await interaction.create_initial_response(

@@ -295,7 +295,7 @@ async def calculation_tasks(ctx: Context):
     await ctx.respond(embed=embed, components=[menu, buttons])
     stage, _, cmp_interaction = await bot.wait_for_interaction(
         custom_ids=["calculation_task_menu", "math_highscore_btn"], 
-        user_id=ctx.user.id, 
+        user_ids=ctx.user.id, 
         channel_id=ctx.channel_id,
     )
     log.debug(stage)
