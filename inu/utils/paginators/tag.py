@@ -15,6 +15,7 @@ from lightbulb.context import Context
 from utils import TagIsTakenError
 from .base import (
     Paginator,
+    Event,
     EventListener,
     EventObserver,
     listener,
@@ -111,6 +112,7 @@ class TagHandler(StatelessPaginator):
         self._edit_mode = edit_mode
         self._tag_link_task: asyncio.Task | None = None
         self._info_visible = False
+        self._submessages: List[int] = []
 
         super().__init__(
             page_s=self._pages,
@@ -122,16 +124,24 @@ class TagHandler(StatelessPaginator):
             disable_components=disable_components,
             disable_paginator_when_one_site=False,
         ) 
-    
-    def interaction_pred(self, event: InteractionCreateEvent) -> bool:
-        """Checks user in tag.owners and message id of the event interaction"""
+    async def rebuild(self, event: hikari.Event, reject_user: bool = False, **kwargs) -> None:
+        await super().rebuild(event, reject_user=reject_user, **kwargs)
+
+    def _interaction_pred(self, event: InteractionCreateEvent) -> Tuple[bool, bool]:
+        """Checks user in tag.owners and message id of the event interaction
+        
+        Returns:
+        --------
+            - bool: wether or not the user is allowed to use this
+            - bool: wether or not the message id is the same as the one of the paginator
+        """
         if not isinstance((i := event.interaction), ComponentInteraction):
             self.log.debug("False interaction pred")
             return False
-        return (
-            i.user.id in self.tag.owners
-            and i.message.id == self._message.id
-        )
+        return (i.user.id in self.tag.owners, i.message.id == self._message.id)
+
+    def interaction_pred(self, event: InteractionCreateEvent) -> bool:
+        return all(self._interaction_pred(event))
 
     async def check_user(self) -> bool:
         """
@@ -139,7 +149,8 @@ class TagHandler(StatelessPaginator):
         """
         if not (
             self.custom_id.is_same_user(self.ctx.interaction)
-            or self.ctx.interaction.user.id in self.tag.owners):
+            or self.ctx.interaction.user.id in self.tag.owners
+        ):
             await self.ctx.respond(self._get_rejection_message(), ephemeral=True)
             return False
         return True
@@ -259,7 +270,8 @@ class TagHandler(StatelessPaginator):
             if not isinstance(event.interaction, ComponentInteraction):
                 return
             if not self.interaction_pred(event):
-                return
+                return 
+            
             i = event.interaction
             try:
                 if not self.custom_id.custom_id.startswith(TAG_MENU_PREFIX):
