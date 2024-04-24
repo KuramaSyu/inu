@@ -419,7 +419,7 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
             await ctx.respond("Okay :)", ephemeral=True)
             return
         answ, ctx = await ctx.ask(
-            f"{Human.list_([f'<@{owner}>' for owner in tag.owners])}, should I grant {asked_user.mention} the permission to edit this tag?",
+            f"{Human.list_([f'<@{owner}>' for owner in tag.owners], with_a_or_an=False)}, should I grant {asked_user.mention} the permission to edit this tag?",
             button_labels=["Yes", "No"],
             timeout=60*10,
             ephemeral=False,
@@ -970,6 +970,8 @@ async def tag_add_guild(_ctx: Context):
             if link in tag_link_list:
                 continue
             sub_tag = await Tag.fetch_tag_from_link(link, current_guild=_ctx.guild_id or _ctx.channel_id)
+            if not sub_tag:
+                continue
             tags.append(sub_tag)
             if sub_tag.tag_links and current_depth <= max_depth:
                 tags.extend(await fetch_all_sub_tags(sub_tag, tags, max_depth=max_depth, current_depth=current_depth))
