@@ -969,7 +969,7 @@ async def tag_add_guild(_ctx: Context):
         for link in tag.tag_links:
             if link in tag_link_list:
                 continue
-            sub_tag = await Tag.fetch_tag_from_link(link, current_guild=guild_id)
+            sub_tag = await Tag.fetch_tag_from_link(link, current_guild=_ctx.guild_id or _ctx.channel_id)
             tags.append(sub_tag)
             if sub_tag.tag_links and current_depth <= max_depth:
                 tags.extend(await fetch_all_sub_tags(sub_tag, tags, max_depth=max_depth, current_depth=current_depth))

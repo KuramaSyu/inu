@@ -208,7 +208,7 @@ class Tag():
             raise BotResponseError(
                 str(
                     f"Tag doesn't existent here - "
-                    f"no tag found with name `{tag_info['tag_name']}` {'in this guild' if tag_info['scope'] != '0' else 'globally'}.\n"
+                    f"no tag found with name `{tag_info['tag_name']}` {f'in this guild ({current_guild})' if tag_info['scope'] != '0' else 'globally'}.\n"
                     f"Maybe the tag is available in another guild, but not shared with this one?\n"
                     f"You could ask the person who should own this tag to share it with your guild.\n"
                     f"The command is `/tag add-guild`\n"
