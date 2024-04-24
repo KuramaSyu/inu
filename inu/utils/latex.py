@@ -297,7 +297,13 @@ class Exp(Element):
         op1, op2 = self.children
         return f"{op1.to_latex()}^{{{op2.to_latex()}}}"
 
-
+class Placeholder(Element):
+    """
+    Represents an exp expression `factor^factor` where both factors are the children
+    """
+    def to_latex(self) -> str:
+        return ""
+    
 class Function(Element):
     """
     Represents any type of fuction with it's arguments as children
@@ -366,11 +372,11 @@ class NumericStringParser(object):
     '''
 
     def pushFirst(self, strg, loc, toks):
-        logging.debug(f"pushFirst: {toks[0]}; all: {toks}")
+        logging.debug(f"pushFirst: {''.join(toks)}; all: {toks}")
         #number = self.prepare_number(toks[0])
         
         self.exprStack.append(
-            Number(toks[0], "number")
+            Number(''.join(toks), "number")
         )
 
     def prepare_number(self, number: str) -> str:
@@ -564,7 +570,7 @@ class NumericStringParser(object):
         atom = (
               (function)
             #| (Optional(oneOf("-+")) + unit_number).setParseAction(self.pushUnitNumberFirst)
-            | (Optional(oneOf("-+")) + ( pi | e | xnumber | fnumber | binary_number)).setParseAction(self.pushFirst)
+            | (Optional(oneOf("- +")) + ( pi | e | xnumber | fnumber | binary_number | x)).setParseAction(self.pushFirst)
             | (Optional(oneOf("-+")) + (unit))
             | (array)
             | (string).setParseAction(self.pushFirst)
@@ -656,7 +662,10 @@ class NumericStringParser(object):
         """
         converts the stack to latex
         """
-        element = s.pop()
+        try:
+            element = s.pop()
+        except IndexError:
+            return None
         op = element.element
         if element.type == "vector":
             self.needs_latex = True
@@ -712,7 +721,11 @@ class NumericStringParser(object):
             }
             self.needs_latex = True
             op2 = self.evaluateStack(s)
-            op1 = self.evaluateStack(s)
+            op1 = None
+            try:
+                op1 = self.evaluateStack(s)
+            except IndexError:
+                op1 = Placeholder("", "placeholder")
             
             element.add_children([op1, op2])
             return element
@@ -902,8 +915,9 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     try:
-        tests()
-        code = test_calculations["vectors"]
+        #tests()
+        code = "det([−x  0  −2; 1  (2 − x)  1; 1  0  (3 − x)]) = 5x² − x³ − 8x + 4"
+        #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     logging.info(name)
         logging.info(prepare_for_latex(code))
@@ -912,7 +926,7 @@ if __name__ == "__main__":
         image = latex2image(latex)
         img = Image.open(image)
         img.show()
-        input("Press enter to continue")
+        #("Press enter to continue")
 
     except ParseException as e:
         print(e.explain())
