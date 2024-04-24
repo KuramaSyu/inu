@@ -96,6 +96,8 @@ class CheckForTagType:
             button_labels=["Yes", "No"],
             timeout=30*60
         )
+        if ctx is None:
+            return None
         if answer == "Yes":
             tag.tag_type = self.check()
             await tag.save()
@@ -394,11 +396,47 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
         if not pag.custom_id.type == "stl-tag-edit": return
     except:
         return
-    tag = await Tag.from_id(pag.custom_id._kwargs["tid"], user_id=event.interaction.user.id)
-    if tag is None:
-        ctx = get_context(event)
-        await ctx.respond("REJECTED - Not your navigator. Did you thought you can trick me? ", ephemeral=True)
+    tag: Tag | None = await Tag.from_id(
+        pag.custom_id._kwargs["tid"], 
+        user_id=event.interaction.user.id, 
+        guild_or_channel_id=event.interaction.guild_id
+    )
+    ctx = get_context(event)
+    if not tag:
+        return await ctx.respond("Seems like this tag doesn't exist anymore", ephemeral=True)
+    if not await tag.is_authorized_to_write(ctx.author.id):   
+        # ask owner if asked user should get the permission  
+        answ, ctx = await ctx.ask(
+            "You've no permission to edit this tag. Should I ask the owner to grant you the permission?",
+            button_labels=["Yes", "No"],
+            ephemeral=True,
+            timeout=60*10,
+        )
+        if ctx is None:
+            return
+        asked_user = ctx.author
+        if answ == "No":
+            await ctx.respond("Okay :)", ephemeral=True)
+            return
+        answ, ctx = await ctx.ask(
+            f"{Human.list_([f'<@{owner}>' for owner in tag.owners])}, should I grant {asked_user.mention} the permission to edit this tag?",
+            button_labels=["Yes", "No"],
+            timeout=60*10,
+            ephemeral=False,
+            allowed_users=tag.owners
+        )
+        if ctx is None:
+            return
+        if answ == "No":
+            await ctx.respond("Okay :)", ephemeral=True)
+        else:
+            tag.owners.add(asked_user.id)
+            await tag.save()
+            await ctx.respond(f"{asked_user.mention} you got the permission to edit this tag now")
         return
+        #await ctx.respond("REJECTED - Not your navigator. Did you thought you can trick me? ", ephemeral=True)
+        return
+    
     await tag.used_now()
     pag.set_tag(tag)
     await pag.rebuild(event)
@@ -943,6 +981,8 @@ async def tag_add_guild(_ctx: Context):
         label, ctx = await ctx.ask(
             f"Your tag `{tag.name}` has following sub-tags: {Human.list_([tag.name for tag in sub_tags], '`', with_a_or_an=False)}. Do you want to add all of them to the guild `{options.guild}`?",
         )
+        if ctx is None:
+            return
         if label == "Yes":
             failed_tags: List[str] = []
             success_tags: List[str] = []
