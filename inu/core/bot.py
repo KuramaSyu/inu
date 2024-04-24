@@ -232,7 +232,7 @@ class Inu(lightbulb.BotApp):
         self, 
         custom_id: Optional[str] = None,
         custom_ids: List[str] | None = None,
-        user_id: Optional[int] = None, 
+        user_ids: Optional[int] | Optional[List[int]] = None, 
         channel_id: Optional[int] = None,
         message_id: Optional[int] = None,
         interaction_instance: Type[hikari.PartialInteraction] = hikari.ComponentInteraction,
@@ -250,6 +250,8 @@ class Inu(lightbulb.BotApp):
             the component interaction to respond, of the awaited interaction
             None if timeout
         """
+        if isinstance(user_ids, int):
+            user_ids = [user_ids]
         try:
             event = await self.wait_for(
                 InteractionCreateEvent,
@@ -257,7 +259,7 @@ class Inu(lightbulb.BotApp):
                 predicate=lambda e:(
                     isinstance(e.interaction, interaction_instance)
                     and (True if not custom_id else custom_id == e.interaction.custom_id)
-                    and (True if not user_id else e.interaction.user.id == user_id)
+                    and (True if not user_ids else e.interaction.user.id in user_ids)
                     and (True if not channel_id else e.interaction.channel_id == channel_id)
                     and (True if not message_id else e.interaction.message.id == message_id)
                     and (True if not custom_ids else e.interaction.custom_id in custom_ids)
