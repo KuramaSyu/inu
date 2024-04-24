@@ -1211,7 +1211,7 @@ class Paginator():
             )
             await self.pagination_loop(**kwargs)
             
-    async def dispatch_event(self, event: Event):
+    async def dispatch_event(self, event: Event, reject_interaction: bool = True):
         """
         Args:
         ----
@@ -1224,7 +1224,7 @@ class Paginator():
         - `ComponentInteraction`s with not patching predicate but matching message will be responded with a REJECTION_MESSAGE
         """
         if isinstance(event, InteractionCreateEvent):
-            if self.wrong_button_click(event):
+            if self.wrong_button_click(event) and reject_interaction:
                 ctx = get_context(event)
                 await ctx.respond(
                     random.choice(REJECTION_MESSAGES), ephemeral=True
@@ -1562,8 +1562,6 @@ class StatelessPaginator(Paginator, ABC):
         if with_author_id:
             d["aid"] = self.ctx.author.id
         d.update(self._get_custom_id_kwargs())
-        # if with_message_id:
-        #     d["mid"] = self._message.id
         d.update(kwargs)
         return json.dumps(d, indent=None, separators=(',', ':'))
 
@@ -1667,7 +1665,7 @@ class StatelessPaginator(Paginator, ABC):
     async def _rebuild(self, **kwargs):
         ...
 
-    async def rebuild(self, event: hikari.Event, **kwargs) -> None:
+    async def rebuild(self, event: hikari.Event, reject_user: bool = True, **kwargs) -> None:
         """
         this method is called for restarting stateless pags
 
@@ -1683,8 +1681,10 @@ class StatelessPaginator(Paginator, ABC):
             or self.custom_id_type is None
         ):
             raise TypeError("Needed attibutes for `StatelessPaginator.rebuild` or` None`") 
-        if not await self.check_user():
-            return
+        # if reject_user:
+        #     if not await self.check_user():
+        #         # user is not allowed to use this
+        #         return
         self.log.debug("set attrs")
         self._channel_id = self.ctx.channel_id
         self._author_id = self.custom_id.author_id
