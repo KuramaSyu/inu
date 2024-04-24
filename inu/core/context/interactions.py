@@ -278,8 +278,10 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
             title: str, 
             button_labels: List[str] = ["Yes", "No"], 
             ephemeral: bool = True, 
-            timeout: int = 120
-    ) -> Tuple[str, "InteractionContext"]:
+            timeout: int = 120,
+            delete_after_timeout: bool = False,
+            allowed_users: List[hikari.SnowflakeishOr[hikari.User]] | None = None
+    ) -> Tuple[str, "InteractionContext"] | None:
         """
         ask a question with buttons
 
@@ -293,7 +295,9 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
             whether or not the message should be ephemeral
         timeout : int
             the timeout in seconds
-        
+        allowed_users : List[hikari.User]
+            the users allowed to interact with the buttons
+
         Returns:
         --------
         Tuple[str, "InteractionContext"]
@@ -312,10 +316,14 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
         proxy = await self.respond(title, components=components, ephemeral=ephemeral)
         selected_label, event, interaction = await self.app.wait_for_interaction(
             custom_ids=[f"{prefix}{l}" for l in button_labels],
-            user_id=self.author.id,
+            user_ids=allowed_users or self.author.id,
             message_id=(await proxy.message()).id,
             timeout=timeout
         )
+        if not all([selected_label, event, interaction]):
+            return None, None
+        if delete_after_timeout:
+            await proxy.delete()
         new_ctx = InteractionContext.from_event(event)
         return selected_label.replace(prefix, "", 1), new_ctx
     
