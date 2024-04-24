@@ -30,7 +30,7 @@ def get_context(
     
     Returns:
     --------
-    InuContextProtocol :
+    InuContext :
         - RESTContext when event is MessageCreateEvent
         - InteractionContext when event is InteractionCreateEvent
 
