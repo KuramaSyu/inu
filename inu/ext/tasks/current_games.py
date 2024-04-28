@@ -35,7 +35,7 @@ plugin = lightbulb.Plugin(
 
 # Mapping from guild_id to a mapping from game name to amount of users playing it
 games: Dict[int, Dict[str, int]] = {}
-banned_act_names = ["Custom Status"]
+banned_act_names = ["Custom Status", "Hang Status"]
 async def fetch_current_games(bot: Inu):
     games: Dict[int, Dict[str, int]] = {}
     guild: hikari.Guild
