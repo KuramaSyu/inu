@@ -1450,7 +1450,10 @@ class Player:
         if 'youtube' in query and 'playlist?list=' in query and not resolved:
             # -> youtube playlist -> load playlist
             await self.load_yt_playlist()
-        # not a youtube playlist -> something else
+        if 'soundcloud' in query and 'sets/' in query and not resolved:
+            # -> soundcloud playlist -> load playlist
+            await self.load_yt_playlist()
+        # not a youtube playlist nor soundcloud playlist -> something else
         elif resolved is False:
             # check for playlist
             if (
