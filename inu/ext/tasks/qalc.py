@@ -31,6 +31,7 @@ plugin = lightbulb.Plugin("Update qalc", "Sends daily automated Reddit pictures"
 i = 0
 
 async def update_qalc_currency():
+    global i
     # -e = updating currency
     result = await Bash.execute(["qalc", "-t", "-e", "x EUR = 1 BTC"])
     i += 1
