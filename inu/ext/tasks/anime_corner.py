@@ -55,7 +55,7 @@ async def init_method():
     pass
 
 @stopwatch(
-    note=f"Task: Fetching and caching Anime Corner Ranking (Reddit + Anime Corner)", 
+    note=f"[CACHE] Task: Fetching Anime Corner Ranking (Reddit + Anime Corner)", 
     cache_threshold=timedelta(microseconds=1)
 )
 async def method():
@@ -70,7 +70,7 @@ async def method():
         await api.fetch_ranking(url)
     except Exception as e:
         log.error(
-            f"Error while fetching Anime Corner ranking with URL `{url}`\n",
+            f"[CACHE] Error while fetching Anime Corner ranking with URL `{url}`\n",
             f"{traceback.format_exc()}",
             prefix="task"
         )
