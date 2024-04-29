@@ -5,15 +5,22 @@ server: # REST and WS server
 #  name: # Name of the plugin
 #    some_key: some_value # Some key-value pair for the plugin
 #    another_key: another_value
+
+plugins:
+  youtube:
+    enabled: true
+    clients: ["MUSIC", "ANDROID", "WEB"]
+
 lavalink:
-#   plugins:
-# #    - dependency: "group:artifact:version"
-# #      repository: "repository"
+  plugins:
+    # replace VERSION with the current version as shown by the Releases tab.
+    - dependency: "com.github.lavalink-devs.lavaplayer-youtube-source:plugin:1.0.5"
+      repository: "https://jitpack.io"
   pluginsDir: "./plugins"
   server:
     password: "youshallnotpass"
     sources:
-      youtube: true
+      youtube: false # required setting from the youtube plugin
       bandcamp: true
       soundcloud: true
       twitch: true
