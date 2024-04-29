@@ -354,16 +354,26 @@ class Function(Element):
         elif fn_name == "det":
             return "\\text{{det}}{0}"
         elif fn_name in ["arcsin", "arccos", "arctan"]:
-            return "\\text{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
+            return "\\texttt{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
         else:
-            return "\\text{{" + fn_name + "}}" + f"\\left( {', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)]))} \\right)"
+            return (
+                "\\texttt{{" + fn_name + "}}" +
+                "\\Bigl( " +
+                ', '.join(reversed(['{'+str(i)+'}' for i in range(number_args)])) +
+                " \\Bigr)"
+            )
 
     def to_latex(self) -> str:
         number_args = self.number_args
         format_values = [child.to_latex() for child in self.children]
         prefix = "- " if self.is_negated else ""
         return f"{prefix}{self.get_latex_fn(self.element, number_args).format(*format_values)}"
+    
+# \text{solve} \left( \left( -11 \cdot \left( 8 + 11  x \right) + 1 \cdot \left( -2 - x \right) 
+# + 5 \cdot \left( -11 - 5  x \right) \right) \right)
 
+# \text{solve} \left( \left( -11 \cdot \left( 8 + 11  x \right) + 1 \cdot \left( -2 - x \right) 
+# + 5 \cdot \left( -11 - 5  x \right) \right)
 
 class NumericStringParser(object):
     '''
@@ -795,16 +805,40 @@ def latex2image(
         Matplotlib figure object from the class: matplotlib.figure.Figure.
 
     """
+    def check_if_split_allowed(lines: List[str]) -> bool:
+        """
+        Counts if on every line `\right` and `\left` are balanced for each substring.
+        If any substring has unbalanced brackets, the split is not allowed.
+        """
+        for line in lines:
+            if (
+                line.count("\\left(") != line.count("\\right)")
+                or line.count("gl(") != line.count("gr)") # for Big/big/bigg/Bigg commands
+            ):
+                return False
+        return True
+
     # over multiple lines
     lines = []
     includes_matrix = "pmatrix" in latex_expression
     max_len = 50 if not includes_matrix else 300
     length = len(latex_expression.splitlines())
     for line in latex_expression.splitlines():
-        if re.match(r"^x [=≈]", line) or len(line) < max_len or length > 1 or not multiline:
+        if (
+            re.match(r"^x [=≈]", line) 
+            or len(line) < max_len 
+            or length > 1 or not multiline
+        ):
+            # don't alter line
             lines.append(f"{line}")
             continue
-        line = line.replace(" = ", "\n= ").replace(r"\approx", "\n \\approx")
+        line_ = line.replace(" = ", "\n= ").replace(r"\approx", "\n \\approx")
+        if not check_if_split_allowed(line_.splitlines()):
+            # brackets would not be balanced
+            lines.append(f"{line}")
+            continue
+
+        line = line_
         len_ = 0
         for i, l in enumerate(line.splitlines()):
             if len_ + len(l) < max_len and len(lines) > 0:
@@ -916,7 +950,7 @@ if __name__ == "__main__":
     )
     try:
         #tests()
-        code = "det([−x  0  −2; 1  (2 − x)  1; 1  0  (3 − x)]) = 5x² − x³ − 8x + 4"
+        code = "solve((((−11) × (8 + (11 × x))) + (1 × ((−2) − x)) + (5 × ((−11) − (5 × x)))) = 2) = −1"
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     logging.info(name)
