@@ -19,6 +19,7 @@ import datetime
 import random
 from collections import deque
 from contextlib import suppress
+from pprint import pformat
 
 import hikari
 from hikari import ComponentInteraction, Embed, ResponseType, VoiceStateUpdateEvent
@@ -30,6 +31,7 @@ from lightbulb.context import Context
 import lavasnek_rs
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
+from pytimeparse.timeparse import timeparse
 from humanize import naturaldelta
 
 from core import Inu, get_context, InuContext, getLogger, BotResponseError
@@ -82,8 +84,7 @@ class EventHandler:
             await player._leave()
 
     async def track_exception(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackException) -> None:
-        log.warning("Track exception event happened on guild: %d", event.guild_id)
-        log.warning(event.exception_message)
+        log.warning(f"Track exception event happened: {event.exception_message}")
         # If a track was unable to be played, skip it
         player = await PlayerManager.get_player(event.guild_id)
         if not player:
@@ -952,6 +953,30 @@ async def clear(ctx: Context):
     )
     await player.queue.send(force_resend=True)
 
+@music.command
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.option("position", "e.g. 1:30, 3min, -30sec", type=str)
+@lightbulb.command("seek", "skip within the current track to a specific position")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def seek(ctx: Context):
+    """clears the music queue"""
+    if not ctx.guild_id or not ctx.member:
+        return
+    player = await PlayerManager.get_player(ctx.guild_id, ctx.event)
+    if len(player.queue) == 0:
+        return await player.ctx.respond("There is no song playing", ephemeral=True)
+    await player.ctx.defer()
+    try:
+        secs = await player.seek(ctx.options.position)
+        if secs is None:
+            raise Exception
+        await player.queue.send(force_resend=True)
+    except Exception:
+        raise BotResponseError(
+            f"I had problems parsing your given time: {ctx.options.position}", 
+            ephemeral=True
+        )
+    
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -1076,30 +1101,47 @@ async def query_auto_complete(
     option: hikari.AutocompleteInteractionOption,
     interaction: hikari.AutocompleteInteraction
 ) -> List[str]:
-    value = option.value or ""
-    records = await MusicHistoryHandler.cached_get(interaction.guild_id)
-    if not value:
+    query = option.value or ""
+    records = [
+        {"title": record["title"], "prefix": HISTORY_PREFIX} 
+        for record in await MusicHistoryHandler.cached_get(interaction.guild_id)
+    ]
+    if not query:
         records = records[:23]
     else:
-        tag_records = await TagManager.cached_find_similar(value, interaction.guild_id, tag_type=TagType.MEDIA)
-        new_records = []
-        if len(str(value)) > 4:
+        if len(str(query)) > 1:
+            tag_records = await TagManager.cached_find_similar(query, interaction.guild_id, tag_type=TagType.MEDIA)
             # add tags
             records.extend([
                 {"title": d["tag_key"], "prefix": MEDIA_TAG_PREFIX} for d in tag_records
             ])
+        new_records = []
+
         for r in records:
             r = dict(r)
-            if value:
-                r["ratio"] = fuzz.partial_token_set_ratio(value, r["title"])
+            if query:
+                r["ratio"] = fuzz.partial_token_sort_ratio(query, r["title"])
             if not r in new_records:
                 new_records.append(r)
         records = new_records
+        
+        # prefer top 2 media tags
+        tag_records = [ 
+            r for r in records 
+            if r["prefix"] == MEDIA_TAG_PREFIX
+            and r["ratio"] > 65
+        ]
+        tag_records.sort(key=lambda r: r["ratio"], reverse=True)
+
+        for r in tag_records[:2]:
+            r["ratio"] += 40
+
         records.sort(key=lambda r: r["ratio"], reverse=True)
 
+    # add prefixes
     converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"] for r in records]
-    if len(str(value)) > 3:
-        converted_records.insert(0, str(value))
+    if len(str(query)) > 3:
+        converted_records.insert(0, str(query))
     return [r[:100] for r in converted_records[:23]]
 
 
@@ -1282,6 +1324,49 @@ class Player:
         self.node.queue = queue
         await lavalink.set_guild_node(self.guild_id, self.node)
 
+    async def seek(self, time_str: str) -> int | None:
+        """Seeks to a specific position in the track
+        
+        Args:
+            time_str (str): The time string representing the position to seek to
+        
+        Returns:
+            int | None: The number of seconds the track was seeked to
+        """
+        seconds = await self._seek(time_str)
+        if seconds is None:
+            return None
+        custom_info = f"⏩ {self.ctx.author.username} jumped to {str(datetime.timedelta(seconds=seconds))}"
+        self.queue.set_footer(custom_info)
+        music_helper.add_to_log(
+            guild_id=self.guild_id, 
+            entry=custom_info
+        )
+        return seconds
+    
+    async def _seek(self, time_str: str) -> int | None:
+            """Seeks to a specific position in the track
+            
+            Args:
+                time_str (str): The time string representing the position to seek to
+            
+            Returns:
+                int | None: The number of seconds the track was seeked to
+            """
+            try:
+                seconds = timeparse(time_str)
+            except Exception:
+                return None
+            if seconds < 0:
+                # current time - seconds
+                track = await self.queue.fetch_current_track()
+                if track is None:
+                    return None
+                seconds = max(track.info.position - seconds, 0)
+            await lavalink.seek_secs(self.guild_id, seconds)
+            await self.update_node()
+            return seconds
+    
     @property
     def ctx(self) -> InuContext:
         """The currently used context of the player"""
@@ -1449,12 +1534,12 @@ class Player:
         query = self.query
         if 'youtube' in query and 'playlist?list=' in query and not resolved:
             # -> youtube playlist -> load playlist
-            await self.load_yt_playlist()
-        if 'soundcloud' in query and 'sets/' in query and not resolved:
+            await self.load_playlist()
+        elif 'soundcloud' in query and 'sets/' in query and not resolved:
             # -> soundcloud playlist -> load playlist
-            await self.load_yt_playlist()
+            await self.load_playlist()
         # not a youtube playlist nor soundcloud playlist -> something else
-        elif resolved is False:
+        elif not resolved:
             # check for playlist
             if (
                 "watch?v=" in query
@@ -1588,7 +1673,7 @@ class Player:
             track = query_information.tracks[0]
         return track, event
     
-    async def load_yt_playlist(self) -> lavasnek_rs.Tracks:
+    async def load_playlist(self) -> lavasnek_rs.Tracks:
         """
         loads a youtube playlist
 
@@ -1737,6 +1822,14 @@ class Queue:
         self.current_track: lavasnek_rs.Track | None = None
         self._last_update = datetime.datetime.now()
 
+    async def fetch_current_track(self, update_node = True) -> lavasnek_rs.Track | None:
+        try:
+            if update_node:
+                await self.player.update_node()
+            return self.player.node.queue[0].track
+        except IndexError:
+            return None
+
     def reset(self):
         self._custom_info = ""
         self._create_footer_info = False
@@ -1768,7 +1861,8 @@ class Queue:
         override_author: bool = False
     ) -> None:
         """
-        Sets a custom footer for the queue message
+        Adds a custom footer for the queue message.
+        The old footer will remain until the next song
 
         Args:
         ----
@@ -2050,6 +2144,12 @@ class Queue:
         )
         return music_embed
     
+    def __len__(self) -> int:
+        try:
+            return len(self.player.node.queue)
+        except RuntimeError:
+            return 0
+    
     async def send(
         self,
         ctx: InuContext | None = None,
@@ -2151,12 +2251,16 @@ class Queue:
                 **kwargs
             )
             new_music_msg = await msg.message()
-
+            log.debug(f"new message: {new_music_msg}")
             # delete, if message was not reused
             try:
                 if not old_music_msg is None and not old_music_msg.id == new_music_msg.id:
+                    log.debug("delete old message")
                     await old_music_msg.delete()
+                else:
+                    log.debug(f"old message was reused. old: {old_music_msg}")
             except hikari.NotFoundError:
+                log.debug("old message not found")
                 pass
             self.message = new_music_msg
             return
