@@ -83,6 +83,7 @@ async def load_tasks(event: ShardReadyEvent):
         # sleep until its XX:X5
         now = datetime.now()
         seconds_until_min_is_5 = (5 - now.minute % 5) * 60 - now.second
+        log.info(f"sleep for {timedelta(seconds=seconds_until_min_is_5)} until fetching first current games", prefix="init")
         await asyncio.sleep(seconds_until_min_is_5)
         await fetch_current_games(plugin.bot)
         trigger = IntervalTrigger(minutes=10)
