@@ -186,7 +186,7 @@ async def on_ready(event: lightbulb.LightbulbStartedEvent):
         await asyncio.sleep(10)
         trigger = IntervalTrigger(hours=8)
         plugin.bot.scheduler.add_job(_update_rtfm_cache, trigger)
-        log.info(f"scheduled {_update_rtfm_cache.__name__} every 8 hours", prefix="init")
+        log.info(f"scheduled {_update_rtfm_cache.__name__}: {trigger}", prefix="init")
     except Exception:
         log.critical(traceback.format_exc())
 

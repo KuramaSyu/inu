@@ -49,7 +49,7 @@ async def load_tasks(event: ShardReadyEvent):
     try:
         hours = 3
         trigger = IntervalTrigger(hours=hours)
-        log.info(f"scheduled job for updating currency every {hours} hours", prefix="init")
+        log.info(f"scheduled job for updating currency: {trigger}", prefix="init")
         bot: Inu = plugin.bot
         bot.scheduler.add_job(update_qalc_currency, trigger)
         

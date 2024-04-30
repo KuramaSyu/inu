@@ -74,7 +74,6 @@ def main():
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
             set_bot(inu)
             AutoroleManager.set_bot(inu)
-            log.info("initialized Invokationstats, Reminders and TagManager")
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
 

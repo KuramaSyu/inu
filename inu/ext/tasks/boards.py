@@ -42,7 +42,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     await clean_boards()
 
     trigger = IntervalTrigger(seconds=BOARD_SYNC_TIME)
-    log.info(f"scheduled job for updating boards every {BOARD_SYNC_TIME} seconds", prefix="init")
+    log.info(f"scheduled job for boards update: {trigger}", prefix="init")
     plugin.bot.scheduler.add_job(clean_boards, trigger)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
     await init_method()

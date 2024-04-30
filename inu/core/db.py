@@ -112,7 +112,7 @@ class Database(metaclass=Singleton):
             raise RuntimeError(msg)
         self._pool: asyncpg.Pool = pool
         self._connected.set()
-        self.log.info("Connected/Initialized to database successfully.")
+        self.log.info(f"Connected to database: {self.bot.conf.db.DSN}", prefix="init")
         await self.sync()
         return
 

@@ -681,5 +681,5 @@ class VoiceAutoroleCache(metaclass=MetaVoiceAutoroleCache):
     async def sync(cls) -> None:
         events = await AutoroleManager.fetch_events(None, VoiceActivityEvent)
         guilds = [event.guild_id for event in events]
-        log.info(f"synced {len(guilds)} voice autoroles for cache")
+        log.info(f"synced {len(guilds)} voice autoroles for cache", prefix="cache")
         cls._guilds.update(guilds)
