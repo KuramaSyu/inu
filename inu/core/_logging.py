@@ -143,7 +143,7 @@ class LoggingHandler(logging.Logger):
               f"{msg_colors[level_name]}{message}{Style.RESET_ALL}")
 
         with open(f"{os.getcwd()}/inu/inu.log", "a", encoding="utf-8") as log_file:
-            log_entry = f"{level_name:<6}{time_stamp:<8}: {module[:12]:<12}: {str(message)}\n"
+            log_entry = f"{level_name:<6}{time_stamp:<8}: {module[:12]:<12}| {str(message)}\n"
             log_file.write(log_entry)
 
     # noinspection PyMethodMayBeStatic
