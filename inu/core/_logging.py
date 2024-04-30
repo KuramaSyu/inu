@@ -43,8 +43,10 @@ msg_colors = {
     "DEBUG": f"{Fore.LIGHTBLUE_EX}{Style.NORMAL}",
     "INFO": f"{Fore.LIGHTMAGENTA_EX}{Style.NORMAL}",
     "WARNING": f"{Fore.YELLOW}{Style.BRIGHT}",
+    "WARN": f"{Fore.YELLOW}{Style.BRIGHT}",
     "ERROR": f"{Fore.LIGHTRED_EX}{Style.BRIGHT}",
     "CRITICAL": f"{Fore.RED}{Style.BRIGHT}",
+    "CRIT": f"{Fore.RED}{Style.BRIGHT}",
 }
 level_color = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
@@ -52,8 +54,10 @@ level_color = {
     "DEBUG": f"{Fore.LIGHTMAGENTA_EX}{Style.NORMAL}",
     "INFO": Fore.BLUE,
     "WARNING": Fore.YELLOW,
+    "WARN": Fore.YELLOW,
     "ERROR": Fore.LIGHTRED_EX,
     "CRITICAL": Fore.RED,
+    "CRIT": Fore.RED,
 }
 level_style = {
     "TRACE": f"{Fore.WHITE}{Style.DIM}",
@@ -61,8 +65,10 @@ level_style = {
     "DEBUG": f"{Fore.LIGHTGREEN_EX}{Style.DIM}",
     "INFO": f"{Style.BRIGHT}",
     "WARNING": f"{Style.BRIGHT}",
+    "WARN": f"{Style.BRIGHT}",
     "ERROR": f"{Style.BRIGHT}",
     "CRITICAL": Style.BRIGHT,
+    "CRIT": Style.BRIGHT,
 }
 color_patterns = {
     "yougan": Fore.GREEN,
@@ -84,6 +90,13 @@ ignored = {
         "Unknown op %s recieved from Node::%s"
     ]
 }
+
+aliases = [
+    ("ext.", ""), ("commands", "cmd"), ("utils.", ""), 
+    ("Database", "DB"), ("lavalink_rs.event_loops", "lavvalink_rs"),
+    ("current_games", "games"), ("tasks.", ""), ("cogs.", ""), ("anime_corner", "anime"),
+    ("core.db.DB", "DB"), ("db", "DB")
+]
 
 class LoggingHandler(logging.Logger):
     def trace(self, message: str):
@@ -111,8 +124,10 @@ class LoggingHandler(logging.Logger):
         # if record.msg in ignored.get(record.name, ()):
         #     return
         module = record.name
-        level = record.levelno  # noqa F841
-        level_name = record.levelname
+        for alias in aliases:
+            module = module.replace(*alias)
+        #level = record.levelno  # noqa F841
+        level_name = record.levelname.replace("WARNING", "WARN").replace("CRITICAL", "CRIT")
         try:
             message = record.msg % record.args
         except Exception:
@@ -120,16 +135,15 @@ class LoggingHandler(logging.Logger):
         date = datetime.now()
         # date formatting like this:
         # Oct 22 13:46:27:90
-        time_stamp = (date.strftime("%b %d %H:%M:%S:%f"))[:-3]
-        print(f"{level_color[level_name]}{level_style[level_name]}{level_name:<8}{Style.RESET_ALL}"
-              f" "
-              f"{Style.BRIGHT}{self._get_color(module)}{module:<25}{Style.RESET_ALL} "
-              f"{self._get_color('datetime')}[{time_stamp:<8}]{Style.RESET_ALL} "
+        time_stamp = (date.strftime("%b %d %H:%M:%S:%f"))[:-7]
+        print(f"{level_color[level_name]}{level_style[level_name]}{level_name:<6}{Style.RESET_ALL}"
+              f"{self._get_color('datetime')}{time_stamp:<8}{Style.RESET_ALL}: "
+              f"{Style.BRIGHT}{self._get_color(module)}{module[:12]:<12}{Style.RESET_ALL} "
               f"» "
               f"{msg_colors[level_name]}{message}{Style.RESET_ALL}")
 
         with open(f"{os.getcwd()}/inu/inu.log", "a", encoding="utf-8") as log_file:
-            log_entry = f"{level_name:<8}[{module:<25}] [{time_stamp:<8}] {str(message)}\n"
+            log_entry = f"{level_name:<6}{time_stamp:<8}: {module[:12]:<12}: {str(message)}\n"
             log_file.write(log_entry)
 
     # noinspection PyMethodMayBeStatic
@@ -197,6 +211,7 @@ def stopwatch(
         return wrapper
     return decorator
             
+
 
 logs = set()
 def getLogger(*names):
