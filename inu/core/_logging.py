@@ -95,7 +95,7 @@ aliases = [
     ("ext.", ""), ("commands", "cmd"), ("utils.", ""), 
     ("Database", "DB"), ("lavalink_rs.event_loops", "lavvalink_rs"),
     ("current_games", "games"), ("tasks.", ""), ("cogs.", ""), ("anime_corner", "anime"),
-    ("core.db.DB", "DB"), ("db", "DB")
+    ("core.db.DB", "DB"), ("db", "DB"), ("rest", "REST")
 ]
 
 class LoggingHandler(logging.Logger):
