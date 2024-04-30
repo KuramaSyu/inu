@@ -594,7 +594,7 @@ class AutoroleManager():
         await event.add_to_db()
 
     @classmethod
-    async def remove_expired_autoroles(cls, expires_in: int) -> None:
+    async def remove_expired_autoroles(cls, expires_in: int) -> int:
             """
             Removes expired autoroles from the autorole_user_table.
 
@@ -602,7 +602,7 @@ class AutoroleManager():
                 expires_in (int): The number of seconds to delete autoroles. now + this.
 
             Returns:
-                None
+                int: The number of autoroles deleted.
             """
             records = await autorole_user_table.fetch(
                 """
@@ -613,7 +613,7 @@ class AutoroleManager():
             )
             for record in records:
                 await cls._schedule_deletion(record, (record["expires_at"] - datetime.now()).total_seconds())
-
+            return len(records)
     @classmethod
     async def _schedule_deletion(cls, record: Dict[str, Any], delay: int) -> None:
         """
@@ -629,7 +629,7 @@ class AutoroleManager():
         event = cls._build_event(record)
         if event.id in cls.deletion_scheduled:
             return
-        log.debug(f"scheduling deletion of {event.id} in {delay} seconds")
+        log.debug(f"scheduling deletion of {event.id} in {delay} seconds", prefix="task")
         cls.deletion_scheduled.add(event.id)
         await asyncio.sleep(delay)
         await event.on_delete(record)

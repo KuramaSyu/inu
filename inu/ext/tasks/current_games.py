@@ -87,7 +87,7 @@ async def load_tasks(event: ShardReadyEvent):
         await fetch_current_games(plugin.bot)
         trigger = IntervalTrigger(minutes=10)
         plugin.bot.scheduler.add_job(fetch_current_games, trigger, args=[plugin.bot])
-        log.info("scheduled fetch_current_games every ten minutes")
+        log.info("scheduled fetch_current_games every 10 minutes", prefix="init")
     except Exception:
         log.critical(traceback.format_exc())
 

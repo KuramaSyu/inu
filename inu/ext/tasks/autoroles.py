@@ -47,7 +47,8 @@ async def remove_expired_autoroles():
     """removes expired autoroles"""
     try:
         log.debug("removing expired autoroles", prefix="task")
-        await AutoroleManager.remove_expired_autoroles(expires_in=METHOD_SYNC_TIME)
+        number = await AutoroleManager.remove_expired_autoroles(expires_in=METHOD_SYNC_TIME)
+        log.info(f"removed {number} expired autoroles", prefix="task")
     except Exception:
         log.warning(traceback.format_exc())
 

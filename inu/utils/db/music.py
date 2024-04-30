@@ -72,4 +72,4 @@ class MusicHistoryHandler:
         del_oder_than = datetime.datetime.now() - max_age
         deleted = await cls.table.execute(f"DELETE FROM {cls.table.name} WHERE played_on < $1", del_oder_than)
         if deleted:
-            log.info(f"Cleaned {len(deleted)} music history entries")
+            log.info(f"Cleaned {len(deleted)} music history entries", "cache")

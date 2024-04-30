@@ -55,7 +55,7 @@ class PollManager:
         records = await table.fetch(sql, datetime.now())
         for record in records:
             cls.message_id_cache.remove(record["message_id"])
-        log.info(f"Deleted {len(records)} old polls")
+        log.info(f"Deleted {len(records)} old polls", prefix="task")
         
 
     @classmethod

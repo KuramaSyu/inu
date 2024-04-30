@@ -574,7 +574,7 @@ class Reminders:
         RETURNING *
         """
         records = await cls.db.fetch(sql, datetime.datetime.now())
-        log.info(f"Ceaned up reminders; {len(records)} reminders where removed")
+        log.info(f"Cleaned up reminders: {len(records)} reminders where removed", prefix="task")
 
     @classmethod
     def add_reminders_to_set(cls, records: List[asyncpg.Record]):

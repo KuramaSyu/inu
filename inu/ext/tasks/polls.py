@@ -52,7 +52,7 @@ async def initial_load_all_polls():
     for record in records_polls:
         count += 1
         PollManager.message_id_cache.add(record["message_id"])
-    log.info(f"Added {count} polls to cache")
+    log.info(f"Added {count} polls to cache", prefix="cache")
 
     sql = """
     DELETE FROM polls

@@ -80,7 +80,7 @@ plugin.d.subreddits = subreddit_generator()
 async def load_tasks(event: ShardReadyEvent):
     if [True for job in plugin.bot.scheduler.get_jobs() if job.name == pics_of_hour.__name__ ]:
         return
-    log.info("scheduled pics_of_hour 1/minute")
+    log.info("scheduled pics_of_hour 1/minute", prefix="init")
     DailyContentChannels.set_db(plugin.bot.db)
     await Reddit.init_reddit_credentials(plugin.bot)
     trigger = IntervalTrigger(minutes=1)

@@ -42,6 +42,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     await clean_boards()
 
     trigger = IntervalTrigger(seconds=BOARD_SYNC_TIME)
+    log.info(f"scheduled job for updating boards every {BOARD_SYNC_TIME} seconds", prefix="init")
     plugin.bot.scheduler.add_job(clean_boards, trigger)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
     await init_method()
@@ -59,7 +60,7 @@ async def clean_boards():
         ), max_age
     )
     if records:
-        log.info(f"deleted {Human.plural_('board-entry', len(records), with_number=True)}")
+        log.info(f"deleted {Human.plural_('board-entry', len(records), with_number=True)}", prefix="task")
 
 @plugin.listener(hikari.GuildReactionAddEvent)
 async def on_reaction_add(event: hikari.GuildReactionAddEvent):

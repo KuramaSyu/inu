@@ -667,7 +667,7 @@ async def start_lavalink() -> None:
         music.d.log.warning(f"Lavalink connection won't be established")
         return
     sleep_time = 3
-    log.debug(f"Sleep for {sleep_time} seconds before connecting to Lavalink") 
+    log.debug(f"Sleep for {sleep_time} seconds before connecting to Lavalink", prefix="init") 
     await asyncio.sleep(sleep_time)
     for x in range(10):
         try:

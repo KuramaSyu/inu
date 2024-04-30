@@ -36,9 +36,9 @@ async def update_qalc_currency():
     result = await Bash.execute(["qalc", "-t", "-e", "x EUR = 1 BTC"])
     i += 1
     if i % 5 == 0:
-        log.info(f"Updated qalculate currencies ({i}th time): {result}", prefix="Cache")
+        log.info(f"Updated qalculate currencies ({i}th time)", prefix="Cache")
     else:
-        log.debug(f"Updated qalculate currencies: {result}", prefix="Cache")
+        log.debug(f"Updated qalculate currencies", prefix="Cache")
 
 @plugin.listener(ShardReadyEvent)
 async def load_tasks(event: ShardReadyEvent):
@@ -47,8 +47,9 @@ async def load_tasks(event: ShardReadyEvent):
         return
     loaded = True
     try:
-        log.info("scheduled job for updating currency")
-        trigger = IntervalTrigger(hours=3)
+        hours = 3
+        trigger = IntervalTrigger(hours=hours)
+        log.info(f"scheduled job for updating currency every {hours} hours", prefix="init")
         bot: Inu = plugin.bot
         bot.scheduler.add_job(update_qalc_currency, trigger)
         
