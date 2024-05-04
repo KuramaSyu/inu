@@ -167,8 +167,16 @@ class Interactive:
                 ).set_thumbnail(YouTubeHelper.thumbnail_from_url(track.info.uri))
             )
         menu = menu.parent
-
-        msg_proxy = await ctx.respond(component=menu)
+        stop_button = (
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                f"stop_query_menu-{id_}", 
+                label="I don't find it ¯\_(ツ)_/¯",
+                emoji="🗑️"
+            )
+        )
+        msg_proxy = await ctx.respond(components=[menu, stop_button])
         menu_msg = await msg_proxy.message()
         event = None
         try:
@@ -179,11 +187,15 @@ class Interactive:
                     isinstance(e.interaction, ComponentInteraction) 
                     and e.interaction.user.id == ctx.author.id
                     and e.interaction.message.id == menu_msg.id
-                    and e.interaction.custom_id == f"query_menu-{id_}"
+                    and f"query_menu-{id_}" in e.interaction.custom_id
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
                 return None, None  # to avoid problems with typecheckers
+            if len(event.interaction.values) == 0:
+                if event.interaction.custom_id.startswith("stop"):
+                    await msg_proxy.delete()
+                    raise asyncio.TimeoutError("User stopped the query")
             track_num = int(event.interaction.values[0])
         except asyncio.TimeoutError as e:
             with suppress(hikari.NotFoundError):
