@@ -261,6 +261,8 @@ async def on_error(event: events.CommandErrorEvent):
             error_embed = hikari.Embed()
             error_embed.title = "Oh no! A bug occurred"
             error_embed.description = random.choice(ERROR_JOKES)
+            if bot.heartbeat_latency > 0.3:
+                error_embed.description += f"\n\nDiscord sucks at the moment btw (too high latency). This time it's not my fault"
             with suppress(hikari.ForbiddenError):
                 await message_dialog(error_embed)
     except Exception:
