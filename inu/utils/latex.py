@@ -133,6 +133,7 @@ class Unit(Element):
             "μ": "\\mu ",
             "_": "\\_",
             "€": "EUR",
+            "celsius": "^\\circ C",
         }
         for old, new in old_to_new.items():
             unit = unit.replace(old, new)
@@ -915,7 +916,8 @@ def prepare_for_latex(result: str) -> str:
         "÷": "/",
         ":": "/",
         "·": "*",
-        "  ": ", "
+        "  ": ", ",
+        "°C": "celsius"
     }
     for old, new in old_to_new.items():
         result = result.replace(old, new)
@@ -950,7 +952,7 @@ if __name__ == "__main__":
     )
     try:
         #tests()
-        code = "solve((((−11) × (8 + (11 × x))) + (1 × ((−2) − x)) + (5 × ((−11) − (5 × x)))) = 2) = −1"
+        code = "((24 celsius) − ((x celsius) × ((0.17 celsius) / (15 minutes)))) = (21.94 celsius) = x ≈ 181.764705882 min/°C"
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     logging.info(name)
