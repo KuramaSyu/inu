@@ -37,7 +37,6 @@ USER inu
 WORKDIR /home/inu
 RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
 ENV PATH="/home/inu/.cargo/bin:${PATH}"
-RUN wget -P ~/fonts/ "https://img.dafont.com/dl/?f=anime_ace_bb"
 
 
 # Copy requirements and install dependencies
