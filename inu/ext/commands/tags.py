@@ -693,7 +693,13 @@ async def tag_execute(ctx: Context):
         if cmd.name == "run":
             return await cmd.callback(ctx)
 
-
+@tags.listener(event=hikari.InteractionCreateEvent)
+async def on_tag_append(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    if not event.interaction.custom_id.startswith("tag_append_"):
+        return
+    
 
 @tag.child
 @lightbulb.option("silent-message", "only you see the sucess message", choices=["Yes", "No"], default="No")
@@ -717,33 +723,48 @@ async def tag_append(_ctx: Context):
     if not record:
         return
     tag: Tag = await Tag.from_record(record, ctx.author)
-    to_add = ""
-    if ctx.options.text:
-        to_add = ctx.options.text.strip()
-    else:
-        to_add, ctx = await ctx.ask_with_modal(
-            "tag append",
-            "What do you want to append to the tag?",
-            timeout=30*60,
-        )
-        if not to_add:
-            return
-    if new_page:
-        tag.value.append("")
-    tag.value[-1] += f"\n{to_add}"
-    await tag.save()
-    await ctx.respond(
-        f"""Added\n```\n{to_add.replace("`", "")}``` to `{tag.name}`""",
-        component=(
-            hikari.impl.MessageActionRowBuilder()
-            .add_interactive_button(
-                ButtonStyle.SECONDARY,
-                tag.link,
-                label=tag.name
+    await append_to_tag(ctx, tag, additional_flag, new_page, ctx.options.text)
+
+    async def append_to_tag(
+        ctx: InuContext, 
+        tag: Tag, 
+        additional_flag: bool, 
+        new_page: bool, 
+        text: str | None
+    ):
+        to_add = ""
+        if text:
+            to_add = text.strip()
+        else:
+            to_add, ctx = await ctx.ask_with_modal(
+                "tag append",
+                "What do you want to append to the tag?",
+                timeout=30*60,
             )
-        ),
-        ephemeral=additional_flag
-    )
+            if not to_add:
+                return
+        if new_page:
+            tag.value.append("")
+        tag.value[-1] += f"\n{to_add}"
+        await tag.save()
+        await ctx.respond(
+            f"""Added\n```\n{to_add.replace("`", "")}``` to `{tag.name}`""",
+            component=(
+                hikari.impl.MessageActionRowBuilder()
+                .add_interactive_button(
+                    ButtonStyle.SECONDARY,
+                    tag.link,
+                    label=tag.name
+                )
+                .add_interactive_button(
+                    ButtonStyle.SECONDARY,
+                    f"tag_append_{tag.id}",
+                    label="Append more",
+                    emoji="➕"
+                )
+            ),
+            ephemeral=additional_flag
+        )
 
 
 
