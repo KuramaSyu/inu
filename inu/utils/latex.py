@@ -132,7 +132,7 @@ class Unit(Element):
             " ": "\\ ",
             "μ": "\\mu ",
             "_": "\\_",
-            "€": "EUR",
+            "EUR": "\\text{€}",
             "celsius": "^\\circ C",
         }
         for old, new in old_to_new.items():
@@ -917,7 +917,8 @@ def prepare_for_latex(result: str) -> str:
         ":": "/",
         "·": "*",
         "  ": ", ",
-        "°C": "celsius"
+        "°C": "celsius",
+        "€": "EUR"
     }
     for old, new in old_to_new.items():
         result = result.replace(old, new)
@@ -930,7 +931,8 @@ test_calculations = {
         "matrix + function chained": "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]",
         "physics 1": "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s",
         "solve": "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]",
-        "implicit multiplication": "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)"
+        "implicit multiplication": "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)",
+        "temperature": "((24 celsius) − ((x celsius) × ((0.17 celsius) / (15 minutes)))) = (21.94 celsius) = x ≈ 181.764705882 min/°C"
 }
 
 
@@ -952,7 +954,7 @@ if __name__ == "__main__":
     )
     try:
         #tests()
-        code = "((24 celsius) − ((x celsius) × ((0.17 celsius) / (15 minutes)))) = (21.94 celsius) = x ≈ 181.764705882 min/°C"
+        code = "5h * (3EUR / 1h) = 15EUR"
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     logging.info(name)
