@@ -218,6 +218,7 @@ class VocabularyPaginator(Paginator):
             )
 
 
+
 class TrainingPaginator(Paginator):
     """
     Represents a question dialog for a vocabulary training prepared by `VocabularyPaginator`

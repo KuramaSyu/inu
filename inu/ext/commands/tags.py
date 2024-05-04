@@ -404,7 +404,7 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     ctx = get_context(event)
     if not tag:
         return await ctx.respond("Seems like this tag doesn't exist anymore", ephemeral=True)
-    if not await tag.is_authorized_to_write(ctx.author.id):   
+    if not tag.is_authorized_to_write(ctx.author.id):   
         # ask owner if asked user should get the permission  
         answ, ctx = await ctx.ask(
             "You've no permission to edit this tag. Should I ask the owner to grant you the permission?",
@@ -693,12 +693,26 @@ async def tag_execute(ctx: Context):
         if cmd.name == "run":
             return await cmd.callback(ctx)
 
+
 @tags.listener(event=hikari.InteractionCreateEvent)
 async def on_tag_append(event: hikari.InteractionCreateEvent):
+    """Listener for tag append button"""
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    if not event.interaction.custom_id.startswith("tag_append_"):
+    if not event.interaction.custom_id.startswith("tag-append_"):
         return
+    _, tag_id, additional_flag, new_page = event.interaction.custom_id.split("_")
+    additional_flag, new_page = bool(int(additional_flag)), bool(int(new_page))
+    tag = await Tag.from_id(
+        int(tag_id), 
+        user_id=event.interaction.user.id, 
+        guild_or_channel_id=get_guild_or_channel_id(event.interaction)
+    )
+    ctx = get_context(event)
+    if not tag.is_authorized_to_write(event.interaction.user.id):
+        await ctx.respond("You don't own this tag hence you can't append to it", ephemeral=True)
+        return
+    await append_to_tag(ctx, tag, additional_flag, new_page, None)
     
 
 @tag.child
@@ -725,46 +739,46 @@ async def tag_append(_ctx: Context):
     tag: Tag = await Tag.from_record(record, ctx.author)
     await append_to_tag(ctx, tag, additional_flag, new_page, ctx.options.text)
 
-    async def append_to_tag(
-        ctx: InuContext, 
-        tag: Tag, 
-        additional_flag: bool, 
-        new_page: bool, 
-        text: str | None
-    ):
-        to_add = ""
-        if text:
-            to_add = text.strip()
-        else:
-            to_add, ctx = await ctx.ask_with_modal(
-                "tag append",
-                "What do you want to append to the tag?",
-                timeout=30*60,
-            )
-            if not to_add:
-                return
-        if new_page:
-            tag.value.append("")
-        tag.value[-1] += f"\n{to_add}"
-        await tag.save()
-        await ctx.respond(
-            f"""Added\n```\n{to_add.replace("`", "")}``` to `{tag.name}`""",
-            component=(
-                hikari.impl.MessageActionRowBuilder()
-                .add_interactive_button(
-                    ButtonStyle.SECONDARY,
-                    tag.link,
-                    label=tag.name
-                )
-                .add_interactive_button(
-                    ButtonStyle.SECONDARY,
-                    f"tag_append_{tag.id}",
-                    label="Append more",
-                    emoji="➕"
-                )
-            ),
-            ephemeral=additional_flag
+async def append_to_tag(
+    ctx: InuContext, 
+    tag: Tag, 
+    additional_flag: bool, 
+    new_page: bool, 
+    text: str | None
+):
+    to_add = ""
+    if text:
+        to_add = text.strip()
+    else:
+        to_add, ctx = await ctx.ask_with_modal(
+            "tag append",
+            "What do you want to append to the tag?",
+            timeout=30*60,
         )
+        if not to_add:
+            return
+    if new_page:
+        tag.value.append("")
+    tag.value[-1] += f"\n{to_add}"
+    await tag.save()
+    await ctx.respond(
+        f"""Added\n```\n{to_add.replace("`", "")}``` to `{tag.name}`""",
+        component=(
+            hikari.impl.MessageActionRowBuilder()
+            .add_interactive_button(
+                ButtonStyle.SECONDARY,
+                tag.link,
+                label=tag.name
+            )
+            .add_interactive_button(
+                ButtonStyle.SECONDARY,
+                f"tag-append_{tag.id}_{int(additional_flag)}_{int(new_page)}",
+                label="Append more",
+                emoji="➕"
+            )
+        ),
+        ephemeral=additional_flag
+    )
 
 
 

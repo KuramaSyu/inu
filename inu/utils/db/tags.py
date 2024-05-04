@@ -302,10 +302,10 @@ class Tag():
         new_tag.is_local_available = not local_taken
         return new_tag
 
-    async def is_authorized_to_see(self, guild_or_channel_id: int) -> bool:
+    def is_authorized_to_see(self, guild_or_channel_id: int) -> bool:
         return guild_or_channel_id in self.guild_ids
 
-    async def is_authorized_to_write(self, user_id: int) -> bool:
+    def is_authorized_to_write(self, user_id: int) -> bool:
         return user_id in self.owners
 
     @classmethod
