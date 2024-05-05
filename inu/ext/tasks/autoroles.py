@@ -10,7 +10,7 @@ import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from utils import AutoroleManager, AutoroleAllEvent, VoiceActivityEvent, VoiceAutoroleCache
+from utils import AutoroleManager, AutoroleAllEvent, VoiceActivityEvent, VoiceAutoroleCache, Human
 from core import Table, getLogger, Inu
 
 log = getLogger(__name__)
@@ -48,7 +48,8 @@ async def remove_expired_autoroles():
     try:
         log.debug("removing expired autoroles", prefix="task")
         number = await AutoroleManager.remove_expired_autoroles(expires_in=METHOD_SYNC_TIME)
-        log.info(f"removed {number} expired autoroles", prefix="task")
+        if number > 0:
+            log.info(f"removed {Human.plural_('expired autoroles', number)}", prefix="task")
     except Exception:
         log.warning(traceback.format_exc())
 
