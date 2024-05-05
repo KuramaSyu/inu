@@ -136,7 +136,8 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
             result = result.splitlines()[1:] # remove warnings
         result = replace_unsupported_chars(result)
         return result
-
+    if isinstance(result, list):
+        result = "\n".join([x for x in result if x not in ["warning", "error"]])
     if len(result) > 100:
         embed = hikari.Embed(description=result)
     else:
