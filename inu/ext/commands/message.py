@@ -132,12 +132,16 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
     def prepare_for_latex(result: str) -> str:
         """prepares the result for latex"""
         result = result.replace("'", "") # remove number things for better readability
-        if len(result.splitlines()) > 1 and "warning" in result:
-            result = result.splitlines()[1:] # remove warnings
+        if len(result.splitlines()) > 1:
+            result = "\n".join(
+                [x for x in result.splitlines() 
+                 if "warning" not in x.lower() 
+                 and "error" not in x.lower() 
+                 and "info" not in x.lower()]
+            )
         result = replace_unsupported_chars(result)
         return result
-    if isinstance(result, list):
-        result = "\n".join([x for x in result if x not in ["warning", "error"]])
+        
     if len(result) > 100:
         embed = hikari.Embed(description=result)
     else:
@@ -155,7 +159,7 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
     except ParseException as e:
         log.warning(f"parsing failed:\n{e.explain()}")
     except Exception as e:
-        log.warning(f"parsing {prepare_for_latex(result)} failed: {traceback.format_exc()}")
+        log.warning(f"parsing {result} failed: {traceback.format_exc()}")
 
     if not message_id_cache.get(ctx.message_id):
         await ctx.respond(embed)
