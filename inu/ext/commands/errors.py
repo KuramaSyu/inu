@@ -20,7 +20,7 @@ log = getLogger("Error Handler")
 pl = lightbulb.Plugin("Error Handler")
 bot: Inu
 
-
+MAGIC_ERROR_MONSTER = "https://media.discordapp.net/attachments/818871393369718824/1106177322069012542/error-monster-1.png?width=1308&height=946"
 ERROR_JOKES = [
     "Wait, there is a difference between beta and production?",
     "Seems like someone was to lazy to test me -- _again_",
@@ -57,8 +57,10 @@ async def on_error(event: events.CommandErrorEvent):
             log.debug(f"Exception uncaught: {event.__class__}")
             return
         error = event.exception
+
         async def message_dialog(error_embed: hikari.Embed):
             error_id = f"{bot.restart_num}-{bot.id_creator.create_id()}-{bot.me.username[0]}"
+            error_embed.set_image(MAGIC_ERROR_MONSTER)
             component=(
                 hikari.impl.MessageActionRowBuilder()
                 .add_interactive_button(
@@ -75,7 +77,7 @@ async def on_error(event: events.CommandErrorEvent):
             try:
                 message = await (await ctx.respond(
                     embed=error_embed,
-                    component=component
+                    component=component,
                 )).message()
             except Exception:
                 message = await bot.rest.create_message(
