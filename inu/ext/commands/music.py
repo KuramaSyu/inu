@@ -1926,7 +1926,7 @@ class Queue:
                 ).total_seconds()
             )
         )
-        queue_len = len(self.node.queue)-3
+        queue_len = len(self.node.queue)-4
         if not queue_len or queue_len < 0:
             queue_len = 0
         kwargs["text"] += f"\n{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
@@ -2058,7 +2058,6 @@ class Queue:
             if node.is_paused:
                 discord_timestamp = "--:--"
             else:
-                # <t:{start_timestamp:.0f}:t>
                 discord_timestamp = f"<t:{(datetime.datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
 
             pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
