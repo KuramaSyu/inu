@@ -936,26 +936,63 @@ def prepare_for_latex(result: str) -> str:
 
 
 test_calculations = {
-        "vectors": "cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]",
-        "matrix": "[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]",
-        "matrix + function chained": "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]",
-        "physics 1": "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s",
-        "solve": "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]",
-        "implicit multiplication": "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)",
-        "temperature": "((24 celsius) − ((x celsius) × ((0.17 celsius) / (15 minutes)))) = (21.94 celsius) = x ≈ 181.764705882 min/°C",
-        "prices": "5h * (3EUR / 1h) = 15EUR",
-        "equation": "(((80 kilometers) / hour) × x seconds) = ((((−120 kilometers) / hour) × x seconds) + (5 kilometers))\nx = 90"
+    "vectors": (
+        "cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]", 
+        r"\begin{pmatrix} 1\\2\\3 \end{pmatrix} \times \begin{pmatrix} 1\\2\\\sqrt{9} \end{pmatrix} = \begin{pmatrix} 0\\0\\0 \end{pmatrix}"
+    ),
+    "matrix": (
+        "[1  2  3; 4  5  sqrt(4)*3; 7  8  9] + [1  2  3; sqrt(16)  5  6; 7  8  9] = [2  4  6; 8  10  12; 14  16  18]",
+        r"\begin{pmatrix} 1 & 2 & 3 \\4 & 5 & \sqrt{4} \cdot 3 \\7 & 8 & 9 \end{pmatrix} + \begin{pmatrix} 1 & 2 & 3 \\\sqrt{16} & 5 & 6 \\7 & 8 & 9 \end{pmatrix} = \begin{pmatrix} 2 & 4 & 6 \\8 & 10 & 12 \\14 & 16 & 18 \end{pmatrix}"
+    ),
+    "matrix + function chained": (
+        "adj([[1  2  sqrt(3)]; [(2 × (10^−3))  integrate(3 × x, 0, 5)  6]; [dot([1  3], [2  4])  det([1  2  3; 4  5  6; 7  8  10])  3]]) ≈ [355.5000000  −23.19615242  −52.95190528; 83.98200000  −15.24871131  −5.996535898; −525.0060000  31.00000000  37.49600000]",
+        r"\text{adj}\begin{pmatrix} 1 & 2 & \sqrt{3} \\2 \cdot 10^{-3} & \int_{0}^{5} 3  x \,\ dx & 6 \\\begin{pmatrix} 1\\3 \end{pmatrix} \cdot \begin{pmatrix} 2\\4 \end{pmatrix} & \text{det}\begin{pmatrix} 1 & 2 & 3 \\4 & 5 & 6 \\7 & 8 & 10 \end{pmatrix} & 3 \end{pmatrix} \approx \begin{pmatrix} 355.5000000 & -23.19615242 & -52.95190528 \\83.98200000 & -15.24871131 & -5.996535898 \\-525.0060000 & 31.00000000 & 37.49600000 \end{pmatrix}"
+    ),
+    "physics 1": (
+        "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s",
+        r"\sqrt{\left( \frac{4 \cdot 10^{5}\ meters}{second} \right)^{2} + \frac{150\ volts \cdot 1.6 \cdot 10^{-19}\ coulombs \cdot 2}{1.67 \cdot 10^{-27}\ kilograms}} \approx \frac{434.445065538\ km}{s}"
+    ),
+    "solve": (
+        "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]",
+        r"\texttt{solve}\Bigl( -3 \cdot x^{2} + 4  x + 12 = 0 \Bigr) = \begin{pmatrix} \left( \frac{2}{3} - \frac{2}{3} \cdot \sqrt{10} \right)\\\left( \frac{2}{3} \cdot \sqrt{10} + \frac{2}{3} \right) \end{pmatrix} \approx \begin{pmatrix} -1.44151844011\\2.77485177345 \end{pmatrix}"
+    ),
+    "implicit multiplication": (
+        "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)",
+        r"\frac{4\ m \cdot sec}{2 \cdot \sqrt{9} \cdot s^{2}} + 3 \cdot \left( \frac{-5 \cdot 5\ m}{s} + \frac{3\ m}{s} \right)"
+    ),
+    "temperature": (
+        "((24 celsius) − ((x celsius) × ((0.17 celsius) / (15 minutes)))) = (21.94 celsius) = x ≈ 181.764705882 min/°C",
+        r"24\ ^\circ C - x\ ^\circ C \cdot \frac{0.17\ ^\circ C}{15\ minutes} = 21.94\ ^\circ C = x \approx \frac{181.764705882\ min}{^\circ C}"
+    ),
+    "prices": (
+        "5h * (3EUR / 1h) = 15EUR",
+        r"5\ h \cdot \frac{3\ \text{€}}{1\ h} = 15\ \text{€}"
+    ),
+    "equation": (
+        "(((80 kilometers) / hour) × x seconds) = ((((−120 kilometers) / hour) × x seconds) + (5 kilometers))\nx = 90",
+        r"\frac{80\ kilometers}{hour} \cdot x\ seconds = \frac{-120\ kilometers}{hour} \cdot x\ seconds + 5\ kilometers" + "\n" +
+        r"x = 90"
+    ),
 }
+
+
 
 
 def tests(display: bool = False):
     parser = NumericStringParser()
 
-    for name, test in test_calculations.items():
+    for name, test_pair in test_calculations.items():
+        test, result = test_pair
         try:
             latex = "\n".join([NumericStringParser().eval(prepare_for_latex(c)) for c in test.splitlines() if c.strip()])
+            if result:
+                assert latex == result, f"Expected: {result}, got: {latex}"
+            else:
+                logging.info(f"result:\n{latex}")
             if display:
-                latex2image(latex).show()
+                image = latex2image(latex)
+                img = Image.open(image)
+                img.show()
             logging.info(f"Passed test: {name}")
         except Exception as e:
             logging.warning(f"Failed test: {name}")
