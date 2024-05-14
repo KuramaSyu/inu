@@ -906,6 +906,44 @@ async def _queue(_ctx: Context) -> None:
     await player.ctx.defer()
     await player.queue.send(force_resend=True)
 
+@music.command
+@lightbulb.add_cooldown(20, 1, lightbulb.UserBucket)
+@lightbulb.add_checks(lightbulb.guild_only)
+@lightbulb.command("upcoming-songs", "The full music queue")
+@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
+async def upcoming_songs(_ctx: Context) -> None:
+    player = await PlayerManager.get_player(_ctx.guild_id, _ctx.event)
+    # defer, that it doesn't timeout while loading queue
+    await player.ctx.defer()
+    if player._node is None or len(player.node.queue) == 0:
+        return await player.ctx.respond("Nothing's playing", ephemeral=True)
+    
+    def default_embed():
+        embed = Embed(title="Upcoming songs")
+        embed.description = ""
+        return embed
+    
+    embeds: List[Embed] = []
+    embed = default_embed()
+    length = len(str(len(player.node.queue)))
+    numbers = ['0️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
+
+    for i, track in enumerate(player.node.queue):
+        track = track.track
+        if (i % 20 == 0 or len(embed.description) + len(track.info.title) + len(track.info.uri) + 10 > 4096) and i != 0:
+            embeds.append(embed)
+            embed = default_embed()
+        # number with leading zeros
+        str_i = f"{''.join('0' for _ in range(length-len(str(i))))}{i}"
+        emoji_i = f"{''.join([numbers[int(x)] for x in str_i])}"
+        embed.description += f"{emoji_i} [{track.info.title[:100]}]({track.info.uri})\n"
+
+    if embed.description:
+        embeds.append(embed)
+
+    pag = Paginator(embeds)
+    await pag.start(player.ctx)
+        
 
 
 @music.command
@@ -1929,7 +1967,7 @@ class Queue:
         queue_len = len(self.node.queue)-4
         if not queue_len or queue_len < 0:
             queue_len = 0
-        kwargs["text"] += f"\n{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
+        kwargs["text"] += f"\n⤵️{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
 
         return kwargs
 
@@ -2049,7 +2087,7 @@ class Queue:
                 try:
                     pre_titles_total_delta += datetime.timedelta(milliseconds=track.info.length)
                 except OverflowError:  # Python int too large for C int
-                    pre_titles_total_delta += datetime.timedelta(milliseconds=36000000)  # 10 hours
+                    pre_titles_total_delta += datetime.timedelta(milliseconds=36_000_000)  # 10 hours
                 continue
             if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
                 # only show 4 upcoming songs
