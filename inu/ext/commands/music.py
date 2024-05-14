@@ -1964,7 +1964,7 @@ class Queue:
                 ).total_seconds()
             )
         )
-        queue_len = len(self.node.queue)-4
+        queue_len = len(self.node.queue)-1-4  # current playing + 4 upcoming songs
         if not queue_len or queue_len < 0:
             queue_len = 0
         kwargs["text"] += f"\n⤵️{Human.plural_('song', queue_len, with_number=True)} ({total_playtime}) remaining in the queue"
