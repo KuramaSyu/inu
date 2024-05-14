@@ -227,17 +227,27 @@ class Array(Element):
         return self._type
     
     @property
-    def ignore_self(self) -> bool:
-        if not self.is_negated and self.children:
-            child_type = self.children[0].type
-            if child_type in ['array']:
-                return True
-            if child_type in  ['mulop', "implicit_mulop"] and not (self.parent and self.parent.type == "exp"):
-                return True
-            elif child_type in ['fraction'] and not (self.parent and self.parent.type == "exp"):
-                return True
-            elif child_type in ['number', 'exp'] and not self.children[0].is_negated:
-                return True
+    def ignore_self(self) -> bool: 
+        """wether or not this parantheses are not mathematically relevant"""
+        if self.is_negated or not self.children:
+            # relevant: negated parantheses e.g. -(3+4)
+            return False
+        if type(self.parent) == Equation:
+            # upper is equation
+            return True
+        child_type = self.children[0].type
+        if child_type in ['array']:
+            # array in array
+            return True
+        if child_type in  ['mulop', "implicit_mulop"] and not (self.parent and self.parent.type == "exp"):
+            # multiplication in parantheses
+            return True
+        elif child_type in ['fraction'] and not (self.parent and self.parent.type == "exp"):
+            # fraction in parantheses
+            return True
+        elif child_type in ['number', 'exp'] and not self.children[0].is_negated:
+            # number or exp in parantheses
+            return True
         return False
     
     def to_latex(self) -> str:
@@ -932,16 +942,20 @@ test_calculations = {
         "physics 1": "sqrt((((4 × ((10^5) meters)) / second)^2) + (((150 volts) × 1.6 × ((10^−19) coulombs) × 2) / (1.67 × ((10^−27) kilograms)))) ≈ 434.445065538 km/s",
         "solve": "solve((((−3) × x²) + (4 × x) + 12) = 0) = [(2/3 − (2/3) × √(10))  ((2/3) × √(10) + 2/3)] ≈ [−1.44151844011  2.77485177345]",
         "implicit multiplication": "4 m sec / (2 sqrt(9) s^2) + 3(-5*5 m/s +3 m/s)",
-        "temperature": "((24 celsius) − ((x celsius) × ((0.17 celsius) / (15 minutes)))) = (21.94 celsius) = x ≈ 181.764705882 min/°C"
+        "temperature": "((24 celsius) − ((x celsius) × ((0.17 celsius) / (15 minutes)))) = (21.94 celsius) = x ≈ 181.764705882 min/°C",
+        "prices": "5h * (3EUR / 1h) = 15EUR",
+        "equation": "(((80 kilometers) / hour) × x seconds) = ((((−120 kilometers) / hour) × x seconds) + (5 kilometers))\nx = 90"
 }
 
 
-def tests():
+def tests(display: bool = False):
     parser = NumericStringParser()
 
     for name, test in test_calculations.items():
         try:
-            latex = parser.eval(prepare_for_latex(test))
+            latex = "\n".join([NumericStringParser().eval(prepare_for_latex(c)) for c in test.splitlines() if c.strip()])
+            if display:
+                latex2image(latex).show()
             logging.info(f"Passed test: {name}")
         except Exception as e:
             logging.warning(f"Failed test: {name}")
@@ -953,13 +967,15 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     try:
-        #tests()
-        code = "5h * (3EUR / 1h) = 15EUR"
+        tests(display=False)
+        code = """
+(((80 kilometers) / hour) × x seconds) = ((((−120 kilometers) / hour) × x seconds) + (5 kilometers))
+x = 90"""
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     logging.info(name)
         logging.info(prepare_for_latex(code))
-        latex = NumericStringParser().eval(prepare_for_latex(code))
+        latex = "\n".join([NumericStringParser().eval(prepare_for_latex(c)) for c in code.splitlines() if c.strip()])
         logging.info(f"Latex: {latex}")
         image = latex2image(latex)
         img = Image.open(image)
