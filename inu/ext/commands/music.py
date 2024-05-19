@@ -1482,7 +1482,6 @@ class Player:
         queue = self.player.node.queue 
         queue.insert(0, queue[0])
         self.player._node.queue = queue
-        # await lavalink.set_guild_node(self.player.guild_id, self.player._node)
         await self.update_node(node=self.player._node)
     
     async def _play(
