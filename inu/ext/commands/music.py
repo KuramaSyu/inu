@@ -1572,14 +1572,14 @@ class Player:
             query = query.replace(HISTORY_PREFIX, "")
             history = await MusicHistoryHandler.cached_get(self.guild_id)
             if (alt_query:=[t["url"] for t in history if query in t["title"]]):
-                query = self.query = alt_query[0]
+                return await self._play(query=alt_query[0])
 
         elif query.startswith(MEDIA_TAG_PREFIX):
             # -> media tag -> get url from tag
             # only edits the query
             query = query.replace(MEDIA_TAG_PREFIX, "")
             tag = await get_tag(ictx, query)
-            query = self.query = tag["tag_value"][0]
+            return await self._play(query=tag["tag_value"][0]) 
 
         query = self.query
         if 'youtube' in query and 'playlist?list=' in query and not resolved:
