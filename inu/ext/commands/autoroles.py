@@ -1,27 +1,16 @@
-import asyncio
 from typing import *
 from datetime import datetime
 import hikari
 import lightbulb
 import traceback
 
-from fuzzywuzzy import fuzz
 from humanize import naturaldelta
-from hikari import (
-    Embed,
-    ResponseType, 
-    TextInputStyle,
-)
-from hikari.impl import MessageActionRowBuilder
+import hikari
 from lightbulb import commands, context
 from tabulate import tabulate
-from utils.db import AutoroleEvent
 
 
 from utils import (
-    Colors, 
-    Human, 
-    Paginator, 
     crumble,
     AutorolesView,
     AutoroleManager,
@@ -29,11 +18,8 @@ from utils import (
     CustomID
 )
 from core import (
-    BotResponseError, 
     Inu, 
-    Table, 
     getLogger,
-    InuContext,
     get_context
 )
 
