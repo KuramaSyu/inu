@@ -290,8 +290,6 @@ async def calculation_tasks(ctx: Context):
         "math_highscore_btn",
         label="Highscores"
     )
-    if bot is None:
-        raise RuntimeError
     await ctx.respond(embed=embed, components=[menu, buttons])
     stage, _, cmp_interaction = await bot.wait_for_interaction(
         custom_ids=["calculation_task_menu", "math_highscore_btn"], 
