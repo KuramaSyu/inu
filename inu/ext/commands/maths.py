@@ -25,6 +25,10 @@ from utils import (
     Paginator
 )
 
+from core import (
+    get_context
+)
+
 log = getLogger(__name__)
 
 
@@ -274,6 +278,27 @@ stages = [
 
 ]
 
+
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_math_task_click(event: hikari.InteractionCreateEvent):
+    """
+    Listens to the /math menu and starts the math tasks
+    """
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    ctx = get_context(event)
+    custom_id = event.interaction.custom_id
+    if custom_id == "math_highscore_btn":
+        await ctx.defer()
+        await show_highscores("guild" if ctx.guild_id else "user", ctx)
+    elif custom_id == "calculation_task_menu":
+        stage = event.interaction.values[0]
+        if not isinstance(stage, int):
+            return
+        await start_math_tasks(ctx, stage)
+        
+
+
 active_sessions: Set[hikari.Snowflakeish] = set()
 @plugin.command
 @lightbulb.command("math", "Menu with all calculation tasks I have")
@@ -291,43 +316,33 @@ async def calculation_tasks(ctx: Context):
         label="Highscores"
     )
     await ctx.respond(embed=embed, components=[menu, buttons])
-    stage, _, cmp_interaction = await bot.wait_for_interaction(
-        custom_ids=["calculation_task_menu", "math_highscore_btn"], 
-        user_ids=ctx.user.id, 
-        channel_id=ctx.channel_id,
-    )
-    log.debug(stage)
-    if not stage:
-        return
-    elif stage == "math_highscore_btn":
-        await cmp_interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
-        await show_highscores("guild" if ctx.guild_id else "user", ctx, cmp_interaction)
-        return
-    else:
-        # prevent user from running multiple sessions
-        if ctx.user.id in active_sessions:
-            return await ctx.respond(f"You already play a game. End it with `stop! or wait`")
-        else:
-            active_sessions.add(ctx.user.id)
 
-        await cmp_interaction.create_initial_response(
-            ResponseType.MESSAGE_CREATE, 
-            f"Well then, let's go!\nIt's not over when you calculate wrong\nYou can always stop with `stop!`"
-        )
-        c = get_calculation_blueprint(stage)
-        highscore = await execute_task(ctx, c)
-        # insert highscore
-        await MathScoreManager.maybe_set_record(
-            ctx.guild_id or 0,
-            ctx.user.id,
-            c.name,
-            highscore,
-        )
-        # session is over - delete it
-        try:
-            active_sessions.remove(ctx.user.id)
-        except ValueError:
-            log.error(traceback.format_exc())
+
+async def start_math_tasks(ctx: Context, stage: str):
+    # prevent user from running multiple sessions
+    if ctx.user.id in active_sessions:
+        return await ctx.respond(f"You already play a game. End it with `stop! or wait`")
+    else:
+        active_sessions.add(ctx.user.id)
+
+    await ctx.respond(
+        ResponseType.MESSAGE_CREATE, 
+        f"Well then, let's go!\nIt's not over when you calculate wrong\nYou can always stop with `stop!`"
+    )
+    c = get_calculation_blueprint(stage)
+    highscore = await execute_task(ctx, c)
+    # insert highscore
+    await MathScoreManager.maybe_set_record(
+        ctx.guild_id or 0,
+        ctx.user.id,
+        c.name,
+        highscore,
+    )
+    # session is over - delete it
+    try:
+        active_sessions.remove(ctx.user.id)
+    except ValueError:
+        log.error(traceback.format_exc())
     
 
 async def _change_embed_color(msg: ResponseProxy, embed: Embed, in_seconds: int):
@@ -425,7 +440,7 @@ def get_calculation_blueprint(stage_name: str) -> CalculationBlueprint:
         if stage.name == stage_name:
             return stage
 
-async def show_highscores(from_: str, ctx: Context, i: ComponentInteraction):
+async def show_highscores(from_: str, ctx: Context):
     stages = await MathScoreManager.fetch_highscores(
         type_=from_,
         guild_id=ctx.guild_id or 0,
