@@ -265,6 +265,17 @@ stages = [
         display_name="Stage 7️⃣\n_--Many Operations--_",
     ),
     CalculationBlueprint(
+        max_number=25,
+        min_number=10,
+        operations=2,
+        max_time=35,
+        allowed_symbols=["*"],
+        allowed_partial_endings=[".0"],
+        allowed_endings=[".0"],
+        name="Stage 8",
+        display_name="Stage 8️⃣\n_--25 x 25--_",
+    ),
+    CalculationBlueprint(
         max_number=1,
         min_number=0,
         operations=1,
