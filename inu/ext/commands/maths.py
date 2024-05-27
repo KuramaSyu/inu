@@ -189,6 +189,7 @@ bot: Optional[Inu] = None
 
 # all CalculationBlueprints for the game
 # key is display name
+# name is inserted in the database -> must be unique
 stages = [
     CalculationBlueprint(
         max_number=9,
