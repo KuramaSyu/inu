@@ -86,12 +86,13 @@ CREATE TABLE IF NOT EXISTS myanimelist (
     recommendations JSONB []
 );
 CREATE TABLE IF NOT EXISTS math_scores (
+    id SERIAL PRIMARY KEY,
     guild_id BIGINT NOT NULL,
     "user_id" BIGINT NOT NULL,
     stage VARCHAR(50) NOT NULL,
     highscore INTEGER NOT NULL,
     "date" TIMESTAMP NOT NULL,
-    PRIMARY KEY (guild_id, "user_id", stage)
+    time_needed INTERVAL
 );
 
 
