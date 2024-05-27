@@ -344,13 +344,14 @@ async def start_math_tasks(ctx: Context, stage: str):
     c = get_calculation_blueprint(stage)
     highscore, time_needed = await execute_task(ctx, c)
     # insert highscore
-    await MathScoreManager.maybe_set_record(
-        ctx.guild_id or 0,
-        ctx.user.id,
-        c.name,
-        highscore,
-        time_needed
-    )
+    if highscore > 0:
+        await MathScoreManager.maybe_set_record(
+            ctx.guild_id or 0,
+            ctx.user.id,
+            c.name,
+            highscore,
+            time_needed
+        )
     # session is over - delete it
     try:
         active_sessions.remove(ctx.user.id)
@@ -466,7 +467,12 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
     else:
         embed = hikari.Embed(title=f"{ctx.member.display_name}'s results for {c.display_name}")
         embed.add_field("Tasks solved:", f"```\n{Human.plural_('task', tasks_done)}```")
-        embed.add_field("Time per Task:", f"```\n{float(total_time.total_seconds() / tasks_done):.2f} seconds / Task```")
+        time_per_task = 0
+        try:
+            time_per_task = float(total_time.total_seconds() / tasks_done)
+        except ZeroDivisionError:
+            pass
+        embed.add_field("Time per Task:", f"```\n{time_per_task:.2f} seconds / Task```")
         embed.add_field("Last Task:", f"Task: {current_task_beautiful}\nResult: {Human.number(c.get_result(current_task))}")
         embed.set_thumbnail(ctx.author.avatar_url)
         final_response = await ctx.respond(embed=embed, components=purge_delete_button)
