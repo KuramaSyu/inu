@@ -268,7 +268,7 @@ stages = [
     CalculationBlueprint(
         max_number=25,
         min_number=10,
-        operations=2,
+        operations=1,
         max_time=35,
         allowed_symbols=["*"],
         allowed_partial_endings=[".0"],
