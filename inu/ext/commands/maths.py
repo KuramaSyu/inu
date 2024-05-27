@@ -454,10 +454,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
         else:
             tasks_done += 1
 
-    purge_delete_button = [
-        MessageActionRowBuilder()
-        .add_interactive_button(ButtonStyle.PRIMARY, "math_bulk_delete", label=f"Clean up messages ({len(message_ids)})", emoji="🗑️")
-    ]
+    purge_delete_button = purge_components(delete=True, repeat=True, message_ids=message_ids)
     final_response = None
     if tasks_done == 0 and c.name in ["Stage 1", "Stage 2"]:
         final_response = await ctx.respond(
@@ -478,19 +475,33 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
         final_response = await ctx.respond(embed=embed, components=purge_delete_button)
 
     async def maybe_clean_up(messages: List[hikari.Snowflake], message_id: int, channel_id: int):
-        _, event, _ = await bot.wait_for_interaction(
-            custom_id="math_bulk_delete",
-            message_id=message_id
-        )
-        sub_lists = []
-        for i, m in enumerate(messages):
-            if i % 100 == 0:
-                sub_lists.append([])
-            sub_lists[-1].append(m)
-        for sub_list in sub_lists:
-            await bot.rest.delete_messages(channel_id, sub_list)
-        ctx = get_context(event)
-        await ctx.respond(components=[], update=True)
+        delete = True
+        repeat = True
+        while True:
+            try:
+                custom_id, event, _ = await bot.wait_for_interaction(
+                    custom_ids=["math_bulk_delete", "calculation_task_repeat"],
+                    message_id=message_id,
+                    timeout=60*10
+                )
+            except asyncio.TimeoutError:
+                break
+            ctx = get_context(event)
+            if custom_id == "math_bulk_delete":
+                delete = False
+                sub_lists = []
+                for i, m in enumerate(messages):
+                    if i % 100 == 0:
+                        sub_lists.append([])
+                    sub_lists[-1].append(m)
+                for sub_list in sub_lists:
+                    await bot.rest.delete_messages(channel_id, sub_list)
+                await ctx.respond(components=purge_components(delete=delete, repeat=repeat, message_ids=message_ids), update=True)
+            elif custom_id == "calculation_task_repeat":
+                repeat = False
+                await ctx.respond(components=purge_components(delete=delete, repeat=repeat, message_ids=message_ids), update=True)
+                await start_math_tasks(ctx, c.name)
+
 
     asyncio.create_task(maybe_clean_up(
             message_ids, (await final_response.message()).id, ctx.channel_id
@@ -498,10 +509,20 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
 
     return tasks_done, timedelta(seconds=total_time.total_seconds())
 
+def purge_components(delete: bool, repeat: bool, message_ids: List[hikari.Snowflake]):
+    return [
+        MessageActionRowBuilder()
+        .add_interactive_button(ButtonStyle.PRIMARY, "math_bulk_delete", label=f"Clean up messages ({len(message_ids)})", emoji="🗑️", is_disabled=not delete)
+        .add_interactive_button(ButtonStyle.PRIMARY, "calculation_task_repeat", label="Repeat this stage", emoji="🔁", is_disabled=not repeat)
+    ]
+
+
 def get_calculation_blueprint(stage_name: str) -> CalculationBlueprint:
     for stage in stages:
         if stage.name == stage_name:
             return stage
+
+
 
 async def show_highscores(from_: str, ctx: Context):
     stages = await MathScoreManager.fetch_highscores(
