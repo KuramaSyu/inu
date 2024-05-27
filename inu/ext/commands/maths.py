@@ -16,6 +16,7 @@ from hikari.impl import MessageActionRowBuilder
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
 from core.bot import Inu, getLogger
 from utils.language import Human
+import tabulate
 
 from utils import (
     NumericStringParser,
@@ -293,8 +294,6 @@ async def on_math_task_click(event: hikari.InteractionCreateEvent):
         await show_highscores("guild" if ctx.guild_id else "user", ctx)
     elif custom_id == "calculation_task_menu":
         stage = event.interaction.values[0]
-        if not isinstance(stage, int):
-            return
         await start_math_tasks(ctx, stage)
         
 
@@ -305,6 +304,7 @@ active_sessions: Set[hikari.Snowflakeish] = set()
 @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
 async def calculation_tasks(ctx: Context):
     embed = Embed(title="Calculation tasks")
+    embed.set_footer("Stop by writing 'stop!'")
     menu = MessageActionRowBuilder().add_text_menu("calculation_task_menu")
     for c in stages:
         embed.add_field(f"{c.display_name}", str(c), inline=True)
@@ -326,17 +326,18 @@ async def start_math_tasks(ctx: Context, stage: str):
         active_sessions.add(ctx.user.id)
 
     await ctx.respond(
-        ResponseType.MESSAGE_CREATE, 
-        f"Well then, let's go!\nIt's not over when you calculate wrong\nYou can always stop with `stop!`"
+        f"Well then, let's go!\nIt's not over when you calculate wrong\nYou can always stop with `stop!`",
+        delete_after=60,
     )
     c = get_calculation_blueprint(stage)
-    highscore = await execute_task(ctx, c)
+    highscore, time_needed = await execute_task(ctx, c)
     # insert highscore
     await MathScoreManager.maybe_set_record(
         ctx.guild_id or 0,
         ctx.user.id,
         c.name,
         highscore,
+        time_needed
     )
     # session is over - delete it
     try:
@@ -349,26 +350,38 @@ async def _change_embed_color(msg: ResponseProxy, embed: Embed, in_seconds: int)
     await asyncio.sleep(in_seconds)
     await msg.edit(embed=embed)
 
-async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
+async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, timedelta]:
     """
-    Returns:
-    -------
-        - (int) the amount of tasks, the user finished 
-    """
+    Executes a task and returns the number of tasks finished and the total time taken.
 
+    Parameters:
+    -----------
+    - ctx (Context): The context object containing information about the command execution.
+    - c (CalculationBlueprint): The calculation blueprint object.
+
+    Returns:
+    --------
+    - tasks_done (int): The number of tasks finished.
+    - total_time (timedelta): The total time taken to finish the tasks.
+    """
     if bot is None:
         raise RuntimeError(f"Inu is None") # should never happen
     tasks_done = 0
     resume_task_creation = True
+    message_ids: List[hikari.Snowflake] = []
+    total_time = timedelta(seconds=0)
+    current_task_beautiful = ""
+
     while resume_task_creation:
         # new task
         # this embed is not redundant, since it will be needed to get initial message
         # which will be edited later on
+        start_time = datetime.now()
         current_task, current_task_beautiful = c.get_task()
-        log.debug(f"{current_task=}; {current_task_beautiful=}")
         embed = Embed(title=f"What is {current_task_beautiful} ?")
         embed.color = Colors.from_name("green")
         msg = await ctx.respond(embed=embed)
+        message_ids.append((await msg.message()).id)
         tasks: List[asyncio.Task] = []
 
         # add 3 embeds with different colors, which will be cycled according to rest time
@@ -396,11 +409,12 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
                 channel_id=ctx.channel_id,
                 user_id=ctx.user.id,
             )
-
+            
             # stopped by timeout
             if not event:
                 continue
-
+            
+            message_ids.append(event.message_id)
             log.debug(f"{answer=}, {event.author.username=}, {current_task_result=}")
             # stopped by user
             answer = answer.replace(",", ".")
@@ -413,6 +427,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
                 answer = float(answer.strip())
                 if answer == current_task_result:
                     await event.message.add_reaction("✅")
+                    total_time += datetime.now() - start_time
                 else:
                     await event.message.add_reaction("❌")
             except Exception:
@@ -425,15 +440,45 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> int:
             resume_task_creation = False
         else:
             tasks_done += 1
+
+    purge_delete_button = [
+        MessageActionRowBuilder()
+        .add_interactive_button(ButtonStyle.PRIMARY, "math_bulk_delete", label=f"Clean up messages ({len(message_ids)})", emoji="🗑️")
+    ]
+    final_response = None
     if tasks_done == 0 and c.name in ["Stage 1", "Stage 2"]:
-        await ctx.respond(
-            f"You really solved nothing? Stupid piece of shit and waste of my precious time"
+        final_response = await ctx.respond(
+            f"You really solved nothing? Stupid piece of shit and waste of my precious time",
+            components=purge_delete_button
         )
     else:
-        await ctx.respond(
-            f"You solved {Human.plural_('task', tasks_done)}. The last answer was {Human.number(c.get_result(current_task))}"
+        embed = hikari.Embed(title=f"{ctx.member.display_name}'s results for {c.display_name}")
+        embed.add_field("Tasks solved:", f"```\n{Human.plural_('task', tasks_done)}```")
+        embed.add_field("Time per Task:", f"```\n{float(total_time.total_seconds() / tasks_done):.2f} seconds / Task```")
+        embed.add_field("Last Task:", f"Task: {current_task_beautiful}\nResult: {Human.number(c.get_result(current_task))}")
+        embed.set_thumbnail(ctx.author.avatar_url)
+        final_response = await ctx.respond(embed=embed, components=purge_delete_button)
+
+    async def maybe_clean_up(messages: List[hikari.Snowflake], message_id: int, channel_id: int):
+        _, event, _ = await bot.wait_for_interaction(
+            custom_id="math_bulk_delete",
+            message_id=message_id
         )
-    return tasks_done
+        sub_lists = []
+        for i, m in enumerate(messages):
+            if i % 100 == 0:
+                sub_lists.append([])
+            sub_lists[-1].append(m)
+        for sub_list in sub_lists:
+            await bot.rest.delete_messages(channel_id, sub_list)
+        ctx = get_context(event)
+        await ctx.respond(components=[], update=True)
+
+    asyncio.create_task(maybe_clean_up(
+            message_ids, (await final_response.message()).id, ctx.channel_id
+    ))
+
+    return tasks_done, timedelta(seconds=total_time.total_seconds())
 
 def get_calculation_blueprint(stage_name: str) -> CalculationBlueprint:
     for stage in stages:
@@ -453,29 +498,39 @@ async def show_highscores(from_: str, ctx: Context):
         2: "🥉",
     }
     for i, d in enumerate(stages.items()):
-        stage, highscore_dicts = d
+        stage, records = d
         log.debug(d)
         if i % 24 == 0:
             embeds.append(
                 Embed(title=f"🏆 Highscores", color=Colors.random_color())
             )
-        if ctx.guild_id:
-            value = (
-                "\n".join(
-                    [
-                        f"{medals.get(i, '')}{(await bot.mrest.fetch_member(ctx.guild_id, u_id)).display_name:<25} {score:>}" 
-                        for i,  d in enumerate(highscore_dicts) for u_id, score in d.items() if i < 5
-                    ]
+        results = []
+        for i, content in enumerate(records):
+            if i > 8:
+                break
+            user_id, score, time_per_task = content
+            name_short = ""
+            if ctx.guild_id:
+                name_short = Human.short_text(
+                    (await bot.mrest.fetch_member(ctx.guild_id, user_id)).display_name, 25, ".." 
                 )
-            )
-        else:
-            value = (
-                "\n".join(
-                    [
-                        f"{medals.get(i, '')}{(await bot.mrest.fetch_user(u_id)).display_name:<25} {score:>}" 
-                        for i,  d in enumerate(highscore_dicts) for u_id, score in d.items() if i < 5
-                    ]
+            else:
+                name_short = Human.short_text(
+                    (await bot.mrest.fetch_user(user_id)).display_name, 25, ".." 
                 )
+            results.append((i+1, name_short, score, f"{time_per_task.total_seconds():.2f}s"))
+
+        value = tabulate.tabulate(
+            results, 
+            [" ", "Name", "Score", "Time/Task"],
+            tablefmt="rounded_grid",
+            colalign=("left", "left", "center", "center")
+
+
+        )
+        if embeds[-1].total_length() + len(value) > 6000:
+            embeds.append(
+                Embed(title=f"🏆 Highscores", color=Colors.random_color())
             )
         embeds[-1].add_field(get_calculation_blueprint(stage).display_name, f"```{value}```", inline=False)
     pag = Paginator(page_s=embeds)
