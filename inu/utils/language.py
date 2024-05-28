@@ -305,11 +305,15 @@ class Human():
         Returns:
         --------
             - (str) the text until max_lengh with ... or complete text
+
+        If the text has multiple lines, it will be split with \n[...]\n
+        otherwise only with [...]
         """
         text = str(text)
+        break_line = "\n" if len(text.splitlines()) > 1 else " "
         if len(text) <= max_length:
             return text
-        suffix = " [...] "
+        suffix = f"{break_line}[...]{break_line}"
         max_length = int(max_length - len(suffix))
         return f"{text[:int(max_length/2)]}{suffix}{text[-1*(int(max_length/2)):]}"
 
