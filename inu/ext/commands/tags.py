@@ -492,8 +492,19 @@ async def _tag_add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
     
     
 async def _tag_add(ctx: InuContext, tag_type: Optional[TagType] = None) -> str | None:
-    interaction = ctx.interaction
+    """
+    Adds a tag to the storage.
 
+    Args:
+        ctx (InuContext): The context object representing the command invocation.
+        tag_type (Optional[TagType]): The type of the tag. Defaults to None.
+
+    Returns:
+        str | None: The name of the added tag, or None if the operation was cancelled.
+
+    Raises:
+        BotResponseError: If the tag is already taken or if there is a runtime error.
+    """
     # get args with command
     try:
         name = ctx.options.name.strip()
