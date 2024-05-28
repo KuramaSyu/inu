@@ -22,7 +22,7 @@ from contextlib import suppress
 from pprint import pformat
 
 import hikari
-from hikari import ComponentInteraction, Embed, ResponseType, VoiceStateUpdateEvent
+from hikari import ComponentInteraction, Embed, ResponseType, VoiceStateUpdateEvent, ButtonStyle
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import SlashContext, commands, context
@@ -33,11 +33,21 @@ from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
 from humanize import naturaldelta
+from expiring_dict import ExpiringDict
+from tabulate import tabulate
 
 from core import Inu, get_context, InuContext, getLogger, BotResponseError
-from utils import Paginator, Colors, Human, MusicHistoryHandler, TagManager, TagType, crumble
+from utils import (
+    Paginator,
+    Colors, 
+    Human, 
+    MusicHistoryHandler, 
+    TagManager,
+    TagType, 
+    crumble
+)
 from utils.paginators.music_history import MusicHistoryPaginator
-from .tags import get_tag
+from .tags import get_tag, _tag_add
 log = getLogger(__name__)
 
 
@@ -49,6 +59,8 @@ HISTORY_PREFIX = "History: "
 MEDIA_TAG_PREFIX = "Media Tag: "
 # if the bot is alone in a channel, then
 DISCONNECT_AFTER = 60 * 10  # seconds
+# REGEX for [title](url) markdown
+MARKDOWN_URL_REGEX = re.compile(r"\[(.*?)\]\((https:\/\/.*?)\)")
 
 first_join = False
 bot: Inu
@@ -706,6 +718,29 @@ async def start_lavalink() -> None:
     log.info("lavalink is connected", prefix="init")
 
 
+# inner dict keys: title, url
+message_id_to_queue_cache: Dict[hikari.Snowflake, List[Dict[str, str]]] = ExpiringDict(ttl=60*60*4)
+@music.listener(hikari.InteractionCreateEvent)
+async def on_queue_to_tag_click(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    ctx = get_context(event)
+    if not event.interaction.custom_id.startswith("queue_to_tag_"):
+        return
+    if not event.interaction.message.id in message_id_to_queue_cache:
+        return await ctx.respond("Sorry, I have thrown it away. I only kept it for a certain time")
+    queue = message_id_to_queue_cache[event.interaction.message.id]
+    text = "\n".join([f"- [{track['title']}]({track['url']})" for x, track in enumerate(queue)])
+    ctx = get_context(
+            event, 
+            options={"name": None, "value": text}
+    )
+    try:
+        _ = await _tag_add(ctx, TagType.MEDIA)
+    except BotResponseError as e:
+        await ctx.respond(**e.context_kwargs)
+
+
 
 @music.command
 @lightbulb.add_checks(lightbulb.guild_only)
@@ -1212,6 +1247,10 @@ class Player:
         self._auto_leave_task: Optional[asyncio.Task] = None
         self.auto_parse = False
         self.last_added_track = None
+
+    def track_to_md(self, track: lavasnek_rs.Track) -> str:
+        """Converts a track to markdown"""
+        return f"[{track.info.title}]({track.info.uri})"
     
     async def prepare(self):
         """Prepares the player for usage and fetches the node"""
@@ -1546,21 +1585,49 @@ class Player:
         if len(lines := query.splitlines()) > 1:
             self.auto_parse = True
             msg = ""
+            songs: List[Dict[str, str]] = []
             rate_limit = 0
             msg_id = None
             for i, line in enumerate(lines):
                 if not line:
                     continue
+                if matches := MARKDOWN_URL_REGEX.findall(line):
+                    _, line = matches[0]
                 await self._play(line, prevent_to_queue=True, recursive=True)
-                msg += f"{i+1}/{len(lines)} - {self.last_added_track.info.title if self.last_added_track else 'Not found -> apply rate limit'}\n"
-                task = asyncio.Task(ictx.respond(Human.short_text_from_center(msg, 2000), update=msg_id or True))
+                line_content = Human.short_text(self.last_added_track.info.title, 50, intelligent=False) if self.last_added_track else 'Not found -> apply rate limit'
+                msg += f"{line_content}\n"
+                table = tabulate(
+                    [[i+1, line] for i, line in enumerate(msg.splitlines())],
+                    headers=["#", "Title"],
+                    tablefmt="simple_outline"
+                )
+                send_message_task = asyncio.Task(
+                    ictx.respond(
+                        Human.short_text_from_center(f"Looking up titles:\n```\n{table}```", 2000), 
+                        update=msg_id or True
+                ))
                 if not msg_id:
-                    done, _ = await asyncio.wait([task], return_when=asyncio.FIRST_COMPLETED)
+                    done, _ = await asyncio.wait([send_message_task], return_when=asyncio.FIRST_COMPLETED)
                     msg_id = (await (done.pop().result()).message()).id
                 if self.last_added_track is None:
                     rate_limit = 1
+                else:
+                    songs.append({
+                        "title": self.last_added_track.info.title,
+                        "url": self.last_added_track.info.uri
+                    })
                 await asyncio.sleep(rate_limit)
             self.auto_parse = False
+            # check if this is the `top level _play` call
+            if not prevent_to_queue:
+                await ictx.respond(
+                    components=[
+                        MessageActionRowBuilder()
+                        .add_interactive_button(ButtonStyle.PRIMARY, f"queue_to_tag_{msg_id}", label="Save as Tag", emoji="➕")
+                    ],
+                    update = msg_id or True
+                )
+            message_id_to_queue_cache[msg_id] = songs
             self.queue.reset()
             self.queue.set_footer(text=f"🎵 multiple titles added by {ictx.author.username}", author=ictx.author.id)
             resolved = True
@@ -1572,15 +1639,20 @@ class Player:
             history = await MusicHistoryHandler.cached_get(self.guild_id)
             if (alt_query:=[t["url"] for t in history if query in t["title"]]):
                 await self._play(query=alt_query[0])
-                return True, ictx
+            else:
+                await ictx.respond(f"Couldn't find the title `{query}` in the history")
+                return False, None
+            resolved = True
 
         elif query.startswith(MEDIA_TAG_PREFIX):
             # -> media tag -> get url from tag
             # only edits the query
             query = query.replace(MEDIA_TAG_PREFIX, "")
             tag = await get_tag(ictx, query)
-            await self._play(query=tag["tag_value"][0]) 
-            return True, ictx
+            await self._play(query=tag["tag_value"][0], prevent_to_queue=True, recursive=True) 
+            self.queue.reset()
+            self.queue.set_footer(text=f"🎵 {tag['tag_key']} added by {ictx.author.username}", author=ictx.author.id)
+            resolved = True
 
         query = self.query
         if 'youtube' in query and 'playlist?list=' in query and not resolved:
@@ -2292,7 +2364,7 @@ class Queue:
             or music_message is None 
         ):
             # send new message and override
-            kwargs = {"update": True} if music_message else {}
+            kwargs = {} if music_message else {} #"update": True
             log.debug(f"send new message with {kwargs=}, {music_message=}")
             msg = await self.player.ctx.respond(
                 embed=music_embed, 
