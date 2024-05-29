@@ -35,6 +35,7 @@ from pytimeparse.timeparse import timeparse
 from humanize import naturaldelta
 from expiring_dict import ExpiringDict
 from tabulate import tabulate
+from emoji import replace_emoji
 
 from core import Inu, get_context, InuContext, getLogger, BotResponseError
 from utils import (
@@ -1594,7 +1595,13 @@ class Player:
                 if matches := MARKDOWN_URL_REGEX.findall(line):
                     _, line = matches[0]
                 await self._play(line, prevent_to_queue=True, recursive=True)
-                line_content = Human.short_text(self.last_added_track.info.title, 50, intelligent=False) if self.last_added_track else 'Not found -> apply rate limit'
+
+                line_content = Human.short_text(
+                    replace_emoji(self.last_added_track.info.title, ''), 
+                    50, 
+                    intelligent=False
+                ) if self.last_added_track else 'Not found -> apply rate limit'
+                
                 msg += f"{line_content}\n"
                 table = tabulate(
                     [[i+1, line] for i, line in enumerate(msg.splitlines())],
