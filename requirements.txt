@@ -40,3 +40,4 @@ selenium_async
 colorcet
 setuptools
 uvloop
+emoji==2.12.1
