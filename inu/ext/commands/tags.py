@@ -12,7 +12,8 @@ import hikari
 from hikari import (
     ComponentInteraction, 
     Embed, 
-    InteractionCreateEvent, 
+    InteractionCreateEvent,
+    MessageCreateEvent, 
     ResponseType, 
     TextInputStyle
 )
@@ -140,11 +141,13 @@ class TagPaginator(StatelessPaginator):
     def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
         return {"tid": self.tag.id}
 
-    async def _rebuild(self, event: hikari.Event, force_show_name: bool = False, name: str = ""):
+    async def _rebuild(self, event: InteractionCreateEvent, force_show_name: bool = False, name: str = ""):
         self.set_context(event=event)
+        if not isinstance(event.interaction, ComponentInteraction):
+            return
         if self.tag.is_authorized_to_write(event.interaction.user.id):
             # user authorized to write -> add tag edit button
-            components: List[MessageActionRowBuilder] = add_row_when_filled(self.tag.components)
+            components: List[MessageActionRowBuilder] = add_row_when_filled(self.tag.components or [])
             components[-1].add_interactive_button(
                 ButtonStyle.SECONDARY, 
                 TagHandler._serialize_custom_id_static(
@@ -153,7 +156,8 @@ class TagPaginator(StatelessPaginator):
                     position=1,
                     author_id=event.interaction.user.id
                 ),
-                label=f"Edit {tag.name} instead"
+                label=f"Edit {tag.name} instead",
+                emoji="📝"
             )
             self._additional_components = components
         self._build_pages(force_show_name=force_show_name, name=name)
@@ -162,6 +166,7 @@ class TagPaginator(StatelessPaginator):
         media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
         messages = []
         add_title = True
+        assert self.tag.value is not None
         for page in self.tag.value:
             for value in crumble(page, 2000):
                 message = ""
