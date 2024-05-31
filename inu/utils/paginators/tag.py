@@ -137,7 +137,7 @@ class TagHandler(StatelessPaginator):
         """
         if not isinstance((i := event.interaction), ComponentInteraction):
             self.log.debug("False interaction pred")
-            return False
+            return False, False
         return (i.user.id in self.tag.owners, i.message.id == self._message.id)
 
     def interaction_pred(self, event: InteractionCreateEvent) -> bool:
