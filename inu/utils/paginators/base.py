@@ -157,9 +157,18 @@ def listener(event: Any):
     return decorator
 
 
+class JsonDict(dict):
+    def as_json(self):
+        """Convert the dictionary to a JSON string."""
+        return json.dumps(self)
+    
+    def as_dict(self):
+        """Return the dictionary itself."""
+        return dict(self)
+
 
 class CustomID():
-    __slots__ = ["_type", "_custom_id", "_message_id", "_author_id", "_kwargs", "_page"]
+    __slots__ = ["_type", "_custom_id", "_message_id", "_author_id", "_kwargs", "_page", "_position"]
     _type: str | None
     _custom_id: str
     _message_id: int | None
@@ -181,6 +190,7 @@ class CustomID():
         self._author_id = author_id
         self._page = page
         self._kwargs = kwargs
+        self._position: Optional[int] = None
 
     def _raise_none_error(self, var_name: str):
         raise TypeError(f"`{self.__class__.__name__}.{var_name}` is None. Make sure, to set it!")
@@ -208,6 +218,12 @@ class CustomID():
         if self._message_id is None:
             self._raise_none_error("_message_id")
         return self._message_id  #type: ignore
+    
+    @property
+    def position(self) -> int:
+        if self._position is None:
+            self._raise_none_error("_position")
+        return self._position
     
     @property
     def author_id(self) -> int:
@@ -244,8 +260,52 @@ class CustomID():
 
     def get(self, key: str) -> int|str|None:
         return self._kwargs.get(key)
-        
-        
+    
+    def set_position(self, position: int) -> "CustomID":
+        self._position = position
+        return self
+    
+    def add_kwarg(self, key: str, value: Any):
+        self._kwargs[key] = value
+    
+    def serialize_custom_id(
+        self,
+    ) -> JsonDict:
+        """
+
+        Returns:
+        --------
+        str :
+            The jsonified dict with following keys:
+            * `t` str
+                the type which was set in __init__ `custom_id_type` to specify use of paginator
+            * `p` : int
+                current page index
+            * `cid`: str
+                the `<custom_id>` to identify what to do
+            - `aid`: int
+                the `<author_id>` to identify later on the auther who used the interaction
+            - `mid`: int
+                the `<message_id>` to identify later on the message which was used
+            - `kwargs`: Any
+                optional additional kwargs
+
+        Note:
+        -----
+            - custom_id has a max len of 100 chars
+        """
+        d = {
+            "cid": self.custom_id,
+            "t": self.type,
+            "p": self.position
+        }
+        if self._author_id:
+            d["aid"] = self._author_id
+        if self._message_id:
+            d["mid"] = self._message_id
+        d.update(self._kwargs)
+        return JsonDict(d)
+            
 class NavigationMenuBuilder():
     _pages: int = 0
     _compact: bool = False
@@ -1555,7 +1615,7 @@ class StatelessPaginator(Paginator, ABC):
             - custom_id has a max len of 100 chars
         """
         kwargs.update(self._get_custom_id_kwargs())
-        return self._serialize_custom_id_static(
+        d = self._get_serialization_custom_id_dict(
             custom_id=custom_id,
             custom_id_type=self.custom_id_type,
             position=self._position,
@@ -1563,16 +1623,17 @@ class StatelessPaginator(Paginator, ABC):
             message_id=self.ctx.original_message.id if with_message_id else None,
             **kwargs
         )
+        return json.dumps(d, indent=None, separators=(',', ':'))
     
     @staticmethod
-    def _serialize_custom_id_static(
+    def _get_serialization_custom_id_dict(
         custom_id: str,
         custom_id_type: str,
         position: int,
         author_id: Optional[int] = None,
         message_id: Optional[int] = None,
         **kwargs
-    ) -> str:
+    ) -> Dict:
         """
         Manually serialize custom ID statically.
         
@@ -1589,7 +1650,7 @@ class StatelessPaginator(Paginator, ABC):
         if message_id:
             d["mid"] = message_id
         d.update(kwargs)
-        return json.dumps(d, indent=None, separators=(',', ':'))
+        return d
         
     async def dispatch_event(self, event: Event):
         """
