@@ -435,8 +435,6 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
             await tag.save()
             await ctx.respond(f"{asked_user.mention} you got the permission to edit this tag now")
         return
-        #await ctx.respond("REJECTED - Not your navigator. Did you thought you can trick me? ", ephemeral=True)
-        return
     
     await tag.used_now()
     pag.set_tag(tag)
