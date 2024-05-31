@@ -1554,17 +1554,43 @@ class StatelessPaginator(Paginator, ABC):
         -----
             - custom_id has a max len of 100 chars
         """
+        kwargs.update(self._get_custom_id_kwargs())
+        return self._serialize_custom_id_static(
+            custom_id=custom_id,
+            custom_id_type=self.custom_id_type,
+            position=self._position,
+            author_id=self.ctx.author.id if with_author_id else None,
+            message_id=self.ctx.original_message.id if with_message_id else None,
+            **kwargs
+        )
+    
+    @staticmethod
+    def _serialize_custom_id_static(
+        custom_id: str,
+        custom_id_type: str,
+        position: int,
+        author_id: Optional[str],
+        message_id: Optional[str],
+        **kwargs
+    ) -> str:
+        """
+        Manually serialize custom ID statically.
+        
+        Returns:
+        - str: the serialized json string
+        """
         d = {
-            "cid": custom_id, 
-            "t": self.custom_id_type,
-            "p": self._position
+            "cid": custom_id,
+            "t": custom_id_type,
+            "p": position
         }
-        if with_author_id:
-            d["aid"] = self.ctx.author.id
-        d.update(self._get_custom_id_kwargs())
+        if author_id:
+            d["aid"] = author_id
+        if message_id:
+            d["mid"] = message_id
         d.update(kwargs)
         return json.dumps(d, indent=None, separators=(',', ':'))
-
+        
     async def dispatch_event(self, event: Event):
         """
         Override:
