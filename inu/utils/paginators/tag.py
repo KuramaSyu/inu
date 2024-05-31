@@ -14,6 +14,8 @@ from lightbulb.context import Context
 
 from utils import TagIsTakenError
 from .base import (
+    JsonDict,
+    CustomID,
     Paginator,
     Event,
     EventListener,
@@ -62,12 +64,26 @@ with LoL champions.\n\n
 __Select the type you want__:
 """
 
+class TagCustomID(CustomID):
+    def set_tag_id(self, tag_id: int) -> "TagCustomID":
+        self._kwargs["tid"] = tag_id
+        return self
+    
+    def serialize_custom_id(self) -> JsonDict:
+        if not self._kwargs.get("tid"):
+            raise ValueError("Tag ID is not set")
+        return super().serialize_custom_id()
+    
+    @property
+    def type(self) -> str:
+        return "stl-tag-edit"
+    
 class TagTypeComponents:
     @classmethod
     def get(cls, tag_type: Type[TagType]) -> Callable[["TagHandler"], MessageActionRowBuilder]:
         return {
             TagType.LIST: cls.list_components
-        }.get(tag_type, lambda _: None)
+        }.get(tag_type, None)
         
     @staticmethod
     def list_components(tag: "TagHandler") -> MessageActionRowBuilder:
@@ -712,6 +728,35 @@ class TagHandler(StatelessPaginator):
     @property
     def custom_id_type(self) -> str:
         return "stl-tag-edit"
+    
+    @staticmethod
+    def F_get_serialization_custom_id_dict(
+        custom_id: str,
+        custom_id_type: str,
+        position: int,
+        tag_id: int,
+        author_id: Optional[int] = None,
+        message_id: Optional[int] = None,
+        **kwargs
+    ) -> Dict:
+        """
+        Manually serialize custom ID statically.
+        
+        Returns:
+        - str: the serialized json string
+        """
+        d = {
+            "tid": tag_id,
+            "cid": custom_id,
+            "t": custom_id_type,
+            "p": position
+        }
+        if author_id:
+            d["aid"] = author_id
+        if message_id:
+            d["mid"] = message_id
+        d.update(kwargs)
+        return d
 
 
 
