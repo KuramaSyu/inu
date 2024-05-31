@@ -9,7 +9,13 @@ import textwrap
 import json
 
 import hikari
-from hikari import ComponentInteraction, Embed, InteractionCreateEvent, ResponseType, TextInputStyle
+from hikari import (
+    ComponentInteraction, 
+    Embed, 
+    InteractionCreateEvent, 
+    ResponseType, 
+    TextInputStyle
+)
 from hikari.impl import MessageActionRowBuilder
 from hikari import ButtonStyle
 import lightbulb
@@ -19,15 +25,31 @@ from lightbulb.context import Context
 import asyncpg
 from fuzzywuzzy import fuzz
 
-from core import Inu, Table, BotResponseError
-from utils import TagIsTakenError, TagManager, TagScope, Human, get_guild_or_channel_id, guild_name_or_id, TagType
-from utils import crumble, ListParser
-from utils.colors import Colors
-from utils import Paginator, StatelessPaginator
+from utils import (
+    TagIsTakenError, 
+    TagManager, 
+    TagScope, 
+    Human, 
+    get_guild_or_channel_id, 
+    guild_name_or_id, 
+    TagType,
+    crumble,
+    ListParser,
+    Colors,
+    Paginator, StatelessPaginator,
+    TagHandler, Tag
+)
 from utils.paginators.base import navigation_row
-from utils.paginators.tag import TagHandler, Tag
-
-from core import getLogger, BotResponseError, InteractionContext, get_context, InuContext
+from core import (
+    Inu,
+    Table,
+    BotResponseError,
+    getLogger, 
+    BotResponseError, 
+    InteractionContext, 
+    get_context, 
+    InuContext
+)
 
 log = getLogger(__name__)
 
@@ -435,6 +457,7 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
             await tag.save()
             await ctx.respond(f"{asked_user.mention} you got the permission to edit this tag now")
         return
+
     
     await tag.used_now()
     pag.set_tag(tag)
