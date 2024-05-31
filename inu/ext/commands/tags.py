@@ -205,15 +205,16 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
     for result in raw_results:
         if ctx.author.id in result["author_ids"]:
             results.append(result)
-    # case 0: no entry in database
-    # case 1: 1 entry in db; check if global or in guild
-    # case _: let user select if he wants the global or local one
+            
     if len(results) == 0:
+        # no entry in database
         await ctx.respond(f"I can't find a tag named `{key}` where you are the owner :/", **EPHEMERAL)
         return None
     elif len(results) == 1:
+        # 1 entry in db; check if global or in guild
         return results[0]
     else:
+        # let user select if he wants the global or local one
         #  select between global and local - needs to lookup the results if there are tags of author
         records = {}
         for record in results:
