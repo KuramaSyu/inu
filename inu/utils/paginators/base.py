@@ -1569,8 +1569,8 @@ class StatelessPaginator(Paginator, ABC):
         custom_id: str,
         custom_id_type: str,
         position: int,
-        author_id: Optional[str],
-        message_id: Optional[str],
+        author_id: Optional[str] = None,
+        message_id: Optional[str] = None,
         **kwargs
     ) -> str:
         """
