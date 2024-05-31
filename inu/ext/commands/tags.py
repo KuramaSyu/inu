@@ -37,7 +37,8 @@ from utils import (
     ListParser,
     Colors,
     Paginator, StatelessPaginator,
-    TagHandler, Tag
+    TagHandler, Tag,
+    add_row_when_filled
 )
 from utils.paginators.base import navigation_row
 from core import (
@@ -141,6 +142,20 @@ class TagPaginator(StatelessPaginator):
 
     async def _rebuild(self, event: hikari.Event, force_show_name: bool = False, name: str = ""):
         self.set_context(event=event)
+        if self.tag.is_authorized_to_write(event.interaction.user.id):
+            # user authorized to write -> add tag edit button
+            components: List[MessageActionRowBuilder] = add_row_when_filled(self.tag.components)
+            components[-1].add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                TagHandler._serialize_custom_id_static(
+                    custom_id="update",
+                    custom_id_type=TagHandler().custom_id_type,
+                    position=1,
+                    author_id=event.interaction.user.id
+                ),
+                label=f"Edit {tag.name} instead"
+            )
+            self._additional_components = components
         self._build_pages(force_show_name=force_show_name, name=name)
 
     def _build_pages(self, force_show_name: bool = False, name: str = ""):
