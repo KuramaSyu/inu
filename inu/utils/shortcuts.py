@@ -73,9 +73,10 @@ def display_name_or_id(user: hikari.SnowflakeishOr[hikari.Member], guild_id: int
     """
     if guild_id or isinstance(user, hikari.Member):
         member = bot.cache.get_member(guild_id or user.guild_id, user)
+        return member.display_name if member else str(user)
     else:
         member = bot.cache.get_user(user)
-    return member.display_name if member else str(user)
+        return member.username if member else str(member)
 
 def ts_round(delta: timedelta, round_to: timedelta) -> timedelta:
     total_seconds = delta.total_seconds()
@@ -99,6 +100,14 @@ async def check_website(url: str) -> Tuple[int, Optional[str]]:
                 return response.status, response.reason
     except aiohttp.ClientError as e:
         return 0, str(e)
+    
+def has_component_interaction(event: hikari.InteractionCreateEvent) -> bool:
+    """
+    Whether or not the event has a ComponentInteraction
+    """
+    if isinstance(event.interaction, hikari.ComponentInteraction):
+        return True
+    return False
     
 
 
