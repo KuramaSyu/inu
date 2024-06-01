@@ -83,7 +83,7 @@ class TagTypeComponents:
     def get(cls, tag_type: Type[TagType]) -> Callable[["TagHandler"], MessageActionRowBuilder]:
         return {
             TagType.LIST: cls.list_components
-        }.get(tag_type, None)
+        }.get(tag_type, lambda _: None)
         
     @staticmethod
     def list_components(tag: "TagHandler") -> MessageActionRowBuilder:
@@ -200,7 +200,6 @@ class TagHandler(StatelessPaginator):
         self.set_context(event=event)
 
     async def post_start(self, **kwargs):
-        # self._tag_link_task = asyncio.create_task(self._wait_for_link_button(self.tag))
         await super().post_start(**kwargs)
 
     async def _rebuild_pages(self, update_value: bool = True):
@@ -282,6 +281,7 @@ class TagHandler(StatelessPaginator):
             - event: (InteractionCreateEvent) the invoked event; passed from the listener
         """
         TAG_MENU_PREFIX = "tag_options"
+        log.debug(f"Interaction: {event}")
         try:
             if not isinstance(event.interaction, ComponentInteraction):
                 return
@@ -300,6 +300,7 @@ class TagHandler(StatelessPaginator):
                 # interaction was no menu interaction
                 return
                 # set_type has other message, not this one
+            log.debug(f"Custom ID: {custom_id}")
             self.set_context(event=event)
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
@@ -358,6 +359,7 @@ class TagHandler(StatelessPaginator):
                 self.tag.value.remove(self.tag.value[self._position])
                 self._position -= 1
             elif custom_id == "update":
+                self.add_onetime_kwargs(content=None)
                 await self.update_page(update_value=True, interaction=i)
                 return
             elif custom_id == "resend":
