@@ -36,15 +36,14 @@ from utils import (
     TagType,
     crumble,
     ListParser,
-    Colors,
     Paginator, StatelessPaginator,
     TagHandler, Tag,
-    add_row_when_filled
+    add_row_when_filled, 
+    TagCustomID
 )
 from utils.paginators.base import navigation_row
 from core import (
     Inu,
-    Table,
     BotResponseError,
     getLogger, 
     BotResponseError, 
@@ -145,23 +144,31 @@ class TagPaginator(StatelessPaginator):
         self.set_context(event=event)
         if not isinstance(event.interaction, ComponentInteraction):
             return
+        self.__maybe_add_edit_component(event)    
+        self._build_pages(force_show_name=force_show_name, name=name)
+
+    def __maybe_add_edit_component(self, event: InteractionCreateEvent):
         if self.tag.is_authorized_to_write(event.interaction.user.id):
+            log.debug("User is authorized to write")
             # user authorized to write -> add tag edit button
             components: List[MessageActionRowBuilder] = add_row_when_filled(self.tag.components or [])
-            components[-1].add_interactive_button(
+            components[-1].add_interactive_button( # todo: small json
                 ButtonStyle.SECONDARY, 
-                TagHandler._serialize_custom_id_static(
-                    custom_id="update",
-                    custom_id_type=TagHandler().custom_id_type,
-                    position=1,
+                TagCustomID(
+                    custom_id="tag_options_update",
                     author_id=event.interaction.user.id
-                ),
+                )
+                    .set_tag_id(self.tag.id)
+                    .set_position(0)
+                    .serialize_custom_id()
+                    .as_json(),
                 label=f"Edit {tag.name} instead",
                 emoji="📝"
             )
             self._additional_components = components
-        self._build_pages(force_show_name=force_show_name, name=name)
-
+        else:
+            log.debug("User is not authorized to write")
+            
     def _build_pages(self, force_show_name: bool = False, name: str = ""):
         media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
         messages = []
@@ -188,6 +195,7 @@ class TagPaginator(StatelessPaginator):
 
     async def start(self, ctx: Context, force_show_name: bool = False, name: str = ""):
         self._build_pages(force_show_name=force_show_name, name=name)
+        self.__maybe_add_edit_component(ctx.event)
         await super().start(ctx)
 
     @property
@@ -438,7 +446,9 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     try:
         if not pag.custom_id.type == "stl-tag-edit": return
     except:
+        log.debug("Custom ID is not of type stl-tag-edit")
         return
+    log.debug("Custom ID is of type stl-tag-edit")
     tag: Tag | None = await Tag.from_id(
         pag.custom_id._kwargs["tid"], 
         user_id=event.interaction.user.id, 
@@ -481,6 +491,7 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     
     await tag.used_now()
     pag.set_tag(tag)
+    log.debug("Starting stl-tag-edit")
     await pag.rebuild(event)
 
 
