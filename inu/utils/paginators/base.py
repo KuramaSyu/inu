@@ -158,11 +158,11 @@ def listener(event: Any):
 
 
 class JsonDict(dict):
-    def as_json(self):
+    def as_json(self) -> str:
         """Convert the dictionary to a JSON string."""
-        return json.dumps(self)
-    
-    def as_dict(self):
+        return json.dumps(self, indent=None, separators=(',', ':'))
+
+    def as_dict(self) -> "JsonDict":
         """Return the dictionary itself."""
         return dict(self)
 
@@ -304,6 +304,7 @@ class CustomID():
         if self._message_id:
             d["mid"] = self._message_id
         d.update(self._kwargs)
+        log.debug(f"serialized custom_id: {d}")
         return JsonDict(d)
             
 class NavigationMenuBuilder():
@@ -588,6 +589,7 @@ class Paginator():
         global count
         count  += 1
         self.count = count
+        self.onetime_kwargs = {}  # used once when sending a message
         self._stop: asyncio.Event = asyncio.Event()
         self._pages: Union[List[Embed], List[str]] = page_s
         self._old_position: int = 0
@@ -890,6 +892,13 @@ class Paginator():
     def add_page(self, page: Union[Embed, str]):
         self._pages.append(page)
 
+    def add_onetime_kwargs(self, **kwargs):
+        """
+        Kwargs used when sending the next message.
+        These will be cleared after the message is sent
+        """
+        self.onetime_kwargs.update(kwargs)
+        
     async def move_to_page(self, index: int, ctx: InuContext | None = None):
         """
         Moves to the page on the given index.
@@ -994,10 +1003,6 @@ class Paginator():
             kwargs["component"] = self.component
         elif not self._disable_components and not kwargs.get("components") and not (len(self.pages) == 1 and self._hide_components_when_one_site):
             kwargs["components"] = self.components
-        
-
-        # if self._download:
-        #     kwargs["attachments"] = [hikari.Bytes(self.download, "content")]
 
         if isinstance(content, str):
             kwargs["content"] = content
@@ -1005,8 +1010,10 @@ class Paginator():
             kwargs["embed"] = content  
         else:
             raise TypeError(f"<content> can't be an isntance of {type(content).__name__}")
+        kwargs.update(self.onetime_kwargs)
         log.debug(f"Sending message: {kwargs}")
         proxy = await self.ctx.respond(**kwargs)
+        self.onetime_kwargs.clear()
         self._proxy = proxy
 
     async def create_message(
@@ -1150,7 +1157,7 @@ class Paginator():
             self._position = self._default_page_index
 
         # make kwargs for first message
-        kwargs = self._first_message_kwargs
+        kwargs.update(self._first_message_kwargs)
         if not self._disable_component and not (len(self.pages) == 1 and self._hide_components_when_one_site):
             kwargs["component"] = self.component
         elif not self._disable_components and not (len(self.pages) == 1 and self._hide_components_when_one_site):
@@ -1160,11 +1167,13 @@ class Paginator():
         kwargs.update(self._first_message_kwargs)
 
         if isinstance(self.pages[self._default_page_index], Embed):
+            self.log.debug("Creating message with embed")
             msg_proxy = await self.ctx.respond(
                 embed=self.pages[0],
                 **kwargs
             )
         else:
+            self.log.debug(f"Creating message with content {self.pages[self._default_page_index]}")
             msg_proxy = await self.ctx.respond(
                 content=self.pages[self._default_page_index],
                 **kwargs
@@ -1542,9 +1551,12 @@ class StatelessPaginator(Paginator, ABC):
             self.set_context(ctx)
         self._author_id = self.ctx.author.id
         self._channel_id = self.ctx.channel_id
+        # kwargs passed when next message is created
+        
         self.bot = self.ctx.bot
         return await super().start(ctx)
 
+        
     def set_pages(self, pages: List[hikari.Embed] | List[str]):
         self._pages = pages
 
@@ -1620,7 +1632,6 @@ class StatelessPaginator(Paginator, ABC):
             custom_id_type=self.custom_id_type,
             position=self._position,
             author_id=self.ctx.author.id if with_author_id else None,
-            message_id=self.ctx.original_message.id if with_message_id else None,
             **kwargs
         )
         return json.dumps(d, indent=None, separators=(',', ':'))
