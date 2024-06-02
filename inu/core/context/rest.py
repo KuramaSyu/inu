@@ -3,7 +3,7 @@ from typing import *
 
 import asyncio
 import hikari
-from hikari import SnowflakeishOr
+from hikari import Snowflake, SnowflakeishOr
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context, ResponseProxy, OptionsProxy
@@ -74,6 +74,16 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
     @property
     def author(self) -> hikari.User:
         return self.event.message.author
+    
+    @property
+    def guild_id(self) -> Optional[Snowflake]:
+        return self.event.message.guild_id
+    
+    @property
+    def guild(self) -> Optional[hikari.Guild]:
+        if not self.guild_id:
+            return None
+        return self.bot.cache.get_guild(self.guild_id)
 
     @property
     def invoked_with(self) -> str:
