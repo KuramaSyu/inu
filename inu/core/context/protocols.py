@@ -40,11 +40,40 @@ class InuContext(ABC):
     @abstractmethod
     def author(self) -> hikari.User:
         ...
+        
+    @property
+    @abstractmethod
+    def member(self) -> hikari.Member | None:
+        ...
+    
+    @property
+    @abstractmethod
+    def author_id(self) -> int:
+        ...
 
+    @property
+    @abstractmethod
+    def guild(self) -> hikari.Guild | None:
+        ...
+        
+    @property
+    @abstractmethod
+    def guild_id(self) -> int | None:
+        ...
+        
     @property
     @abstractmethod
     def channel_id(self) -> int:
         ...
+        
+    @property
+    def display_name(self) -> str:
+        """
+        returns member.display_name or user.username
+        """
+        if self.member:
+            return self.member.display_name
+        return self.author.username
 
     @abstractmethod
     async def respond(self, *args, **kwargs):
@@ -222,6 +251,12 @@ class InuContext(ABC):
     async def cache_last_response(self) -> None:
         """
         fetches the message of the last response if not already done
+        """
+        ...
+    
+    async def message(self) -> hikari.Message:
+        """
+        fetches or returns the initial response message
         """
         ...
 

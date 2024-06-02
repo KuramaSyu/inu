@@ -508,7 +508,14 @@ class InteractionContext(_InteractionContext):
     @property
     def author(self) -> hikari.User:
         return self.interaction.user
+    
+    @property
+    def member(self) -> hikari.Member | None:
+        return self.interaction.member
 
+    @property
+    def author_id(self) -> int:
+        return self.interaction.user.id
 
     async def delete_webhook_message(self, message: int | hikari.Message, after: int | None = None):
         """
@@ -525,6 +532,14 @@ class InteractionContext(_InteractionContext):
             await asyncio.sleep(after)
         return await self.i.delete_message(message)
     
+    @property
+    def guild(self) -> hikari.Guild | None:
+        return self.interaction.get_guild()
+    
+    @property
+    def guild_id(self) -> int | None:
+        return self.interaction.guild_id
+
     async def execute(self, delete_after: int | None = None, **kwargs) -> hikari.Message:
         """
         execute the webhook and create a message with it
@@ -821,6 +836,8 @@ class CommandInteractionContext(InteractionContext):
     
 
     async def message(self) -> hikari.Message:
+        """The initial message
+        """
         if not self._initial_response:
             self._initial_response = await self.interaction.fetch_initial_response()
         return self._initial_response
