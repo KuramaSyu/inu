@@ -76,7 +76,7 @@ class InuContext(ABC):
         return self.author.username
 
     @abstractmethod
-    async def respond(self, *args, **kwargs):
+    async def respond(self, *args, **kwargs) -> ResponseProxy:
         """
         Create a response for this context. The first time this method is called, the initial
         interaction response will be created by calling
