@@ -42,6 +42,18 @@ PERIOD_START = " "
 
 # update latex preamble
 def swtich_backend():
+    """
+    Switches the backend of matplotlib to 'pgf' and updates the rcParams for LaTeX rendering.
+
+    This function sets the necessary rcParams for using LaTeX with matplotlib's 'pgf' backend.
+    It configures the LaTeX system, font, array stretch, and includes the eurosym package.
+
+    Note: This function assumes that matplotlib and plt have been imported.
+
+    Example usage:
+    >>> swtich_backend()
+
+    """
     plt.switch_backend('pgf')
     matplotlib.use('pgf')
     plt.rcParams.update({
@@ -68,6 +80,17 @@ class Element:
         number: str | None = None,
         number_args: int | None = None,
     ):
+        """
+        Represents an element in LaTeX.
+
+        Args:
+            element (str): The element string.
+            type_ (str): The type of the element.
+            negate (bool, optional): Whether the element is negated. Defaults to False.
+            unit (str | None, optional): The unit of the element. Defaults to None.
+            number (str | None, optional): The number of the element. Defaults to None.
+            number_args (int | None, optional): The number of arguments for the element. Defaults to None.
+        """
         self.element = element
         self._type = type_
         self.negate = negate
@@ -85,7 +108,7 @@ class Element:
         """Adds multiple children of type `Element`"""
 
         def set_parent(child: "Element") -> None:
-            """Sets recursivly parents"""
+            """Sets recursively parents"""
             if isinstance(child, Element):
                 child.parent = self
             elif isinstance(child, list):
@@ -97,24 +120,47 @@ class Element:
         self.children.extend(children)
         logging.debug(f"children:{str(self)}: {[str(ch) for ch in children]}")
 
-
     @property
     def type(self) -> str:
+        """
+        Get the type of the element.
+
+        Returns:
+            str: The type of the element.
+        """
         return self._type
     
     @property
     def is_negated(self) -> bool:
-        """whether or not the element has `-` as prefix"""
+        """
+        Check whether or not the element is negated.
+
+        Returns:
+            bool: True if the element is negated, False otherwise.
+        """
         return self.negate
     
     @abstractmethod
     def to_latex(self) -> str:
-        """the latex representation of the element"""
+        """
+        Get the LaTeX representation of the element.
+
+        Returns:
+            str: The LaTeX representation of the element.
+        """
         pass
 
     @staticmethod
     def unpack_array(op: "Element") -> "Element":
-        """removed the array from the given element if the array is not negated"""
+        """
+        Remove the array from the given element if the array is not negated.
+
+        Args:
+            op (Element): The element to unpack.
+
+        Returns:
+            Element: The unpacked element.
+        """
         if op.type == "array" and not op.is_negated:
             return op.children[0]
         return op
@@ -779,6 +825,16 @@ class NumericStringParser(object):
             return element
 
     def eval(self, num_string, parseAll=True) -> str:
+        """
+        Evaluates a mathematical expression given as a string and returns the result in LaTeX format.
+
+        Args:
+            num_string (str): The mathematical expression to evaluate.
+            parseAll (bool, optional): Whether to parse the entire input string. Defaults to True.
+
+        Returns:
+            str: The result of the evaluation in LaTeX format.
+        """
         self.exprStack: List[Element] = []
         results = self.bnf.parseString(num_string, parseAll)
         logging.debug("results")
@@ -891,7 +947,20 @@ def latex2image(
         logging.error(f"LaTeX: {result}\nError:{traceback.format_exc()}")
         return None
 
+from io import BytesIO
+
 def evaluation2image(evaluation: str, multiline: bool = False) -> BytesIO:
+    """
+    Converts a mathematical evaluation string into an image using LaTeX.
+
+    Args:
+        evaluation (str): The mathematical evaluation string.
+        multiline (bool, optional): Specifies whether the evaluation string contains multiple lines. 
+            Defaults to False.
+
+    Returns:
+        BytesIO: The image representation of the evaluation in LaTeX format.
+    """
     evaluations = [ev for ev in evaluation.splitlines()] if len(evaluation.splitlines()) > 1 else [evaluation]
     parser = NumericStringParser()
     evaluations = [parser.eval(ev) for ev in evaluations]
