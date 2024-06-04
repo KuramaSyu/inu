@@ -834,12 +834,15 @@ class CommandInteractionContext(InteractionContext):
     def interaction(self) -> hikari.CommandInteraction:
         return self._event.interaction
     
-
+    @property
+    def original_message(self) -> hikari.Message | None:
+        return self._initial_response
+    
     async def message(self) -> hikari.Message:
         """The initial message
         """
         if not self._initial_response:
-            self._initial_response = await self.interaction.fetch_initial_response()
+            self._initial_response = await self.interaction.fetch_message()
         return self._initial_response
 
 
