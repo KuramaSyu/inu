@@ -1572,6 +1572,7 @@ class Player:
             return False, None
         ictx = self.ctx
         resolved = False  # bool wether the query was resolved - mainly used for multi line queries
+        force_resend = True  # Whether or not the queue message will be new or will reuse the old one
 
         if not recursive:
             con = lavalink.get_guild_gateway_connection_info(self.guild_id)
@@ -1627,6 +1628,7 @@ class Player:
             self.auto_parse = False
             # check if this is the `top level _play` call
             if not prevent_to_queue:
+                # is top level call -> add save as tag component
                 await ictx.respond(
                     components=[
                         MessageActionRowBuilder()
@@ -1688,6 +1690,7 @@ class Player:
             event: Optional[hikari.InteractionCreateEvent] = None
             try:
                 track, event = await self.search_track(ictx, query)
+                force_resend = False  # queue can reuse this message
             except BotResponseError as e:
                 raise e
             except asyncio.TimeoutError:
@@ -1708,7 +1711,7 @@ class Player:
             await self.load_track(track)
 
         if not prevent_to_queue and not recursive:
-            await self.queue.send(force_resend=True, create_footer_info=False, debug_info="from play"),
+            await self.queue.send(force_resend=force_resend, create_footer_info=False, debug_info="from play"),
         return True, ictx
 
     async def fallback_track_search(self, query: str):
