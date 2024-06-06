@@ -848,11 +848,10 @@ class CommandInteractionContext(InteractionContext):
         return self._event.interaction
     
     @property
-    def message_id(self) -> hikari.Snowflake:
+    def message_id(self) -> hikari.Snowflake | None:
         if self._initial_response:
             return self._initial_response.id
-        else:
-            raise RuntimeError("No message id without initial response")
+        return None
     
     @property
     def original_message(self) -> hikari.Message | None:
