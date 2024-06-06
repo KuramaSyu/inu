@@ -260,6 +260,12 @@ class InuContext(ABC):
         """
         ...
 
+    @property
+    @abstractmethod
+    def message_id(self) -> hikari.Snowflake | None:
+        """the ID of the initial response message if there is one"""
+        ...
+
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
         ...
