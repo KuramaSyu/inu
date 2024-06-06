@@ -73,6 +73,10 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
         return self._event
 
     @property
+    def message_id(self) -> hikari.Snowflake | None:
+        return None
+    
+    @property
     def interaction(self) -> hikari.ComponentInteraction:  #type: ignore
         return self._interaction
 
@@ -390,6 +394,11 @@ class InteractionContext(_InteractionContext):
             asyncio.create_task(self._ack_interaction())
         if auto_defer:
             self.auto_defer()
+
+    @property
+    def message_id(self) -> hikari.Snowflake | None:
+        return self.interaction.message.id
+    
     def set(
         self,
         **kwargs,
@@ -406,6 +415,10 @@ class InteractionContext(_InteractionContext):
             self._responded = responded
         if options := kwargs.get("options"):
             self._options = options
+    
+    @property
+    def interaction(self) -> hikari.ComponentInteraction:
+        return self._interaction
 
     def auto_defer(self) -> None:
         """
@@ -833,6 +846,13 @@ class CommandInteractionContext(InteractionContext):
     @property
     def interaction(self) -> hikari.CommandInteraction:
         return self._event.interaction
+    
+    @property
+    def message_id(self) -> hikari.Snowflake:
+        if self._initial_response:
+            return self._initial_response.id
+        else:
+            raise RuntimeError("No message id without initial response")
     
     @property
     def original_message(self) -> hikari.Message | None:
