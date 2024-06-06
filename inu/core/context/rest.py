@@ -288,3 +288,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             **kwargs
     ) -> Tuple[str | List[str], "InteractionContext"] | Tuple[None, None]:
         raise NotImplementedError(f"`ask_with_modal` does not work with {self.__class__.__name__}")
+    
+    @property
+    def author_id(self) -> hikari.Snowflake:
+        return self.author.id
