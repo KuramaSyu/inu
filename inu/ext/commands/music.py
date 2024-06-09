@@ -1710,6 +1710,9 @@ class Player:
             if event:
                 # asked with menu - update context
                 self.ctx = get_context(event=event)
+                await self.ctx.defer(update=True, background=True)
+                # set the queue message to the 'ask-user' message
+                self.queue.set_message(await ictx.message())
             await self.load_track(track)
 
         if not prevent_to_queue and not recursive:
@@ -1965,6 +1968,11 @@ class Queue:
         except IndexError:
             return None
 
+    def set_message(self, message: hikari.Message):
+        """
+        Manually set the message used for the queue
+        """
+        self._message = message
     def reset(self):
         self._custom_info = ""
         self._create_footer_info = False
