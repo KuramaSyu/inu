@@ -1543,8 +1543,8 @@ class Player:
             the context of the command
         query: str
             the query to search for
-        be_quiet: bool
-            whether to send messages else than queue or not
+        recursive: bool
+            whether the function is called recursively
         prevent_to_queue: bool
             whether to prevent sending the queue
             - needed when queue have to be called afterwards
