@@ -1672,7 +1672,7 @@ class Player:
             await self.load_playlist()
         # not a youtube playlist nor soundcloud playlist -> something else
         elif not resolved:
-            # check for playlist
+            # check if yt track contains playlist info
             if (
                 "watch?v=" in query
                 and "youtube" in query
@@ -1684,11 +1684,13 @@ class Player:
                 not (re.match(r"^https?:\/\/", query)) 
                 and not ("ytsearch:" in query or "scsearch:" in query)
             ):
+                # nor 'ytsearch:' nor 'scsearch:' in query -> add the guild-default
                 query = f"{bot.data.preffered_music_search.get(ictx.guild_id, 'ytsearch')}:{query}"
             log.debug(f"{query=}")
             # try to add song
             event: Optional[hikari.InteractionCreateEvent] = None
             try:
+                # ask interactive for song
                 track, event = await self.search_track(ictx, query)
                 force_resend = False  # queue can reuse this message
             except BotResponseError as e:
@@ -2374,7 +2376,7 @@ class Queue:
             or music_message is None 
         ):
             # send new message and override
-            kwargs = {} if music_message else {} #"update": True
+            kwargs = {"update": False}
             log.debug(f"send new message with {kwargs=}, {music_message=}")
             msg = await self.player.ctx.respond(
                 embed=music_embed, 
