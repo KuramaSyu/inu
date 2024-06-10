@@ -6,6 +6,17 @@
 
 # Commands
 
+command | sub command | description
+--------|-------------|-------------
+tag | add | add a tag (same as a note)
+tag | get | get a tag 
+tag | edit | edit a tag (value / name / ...)
+anime | | Shows information for an Anime
+tv-show | | Shows information for a tv-show
+movie | | Shows information about a movie
+anime-of-the-week | | Shows which anime are popular this week
+play | | play a song
+
 ## Docker and docker-compose
 to start after making changes to config:
 
