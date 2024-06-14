@@ -464,6 +464,7 @@ async def purge_until_this_message(ctx: context.MessageContext):
                     display_name_or_id(user_id, guild_id=ctx.guild_id),
                     amount
             ])
+        user_name_amount.append(["Total", len(messages)])
         table = tabulate(user_name_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
         delete_in = datetime.now() + timedelta(seconds=20)
         msg = await ctx.edit_last_response(
