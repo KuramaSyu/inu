@@ -861,7 +861,7 @@ class CommandInteractionContext(InteractionContext):
         """The initial message
         """
         if not self._initial_response:
-            self._initial_response = await self.interaction.fetch_message()
+            self._initial_response = await self.interaction.fetch_message(self.message_id)
         return self._initial_response
 
 
