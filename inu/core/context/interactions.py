@@ -862,7 +862,11 @@ class CommandInteractionContext(InteractionContext):
         """
         if not self._initial_response:
             try:
-                self._initial_response = await self.interaction.fetch_message(self.message_id)
+                if self.message_id:
+                    self._message = await self.interaction.fetch_message(self.message_id)
+                else:
+                    self._initial_response = await self.interaction.fetch_initial_response()
+                
             except Exception as e:
                 self.bot.rest.fetch_message(self.channel_id, self.message_id)
         return self._initial_response
