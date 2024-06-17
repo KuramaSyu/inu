@@ -27,12 +27,12 @@ class BoredIdea:
     def embed(self) -> hikari.Embed:
         return hikari.Embed(
             title=f"{self.activity}",
-            description=f"{self.type} | {self.participants} participants | {self.price}€ | {self.accessibility * 100}% accessibility",
+            description=f"{self.type} | {self.participants} participants | {self.price}€ | accessibility: {self.accessibility}",
             color=Colors.random_blue(),
         )
 
 class BoredAPI:
-    Endpoint = "https://www.boredapi.com/api/activity/"
+    Endpoint = "https://bored-api.appbrewery.com/random"
     @classmethod
     async def fetch_idea(cls, ssl: bool = True) -> BoredIdea:
         try:
