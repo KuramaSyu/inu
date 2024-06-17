@@ -39,7 +39,8 @@ from utils import (
     Paginator, StatelessPaginator,
     TagHandler, Tag,
     add_row_when_filled, 
-    TagCustomID
+    TagCustomID,
+    mockup_action_row
 )
 from utils.paginators.base import navigation_row
 from core import (
@@ -459,30 +460,63 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
         return await ctx.respond("Seems like this tag doesn't exist anymore", ephemeral=True)
     if not tag.is_authorized_to_write(ctx.author.id):   
         # ask owner if asked user should get the permission  
-        answ, ctx = await ctx.ask(
+        answ, new_ctx = await ctx.ask(
             "You've no permission to edit this tag. Should I ask the owner to grant you the permission?",
             button_labels=["Yes", "No"],
             ephemeral=True,
             timeout=60*10,
         )
-        if ctx is None:
+        if new_ctx is None:
             return
-        asked_user = ctx.author
+        asked_user = new_ctx.author
+
         if answ == "No":
-            await ctx.respond("Okay :)", ephemeral=True)
-            return
-        answ, ctx = await ctx.ask(
+            return await new_ctx.respond(
+                update=True,
+                components=[mockup_action_row(["Yes", "No"], True, [ButtonStyle.SECONDARY, ButtonStyle.PRIMARY])]
+            )
+        else:
+            await new_ctx.respond(
+                update=True,
+                components=[mockup_action_row(["Yes", "No"], True, [ButtonStyle.PRIMARY, ButtonStyle.SECONDARY])]
+            )
+
+        answ, ctx = await new_ctx.ask(
             f"{Human.list_([f'<@{owner}>' for owner in tag.owners], with_a_or_an=False)}, should I grant {asked_user.mention} the permission to edit this tag?",
             button_labels=["Yes", "No"],
             timeout=60*10,
             ephemeral=False,
             allowed_users=tag.owners
         )
+
         if ctx is None:
             return
+        
+        mockup = {
+            "button_labels": ["Yes", "No"],
+            "is_disabled": True,
+            "colors": [ButtonStyle.PRIMARY, ButtonStyle.SECONDARY]
+        }
+
         if answ == "No":
-            await ctx.respond("Okay :)", ephemeral=True)
+            # mark no as pressed
+            mockup["colors"].reverse()
+
+        await ctx.respond(
+            update=True, 
+            components=[mockup_action_row(**mockup)]
+        )
+        if answ == "No":
+            return
         else:
+            await ctx.respond(
+                update=True, 
+                components=[mockup_action_row(
+                        ["Yes", "No"], 
+                        True, 
+                        [ButtonStyle.PRIMARY, ButtonStyle.SECONDARY]
+                )]
+            )
             tag.owners.add(asked_user.id)
             await tag.save()
             await ctx.respond(f"{asked_user.mention} you got the permission to edit this tag now")
