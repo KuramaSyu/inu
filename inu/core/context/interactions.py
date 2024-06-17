@@ -189,6 +189,7 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
                 **kwargs_: Any,
             ) -> hikari.Message:
                 return await self.app.rest.edit_webhook_message(_wh_id, _tkn, _m_id, *args_, **kwargs_)
+            
             if update and self._responses:
                 proxy = self._responses[-1]
                 message = await proxy.edit(*args, **kwargs)
@@ -318,6 +319,7 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
                 label=label
             )
         proxy = await self.respond(title, components=components, ephemeral=ephemeral)
+        self._responses.append(proxy)
         selected_label, event, interaction = await self.app.wait_for_interaction(
             custom_ids=[f"{prefix}{l}" for l in button_labels],
             user_ids=allowed_users or self.author.id,
@@ -518,6 +520,9 @@ class InteractionContext(_InteractionContext):
     def i(self) -> hikari.ComponentInteraction:
         return self._interaction
 
+    @property
+    def last_response(self) -> ResponseProxy | None:
+        return self._responses[-1] if self._responses else None
     @property
     def author(self) -> hikari.User:
         return self.interaction.user
