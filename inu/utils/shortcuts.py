@@ -108,6 +108,25 @@ def has_component_interaction(event: hikari.InteractionCreateEvent) -> bool:
     if isinstance(event.interaction, hikari.ComponentInteraction):
         return True
     return False
+
+def mockup_action_row(
+        button_labels: List[str],
+        is_disabled: List[bool] | bool,
+        colors: List[hikari.ButtonStyle] | hikari.ButtonStyle,
+) -> MessageActionRowBuilder:
+    if isinstance(is_disabled, bool):
+        is_disabled = [is_disabled] * len(button_labels)
+    if isinstance(colors, hikari.ButtonStyle):
+        colors = [colors] * len(button_labels)
+    action_row = MessageActionRowBuilder()
+    for label, disabled, color in zip(button_labels, is_disabled, colors):
+        action_row.add_interactive_button(
+            color, 
+            f"mockup_{label}",
+            label=label, 
+            is_disabled=disabled
+        )
+    return action_row
     
 
 
