@@ -16,6 +16,16 @@ tv-show | | Shows information for a tv-show
 movie | | Shows information about a movie
 anime-of-the-week | | Shows which anime are popular this week
 play | | play a song
+current-games | | displays a chart with the games which where played during a specified time period (default 14d)
+week-activity | | the same as `current-games` but with one chart summing it up
+
+## `/current-games`
+shows the last played games as a line chart. Example:
+![](https://i.postimg.cc/8zgK5c1m/grafik.png)
+
+## `/week-activity`
+Similar to `/current-games` but with one chart summing all games up:
+[![grafik.png](https://i.postimg.cc/jShpYPz7/grafik.png)](https://postimg.cc/xXcxKkpf)
 
 ## Docker and docker-compose
 to start after making changes to config:
@@ -30,7 +40,8 @@ to enter the terminal and use psql:
 
 `docker exec -it postgresql psql -U inu inu_db`
 
-## Keyboard shortcuts
+
+# Keyboard shortcuts
 
 to move docker-compose into the background:
 
