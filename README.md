@@ -27,6 +27,10 @@ shows the last played games as a line chart. Example:
 Similar to `/current-games` but with one chart summing all games up:
 [![grafik.png](https://i.postimg.cc/jShpYPz7/grafik.png)](https://postimg.cc/xXcxKkpf)
 
+## `/anime {name}`
+Shows information for an Anime
+[![grafik.png](https://i.postimg.cc/RZ64p5Wm/grafik.png)](https://postimg.cc/QF32VzgY)
+
 ## Docker and docker-compose
 to start after making changes to config:
 
