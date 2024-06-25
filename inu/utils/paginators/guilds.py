@@ -7,7 +7,7 @@ from core import InuContext
 
 
 
-class GuildsPaginator(Paginator):
+class GuildPaginator(Paginator):
     _guilds: List[Guild]
     
     async def start(self, ctx: InuContext, guilds: List[Guild]):
