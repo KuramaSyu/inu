@@ -9,7 +9,7 @@ import lightbulb
 import lightbulb.utils as lightbulb_utils
 
 from core import BotResponseError, Inu, Table, getLogger, get_context
-from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ResponseType, TextInputStyle
+from hikari import ActionRowComponent, ComponentInteraction, Embed, GatewayGuild, InteractionCreateEvent, MessageCreateEvent, embeds, ResponseType, TextInputStyle
 from tabulate import tabulate
 from lightbulb import OptionModifier as OM
 from lightbulb import commands, context
@@ -19,6 +19,7 @@ from utils import (
     Colors, 
     Human,
     Paginator, 
+    GuildPaginator,
     Reddit, 
     Urban, 
     crumble, 
@@ -137,6 +138,15 @@ def ping_to_color_rest(ping: float) -> str:
     else:
         return "🟢"
 
+
+@basics.listener(InteractionCreateEvent)
+async def on_interaction(event: InteractionCreateEvent):
+    if not isinstance(event.interaction, ComponentInteraction):
+        return
+    if event.interaction.custom_id == "pag-guilds":
+        guilds = [g for g in bot.cache.get_guilds_view().values()]
+        pag = GuildPaginator([])
+        await pag.start(get_context(event), guilds)
 
 
 @basics.command
