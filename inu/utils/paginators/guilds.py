@@ -20,9 +20,9 @@ class GuildPaginator(Paginator):
         for guild in self._guilds:
             embed = Embed(title=f"{guild.name}")
             
-            embed.add_field("ID", f"{guild.id}", inline=True)
-            embed.add_field("Owner", f"{user_name_or_id(guild.owner_id)}", inline=True)
-            embed.add_field("Amount of Members", f"{len(guild.get_members())}", inline=True)
+            embed.add_field("ID", f"{guild.id}", inline=False)
+            embed.add_field("Owner", f"{user_name_or_id(guild.owner_id)}", inline=False)
+            embed.add_field("Amount of Members", f"{len(guild.get_members())}", inline=False)
             embed.set_image(guild.icon_url)
             #embed.add_field("Roles", f"{len(guild.get_roles())}", inline=True)
             embeds.append(embed)
