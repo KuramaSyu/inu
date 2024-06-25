@@ -5,11 +5,12 @@ import traceback
 
 import aiohttp
 import hikari
+from hikari.impl import MessageActionRowBuilder
 import lightbulb
 import lightbulb.utils as lightbulb_utils
 
 from core import BotResponseError, Inu, Table, getLogger, get_context
-from hikari import ActionRowComponent, ComponentInteraction, Embed, GatewayGuild, InteractionCreateEvent, MessageCreateEvent, embeds, ResponseType, TextInputStyle
+from hikari import ActionRowComponent, ButtonStyle, ComponentInteraction, Embed, GatewayGuild, InteractionCreateEvent, MessageCreateEvent, embeds, ResponseType, TextInputStyle
 from tabulate import tabulate
 from lightbulb import OptionModifier as OM
 from lightbulb import commands, context
@@ -281,7 +282,12 @@ async def status(ctx: context.Context):
     embed.add_field(f"Daily DB calls", f"```py\n{bot.db.daily_queries.tail(7)}```", inline=False)
     embed.add_field(f"Hourly DB calls", f"```py\n{bot.db.hourly_queries.tail(24)}```", inline=False)
     embed.add_field(f"Guilds:", f"{len(bot.cache.get_guilds_view())}")
-    await msg.edit(embed=embed)
+    await msg.edit(embed=embed, 
+        components=[ 
+            MessageActionRowBuilder()
+            .add_interactive_button(ButtonStyle.SECONDARY, "pag-guilds", label="Guilds")
+        ]
+    )
 
 
 
