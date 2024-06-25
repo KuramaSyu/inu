@@ -1,5 +1,5 @@
 from typing import *  # noqa
-from hikari import ComponentInteraction, Embed, Guild
+from hikari import ComponentInteraction, Embed, GatewayGuild, Guild
 
 from . import Paginator, listener
 from utils import user_name_or_id
@@ -8,9 +8,9 @@ from core import InuContext
 
 
 class GuildPaginator(Paginator):
-    _guilds: List[Guild]
+    _guilds: List[GatewayGuild]
     
-    async def start(self, ctx: InuContext, guilds: List[Guild]):
+    async def start(self, ctx: InuContext, guilds: List[GatewayGuild]):
         self._guilds = guilds
         self.set_embeds()
         await super().start(ctx)
