@@ -149,6 +149,14 @@ class InteractionButtonObserver(BaseObserver):
             return
         await self.callback(self.paginator, ctx, event)
 
+# decorator factory which consumes a function which first argument is self of type Paginator
+# Args: label: str, emoji: Optional[str], style: ButtonStyle, contains: Optional[str], startswith: Optional[str]
+# TODO: There has to be some arg on the Paginator, that the listener can dynamically 
+# create the custom_id. Maybe self._custom_id_builder = Optional[Callable[Paginator], str]
+# the decorator than needs to add a Button to self._components
+# hence a parameter is needed to set the row. Maybe take int or Enum which contains LAST and FIRST_USABLE
+# contains or startswith is needed for the _check function of the Observer
+# with these things subscribe the listener with right parameters
 
 
 class EventListener(BaseListener):
