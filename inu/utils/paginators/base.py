@@ -135,7 +135,7 @@ class InteractionButtonObserver(BaseObserver):
         self.paginator: Paginator
         self._check: Callable[[ComponentInteraction], bool] = lambda x: True
 
-    def check_startswith(self, startswith: str) -> "InteractionButtonObserver":
+    def use_check_startswith(self, startswith: str) -> "InteractionButtonObserver":
         self._check = lambda x: x.custom_id.startswith(startswith)
         return self
     
@@ -143,8 +143,10 @@ class InteractionButtonObserver(BaseObserver):
     def callback(self) -> Callable:
         return self._callback
 
-    async def on_event(self, event: Event):
+    async def on_event(self, event: InteractionCreateEvent):
         ctx = get_context(event)
+        if not (isinstance(event.interaction, ComponentInteraction) and self._check(event.interaction)):
+            return
         await self.callback(self.paginator, ctx, event)
 
 
@@ -670,7 +672,7 @@ class Paginator():
 
         # register all listeners
         for name, obj in type(self).__dict__.items():
-            if isinstance(obj, EventObserver):
+            if isinstance(obj, (EventObserver, InteractionButtonObserver)):
                 obj = getattr(self, name)
                 copy_obj = deepcopy(obj)  
                 # why deepcopy?: the `obj` seems to be, no matter if pag is a new instance, always the same obj.
