@@ -120,6 +120,32 @@ class EventObserver(BaseObserver):
 
     async def on_event(self, event: Event):
         await self.callback(self.paginator, event)
+        
+        
+class InteractionButtonObserver(BaseObserver):
+    """An Observer used to trigger hikari ComponentInteractions, given from the paginator"""
+    def __init__(
+        self, 
+        callback: Callable[["Paginator", InuContext, Event], Any], 
+        interaction: ComponentInteraction
+    ):
+        self._callback = callback
+        self.interaction = interaction
+        self.name: Optional[str] = None
+        self.paginator: Paginator
+        self._check: Callable[[ComponentInteraction], bool] = lambda x: True
+
+    def check_startswith(self, startswith: str) -> "InteractionButtonObserver":
+        self._check = lambda x: x.custom_id.startswith(startswith)
+        return self
+    
+    @property
+    def callback(self) -> Callable:
+        return self._callback
+
+    async def on_event(self, event: Event):
+        ctx = get_context(event)
+        await self.callback(self.paginator, ctx, event)
 
 
 
