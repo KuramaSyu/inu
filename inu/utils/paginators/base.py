@@ -156,20 +156,19 @@ class ButtonObserver(BaseObserver):
 
     async def on_event(self, event: InteractionCreateEvent):
         ctx = get_context(event)
-        if not (isinstance(event.interaction, ComponentInteraction) or self._check(event.interaction)):
+        if not (isinstance(event.interaction, ComponentInteraction) and self._check(event.interaction)):
             return
         await self.callback(self.paginator, ctx, event)
         
-    def set_button_properties(
-        self, 
-        label: str,
-        style: ButtonStyle = ButtonStyle.SECONDARY,
-        emoji: Optional[str] = None,
-        startswith: Optional[str] = None,
-    ):
-        ...
-        # TODO: save this to a component and read it out in the paginator init. 
-        
+# not x or not y
+#
+# == eq
+#
+# not (x and y)
+#
+# <> opposite
+#
+# x and y
 
 def button(
     label: str,
