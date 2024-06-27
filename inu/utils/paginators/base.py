@@ -22,6 +22,7 @@ from abc import abstractmethod, ABCMeta, ABC
 from copy import deepcopy
 import random
 import time
+import functools
 
 import textwrap
 
@@ -122,20 +123,30 @@ class EventObserver(BaseObserver):
         await self.callback(self.paginator, event)
         
         
-class InteractionButtonObserver(BaseObserver):
+        
+class ButtonObserver(BaseObserver):
     """An Observer used to trigger hikari ComponentInteractions, given from the paginator"""
     def __init__(
         self, 
         callback: Callable[["Paginator", InuContext, Event], Any], 
-        interaction: ComponentInteraction
+        label: str,
+        custom_id_base: str,
+        style: ButtonStyle = ButtonStyle.SECONDARY,
+        emoji: Optional[str] = None,
+        startswith: Optional[str] = None,
     ):
+        self.event = str(hikari.InteractionCreateEvent)
         self._callback = callback
-        self.interaction = interaction
         self.name: Optional[str] = None
         self.paginator: Paginator
-        self._check: Callable[[ComponentInteraction], bool] = lambda x: True
+        self._label = label
+        self._emoji: Optional[str] = emoji
+        self._button_style: ButtonStyle = style
+        self._custom_id_base = custom_id_base
+        self._check: Callable[[ComponentInteraction], bool] = lambda i: i.custom_id.startswith(self._custom_id_base) 
+        
 
-    def use_check_startswith(self, startswith: str) -> "InteractionButtonObserver":
+    def use_check_startswith(self, startswith: str) -> "ButtonObserver":
         self._check = lambda x: x.custom_id.startswith(startswith)
         return self
     
@@ -145,10 +156,42 @@ class InteractionButtonObserver(BaseObserver):
 
     async def on_event(self, event: InteractionCreateEvent):
         ctx = get_context(event)
-        if not (isinstance(event.interaction, ComponentInteraction) and self._check(event.interaction)):
+        if not (isinstance(event.interaction, ComponentInteraction) or self._check(event.interaction)):
             return
         await self.callback(self.paginator, ctx, event)
+        
+    def set_button_properties(
+        self, 
+        label: str,
+        style: ButtonStyle = ButtonStyle.SECONDARY,
+        emoji: Optional[str] = None,
+        startswith: Optional[str] = None,
+    ):
+        ...
+        # TODO: save this to a component and read it out in the paginator init. 
+        
 
+def button(
+    label: str,
+    custom_id_base: str,
+    style: ButtonStyle = ButtonStyle.SECONDARY,
+    emoji: Optional[str] = None,
+):
+    """
+    A decorator factory to create a Button and also add it to the listener of the paginator.
+    """
+    
+    def decorator(func: Callable):
+        observer = ButtonObserver(
+            callback=func,
+            label=label,
+            custom_id_base=custom_id_base,
+            style=style,
+            emoji=emoji
+        )
+        return observer
+        # set label
+    return decorator
 # decorator factory which consumes a function which first argument is self of type Paginator
 # Args: label: str, emoji: Optional[str], style: ButtonStyle, contains: Optional[str], startswith: Optional[str]
 # TODO: There has to be some arg on the Paginator, that the listener can dynamically 
@@ -157,6 +200,8 @@ class InteractionButtonObserver(BaseObserver):
 # hence a parameter is needed to set the row. Maybe take int or Enum which contains LAST and FIRST_USABLE
 # contains or startswith is needed for the _check function of the Observer
 # with these things subscribe the listener with right parameters
+
+# a second decorator which consumes the output of the button decorator factory to specify a method 
 
 
 class EventListener(BaseListener):
@@ -189,6 +234,10 @@ def listener(event: Any):
     """A decorator to add listeners to a paginator"""
     def decorator(func: Callable):
         log.debug("listener registered")
+        def wrapper(*args, **kwargs):
+            """
+            wrapper which executes the function and also adds 
+            """
         return EventObserver(callback=func, event=str(event))
     return decorator
 
@@ -680,7 +729,9 @@ class Paginator():
 
         # register all listeners
         for name, obj in type(self).__dict__.items():
-            if isinstance(obj, (EventObserver, InteractionButtonObserver)):
+            # iterate paginator dict and check if EventObserver or ButtonObserver
+            # created by decorators is found
+            if isinstance(obj, (EventObserver, ButtonObserver)):
                 obj = getattr(self, name)
                 copy_obj = deepcopy(obj)  
                 # why deepcopy?: the `obj` seems to be, no matter if pag is a new instance, always the same obj.
