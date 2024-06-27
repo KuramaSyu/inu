@@ -179,6 +179,13 @@ def button(
 ):
     """
     A decorator factory to create a Button and also add it to the listener of the paginator.
+    
+    Args:
+    -----
+    label (str): the label of the button
+    custom_id_base (str): how the custom_id starts. This will also be used to create the component
+    style (Buttonstyle) default=ButtonStyle.SECONDARY: the style of the button
+    emoji (Optional[str]) default=None: the emoji of the button
     """
     
     def decorator(func: Callable):
