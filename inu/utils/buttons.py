@@ -8,8 +8,8 @@ from core import InuContext
 from utils import pacman
 
 class Button(ABC):
-    @abstractmethod
     @classmethod
+    @abstractmethod
     def add(
         cls,
         row: List[MessageActionRowBuilder],
