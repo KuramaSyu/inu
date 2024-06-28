@@ -51,7 +51,7 @@ class TimeButton(Button):
     def add(
         cls,
         row: List[MessageActionRowBuilder], 
-        time: datetime = None
+        time: Optional[datetime] = None
     ) -> List[MessageActionRowBuilder]:
         """
         Adds a time button to the last actionrowbuilder or to a new one if the last one is full.
