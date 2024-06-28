@@ -7,6 +7,7 @@ from typing import (
     Callable,
     Optional,
     Sequence,
+    Tuple,
     TypeVar,
     Union,
     List,
@@ -27,16 +28,17 @@ import functools
 import textwrap
 
 import hikari
+from hikari.api import ButtonBuilder
 from hikari.embeds import Embed
 from hikari.messages import Message
 from hikari.impl import MessageActionRowBuilder, InteractiveButtonBuilder
-from hikari import ButtonStyle, ComponentInteraction, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType
+from hikari import ButtonComponent, ButtonStyle, ComponentInteraction, ComponentType, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType, UndefinedType
 from hikari.events.base_events import Event
 import lightbulb
 from lightbulb.context import Context
 
 from core import InteractionContext, RESTContext, InuContext, get_context, BotResponseError, getLogger
-
+from utils.buttons import add_row_when_filled
 LOGLEVEL = logging.WARNING
 log = logging.getLogger(__name__)
 log.setLevel(LOGLEVEL)
@@ -150,6 +152,17 @@ class ButtonObserver(BaseObserver):
         self._check = lambda x: x.custom_id.startswith(startswith)
         return self
     
+    def button_args(
+        self, 
+        paginator: "Paginator", 
+    ) -> InteractiveButtonBuilder: 
+        return InteractiveButtonBuilder(
+            style=self._button_style,
+            custom_id=self._custom_id_base,
+            emoji=self._emoji or UndefinedType.UNDEFINED,
+            label=self._label,
+        )
+    
     @property
     def callback(self) -> Callable:
         return self._callback
@@ -198,14 +211,8 @@ def button(
         return observer
         # set label
     return decorator
-# decorator factory which consumes a function which first argument is self of type Paginator
-# Args: label: str, emoji: Optional[str], style: ButtonStyle, contains: Optional[str], startswith: Optional[str]
-# TODO: There has to be some arg on the Paginator, that the listener can dynamically 
-# create the custom_id. Maybe self._custom_id_builder = Optional[Callable[Paginator], str]
-# the decorator than needs to add a Button to self._components
-# hence a parameter is needed to set the row. Maybe take int or Enum which contains LAST and FIRST_USABLE
-# contains or startswith is needed for the _check function of the Observer
-# with these things subscribe the listener with right parameters
+
+# TODO: option to set add_button to None, to manually build it
 
 # a second decorator which consumes the output of the button decorator factory to specify a method 
 
@@ -745,6 +752,10 @@ class Paginator():
                 copy_obj.name = name
                 copy_obj.paginator = self
                 self.listener.subscribe(copy_obj, copy_obj.event)
+            if isinstance(obj, ButtonObserver):
+                # maybe rebuild them in pagination loop?
+                self._additional_components = add_row_when_filled(self._additional_components)
+                self._additional_components[-1].add_component(obj.button_args(self))
     @staticmethod
     def raise_or_return(attr: Any, attr_name: str):
         """raises if <`attr`> is None. Returnes otherwise"""
