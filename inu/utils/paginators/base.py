@@ -192,6 +192,14 @@ def button(
     """
     A decorator factory to create a Button and also add it to the listener of the paginator.
     
+    Example:
+    --------
+    ```py
+    @button(label="Next", custom_id_base="next", style=ButtonStyle.PRIMARY, emoji="▶")
+    async def next_button(self: Paginator, ctx: InuContext, event: InteractionCreateEvent):
+        ...
+    ```
+    
     Args:
     -----
     label (str): the label of the button
