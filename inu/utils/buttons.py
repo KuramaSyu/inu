@@ -2,7 +2,7 @@ from typing import *
 from datetime import datetime, timedelta
 import hikari
 from hikari.impl import MessageActionRowBuilder
-from abc import ABC, abstractclassmethod, abstractmethod
+from abc import ABC, abstractmethod
 
 from core import InuContext
 from utils import pacman
