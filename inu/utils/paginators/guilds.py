@@ -1,7 +1,7 @@
 from typing import *  # noqa
-from hikari import ComponentInteraction, Embed, GatewayGuild, Guild
+from hikari import ButtonStyle, ComponentInteraction, Embed, GatewayGuild, Guild
 
-from . import Paginator, listener
+from . import Paginator, listener, button  # use . to prevent circular imports 
 from utils import user_name_or_id
 from core import InuContext
 
@@ -27,7 +27,10 @@ class GuildPaginator(Paginator):
             #embed.add_field("Roles", f"{len(guild.get_roles())}", inline=True)
             embeds.append(embed)
         self._pages = embeds
-            
+        
+    @button(label="Leave Guild", custom_id_base="pag_guilds_leave", style=ButtonStyle.DANGER, emoji="🚪")
+    async def leave_guild(self, ctx: InuContext, _):
+        await ctx.respond("Test")
 
     # async def _update_position(self, interaction: ComponentInteraction | None = None,):
     #     """
