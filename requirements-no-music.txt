@@ -37,4 +37,6 @@ tabulate
 expiring-dict
 colorcet
 uvloop
+selenium_async
+setuptools
 emoji==2.12.1
