@@ -238,7 +238,7 @@ class CurrentGamesManager:
         table = Table("current_games")
         table.return_as_dataframe(True)
         additional_activity_filter = f"AND game = ANY($3)" if activity_filter else ""
-        optional_arg = [activity_filter] or []
+        optional_arg = [activity_filter] if activity_filter else []
         # ts_round(timestamp, 300) -> round timestamp to nearest 10 minutes
         sql = ( 
             f"SELECT ts_round(timestamp, 300) AS r_timestamp, game, CAST(user_amount AS FLOAT)*{USER_AMOUNT_TO_MINUTES}/60 AS hours\n"
