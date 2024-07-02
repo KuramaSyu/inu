@@ -34,6 +34,7 @@ from hikari.messages import Message
 from hikari.impl import MessageActionRowBuilder, InteractiveButtonBuilder
 from hikari import ButtonComponent, ButtonStyle, ComponentInteraction, ComponentType, GuildMessageCreateEvent, InteractionCreateEvent, MessageCreateEvent, NotFoundError, ResponseType, UndefinedType
 from hikari.events.base_events import Event
+from hikari.undefined import UNDEFINED
 import lightbulb
 from lightbulb.context import Context
 
@@ -159,7 +160,7 @@ class ButtonObserver(BaseObserver):
         return InteractiveButtonBuilder(
             style=self._button_style,
             custom_id=self._custom_id_base,
-            emoji=self._emoji or UndefinedType.UNDEFINED,
+            emoji=self._emoji or UNDEFINED,
             label=self._label,
         )
     
