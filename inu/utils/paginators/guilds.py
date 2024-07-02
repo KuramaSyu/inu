@@ -3,7 +3,7 @@ from typing import *  # noqa
 from hikari import ButtonStyle, ComponentInteraction, Embed, GatewayGuild, Guild
 
 from . import Paginator, listener, button  # use . to prevent circular imports 
-from utils import user_name_or_id, CurrentGamesManager, TagManager
+from utils import user_name_or_id, CurrentGamesManager, TagManager, SettingsManager
 from core import InuContext, getLogger
 
 log = getLogger(__name__)
@@ -29,12 +29,14 @@ class GuildPaginator(Paginator):
             embed.add_field("ID", f"{guild.id}", inline=True)
             embed.add_field("Owner", f"{user_name_or_id(guild.owner_id)}", inline=True)
             embed.add_field("Amount of Members", f"{len(guild.get_members())}", inline=True)
+            
+            # current games
             activities = await CurrentGamesManager.fetch_activities(self.guild.id, datetime(2021, 1, 1))
-            if len(activities) > 0:
-                enabled = CurrentGamesManager
-                embed.add_field("Current Games", f"DB Entries: {len(activities)}", inline=True)
-                
-            embed.add_field("Current Games", f"")
+            enabled = await SettingsManager.fetch_activity_tracking(self.guild.id)
+            embed.add_field("Current Games", f"Enabled: {enabled}\nDB Entries: {len(activities)}", inline=True)
+            
+            # tags
+            # TODO
             embed.set_image(guild.icon_url)
             #embed.add_field("Roles", f"{len(guild.get_roles())}", inline=True)
             embeds.append(embed)
@@ -45,3 +47,7 @@ class GuildPaginator(Paginator):
         guild = self._guilds[self._position]
         log.warning(f"Leaving guild {guild.name}")
         await self.bot.rest.leave_guild(guild.id)
+        
+    @button(label="test", custom_id_base="test")
+    async def test(self, ctx: InuContext, _):
+        await ctx.respond("test")
