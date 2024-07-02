@@ -31,6 +31,7 @@ class SettingsManager:
             await cls.update_activity_tracking(guild_id, False)
             return False
 
+    @classmethod
     async def fetch_activity_tracking_all(cls) -> Dict[int, bool]:
         """
         Returns:
