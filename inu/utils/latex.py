@@ -571,7 +571,8 @@ class NumericStringParser(object):
         equation:: expr ['=' expr]*
         """
         point = Literal(".")
-        e = CaselessLiteral("E")
+        # E + notany UR
+        e = CaselessLiteral("E") + NotAny(CaselessLiteral("UR"))  # prevent matching "EUR" to e
         x = Literal("x")
         i = Literal("i")
         space = Literal(" ")
@@ -1073,10 +1074,8 @@ if __name__ == "__main__":
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     try:
-        tests(display=False)
-        code = """
-(((80 kilometers) / hour) × x seconds) = ((((−120 kilometers) / hour) × x seconds) + (5 kilometers))
-x = 90"""
+        tests(display=True)
+        code = """€90 * e^2"""
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     logging.info(name)
