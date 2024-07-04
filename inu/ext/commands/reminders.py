@@ -73,6 +73,7 @@ async def on_reminder_error(event: CommandErrorEvent):
     
     with open("inu/data/text/reminder-help.txt", "r", encoding="utf-8") as f:
         txt = f.read()
+    log.warning(f"Error in reminder command: {traceback.format_exc()}")
     if event.context.options.info is None:
         await event.context.respond(txt)
     else:
