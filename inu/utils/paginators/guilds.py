@@ -47,6 +47,10 @@ class GuildPaginator(Paginator):
         guild = self._guilds[self._position]
         log.warning(f"Leaving guild {guild.name}")
         await self.bot.rest.leave_guild(guild.id)
+        try:
+            await ctx.respond(f"Left guild {guild.name}")
+        except Exception as e:
+            pass
         
     @button(label="test", custom_id_base="test")
     async def test(self, ctx: InuContext, _):
