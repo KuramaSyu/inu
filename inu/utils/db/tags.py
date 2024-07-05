@@ -1074,6 +1074,25 @@ class TagManager():
         except:
             log.error(traceback.format_exc())
             return []
+        
+    @classmethod
+    async def fetch_guild_tag_amount(cls, guild_id: int) -> int:
+        """
+        Fetches the amount of tags in a guild
+
+        Args:
+        -----
+        guild_id: int
+            the guild id to fetch the amount of tags for
+        """
+        table = Table("tags")
+        return (await table.fetch(
+            f"""
+            SELECT COUNT(*) as tag_amount FROM tags
+            WHERE $1 = any(guild_ids) 
+            """,
+            guild_id
+        ))[0]["tag_amount"]
 
 
 class TagIsTakenError(Exception):
