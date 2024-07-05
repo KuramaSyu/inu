@@ -15,6 +15,7 @@ class GuildPaginator(Paginator):
     
     async def start(self, ctx: InuContext, guilds: List[GatewayGuild]):
         self._guilds = guilds
+        await ctx.respond("collecting data...")
         await self.set_embeds()
         await super().start(ctx)
         
@@ -31,19 +32,19 @@ class GuildPaginator(Paginator):
             embed.add_field("Owner", f"{user_name_or_id(guild.owner_id)}", inline=False)
                         
             # current games
-            activities = await CurrentGamesManager.fetch_activities(self.guild.id, datetime(2021, 1, 1))
+            activities = await CurrentGamesManager.fetch_activities(guild.id, datetime(2021, 1, 1))
             activity_duration = naturaldelta(timedelta(hours=len(activities) * (1/6)))
-            enabled = await SettingsManager.fetch_activity_tracking(self.guild.id)
+            enabled = await SettingsManager.fetch_activity_tracking(guild.id)
             embed.add_field("Current Games", f"Enabled: {enabled}\nEntries: {len(activities)} ({activity_duration})", inline=False)
             
             embed.add_field("Amount of Members", f"{len(guild.get_members())}", inline=True)
 
             # tags
-            tag_amount = await TagManager.fetch_guild_tag_amount(self.guild.id)
+            tag_amount = await TagManager.fetch_guild_tag_amount(guild.id)
             embed.add_field("Tags", f"Amount: {tag_amount}", inline=True)
             
             # amount of commands used
-            invocations = await InvokationStats.fetch_json(self.guild.id)
+            invocations = await InvokationStats.fetch_json(guild.id)
             if invocations:
                 invovation_amount = sum(invocations.values())
             else:
@@ -64,4 +65,4 @@ class GuildPaginator(Paginator):
             await ctx.respond(f"Left guild {guild.name}")
         except Exception as e:
             pass
-        
+    
