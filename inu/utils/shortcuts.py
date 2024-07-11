@@ -127,7 +127,35 @@ def mockup_action_row(
             is_disabled=disabled
         )
     return action_row
-    
+
+
+class ButtonUtils:
+    @classmethod
+    def toggle_by_label(
+        cls,
+        row: List[MessageActionRowBuilder] | MessageActionRowBuilder,
+        label: str,
+        disable: bool = True,
+    ) -> List[MessageActionRowBuilder]:
+        """
+        Toggles the disabled state of a button in a message action row based on its label.
+
+        Args:
+            row (List[MessageActionRowBuilder] | MessageActionRowBuilder): The row or rows of buttons.
+            label (str): The label of the button to toggle.
+            disable (bool, optional): Whether to disable the button. Defaults to True.
+        
+        Returns:
+            List[MessageActionRowBuilder]: The updated row.
+        """
+        if isinstance(row, MessageActionRowBuilder):
+            row = [row]
+        
+        for action_row in row:
+            for button in action_row.components:
+                if button.type == hikari.ComponentType.BUTTON and button.label == label:
+                    button.is_disabled = disable
+        return row
 
 
 
