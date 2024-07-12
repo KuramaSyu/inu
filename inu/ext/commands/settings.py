@@ -274,13 +274,15 @@ class ActivityLoggingView(SettingsMenuView):
 
 class AutorolesView(SettingsMenuView):
     name = "Autoroles"
-    @miru.button(label="enable", style=hikari.ButtonStyle.SUCCESS)
+    @miru.button(label="enable", style=hikari.ButtonStyle.SECONDARY)
     async def set_true(self, button: miru.Button, ctx: miru.Context) -> None:
+        assert isinstance(ctx.guild_id, hikari.Snowflake)
         embed = await update_activity_logging(ctx.guild_id, True)
         await ctx.respond(embed=embed)
 
     @miru.button(label="disable", style=hikari.ButtonStyle.DANGER)
     async def set_false(self, button: miru.Button, ctx: miru.Context) -> None:
+        assert isinstance(ctx.guild_id, hikari.Snowflake)
         embed = await update_activity_logging(ctx.guild_id, False)
         await ctx.respond(embed=embed)
 
