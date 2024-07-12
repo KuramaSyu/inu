@@ -610,7 +610,7 @@ class NavigationMenuBuilder():
 class Paginator():
     def __init__(
         self,
-        page_s: Union[List[Embed], List[str]],
+        page_s: List[Embed | str],
         timeout: int = 2*60,
         component_factory: Callable[[int], MessageActionRowBuilder] | None = None,
         components_factory: Callable[[int], List[MessageActionRowBuilder]] | None = None,
@@ -698,7 +698,7 @@ class Paginator():
         self.count = count
         self.onetime_kwargs = {}  # used once when sending a message
         self._stop: asyncio.Event = asyncio.Event()
-        self._pages: Union[List[Embed], List[str]] = page_s
+        self._pages: List[Embed | str] = page_s
         self._old_position: int = 0
 
         self._component: Optional[MessageActionRowBuilder] = None
@@ -725,7 +725,7 @@ class Paginator():
         self._hide_components_when_one_site = hide_components_when_one_site
 
         self.bot: lightbulb.BotApp
-        self._ctx: InteractionContext | None = None
+        self._ctx: InuContext | None = None
         self._channel_id: int | None = None
         self._author_id: int | None = None
 
@@ -972,7 +972,10 @@ class Paginator():
     def build_default_component(self, position=None) -> Optional[MessageActionRowBuilder]:
         if self._disable_paginator_when_one_site and len(self._pages) == 1:
             return None
-        return self._navigation_row(position)[0]
+        nav = self._navigation_row(position)
+        if nav and len(nav) >= 1:
+            return nav[0]
+        return None
     
     def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         action_rows = []
@@ -1417,7 +1420,7 @@ class Paginator():
                 await self.paginate(id=event.interaction.custom_id or None)  # type: ignore
         await self.listener.notify(event)
 
-    async def paginate(self, id: str | KeyboardInterrupt):
+    async def paginate(self, id: str | int):
         """
         paginates the message
 
