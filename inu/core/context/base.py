@@ -45,6 +45,31 @@ class InuContextBase(ContextEqualTrait):
     _responses: List[ResponseProxy] = []
     _options: Dict[str, Any] = {}
     _update: bool
+    _defered: bool
+    _responded: bool
+    
+    @property
+    def defered(self):
+        """
+        whether or not the interaction has been defered
+        """
+        return self._defered
+
+    @defered.setter
+    def defered(self, value):
+        self._defered = value
+
+    @property
+    def responded(self):
+        """
+        whether or not the interaction has been responded/acknowledged
+        """
+        return self._responded
+
+    @responded.setter
+    def responded(self, value):
+        self._responded = value
+        
     def __hash__(self) -> int:
         return self.id
     
