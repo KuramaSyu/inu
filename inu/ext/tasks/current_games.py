@@ -19,7 +19,7 @@ from asyncpg import StringDataRightTruncationError
 from utils import Reddit
 from core.db import Database
 from core import Inu
-from utils import CurrentGamesManager
+from utils import CurrentGamesManager, Games
 from utils import Columns as Col
 
 
@@ -36,6 +36,7 @@ plugin = lightbulb.Plugin(
 # Mapping from guild_id to a mapping from game name to amount of users playing it
 games: Dict[int, Dict[str, int]] = {}
 banned_act_names = ["Custom Status", "Hang Status"]
+
 async def fetch_current_games(bot: Inu):
     games: Dict[int, Dict[str, int]] = {}
     guild: hikari.Guild
@@ -50,6 +51,10 @@ async def fetch_current_games(bot: Inu):
                     act_name = activity.name
                     if act_name in banned_act_names:
                         continue
+                    if act_name in Games.EMULATORS and activity.details:
+                        # if the activity is an emulator, add the game name to the activity name
+                        # format: "Game (Emulator)"
+                        act_name = f"{activity.details.splitlines()[0]} ({act_name})"
                     if not games.get(guild.id):
                         games[guild.id] = {}
                     if act_name in games[guild.id]:
@@ -64,11 +69,15 @@ async def fetch_current_games(bot: Inu):
                 log.warning(f"Current Games ignored: `{game}` with len of {len(game)}", prefix="task")
                 banned_act_names.append(game)
 
+
+
 async def log_current_activity(bot: Inu):
     for _, guild in await bot.cache.get_guilds_view().items():
         log.debug(f"activity for {guild.name}: {await CurrentGamesManager.fetch_games(guild.id, datetime.now() - timedelta(days=30))}")
 
 # TODO: add a task to delete games older than a certain time
+
+
 
 @plugin.listener(ShardReadyEvent)
 async def load_tasks(event: ShardReadyEvent):
