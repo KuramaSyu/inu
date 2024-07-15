@@ -54,7 +54,10 @@ async def fetch_current_games(bot: Inu):
                     if act_name in Games.EMULATORS and activity.details:
                         # if the activity is an emulator, add the game name to the activity name
                         # format: "Game (Emulator)"
-                        act_name = f"{activity.details.splitlines()[0]} ({act_name})"
+                        game_name = activity.details.splitlines()[0]
+                        if game_name.startswith("Playing "):
+                            game_name = game_name[8:]
+                        act_name = f"{game_name} ({act_name})"
                     if not games.get(guild.id):
                         games[guild.id] = {}
                     if act_name in games[guild.id]:
