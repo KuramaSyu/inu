@@ -142,7 +142,7 @@ async def week_activity(ctx: Context):
 @lightbulb.option(
     "time", 
     "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="9 days"
+    default="14 days"
 )
 @lightbulb.command("current-games", "Shows, which games are played in your guild")
 @lightbulb.implements(commands.SlashCommand)
