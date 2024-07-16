@@ -597,7 +597,8 @@ async def build_activity_graph(
     highlight_height = (y_max - y_min) * 0.05  # 5% of the plot height
     highlight_position = y_min + (y_max - y_min) * 1  # 100% above the bottom of the plot
     highlight_weekends(ax, df_summarized, highlight_position, highlight_height)
-    highlight_weekend_labels(ax)
+    if resample_delta < timedelta(days=23):
+        highlight_weekend_labels(ax)
     
     # save chart
     figure = fig.get_figure()    
