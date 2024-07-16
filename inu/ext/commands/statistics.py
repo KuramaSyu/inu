@@ -19,6 +19,10 @@ from lightbulb import commands, SlidingWindowCooldownAlgorithm
 from lightbulb.context import Context
 import matplotlib
 import matplotlib.pyplot as plt
+import matplotlib.dates as mdates
+from matplotlib.patches import PathPatch
+from matplotlib.path import Path
+from matplotlib.axes import Axes
 import colorcet as cc
 import pandas as pd
 import seaborn as sn
@@ -28,6 +32,7 @@ from matplotlib.dates import DateFormatter
 import matplotlib.ticker as plticker 
 import humanize
 from tabulate import tabulate
+from numpy import uint8
 
 from utils import (
     Human, 
@@ -146,9 +151,14 @@ async def week_activity(ctx: Context):
 )
 @lightbulb.command("current-games", "Shows, which games are played in your guild")
 @lightbulb.implements(commands.SlashCommand)
-async def current_games(ctx: Context):
-    options = ctx.options
-    ctx = get_context(ctx.event)
+async def current_games(_ctx: Context):
+
+    options = _ctx.options
+    ctx = get_context(_ctx.event)
+    
+    if ctx.guild_id is None:
+        raise BotResponseError("This command can only be used in a guild", True)
+    
     try:
         await ctx.defer()
     except Exception:
@@ -187,6 +197,11 @@ async def current_games(ctx: Context):
             guild.id, 
             datetime.now() - timedelta_
         )
+        if activity_records is None:
+            raise BotResponseError(
+                f"No games were played in the last {humanize.naturaldelta(timedelta_)}",
+                ephemeral=True
+            )
         activity_records.sort(key=lambda g: g['amount'], reverse=True)
         
         # set cache
@@ -262,28 +277,38 @@ async def current_games(ctx: Context):
         
         if len(embeds) == 0:
             raise BotResponseError("No games where played durring the given period of time", ephemeral=True)
+        
+        # calculate times for music, coding and gaming
+        music_time = timedelta(minutes=int(
+            sum([g["amount"]*10 for g in activity_records if g['game'] in music_apps])
+        ))
+        coding_time = timedelta(minutes=int(
+            sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
+        ))
+        gaming_time = timedelta(minutes=int(
+            sum(int(game['amount']) for game in game_records)*10
+        )) - music_time - coding_time
+        
         # add total played games/time
         embeds[0] = (
             embeds[0]
             .add_field("Total played games", str(len(game_records)), inline=False)
-            .add_field("Total gaming time", str(timedelta(minutes=sum(int(game['amount']) for game in game_records)*10)) , inline=True)
+            .add_field("Total gaming time", str(gaming_time) , inline=True)
         )
 
         # add total coding time
-        coding_time = sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
         if coding_time:
              embeds[0].add_field(
                 "Total coding time", 
-                str(timedelta(minutes=int(coding_time))), 
+                str(coding_time),
                 inline=True
             )
 
         # add total music time
-        music_time = sum([g["amount"]*10 for g in activity_records if g['game'] in music_apps])
         if music_time:
             embeds[0].add_field(
                 "Total music time", 
-                str(timedelta(minutes=int(music_time))), 
+                str(music_time), 
                 inline=True
             )
 
@@ -356,7 +381,33 @@ async def tag_name_auto_complete(
     return games
 
 
+def highlight_weekends(ax: Axes, df_summarized: pd.DataFrame, y_position: float, height: float) -> None:
+    min_date: datetime = df_summarized['r_timestamp'].min()
+    max_date: datetime = df_summarized['r_timestamp'].max()
+    dates: pd.DatetimeIndex = pd.date_range(start=min_date, end=max_date, freq='D')
+    
+    for date in dates:
+        if date.weekday() >= 5:  # 5 and 6 represent Saturday and Sunday
+            start: float = ax.get_xaxis().convert_units(date - pd.Timedelta(days=1))
+            end: float = ax.get_xaxis().convert_units(date)
+            width: float = end - start
+            
+            y_min, y_max = [0.95, 1]
+            height: float = y_max - y_min
+            #y_position = ax.get_ylim()[0] - ax.get_ylim()[0]*0.05
+            
+            path: Path = rounded_rectangle(start, y_position, width, height, radius=0)
+            patch: PathPatch = PathPatch(path, facecolor='lightgray', alpha=0.2, edgecolor='none')
+            ax.add_patch(patch)
+    
+    ax.autoscale()
 
+def highlight_weekend_labels(ax: Axes) -> None:
+    for label in ax.get_xticklabels():
+        date: datetime = mdates.num2date(label.get_position()[0])
+        if date.weekday() >= 5:  # 5 and 6 represent Saturday and Sunday
+            label.set_color('mediumslateblue')
+            
 async def build_activity_graph(
     guild_id: int,
     since: timedelta,
@@ -495,6 +546,7 @@ async def build_activity_graph(
         df_summarized = pd.concat([df_summarized, pd.DataFrame(to_add)])
 
     for game in games:
+        # make line graphs start at 0 and end at 0
         game_add_zero_r(game)
         game_add_zero_l(game)
 
@@ -538,8 +590,15 @@ async def build_activity_graph(
     ax.xaxis.set_major_formatter(date_form)
 
     ax.set_ylabel("Hours")
-    ax.set_xlabel(f"Date (rounded to {humanize.naturaldelta(resample_delta)})")
+    ax.set_xlabel(f"Date (rounded to {humanize.naturaldelta(resample_delta)})",)
 
+    # Highlight weekend areas and labels
+    y_min, y_max = ax.get_ylim()
+    highlight_height = (y_max - y_min) * 0.05  # 5% of the plot height
+    highlight_position = y_min + (y_max - y_min) * 1  # 100% above the bottom of the plot
+    highlight_weekends(ax, df_summarized, highlight_position, highlight_height)
+    highlight_weekend_labels(ax)
+    
     # save chart
     figure = fig.get_figure()    
     figure.savefig(picture_buffer, dpi=100)
@@ -629,6 +688,28 @@ async def build_week_activity_chart(
     picture_buffer.seek(0)
     return picture_buffer, df
 
+
+
+def rounded_rectangle(x: float, y: float, width: float, height: float, radius: float) -> Path:
+    path_data: List[Tuple[uint8, Tuple[float, float]]] = [
+        (Path.MOVETO, (x + radius, y)),
+        (Path.LINETO, (x + width - radius, y)),
+        (Path.CURVE4, (x + width, y)),
+        (Path.CURVE4, (x + width, y + radius)),
+        (Path.LINETO, (x + width, y + height - radius)),
+        (Path.CURVE4, (x + width, y + height)),
+        (Path.CURVE4, (x + width - radius, y + height)),
+        (Path.LINETO, (x + radius, y + height)),
+        (Path.CURVE4, (x, y + height)),
+        (Path.CURVE4, (x, y + height - radius)),
+        (Path.LINETO, (x, y + radius)),
+        (Path.CURVE4, (x, y)),
+        (Path.CURVE4, (x + radius, y)),
+        (Path.CLOSEPOLY, (x + radius, y))
+    ]
+    
+    codes, verts = zip(*path_data)
+    return Path(verts, codes)
 
 
 def load(inu: lightbulb.BotApp):
