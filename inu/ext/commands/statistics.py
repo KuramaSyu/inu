@@ -359,6 +359,8 @@ async def current_games(_ctx: Context):
     )
     await pag.start(ctx)
 
+class GameViews:
+    ...
 
 
 
