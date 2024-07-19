@@ -360,6 +360,9 @@ async def current_games(_ctx: Context):
     await pag.start(ctx)
 
 class GameViews:
+    """
+    A class for rendering game activity graphs
+    """
     def highlight_weekends(self, ax: Axes, df_summarized: pd.DataFrame, y_position: float, height: float) -> None:
         min_date: datetime = df_summarized['r_timestamp'].min()
         max_date: datetime = df_summarized['r_timestamp'].max()
