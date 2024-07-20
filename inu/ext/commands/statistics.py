@@ -364,6 +364,9 @@ class GameViews:
     A class for rendering game activity graphs
     """
     def highlight_weekends(self, ax: Axes, df_summarized: pd.DataFrame, y_position: float, height: float) -> None:
+        """
+        Highlights the weekends in the graph as bar above the x-axis
+        """
         min_date: datetime = df_summarized['r_timestamp'].min()
         max_date: datetime = df_summarized['r_timestamp'].max()
         dates: pd.DatetimeIndex = pd.date_range(start=min_date, end=max_date, freq='D')
@@ -385,6 +388,9 @@ class GameViews:
         ax.autoscale()
 
     def highlight_weekend_labels(self, ax: Axes) -> None:
+        """
+        highlights the x-axis labels of the weekends
+        """
         for label in ax.get_xticklabels():
             date: datetime = mdates.num2date(label.get_position()[0])
             if date.weekday() >= 5:  # 5 and 6 represent Saturday and Sunday
@@ -398,6 +404,19 @@ class GameViews:
         activities: List[str],
         distinguishable_colors: bool = False,
     ) -> Tuple[BytesIO, Dataset]:
+        """
+        Builds an activity graph for `/current-games` based on the provided parameters.
+
+        Parameters:
+        - guild_id (int): The ID of the guild.
+        - since (timedelta): The time period to consider for the graph.
+        - activities (List[str]): The list of activities to include in the graph.
+        - distinguishable_colors (bool): Whether to use distinguishable colors for the graph.
+
+        Returns:
+        - Tuple[BytesIO, Dataset]: A tuple containing the graph image as a BytesIO object and the summarized dataset.
+
+        """
 
         picture_buffer = BytesIO()
 
@@ -597,6 +616,17 @@ class GameViews:
             since: timedelta,
             remove: List[str],
         ) -> Tuple[BytesIO, Dataset]:
+        """
+        Builds a week activity chart for `/week-activity` based on the given parameters.
+
+        Args:
+            guild_id (int): The ID of the guild.
+            since (timedelta): The time period to consider for the chart.
+            remove (List[str]): A list of activities to ignore.
+
+        Returns:
+            Tuple[BytesIO, Dataset]: A tuple containing the chart image as BytesIO and the dataset used for the chart.
+        """
         log.debug(f"remove: {remove}")
         df: pd.DataFrame = await CurrentGamesManager.fetch_total_activity_per_day(
             guild_id,
