@@ -351,8 +351,6 @@ async def current_games(_ctx: Context):
             "Something went wrong. Are you sure, that your game exists?",
             ephemeral=True,
         )
-    # send image and afterwards the 
-    #await ctx.respond(attachment=picture_buffer)
     pag = Paginator(
         page_s=embeds,
         first_message_kwargs={"attachment": picture_buffer}
