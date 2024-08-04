@@ -8,7 +8,11 @@ from typing import *
 import selenium_async
 from core import stopwatch
 from expiring_dict import ExpiringDict
+
+from utils.db import MyAnimeList
+
 REGEX = r"(\d+)(th|st|nd|rd) (.+) ([\d\.]+)%"
+
 
 
 class AnimeMatch(TypedDict):
@@ -48,8 +52,13 @@ class AnimeCornerAPI:
             self.ttl_dict.ttl(link, matches, self.TTL)
         return matches
 
+    @staticmethod
+    async def _fetch_ranking_details(matches: List[AnimeMatch]) -> List[AnimeMatch]:
+        ...
     
     def _fetch_ranking(self) -> List[AnimeMatch]:
+        # TODO: fetch every found anime in db, add ID field, add genre field to generate overview table 
+        # with all genres
         browser = self.create_browser()
         browser.get(self.link)
         results = browser.find_elements(by='id', value='penci-post-entry-inner')#
