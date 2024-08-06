@@ -24,8 +24,11 @@ log = getLogger(__name__)
 config = ConfigProxy(ConfigType.YAML)
 size = "/original"
 base_url = f"https://image.tmdb.org/t/p{size}"
-base = route.Base()
-base.key = config.tmdb.SECRET
+base = None
+
+async def tmdb_setup():
+    base = route.Base()
+    base.key = config.tmdb.SECRET
 
 class SortBy:
     @staticmethod

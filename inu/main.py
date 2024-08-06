@@ -16,6 +16,7 @@ import lightbulb
 from lightbulb.ext import tasks
 from core import Inu, Table
 from utils import (
+    tmdb_setup,
     InvokationStats, 
     Reminders, 
     TagManager, 
@@ -72,6 +73,7 @@ def main():
             Urban.init_bot(inu)
             await BoardManager.init_bot(inu)
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
+            await tmdb_setup()
             set_bot(inu)
             AutoroleManager.set_bot(inu)
         except Exception:

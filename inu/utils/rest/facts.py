@@ -10,7 +10,7 @@ from core import ConfigProxy, ConfigType
 class RESTFacts():
     _key = (ConfigProxy(ConfigType.YAML)).api_ninjas.SECRET
     _base_url = "https://api.api-ninjas.com/v1/"
-    _session = aiohttp.ClientSession()
+    _session = None
 
     @classmethod
     async def fetch_facts(cls, amount: int = 30) -> List[Dict[str, str]]:

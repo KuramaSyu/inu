@@ -9,7 +9,7 @@ import selenium_async
 from core import stopwatch
 from expiring_dict import ExpiringDict
 
-from utils.db import MyAnimeList
+# from utils.db import MyAnimeList
 
 REGEX = r"(\d+)(th|st|nd|rd) (.+) ([\d\.]+)%"
 
