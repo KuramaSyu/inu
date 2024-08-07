@@ -1883,6 +1883,11 @@ class StatelessPaginator(Paginator, ABC):
         """
         this method is called for restarting stateless pags
 
+        Calls:
+        ------
+        - `self._rebuild` - coro - to recreate the paginator
+        - `self.post_start` - coro - to start the paginator
+
         Args:
         ----
         event : hikari.Event
