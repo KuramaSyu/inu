@@ -447,9 +447,8 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     try:
         if not pag.custom_id.type == "stl-tag-edit": return
     except:
-        log.debug("Custom ID is not of type stl-tag-edit")
         return
-    log.debug("Custom ID is of type stl-tag-edit")
+    log.debug(f"Custom ID is of type stl-tag-edit: {pag.custom_id}")
     tag: Tag | None = await Tag.from_id(
         pag.custom_id._kwargs["tid"], 
         user_id=event.interaction.user.id, 
