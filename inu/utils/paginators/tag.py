@@ -123,7 +123,7 @@ class TagHandler(StatelessPaginator):
         self.tag: Tag
         self._pages: List[Embed] = []
         self.log = logging.getLogger(__name__)
-        self.log.setLevel(logging.WARNING)
+        self.log.setLevel(logging.DEBUG)
         self.bot: Inu
         self._edit_mode = edit_mode
         self._tag_link_task: asyncio.Task | None = None
@@ -300,7 +300,7 @@ class TagHandler(StatelessPaginator):
                 # interaction was no menu interaction
                 return
                 # set_type has other message, not this one
-            log.debug(f"Custom ID: {custom_id}")
+            self.log.debug(f"Custom ID: {custom_id}")
             self.set_context(event=event)
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
@@ -380,6 +380,7 @@ class TagHandler(StatelessPaginator):
                     return
                 log.warning(f"Unknown custom_id: {custom_id} - in {self.__class__.__name__}")
             if self.tag.name and self.tag.value: 
+                self.log.debug(f"Saving tag: {self.tag}; Custom ID: {custom_id}")
                 try:
                     await self.tag.save()
                 except Exception:
