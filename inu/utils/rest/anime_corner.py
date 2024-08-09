@@ -5,9 +5,14 @@ from datetime import timedelta
 import re
 import asyncio
 from typing import *
+
 import selenium_async
-from core import stopwatch
 from expiring_dict import ExpiringDict
+
+
+from core import stopwatch
+from core.api import PartialAnimeMatch, AnimeMatch
+
 
 # from utils.db import MyAnimeList
 
@@ -15,11 +20,7 @@ REGEX = r"(\d+)(th|st|nd|rd) (.+) ([\d\.]+)%"
 
 
 
-class AnimeMatch(TypedDict):
-    rank: int
-    rank_suffix: str
-    name: str
-    score: float
+
 
 
 class AnimeCornerAPI:
@@ -39,7 +40,7 @@ class AnimeCornerAPI:
         return Firefox(opts)
 
     @stopwatch("Scraping AnimeCorner", cache_threshold=timedelta(milliseconds=200))  
-    async def fetch_ranking(self, link: str) -> List[AnimeMatch]:
+    async def fetch_ranking(self, link: str) -> List[PartialAnimeMatch]:
         self.link = link
         if not (matches := self.ttl_dict.get(link)):
             # matches = await selenium_async.run_sync(
@@ -53,10 +54,10 @@ class AnimeCornerAPI:
         return matches
 
     @staticmethod
-    async def _fetch_ranking_details(matches: List[AnimeMatch]) -> List[AnimeMatch]:
+    async def _fetch_ranking_details(matches: List[PartialAnimeMatch]) -> List[PartialAnimeMatch]:
         ...
     
-    def _fetch_ranking(self) -> List[AnimeMatch]:
+    def _fetch_ranking(self) -> List[PartialAnimeMatch]:
         # TODO: fetch every found anime in db, add ID field, add genre field to generate overview table 
         # with all genres
         browser = self.create_browser()
@@ -68,7 +69,7 @@ class AnimeCornerAPI:
             match = re.search(REGEX, line)
             if match:
                 matches.append(
-                    AnimeMatch(
+                    PartialAnimeMatch(
                     rank=int(match.group(1)), 
                     rank_suffix=match.group(2), 
                     name=match.group(3), 
