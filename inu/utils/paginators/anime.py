@@ -886,14 +886,22 @@ class AnimeCornerPaginator2(AnimePaginator):
         total = len(self._animes)
         
         # Sort genres by count and limit to top 16
-        sorted_genres = sorted(genres.items(), key=lambda x: x[1], reverse=True)[:10]
+        sorted_genres = sorted(genres.items(), key=lambda x: x[1], reverse=True)[:12]
         
         # Calculate percentages
-        genre_percentages = [(genre, count, (count / total) * 100) for genre, count in sorted_genres]
+        genre_percentages_temp = [(genre, f"{(count / total) * 100:.0f}%") for genre, count in sorted_genres]
+        part_1 = []
+        part_2 = []
+        for i, (genre, percentage) in enumerate(genre_percentages_temp):
+            if i % 2 == 0:
+                part_1.append((genre, percentage))
+            else:
+                part_2.append((genre, percentage))
+        genre_percentages = [(*x[0], *x[1]) for x in zip(part_1, part_2)]
         
         table = tabulate(
             genre_percentages,
-            headers=["Genre", "Amount", "Percentage", ""],
+            headers=["Genre", "%", "Genre", "%"],	
             tablefmt="rounded_outline",
             floatfmt=".0f"
         )
