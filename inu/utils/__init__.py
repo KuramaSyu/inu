@@ -12,6 +12,7 @@ from .latex import latex2image, evaluation2image, prepare_for_latex
 from .grid import Grid
 from .rest import *
 from .db import *
+from .view import *
 from .logger import *
 from .poll import Poll
 
