@@ -225,6 +225,9 @@ class Anime:
     def __str__(self) -> str:
         return f"[{self.mal_id}] {self.title}"
 
+    def __hash__(self) -> int:
+        return hash(self.mal_id)
+    
     @staticmethod
     def markup_link_list(list_: List[Dict[str, str]], title_key_name:str = "title"):
         """
