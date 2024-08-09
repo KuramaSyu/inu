@@ -12,9 +12,11 @@ from datetime import datetime
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
 from hikari.impl import MessageActionRowBuilder
+
 import lightbulb
 from numpy import longdouble, sort
 from pyparsing import CloseMatch
+from tabulate import tabulate
 
 from .base import PaginatorReadyEvent, Paginator, listener
 from jikanpy import AioJikan
@@ -22,8 +24,9 @@ from lightbulb.context import Context
 from fuzzywuzzy import fuzz
 import asyncpraw
 
+from core.api.anime import PartialAnimeMatch, AnimeMatch
 from core import getLogger, InteractionContext
-from utils import Human, Colors, MyAnimeList, Anime, AnimeCornerAPI
+from utils import Human, Colors, MyAnimeList, Anime, AnimeCornerAPI, AnimeCornerView
 
 log = getLogger(__name__)
 
@@ -787,6 +790,8 @@ class AnimeCornerPaginator2(AnimePaginator):
     anime_paginators: List[AnimePaginator | None]
     title: str
     active_anime_paginator: AnimePaginator | None = None
+    _genre_table: str
+    _animes: List[Anime]
 
     def __init__(
         self,
@@ -800,6 +805,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         self._loaded_results = [{} for _ in range(11)]
         self._results = []
         self._anime_corner_task: asyncio.Task | None = None
+        self._genre_table = ""
 
         # re-init in start - just leave it
         super().__init__(
@@ -839,6 +845,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         self.anime_paginators = []
         self.submission: asyncpraw.models.Submission = submission
         self.title = title
+        self._animes: List[Anime] = []
         self._pages = [self.default_embed for _ in range(11)]
         super(AnimePaginator, self).__init__(
             page_s=self._pages,
@@ -852,14 +859,46 @@ class AnimeCornerPaginator2(AnimePaginator):
         self._anime_corner_task = asyncio.create_task(self.fetch_matches())
         # create and add callback to set footer
         def _anime_corner_callback():
+            self._pages[-1] = self.default_embed
             self._pages[-1].set_footer(
-                    f"page {len(self._pages)}/{len(self._pages)} | {self.title}"
-                )
+                f"page {len(self._pages)}/{len(self._pages)} | {self.title}"
+            )
             asyncio.create_task(self._update_position())
         self._anime_corner_task.add_done_callback(
             lambda _: _anime_corner_callback()
         )
+        await self._anime_corner_task
         return await super(AnimePaginator, self).start(ctx)
+    
+    
+    async def _make_genre_percentage_table(self) -> str:
+        """
+        Creates a table with genre percentages, limited to top 10 genres and sorted.
+        """
+        if not self._animes:
+            raise RuntimeError("Anime not fetched yet to ._animes")
+        
+        genres = {}
+        for anime in self._animes:
+            for genre in anime.genres:
+                genres[genre] = genres.get(genre, 0) + 1
+        
+        total = len(self._animes)
+        
+        # Sort genres by count and limit to top 16
+        sorted_genres = sorted(genres.items(), key=lambda x: x[1], reverse=True)[:10]
+        
+        # Calculate percentages
+        genre_percentages = [(genre, count, (count / total) * 100) for genre, count in sorted_genres]
+        
+        table = tabulate(
+            genre_percentages,
+            headers=["Genre", "Amount", "Percentage", ""],
+            tablefmt="rounded_outline",
+            floatfmt=".0f"
+        )
+        self._genre_table = f"```{table}```"
+        return self._genre_table
     
     async def fetch_matches(self):
         """
@@ -867,7 +906,10 @@ class AnimeCornerPaginator2(AnimePaginator):
         """
         try:
             anime_corner = AnimeCornerAPI()
-            self.anime_matches = (await anime_corner.fetch_ranking(self.anime_corner_url))[:10]
+            self.anime_matches: List[PartialAnimeMatch] = (await anime_corner.fetch_ranking(self.anime_corner_url))[:10]
+            animes = await AnimeCornerView.fetch_anime_matches(self.anime_matches)
+            self._animes = animes
+            await self._make_genre_percentage_table()
         except Exception as e:
             traceback.print_exc()
 
@@ -935,6 +977,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         embed.add_field("Next poll:", "[polls - AnimeCorner](https://polls.animecorner.me/)", inline=True)
         embed.add_field("Article:", f"[here]({self.anime_corner_url})", inline=True)
         embed.add_field("Reddit Post:", f"[here](https://reddit.com{self.submission.permalink})", inline=True)
+        embed.add_field("Genre Table", self._genre_table or "?", inline=False)
         embed.set_image(self.submission.url)
         if not self.anime_matches:
             embed.set_footer(text="Loading Animes...")
