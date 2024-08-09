@@ -6,5 +6,5 @@ from .reddit import Reddit
 from .watch_to_gether import Watch2Gether
 from .facts import RESTFacts
 from .github import GitHubAPI, Commit
-from .anime_corner import AnimeCornerAPI, AnimeMatch
+from .anime_corner import AnimeCornerAPI, PartialAnimeMatch
 from .xkcd import xkcdAPI, xkcdComicDict
