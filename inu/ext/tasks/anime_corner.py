@@ -12,7 +12,7 @@ import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from humanize import naturaldelta
 from core import Table, getLogger, Inu, stopwatch
-from utils import Reddit, AnimeCornerAPI, AnimeCornerPaginator2
+from utils import Reddit, AnimeCornerAPI, AnimeCornerPaginator2, AnimeCornerView
 
 log = getLogger(__name__)
 METHOD_SYNC_TIME: int = 60*60*6
@@ -68,6 +68,8 @@ async def method():
         url = pag.anime_corner_url
         api = AnimeCornerAPI()
         await api.fetch_ranking(url)
+        # cache anime matches
+        await pag.fetch_matches()
     except Exception as e:
         log.error(
             f"[CACHE] Error while fetching Anime Corner ranking with URL `{url}`\n",
