@@ -14,7 +14,7 @@ plugins:
 lavalink:
   plugins:
     # replace VERSION with the current version as shown by the Releases tab.
-    - dependency: "com.github.lavalink-devs.lavaplayer-youtube-source:plugin:1.0.5"
+    - dependency: "com.github.lavalink-devs.lavaplayer-youtube-source:plugin:1.5.2"
       repository: "https://jitpack.io"
   pluginsDir: "./plugins"
   server:
