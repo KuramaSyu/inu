@@ -17,7 +17,7 @@ from utils import Reddit, AnimeCornerAPI, AnimeCornerPaginator2, AnimeCornerView
 log = getLogger(__name__)
 METHOD_SYNC_TIME: int = 60*60*6
 SYNCING = False
-TARGET_TIME = time(16,00)
+TARGET_TIME = time(18,00)
 TRIGGER_NAME = "Anime Corner Trigger"
 bot: Inu
 
@@ -62,14 +62,15 @@ async def method():
     url = None
     try:
         submission = await Reddit.get_anime_of_the_week_post()
+        # build pag + API
         pag = AnimeCornerPaginator2()
         pag.submission = submission
         pag.title = submission.title
         url = pag.anime_corner_url
         api = AnimeCornerAPI()
-        await api.fetch_ranking(url)
-        # cache anime matches
-        await pag.fetch_matches()
+
+        await api.fetch_ranking(url)  # fetches the ranking from Anime Corner
+        await pag.fetch_matches()  # fetches every single anime match
     except Exception as e:
         log.error(
             f"[CACHE] Error while fetching Anime Corner ranking with URL `{url}`\n",
