@@ -705,6 +705,7 @@ class GameViews:
 
 
     def rounded_rectangle(self, x: float, y: float, width: float, height: float, radius: float) -> Path:
+        """Generates a rounded rectangle path"""
         path_data: List[Tuple[uint8, Tuple[float, float]]] = [
             (Path.MOVETO, (x + radius, y)),
             (Path.LINETO, (x + width - radius, y)),
