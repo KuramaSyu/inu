@@ -532,7 +532,7 @@ class TagHandler(StatelessPaginator):
         Returns:
             bool: True if the value was set successfully, False otherwise.
         """
-        value_sha256 = hashlib.sha256(self.tag.value[self._position].encode()).hexdigest()
+        value_sha256 = hashlib.sha256((self.tag.value[self._position] or "").encode()).hexdigest()
         value = None
         try:
             if append:
@@ -551,8 +551,11 @@ class TagHandler(StatelessPaginator):
         except asyncio.TimeoutError:
             return False
         self.set_context(event=event)
-        if value is None or not value or value_sha256 == hashlib.sha256(value.encode()).hexdigest():
+        if value is None or not value:
             # no new value or value is the same
+            return False
+        if not append and value_sha256 == hashlib.sha256(value.encode()).hexdigest():
+            # when the edited is the same, return
             return False
         
         values = crumble(f"{value}", 2000)
