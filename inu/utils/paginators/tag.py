@@ -30,6 +30,7 @@ from utils.language import Human
 from utils.db import Tag, TagType
 
 from core import Inu, BotResponseError, InteractionContext, get_context
+import hashlib
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)
@@ -302,12 +303,13 @@ class TagHandler(StatelessPaginator):
                 # set_type has other message, not this one
             self.log.debug(f"Custom ID: {custom_id}")
             self.set_context(event=event)
+            success = True
             if custom_id == "set_name":
                 await self.set_name(event.interaction)
             elif custom_id == "set_value":
-                await self.set_value(event.interaction)
+                success = await self.set_value(event.interaction)
             elif custom_id == "extend_value":
-                await self.extend_value(event.interaction)
+                success = await self.extend_value(event.interaction)
             elif custom_id == "change_visibility":
                 await self.change_visibility(event.interaction)
             elif custom_id == "change_owner":
@@ -379,6 +381,11 @@ class TagHandler(StatelessPaginator):
                     # reaction to this in in self._tag_link_task
                     return
                 log.warning(f"Unknown custom_id: {custom_id} - in {self.__class__.__name__}")
+
+            if not success:
+                # interaction failed, most likely timeout
+                return
+            
             if self.tag.name and self.tag.value: 
                 self.log.debug(f"Saving tag: {self.tag}; Custom ID: {custom_id}")
                 try:
@@ -516,7 +523,17 @@ class TagHandler(StatelessPaginator):
             #ctx = InteractionContext(event=event, app=self.bot)
             await self.ctx.respond(e.args[0], ephemeral=True)
 
-    async def set_value(self, interaction: ComponentInteraction, append: bool = False):
+    async def set_value(self, interaction: ComponentInteraction, append: bool = False) -> bool:
+        """
+        Sets the value of the tag based on the given interaction.
+        Parameters:
+            interaction (ComponentInteraction): The interaction object.
+            append (bool, optional): Whether to append the value or edit it. Defaults to False.
+        Returns:
+            bool: True if the value was set successfully, False otherwise.
+        """
+        value_sha256 = hashlib.sha256(self.tag.value[self._position].encode()).hexdigest()
+        value = None
         try:
             if append:
                 value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
@@ -532,10 +549,12 @@ class TagHandler(StatelessPaginator):
                     pre_value_s=self.tag.value[self._position] or "",
                 )
         except asyncio.TimeoutError:
-            return
+            return False
         self.set_context(event=event)
-        if not value:
-            return
+        if value is None or not value or value_sha256 == hashlib.sha256(value.encode()).hexdigest():
+            # no new value or value is the same
+            return False
+        
         values = crumble(f"{value}", 2000)
         if append and self.tag.value:
             self.tag.value = [
@@ -551,9 +570,22 @@ class TagHandler(StatelessPaginator):
                 *values[1:], 
                 *self.tag.value[self._position+1:]
             ]
+        return True
 
-    async def extend_value(self, interaction: ComponentInteraction):
-        await self.set_value(interaction, append=True)
+    async def extend_value(self, interaction: ComponentInteraction) -> bool:
+        """
+        Extends the value of the paginator by appending the interaction value.
+
+        Parameters:
+        ------------
+        interaction (ComponentInteraction): The interaction object representing the user's interaction.
+
+        Returns:
+        ----------
+        bool: True if the value was successfully extended, False otherwise.
+        """
+
+        return await self.set_value(interaction, append=True)
 
     async def change_visibility(self, interaction: ComponentInteraction):
         if self.tag._is_local:
