@@ -430,7 +430,8 @@ class TagHandler(StatelessPaginator):
         )
 
     async def start_view(self):
-        await self.ctx.defer(update=True)
+        self.ctx._update = True
+        await self.ctx.respond(content="Starting view", embeds=[], update=True)
         paginator = TagViewPaginator(self.tag)
         await paginator.start(self.ctx, force_show_name=True)
 
