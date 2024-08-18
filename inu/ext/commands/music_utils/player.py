@@ -28,7 +28,7 @@ import lightbulb
 from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
-import lavasnek_rs
+import lavalink_rs
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
@@ -59,7 +59,7 @@ log = getLogger(__name__)
 
 
 
-lavalink: lavasnek_rs.Lavalink = None
+lavalink: lavalink_rs.Lavalink = None
 first_join = False
 bot: Inu
 music_helper = MusicHelper()
@@ -70,7 +70,7 @@ interactive: MusicDialogs = None
 
 def setup(
         inu: Inu = None, 
-        lavalink_: lavasnek_rs.Lavalink = None,
+        lavalink_: lavalink_rs.Lavalink = None,
         message_id_to_queue_cache_: ExpiringDict = None,
 ):
     global lavalink, bot, interactive, message_id_to_queue_cache
@@ -92,7 +92,7 @@ class Player:
     def __init__(
         self,
         guild_id: int,
-        node: lavasnek_rs.Node = None,
+        node: lavalink_rs.Node = None,
     ):
         self.guild_id = guild_id
         self._node = node
@@ -104,7 +104,7 @@ class Player:
         self.auto_parse = False
         self.last_added_track = None
 
-    def track_to_md(self, track: lavasnek_rs.Track) -> str:
+    def track_to_md(self, track: lavalink_rs.Track) -> str:
         """Converts a track to markdown"""
         return f"[{track.info.title}]({track.info.uri})"
     
@@ -216,14 +216,14 @@ class Player:
             self._auto_leave_task = None
 
     @property
-    def node(self) -> lavasnek_rs.Node:
+    def node(self) -> lavalink_rs.Node:
         """Returns the node of the player"""
         if not self._node:
             raise RuntimeError("Node is not set")
         return self._node
     
     @node.setter
-    def node(self, node: lavasnek_rs.Node):
+    def node(self, node: lavalink_rs.Node):
         self._node = node
     
     @property
@@ -323,7 +323,7 @@ class Player:
     def ctx(self, ctx: InuContext):
         self._ctx = ctx
 
-    async def update_node(self, node: lavasnek_rs.Node | None = None) -> None:
+    async def update_node(self, node: lavalink_rs.Node | None = None) -> None:
         """this re-fetches the node. This should be called, when the node changed"""
         if node is None:
             node = await lavalink.get_guild_node(self.guild_id)
@@ -591,7 +591,7 @@ class Player:
             self,
             ctx: Context, 
             query: str, 
-    ) -> Tuple[Optional[lavasnek_rs.Track], Optional[hikari.InteractionCreateEvent]]:
+    ) -> Tuple[Optional[lavalink_rs.Track], Optional[hikari.InteractionCreateEvent]]:
         """
         searches the query and returns the Track or None
 
@@ -666,7 +666,7 @@ class Player:
             track = query_information.tracks[0]
         return track, event
     
-    async def load_playlist(self) -> lavasnek_rs.Tracks:
+    async def load_playlist(self) -> lavalink_rs.Tracks:
         """
         loads a youtube playlist
 
@@ -681,7 +681,7 @@ class Player:
         
         Returns
         -------
-        `lavasnek_rs.Track` :
+        `lavalink_rs.Track` :
             the first track of the playlist
         """
         tracks = await lavalink.get_tracks(self.query)
@@ -757,14 +757,14 @@ class Player:
 
 
 
-    async def load_track(self, track: lavasnek_rs.Track):
+    async def load_track(self, track: lavalink_rs.Track):
         """Loads a track into the queue
         
         Args:
         ----
         ctx : InuContext
             The context to use for sending the message and fetching the node
-        track : lavasnek_rs.Track
+        track : lavalink_rs.Track
             The track to load
         be_quiet : bool, optional
             If the track should be loaded without any response, by default False
@@ -785,7 +785,7 @@ class Player:
             self.queue.custom_info = f"🎵 {track.info.title} added by {bot.cache.get_member(self.guild_id, self.ctx.author.id).display_name}"
             self.queue.custom_info_author = self.ctx.member
             await self.update_node()
-        except lavasnek_rs.NoSessionPresent:
+        except lavalink_rs.NoSessionPresent:
             await self.ctx.respond(f"Use `/join` first")
             return
 

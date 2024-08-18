@@ -1,6 +1,6 @@
 import re
 
-# If True connect to voice with the hikari gateway instead of lavasnek_rs's
+# If True connect to voice with the hikari gateway instead of lavalink_rs's
 HIKARI_VOICE = True
 
 # prefix for autocomplete history values

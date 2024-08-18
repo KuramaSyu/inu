@@ -28,7 +28,7 @@ import lightbulb
 from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
-import lavasnek_rs
+import lavalink_rs
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
@@ -72,8 +72,8 @@ class MusicDialogs:
         ctx: Context,
         query: str,
         displayed_song_count: int = 24,
-        query_information: lavasnek_rs.Tracks = None,
-    ) -> Tuple[Optional[lavasnek_rs.Track], Optional[hikari.InteractionCreateEvent]]:
+        query_information: lavalink_rs.Tracks = None,
+    ) -> Tuple[Optional[lavalink_rs.Track], Optional[hikari.InteractionCreateEvent]]:
         """
         Creates an interactive menu for choosing a song
 
@@ -86,12 +86,12 @@ class MusicDialogs:
             the query to search; either an url or just a string
         displayed_song_count: int = 24
             the amount of songs which will be showen in the interactive message
-        query_information: Optional[lavasnek_rs.Tracks] = None 
+        query_information: Optional[lavalink_rs.Tracks] = None 
             existing information to lower footprint
             
         returns
         -------
-        Optional[lavasnek_rs.Track]
+        Optional[lavalink_rs.Track]
             the chosen title (is None if timeout or other errors)
         Optional[hikari.InteractionCreateEvent]
 

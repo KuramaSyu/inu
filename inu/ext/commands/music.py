@@ -28,7 +28,7 @@ import lightbulb
 from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
-import lavasnek_rs
+import lavalink_rs
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
@@ -72,7 +72,7 @@ class EventHandler:
     """Events from the Lavalink server"""
     def __init__(self):
         pass
-    async def track_start(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackStart) -> None:
+    async def track_start(self, lavalink: lavalink_rs.Lavalink, event: lavalink_rs.TrackStart) -> None:
         try:
             
             node = await lavalink.get_guild_node(event.guild_id)
@@ -91,13 +91,13 @@ class EventHandler:
         except Exception:
             log.error(traceback.format_exc())
 
-    async def track_finish(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackFinish) -> None:
+    async def track_finish(self, lavalink: lavalink_rs.Lavalink, event: lavalink_rs.TrackFinish) -> None:
         node = await lavalink.get_guild_node(event.guild_id)
         if node is None or len(node.queue) == 0:
             player = await PlayerManager.get_player(event.guild_id)
             await player._leave()
 
-    async def track_exception(self, lavalink: lavasnek_rs.Lavalink, event: lavasnek_rs.TrackException) -> None:
+    async def track_exception(self, lavalink: lavalink_rs.Lavalink, event: lavalink_rs.TrackException) -> None:
         log.warning(f"Track exception event happened: {event.exception_message}")
         # If a track was unable to be played, skip it
         player = await PlayerManager.get_player(event.guild_id)
@@ -113,7 +113,7 @@ class EventHandler:
 
 
 music = lightbulb.Plugin(name="Music", include_datastore=True)
-lavalink: lavasnek_rs.Lavalink = None
+lavalink: lavalink_rs.Lavalink = None
 music_dialog: MusicDialogs = None
 music_helper: MusicHelper = None
 music_messages: Dict[int, Union[hikari.Message, None]] = {}  # guild_id: hikari.Message
@@ -414,7 +414,7 @@ async def start_lavalink() -> None:
         try:
             builder = (
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
-                lavasnek_rs.LavalinkBuilder(music.bot.get_me().id, music.bot.conf.bot.DISCORD_TOKEN) #, 
+                lavalink_rs.LavalinkBuilder(music.bot.get_me().id, music.bot.conf.bot.DISCORD_TOKEN) #, 
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
                 .set_host(music.bot.conf.lavalink.IP)
                 .set_password(music.bot.conf.lavalink.PASSWORD)

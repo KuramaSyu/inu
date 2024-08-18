@@ -363,7 +363,7 @@ class Data:
     """Global data shared across the entire bot, used to store dashboard values."""
 
     def __init__(self) -> None:
-        self.lavalink: lavasnek_rs.Lavalink = None  # type: ignore
+        self.lavalink: lavalink_rs.Lavalink = None  # type: ignore
         self.preffered_music_search: Mapping[int, str] = {}
 
 class Configuration():
