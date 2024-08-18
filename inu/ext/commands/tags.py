@@ -129,7 +129,7 @@ class CheckForTagType:
         return ctx
 
 
-class TagPaginator(StatelessPaginator):
+class TagViewPaginator(StatelessPaginator):
     def __init__(self, tag: Tag, **kwargs):
         self.tag = tag
         super().__init__(
@@ -231,7 +231,7 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
             tag_name=f"id: {tag_id}",
             guild_id=get_guild_or_channel_id(event.interaction),
         )
-    pag = TagPaginator(tag).set_custom_id(event.interaction.custom_id)
+    pag = TagViewPaginator(tag).set_custom_id(event.interaction.custom_id)
     await pag.rebuild(
         event=event,
     )
@@ -365,7 +365,7 @@ async def show_record(
             raise BotResponseError(e.args[0], ephemeral=True)
     if not ctx:
         ctx = get_context(event)
-    pag = TagPaginator(
+    pag = TagViewPaginator(
         tag=tag
     )
     await tag.used_now()
