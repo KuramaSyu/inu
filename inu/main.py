@@ -156,7 +156,7 @@ def main():
     log.info(f"Bot shutted down!")
 
 if __name__ == "__main__":
-    if os.name != "nt":
-        import uvloop
-        uvloop.install()
+    # if os.name != "nt":
+    #     import uvloop
+    #     uvloop.install()
     main()
