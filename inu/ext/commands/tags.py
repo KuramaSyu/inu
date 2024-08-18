@@ -37,7 +37,7 @@ from utils import (
     crumble,
     ListParser,
     Paginator, StatelessPaginator,
-    TagHandler, Tag,
+    TagHandler, Tag, TagViewPaginator,
     add_row_when_filled, 
     TagCustomID,
     mockup_action_row
@@ -129,79 +129,7 @@ class CheckForTagType:
         return ctx
 
 
-class TagViewPaginator(StatelessPaginator):
-    def __init__(self, tag: Tag, **kwargs):
-        self.tag = tag
-        super().__init__(
-            **kwargs,
-            timeout=15*60,
-            additional_components=tag.components,
-        )
 
-    def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
-        return {"tid": self.tag.id}
-
-    async def _rebuild(self, event: InteractionCreateEvent, force_show_name: bool = False, name: str = ""):
-        self.set_context(event=event)
-        if not isinstance(event.interaction, ComponentInteraction):
-            return
-        self.__maybe_add_edit_component(event)    
-        self._build_pages(force_show_name=force_show_name, name=name)
-
-    def __maybe_add_edit_component(self, event: InteractionCreateEvent):
-        if self.tag.is_authorized_to_write(event.interaction.user.id):
-            log.debug("User is authorized to write")
-            # user authorized to write -> add tag edit button
-            components: List[MessageActionRowBuilder] = add_row_when_filled(self.tag.components or [])
-            components[-1].add_interactive_button( # todo: small json
-                ButtonStyle.SECONDARY, 
-                TagCustomID(
-                    custom_id="tag_options_update",
-                    author_id=event.interaction.user.id
-                )
-                    .set_tag_id(self.tag.id)
-                    .set_position(0)
-                    .serialize_custom_id()
-                    .as_json(),
-                label=f"Edit {tag.name} instead",
-                emoji="📝"
-            )
-            self._additional_components = components
-        else:
-            log.debug("User is not authorized to write")
-            
-    def _build_pages(self, force_show_name: bool = False, name: str = ""):
-        media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
-        messages = []
-        add_title = True
-        assert self.tag.value is not None
-        for page in self.tag.value:
-            for value in crumble(page, 2000):
-                message = ""
-                # if tag isn't just a picture and tag was not invoked with original name,
-                # AND it's the first page of the tag
-                # then append original name at start of message
-                if (
-                    (not (
-                        name == self.tag.name
-                        or re.match(media_regex, "\n".join(self.tag.value).strip())
-                    )
-                    or force_show_name) and add_title
-                ):
-                    message += f"**{self.tag.name}**\n\n"
-                    add_title = False
-                message += value
-                messages.append(message)
-        self.set_pages(messages)
-
-    async def start(self, ctx: Context, force_show_name: bool = False, name: str = ""):
-        self._build_pages(force_show_name=force_show_name, name=name)
-        self.__maybe_add_edit_component(ctx.event)
-        await super().start(ctx)
-
-    @property
-    def custom_id_type(self) -> str:
-        return "stl-tag"  # stateless tag paginator
 
 
 
