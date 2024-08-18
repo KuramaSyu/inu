@@ -703,7 +703,7 @@ class TagHandler(StatelessPaginator):
             label="Info visible" if self.tag.info_visible else "Info hidden",
         )
         rows[1].add_interactive_button(
-            ButtonStyle.PRIMARY if self.tag.info_visible else ButtonStyle.SECONDARY,
+            ButtonStyle.SECONDARY,
             self._serialize_custom_id("tag_options_end_editing"), # end editing emojis: 
             label="End Editing",
             emoji="✔️"
