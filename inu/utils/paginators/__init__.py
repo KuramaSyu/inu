@@ -7,7 +7,7 @@ from .base import (
     button,
     ButtonObserver
 )
-from .tag import TagHandler, TagCustomID
+from .tag import TagHandler, TagCustomID, TagViewPaginator
 from .anime import AnimePaginator, AnimeCornerPaginator, AnimeCornerPaginator2
 from .anime_character import AnimeCharacterPaginator
 from .manga import MangaPaginator
