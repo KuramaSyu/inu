@@ -1,4 +1,3 @@
-version: "3.8"
 services:
   db:
     container_name: postgresql
@@ -24,6 +23,6 @@ services:
   lava:
     container_name: lavalink
     restart: "unless-stopped"
-    image: fredboat/lavalink:3.7.12-alpine #ghcr.io/lavalink-devs/lavalink:v3-update-lp-alpine #fredboat/lavalink:v3-update-lp-alpine
+    image: ghcr.io/lavalink-devs/lavalink:v3-update-lp-alpine #fredboat/lavalink:v3-update-lp-alpine
     volumes:
       - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
