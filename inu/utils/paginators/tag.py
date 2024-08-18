@@ -430,8 +430,7 @@ class TagHandler(StatelessPaginator):
         )
 
     async def start_view(self):
-        self.ctx._update = True
-        await self.ctx.respond(content="Starting view", embeds=[], update=True)
+        self.ctx.defer(update=True)
         paginator = TagViewPaginator(self.tag)
         await paginator.start(self.ctx, force_show_name=True)
 
@@ -819,6 +818,7 @@ class TagViewPaginator(StatelessPaginator):
             **kwargs,
             timeout=15*60,
             additional_components=tag.components,
+            first_message_kwargs={"embeds": []},
         )
 
     def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
