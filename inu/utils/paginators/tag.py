@@ -3,6 +3,7 @@ from typing import *
 import asyncio
 import logging
 from enum import Enum
+import re
 
 import hikari
 from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, events, ResponseType, Embed
@@ -352,6 +353,8 @@ class TagHandler(StatelessPaginator):
                 self._pages.insert(self._position+1, Embed(title=self.tag.name))
                 self.tag.value.insert(self._position+1, DEFAULT_PAGE)
                 self._position += 1
+            elif custom_id == "end_editing":
+                return await self.start_view()
             elif custom_id == "remove_this_page":
                 if len(self._pages) <= 1:
                     return await self.ctx.respond(
@@ -425,6 +428,11 @@ class TagHandler(StatelessPaginator):
             embed=None,
             update=True,
         )
+
+    async def start_view(self):
+        await self.ctx.defer(update=True)
+        paginator = TagViewPaginator(self.tag)
+        await paginator.start(self.ctx, force_show_name=True)
 
     async def change_creators(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
         """
@@ -694,6 +702,12 @@ class TagHandler(StatelessPaginator):
             self._serialize_custom_id("tag_options_info_visible"), # eye emoji: "👁️"
             label="Info visible" if self.tag.info_visible else "Info hidden",
         )
+        rows[1].add_interactive_button(
+            ButtonStyle.PRIMARY if self.tag.info_visible else ButtonStyle.SECONDARY,
+            self._serialize_custom_id("tag_options_end_editing"), # end editing emojis: 
+            label="End Editing",
+            emoji="✅"
+        )
         tag_type_components = TagTypeComponents.get(self.tag.tag_type)(self)
         if tag_type_components:
             rows.append(tag_type_components)
@@ -795,6 +809,81 @@ class TagHandler(StatelessPaginator):
             d["mid"] = message_id
         d.update(kwargs)
         return d
+    
+
+class TagViewPaginator(StatelessPaginator):
+    def __init__(self, tag: Tag, **kwargs):
+        self.tag = tag
+        super().__init__(
+            **kwargs,
+            timeout=15*60,
+            additional_components=tag.components,
+        )
+
+    def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
+        return {"tid": self.tag.id}
+
+    async def _rebuild(self, event: InteractionCreateEvent, force_show_name: bool = False, name: str = ""):
+        self.set_context(event=event)
+        if not isinstance(event.interaction, ComponentInteraction):
+            return
+        self.__maybe_add_edit_component(event)    
+        self._build_pages(force_show_name=force_show_name, name=name)
+
+    def __maybe_add_edit_component(self, event: InteractionCreateEvent):
+        if self.tag.is_authorized_to_write(event.interaction.user.id):
+            log.debug("User is authorized to write")
+            # user authorized to write -> add tag edit button
+            components: List[MessageActionRowBuilder] = add_row_when_filled(self.tag.components or [])
+            components[-1].add_interactive_button( # todo: small json
+                ButtonStyle.SECONDARY, 
+                TagCustomID(
+                    custom_id="tag_options_update",
+                    author_id=event.interaction.user.id
+                )
+                    .set_tag_id(self.tag.id)
+                    .set_position(0)
+                    .serialize_custom_id()
+                    .as_json(),
+                label=f"Edit {self.tag.name} instead",
+                emoji="📝"
+            )
+            self._additional_components = components
+        else:
+            log.debug("User is not authorized to write")
+            
+    def _build_pages(self, force_show_name: bool = False, name: str = ""):
+        media_regex = r"(http(s?):)([/|.|\w|\s|-])*\.(?:jpg|gif|png|mp4|mp3)"
+        messages = []
+        add_title = True
+        assert self.tag.value is not None
+        for page in self.tag.value:
+            for value in crumble(page, 2000):
+                message = ""
+                # if tag isn't just a picture and tag was not invoked with original name,
+                # AND it's the first page of the tag
+                # then append original name at start of message
+                if (
+                    (not (
+                        name == self.tag.name
+                        or re.match(media_regex, "\n".join(self.tag.value).strip())
+                    )
+                    or force_show_name) and add_title
+                ):
+                    message += f"**{self.tag.name}**\n\n"
+                    add_title = False
+                message += value
+                messages.append(message)
+        self.set_pages(messages)
+
+    async def start(self, ctx: Context, force_show_name: bool = False, name: str = ""):
+        self._build_pages(force_show_name=force_show_name, name=name)
+        self.__maybe_add_edit_component(ctx.event)
+        await super().start(ctx)
+
+    @property
+    def custom_id_type(self) -> str:
+        return "stl-tag"  # stateless tag paginator
 
 
 
