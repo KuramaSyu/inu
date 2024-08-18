@@ -11,6 +11,9 @@ from typing import (
     cast
 )
 
+import lavalink_rs.model
+import lavalink_rs.model.track
+
 typing.TYPE_CHECKING
 import asyncio
 import logging
@@ -29,6 +32,9 @@ from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavalink_rs
+from lavalink_rs.model.search import SearchEngines
+from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
+
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
@@ -63,7 +69,7 @@ class MusicDialogs:
     """A class with methods which do some music stuff interactive"""
     def __init__(self, bot: Inu):
         self.bot = bot
-        self.lavalink = self.bot.data.lavalink
+        self.lavalink: lavalink_rs.LavalinkClient = self.bot.data.lavalink
         self.queue_msg: Optional[hikari.Message] = None
 
 
@@ -72,11 +78,10 @@ class MusicDialogs:
         ctx: Context,
         query: str,
         displayed_song_count: int = 24,
-        query_information: lavalink_rs.Tracks = None,
+        query_information: lavalink_rs.model.track.Track | None = None,
     ) -> Tuple[Optional[lavalink_rs.Track], Optional[hikari.InteractionCreateEvent]]:
         """
         Creates an interactive menu for choosing a song
-
 
         Args
         ----
@@ -104,7 +109,8 @@ class MusicDialogs:
             return None, None
         query_print = ""
         if not query_information:
-            query_information = await self.lavalink.search_tracks(query)
+            query = await SearchEngines.youtube_music(query)
+            query_information = await self.lavalink.load_tracks(query)
         id_ = bot.id_creator.create_id()
         menu = (
             MessageActionRowBuilder()

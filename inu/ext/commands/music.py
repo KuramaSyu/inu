@@ -17,19 +17,17 @@ import logging
 import asyncio
 import datetime
 import random
-from collections import deque
 from contextlib import suppress
 from pprint import pformat
 
 import hikari
-from hikari import ComponentInteraction, Embed, ResponseType, VoiceStateUpdateEvent, ButtonStyle
-from hikari.impl import MessageActionRowBuilder
+from hikari import Embed, VoiceStateUpdateEvent
 import lightbulb
 from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavalink_rs
-from youtubesearchpython.__future__ import VideosSearch  # async variant
+from lavalink_rs import LavalinkClient
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
 from humanize import naturaldelta
@@ -68,14 +66,16 @@ first_join = False
 bot: Inu
 
 
-class EventHandler:
+class EventHandler(lavalink_rs.EventHandler):
     """Events from the Lavalink server"""
-    def __init__(self):
-        pass
-    async def track_start(self, lavalink: lavalink_rs.Lavalink, event: lavalink_rs.TrackStart) -> None:
+    async def track_start(
+        self, 
+        lavalink: LavalinkClient, 
+        event: lavalink_rs.TrackStart
+    ) -> None:
         try:
             
-            node = await lavalink.get_guild_node(event.guild_id)
+            node = await lavalink.get_node_for_guild(event.guild_id)
             if node is None:
                 return
             player = await PlayerManager.get_player(event.guild_id)
@@ -91,13 +91,13 @@ class EventHandler:
         except Exception:
             log.error(traceback.format_exc())
 
-    async def track_finish(self, lavalink: lavalink_rs.Lavalink, event: lavalink_rs.TrackFinish) -> None:
-        node = await lavalink.get_guild_node(event.guild_id)
+    async def track_finish(self, lavalink: LavalinkClient, event: lavalink_rs.TrackFinish) -> None:
+        node = await lavalink.get_node_for_guild(event.guild_id)
         if node is None or len(node.queue) == 0:
             player = await PlayerManager.get_player(event.guild_id)
             await player._leave()
 
-    async def track_exception(self, lavalink: lavalink_rs.Lavalink, event: lavalink_rs.TrackException) -> None:
+    async def track_exception(self, lavalink: LavalinkClient, event: lavalink_rs.TrackException) -> None:
         log.warning(f"Track exception event happened: {event.exception_message}")
         # If a track was unable to be played, skip it
         player = await PlayerManager.get_player(event.guild_id)
@@ -113,7 +113,7 @@ class EventHandler:
 
 
 music = lightbulb.Plugin(name="Music", include_datastore=True)
-lavalink: lavalink_rs.Lavalink = None
+lavalink: LavalinkClient = None
 music_dialog: MusicDialogs = None
 music_helper: MusicHelper = None
 music_messages: Dict[int, Union[hikari.Message, None]] = {}  # guild_id: hikari.Message
@@ -293,7 +293,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     custom_id = player.ctx.custom_id
     message = player.queue.message
     log = getLogger(__name__, "MUSIC INTERACTION RECEIVE")
-    node = await lavalink.get_guild_node(guild_id)
+    node = await lavalink.get_node_for_guild(guild_id)
     if not (message and node and len(node.queue) > 0):
         await player._leave()
         return await ctx.respond(
@@ -414,7 +414,7 @@ async def start_lavalink() -> None:
         try:
             builder = (
                 # TOKEN can be an empty string if you don't want to use lavasnek's discord gateway.
-                lavalink_rs.LavalinkBuilder(music.bot.get_me().id, music.bot.conf.bot.DISCORD_TOKEN) #, 
+                LavalinkClientBuilder(music.bot.get_me().id, music.bot.conf.bot.DISCORD_TOKEN) #, 
                 # This is the default value, so this is redundant, but it's here to show how to set a custom one.
                 .set_host(music.bot.conf.lavalink.IP)
                 .set_password(music.bot.conf.lavalink.PASSWORD)
