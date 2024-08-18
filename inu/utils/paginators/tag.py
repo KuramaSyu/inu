@@ -706,7 +706,7 @@ class TagHandler(StatelessPaginator):
             ButtonStyle.PRIMARY if self.tag.info_visible else ButtonStyle.SECONDARY,
             self._serialize_custom_id("tag_options_end_editing"), # end editing emojis: 
             label="End Editing",
-            emoji="✅"
+            emoji="✔️"
         )
         tag_type_components = TagTypeComponents.get(self.tag.tag_type)(self)
         if tag_type_components:
