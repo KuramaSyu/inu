@@ -11,6 +11,8 @@ from typing import (
     cast
 )
 
+import LavalinkClient_rs
+
 typing.TYPE_CHECKING
 import asyncio
 import logging
@@ -29,6 +31,8 @@ from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavalink_rs
+from lavalink_rs import LavalinkClient
+
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
@@ -59,7 +63,7 @@ log = getLogger(__name__)
 
 
 
-lavalink: lavalink_rs.Lavalink = None
+lavalink: LavalinkClient = None
 first_join = False
 bot: Inu
 music_helper = MusicHelper()
@@ -70,7 +74,7 @@ interactive: MusicDialogs = None
 
 def setup(
         inu: Inu = None, 
-        lavalink_: lavalink_rs.Lavalink = None,
+        lavalink_: LavalinkClient = None,
         message_id_to_queue_cache_: ExpiringDict = None,
 ):
     global lavalink, bot, interactive, message_id_to_queue_cache
@@ -113,7 +117,7 @@ class Player:
         if self._node is None:
             if not self.guild_id:
                 raise RuntimeError("guild_id is not set")
-            node = await lavalink.get_guild_node(self.guild_id)
+            node = await lavalink.get_node_for_guild(self.guild_id)
             self.node = node
 
     def reset(self):
@@ -251,7 +255,7 @@ class Player:
             skip = await lavalink.skip(self.guild_id)
             if not skip:
                 return False
-            if not (node := await lavalink.get_guild_node(self.guild_id)):
+            if not (node := await lavalink.get_node_for_guild(self.guild_id)):
                 return False
             await self.update_node(node)
             if not skip:
@@ -326,7 +330,7 @@ class Player:
     async def update_node(self, node: lavalink_rs.Node | None = None) -> None:
         """this re-fetches the node. This should be called, when the node changed"""
         if node is None:
-            node = await lavalink.get_guild_node(self.guild_id)
+            node = await lavalink.get_node_for_guild(self.guild_id)
         self.node = node
 
     async def _join(self) -> Optional[hikari.Snowflake]:
