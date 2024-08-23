@@ -29,6 +29,8 @@ from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavalink_rs
+from lavalink_rs.model.search import SearchEngines
+from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType, Track
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
@@ -73,10 +75,10 @@ class Queue:
         self._custom_info_author: hikari.Member | None = None
         self._custom_footer: hikari.EmbedFooter | None = None
         self.create_footer_info = False
-        self.current_track: lavalink_rs.Track | None = None
+        self.current_track: Track | None = None
         self._last_update = datetime.datetime.now()
 
-    async def fetch_current_track(self, update_node = True) -> lavalink_rs.Track | None:
+    async def fetch_current_track(self, update_node = True) -> Track | None:
         try:
             if update_node:
                 await self.player.update_node()
@@ -143,7 +145,7 @@ class Queue:
 
     def _build_custom_footer(self) -> Dict[str, Any]:
         kwargs = {"text": "", "icon": None}
-        last_track: lavalink_rs.TrackQueue = self.node.queue[-1]
+        last_track: TrackQueue = self.node.queue[-1]
         requester = bot.cache.get_member(
             self.player.guild_id,
             self.custom_info_author 

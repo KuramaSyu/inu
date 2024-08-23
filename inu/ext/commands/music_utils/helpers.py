@@ -33,7 +33,7 @@ from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavalink_rs
 from lavalink_rs.model.search import SearchEngines
-from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
+from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType, Track
 
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
@@ -79,7 +79,7 @@ class MusicDialogs:
         query: str,
         displayed_song_count: int = 24,
         query_information: lavalink_rs.model.track.Track | None = None,
-    ) -> Tuple[Optional[lavalink_rs.Track], Optional[hikari.InteractionCreateEvent]]:
+    ) -> Tuple[Optional[Track], Optional[hikari.InteractionCreateEvent]]:
         """
         Creates an interactive menu for choosing a song
 
@@ -91,12 +91,12 @@ class MusicDialogs:
             the query to search; either an url or just a string
         displayed_song_count: int = 24
             the amount of songs which will be showen in the interactive message
-        query_information: Optional[lavalink_rs.Tracks] = None 
+        query_information: Optional[Tracks] = None 
             existing information to lower footprint
             
         returns
         -------
-        Optional[lavalink_rs.Track]
+        Optional[Track]
             the chosen title (is None if timeout or other errors)
         Optional[hikari.InteractionCreateEvent]
 
@@ -109,8 +109,14 @@ class MusicDialogs:
             return None, None
         query_print = ""
         if not query_information:
-            query = await SearchEngines.youtube_music(query)
-            query_information = await self.lavalink.load_tracks(query)
+            query = await SearchEngines.youtube(query)
+            query_information: Track = await self.lavalink.load_tracks(query)
+            tracks: List[TrackData] = query_information.data
+            if not isinstance(query_information.load_type, TrackLoadType.Search):
+                log.critical(f"Query information is not a search type: {query_information.load_type}")
+                log.critical(f"{query_information=}")
+            cast(List[TrackData], tracks)
+            log.debug(f"{tracks=}")
         id_ = bot.id_creator.create_id()
         menu = (
             MessageActionRowBuilder()
@@ -123,7 +129,7 @@ class MusicDialogs:
         # building selection menu
         for x in range(displayed_song_count):
             try:
-                track = query_information.tracks[x]
+                track = tracks[x]
             except IndexError:
                 break
             query_print = f"{x+1} | {track.info.title}"

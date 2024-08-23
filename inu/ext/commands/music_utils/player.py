@@ -11,8 +11,6 @@ from typing import (
     cast
 )
 
-import LavalinkClient_rs
-
 typing.TYPE_CHECKING
 import asyncio
 import logging
@@ -30,8 +28,11 @@ import lightbulb
 from lightbulb import SlashContext, commands, context
 from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
+# import music related stuff
 import lavalink_rs
 from lavalink_rs import LavalinkClient
+from lavalink_rs.model.search import SearchEngines
+from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType, Track
 
 from youtubesearchpython.__future__ import VideosSearch  # async variant
 from fuzzywuzzy import fuzz
@@ -57,6 +58,7 @@ from ..tags import get_tag, _tag_add
 from .helpers import YouTubeHelper, MusicHelper, MusicDialogs
 from .queue import Queue
 from .constants import *
+from .lavalink_voice import LavalinkVoice, LavalinkClient
 
 log = getLogger(__name__)
 
@@ -73,10 +75,11 @@ interactive: MusicDialogs = None
 
 
 def setup(
-        inu: Inu = None, 
-        lavalink_: LavalinkClient = None,
-        message_id_to_queue_cache_: ExpiringDict = None,
-):
+    inu: Inu = None, 
+    lavalink_: LavalinkClient = None,
+    message_id_to_queue_cache_: ExpiringDict = None,
+):  
+    """A setup function to set the global variables essential for lavalink"""
     global lavalink, bot, interactive, message_id_to_queue_cache
     if inu:
         bot = inu
@@ -108,7 +111,16 @@ class Player:
         self.auto_parse = False
         self.last_added_track = None
 
-    def track_to_md(self, track: lavalink_rs.Track) -> str:
+    @property
+    def voice_ctx(self) -> LavalinkVoice:
+        """The voice context of the player"""
+        self.ctx.bot.lavalink
+        voice = self.ctx.bot.voice.connections.get(self.guild_id)
+        if not voice:
+            raise RuntimeError("Not connected to a voice channel")
+        return voice.player
+
+    def track_to_md(self, track: Track) -> str:
         """Converts a track to markdown"""
         return f"[{track.info.title}]({track.info.uri})"
     
@@ -252,19 +264,18 @@ class Player:
             - (bool) wether the skip(s) was/where successfull
         """
         for _ in range(amount):
-            skip = await lavalink.skip(self.guild_id)
-            if not skip:
+            voice = self.ctx.bot.voice.connections.get(self.guild_id)
+
+            if not voice:
+                await self.ctx.respond("Not connected to a voice channel")
+                return None
+
+            assert isinstance(voice, LavalinkVoice)
+
+            player = await voice.player.get_player()
+            voice.player.skip()
+            if not player.track:
                 return False
-            if not (node := await lavalink.get_node_for_guild(self.guild_id)):
-                return False
-            await self.update_node(node)
-            if not skip:
-                return False
-            # else:
-            #     # If the queue is empty, the next track won't start playing (because there isn't any),
-            #     # so we stop the player.
-            #     if not node.queue and not node.now_playing:
-            #         await lavalink.stop(self.guild_id)
         return True
     
     async def _clear(self):
@@ -335,16 +346,37 @@ class Player:
 
     async def _join(self) -> Optional[hikari.Snowflake]:
         """Joins the voice channel of the author"""
-        assert self.ctx.guild_id is not None
-        if not (voice_state := bot.cache.get_voice_state(self.guild_id, self.ctx.author.id)):
-            raise BotResponseError("Connect to a voice channel first, please", ephemeral=True)
+        if not self.ctx.guild_id:
+            return None
 
-        channel_id = voice_state.channel_id
-        await bot.update_voice_state(self.guild_id, channel_id, self_deaf=True)
-        connection_info = await lavalink.wait_for_full_connection_info_insert(self.ctx.guild_id)
-        # the follwoing line causes an issue, where lavalink plays faster then normal
-        # await lavalink.create_session(connection_info)
+        channel_id = None
+
+        for i in self.ctx.options.items():
+            if i[0] == "channel" and i[1]:
+                channel_id = i[1].id
+                break
+
+        if not channel_id:
+            voice_state = self.ctx.bot.cache.get_voice_state(self.ctx.guild_id, self.ctx.author.id)
+
+            if not voice_state or not voice_state.channel_id:
+                return None
+
+            channel_id = voice_state.channel_id
+
+        voice = self.ctx.bot.voice.connections.get(self.ctx.guild_id)
+
+        if not voice:
+            voice = await LavalinkVoice.connect(
+                self.ctx.guild_id,
+                channel_id,
+                self.ctx.bot,
+                self.ctx.bot.lavalink,
+                (self.ctx.channel_id, self.ctx.bot.rest),
+            )
+
         return channel_id
+
 
     async def _leave(self):
         """Leaves the voice channel"""
@@ -595,7 +627,7 @@ class Player:
             self,
             ctx: Context, 
             query: str, 
-    ) -> Tuple[Optional[lavalink_rs.Track], Optional[hikari.InteractionCreateEvent]]:
+    ) -> Tuple[Optional[Track], Optional[hikari.InteractionCreateEvent]]:
         """
         searches the query and returns the Track or None
 
@@ -611,8 +643,8 @@ class Player:
         track = None
         event = None
 
-        if not query_information.tracks:
-            query_information = await self.fallback_track_search(query)
+        # if not query_information.tracks:
+        #     query_information = await self.fallback_track_search(query)
 
         if not query_information:
             self.last_added_track = None
@@ -670,52 +702,52 @@ class Player:
             track = query_information.tracks[0]
         return track, event
     
-    async def load_playlist(self) -> lavalink_rs.Tracks:
-        """
-        loads a youtube playlist
+    # async def load_playlist(self) -> Tracks:
+    #     """
+    #     loads a youtube playlist
 
-        Parameters
-        ----------
-        ctx : InuContext
-            The context to use for sending the message and fetching the node
-        query : str
-            The query to search for
-        be_quiet : bool, optional
-            If the track should be loaded without any response, by default False
+    #     Parameters
+    #     ----------
+    #     ctx : InuContext
+    #         The context to use for sending the message and fetching the node
+    #     query : str
+    #         The query to search for
+    #     be_quiet : bool, optional
+    #         If the track should be loaded without any response, by default False
         
-        Returns
-        -------
-        `lavalink_rs.Track` :
-            the first track of the playlist
-        """
-        tracks = await lavalink.get_tracks(self.query)
-        for track in tracks.tracks:
-            await (
-                lavalink
-                   .play(self.ctx.guild_id, track)
-                   .requester(self.ctx.author.id)
-                   .queue()
-            )
-        if tracks.playlist_info:
-            embed = Embed(
-                title=f'Playlist added',
-                description=f'[{tracks.playlist_info.name}]({self.query})'
-            ).set_thumbnail(self.ctx.member.avatar_url)
+    #     Returns
+    #     -------
+    #     `Track` :
+    #         the first track of the playlist
+    #     """
+    #     tracks = await lavalink.get_tracks(self.query)
+    #     for track in tracks.tracks:
+    #         await (
+    #             lavalink
+    #                .play(self.ctx.guild_id, track)
+    #                .requester(self.ctx.author.id)
+    #                .queue()
+    #         )
+    #     if tracks.playlist_info:
+    #         embed = Embed(
+    #             title=f'Playlist added',
+    #             description=f'[{tracks.playlist_info.name}]({self.query})'
+    #         ).set_thumbnail(self.ctx.member.avatar_url)
 
-            playlist_name = str(tracks.playlist_info.name)
-            self.queue.custom_info = f"🎵 {playlist_name} Playlist added by {self.ctx.member.display_name}"
-            self.queue.custom_info_author = self.ctx.member
-            music_helper.add_to_log(
-                self.ctx.guild_id, 
-                self.queue.custom_info, 
-            )
-            await MusicHistoryHandler.add(
-                self.ctx.guild_id, 
-                str(tracks.playlist_info.name),
-                self.query,
-            )
-            await self.update_node()
-        return tracks
+    #         playlist_name = str(tracks.playlist_info.name)
+    #         self.queue.custom_info = f"🎵 {playlist_name} Playlist added by {self.ctx.member.display_name}"
+    #         self.queue.custom_info_author = self.ctx.member
+    #         music_helper.add_to_log(
+    #             self.ctx.guild_id, 
+    #             self.queue.custom_info, 
+    #         )
+    #         await MusicHistoryHandler.add(
+    #             self.ctx.guild_id, 
+    #             str(tracks.playlist_info.name),
+    #             self.query,
+    #         )
+    #         await self.update_node()
+    #     return tracks
 
     async def play_at_pos(self, pos: int, query: str | None = None):
         """Adds a song at the <position> position of the queue. So the track will be played soon
@@ -761,14 +793,14 @@ class Player:
 
 
 
-    async def load_track(self, track: lavalink_rs.Track):
+    async def load_track(self, track: Track):
         """Loads a track into the queue
         
         Args:
         ----
         ctx : InuContext
             The context to use for sending the message and fetching the node
-        track : lavalink_rs.Track
+        track : Track
             The track to load
         be_quiet : bool, optional
             If the track should be loaded without any response, by default False
