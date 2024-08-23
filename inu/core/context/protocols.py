@@ -6,6 +6,8 @@ from hikari import TextInputStyle
 from lightbulb.context import Context
 from lightbulb import ResponseProxy
 
+from ..bot import Inu
+
 
 T = TypeVar("T")
 
@@ -28,7 +30,7 @@ class InuContext(ABC):
 
     @property
     @abstractmethod
-    def bot(self) -> hikari.GatewayBot:
+    def bot(self) -> Inu:
         ...
 
     @property
