@@ -19,6 +19,7 @@ import hikari
 from hikari.snowflakes import Snowflakeish
 from hikari.impl import ModalActionRowBuilder, TextInputBuilder
 from hikari import TextInputStyle
+import lavalink_rs
 from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -85,6 +86,7 @@ class Inu(lightbulb.BotApp):
         self.search = Search(self)
         self.shortcuts: "Shortcuts" = Shortcuts(bot=self)
         self.id_creator = IDCreator()
+        self._lavalink: Optional[lavalink_rs.LavalinkClient] = None
 
         
         logger_names = [
@@ -97,6 +99,16 @@ class Inu(lightbulb.BotApp):
             "incremental": True,
             "loggers": loggers 
         }
+
+        @property
+        def lavalink(self) -> lavalink_rs.LavalinkClient:
+            if not self._lavalink:
+                raise RuntimeError("Lavalink client is not initialized")
+            return self._lavalink
+
+        @lavalink.setter
+        def lavalink(self, value: lavalink_rs.LavalinkClient) -> None:
+            self._lavalink = value
 
         def get_prefix(bot: Inu, message: hikari.Message):
             return bot.prefixes_from(message.guild_id)
