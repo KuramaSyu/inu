@@ -9,13 +9,13 @@ server: # REST and WS server
 plugins:
   youtube:
     enabled: true
-    clients: ["MUSIC", "ANDROID", "WEB"]
+    clients: ["MUSIC", "ANDROID", "WEB", "WEBEMBEDDED", "TVHTML5EMBEDDED"]
 
 lavalink:
   plugins:
-    # replace VERSION with the current version as shown by the Releases tab.
-    - dependency: "com.github.lavalink-devs.lavaplayer-youtube-source:plugin:1.0.6"
-      repository: "https://jitpack.io"
+    # Replace VERSION with the current version as shown by the Releases tab or a long commit hash for snapshots.
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.7.1"
+      repository: "https://maven.lavalink.dev/releases" # use https://maven.lavalink.dev/snapshots if you want to use a snapshot version.
   pluginsDir: "./plugins"
   server:
     password: "youshallnotpass"
