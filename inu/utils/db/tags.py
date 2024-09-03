@@ -37,7 +37,7 @@ from core import Inu, BotResponseError, getLogger
 log = getLogger(__name__)
 
 
-TAG_REGEX = r"""tag:\/{2}(?P<tag_name>(?:[\/\-_,<>*()[{}"'+#^& ]*\]*\w+)+)[.](?P<scope>local|global|this[-]guild|[0-9]+)"""
+TAG_REGEX = r"""tag:\/{2}(?P<tag_name>(?:[\/\-_,<>*()[{}"'+#^&\s\w\.]*))[.](?P<scope>local|global|this[-]guild|[0-9]+)"""
 TAG_NOT_ALLOWED_REGEX = r"[^A-Za-z0-9\/\-,<>*()[\]{}\\\s\"\'\(\)+#^&]+"
 
 
