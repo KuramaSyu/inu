@@ -7,9 +7,11 @@ import lightbulb
 from lightbulb import Context
 import lavalink_rs
 from lavalink_rs.model import events
-from .music_utils import LavalinkVoice
+
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
+
+from .music_utils import LavalinkVoice, MusicPlayerManager, MusicPlayer
 from core import Inu, getLogger
 
 log = getLogger(__name__)
@@ -72,6 +74,7 @@ class Events(lavalink_rs.EventHandler):
 @plugin.listener(hikari.ShardReadyEvent, bind=True)
 async def start_lavalink(plug: lightbulb.Plugin, event: hikari.ShardReadyEvent) -> None:
     """Event that triggers when the hikari gateway is ready."""
+    MusicPlayerManager.set_bot(plug.bot)
 
     node = lavalink_rs.NodeBuilder(
         f"{plug.bot.conf.lavalink.IP}:2333",
@@ -89,8 +92,6 @@ async def start_lavalink(plug: lightbulb.Plugin, event: hikari.ShardReadyEvent) 
 
     plug.bot.lavalink = lavalink_client
     log.info("Lavalink client started", prefix="init")
-
-
 
 async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
     if not ctx.guild_id:
@@ -188,7 +189,7 @@ async def leave(ctx: Context) -> None:
 )
 @lightbulb.command(
     "play",
-    "Searches the query on spotify and adds the first result to the queue, or adds the URL to the queue",
+    "Searches the query on Soundcloud",
     auto_defer=True,
 )
 @lightbulb.implements(
@@ -199,122 +200,9 @@ async def play(ctx: Context) -> None:
     if not ctx.guild_id:
         return None
 
-    voice = ctx.bot.voice.connections.get(ctx.guild_id)
-    has_joined = False
-
-    if not voice:
-        if not await _join(ctx):
-            await ctx.respond("Please, join a voice channel first.")
-            return None
-        voice = ctx.bot.voice.connections.get(ctx.guild_id)
-        has_joined = True
-
-    assert isinstance(voice, LavalinkVoice)
-
-    player_ctx = voice.player
-    query = ctx.options.query.replace(">", "").replace("<", "")
-
-    if not query:
-        player = await player_ctx.get_player()
-        queue = player_ctx.get_queue()
-
-        if not player.track and await queue.get_count() > 0:
-            player_ctx.skip()
-        else:
-            if player.track:
-                await ctx.respond("A song is already playing")
-            else:
-                await ctx.respond("The queue is empty")
-
-        return None
-
-    if not query.startswith("http"):
-        query = SearchEngines.youtube(query)
-
-    try:
-        tracks = await ctx.bot.lavalink.load_tracks(ctx.guild_id, query)
-        loaded_tracks = tracks.data
-
-    except Exception as e:
-        logging.error(e)
-        await ctx.respond("Error")
-        return None
-
-    if tracks.load_type == TrackLoadType.Track:
-        assert isinstance(loaded_tracks, TrackData)
-
-        loaded_tracks.user_data = {"requester_id": int(ctx.author.id)}
-
-        player_ctx.queue(loaded_tracks)
-
-        if loaded_tracks.info.uri:
-            await ctx.respond(
-                f"Added to queue: [`{loaded_tracks.info.author} - {loaded_tracks.info.title}`](<{loaded_tracks.info.uri}>)"
-            )
-        else:
-            await ctx.respond(
-                f"Added to queue: `{loaded_tracks.info.author} - {loaded_tracks.info.title}`"
-            )
-
-    elif tracks.load_type == TrackLoadType.Search:
-        assert isinstance(loaded_tracks, list)
-
-        loaded_tracks[0].user_data = {"requester_id": int(ctx.author.id)}
-
-        player_ctx.queue(loaded_tracks[0])
-
-        if loaded_tracks[0].info.uri:
-            await ctx.respond(
-                f"Added to queue: [`{loaded_tracks[0].info.author} - {loaded_tracks[0].info.title}`](<{loaded_tracks[0].info.uri}>)"
-            )
-        else:
-            await ctx.respond(
-                f"Added to queue: `{loaded_tracks[0].info.author} - {loaded_tracks[0].info.title}`"
-            )
-
-    elif tracks.load_type == TrackLoadType.Playlist:
-        assert isinstance(loaded_tracks, PlaylistData)
-
-        if loaded_tracks.info.selected_track:
-            track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
-
-            track.user_data = {"requester_id": int(ctx.author.id)}
-
-            player_ctx.queue(track)
-
-            if track.info.uri:
-                await ctx.respond(
-                    f"Added to queue: [`{track.info.author} - {track.info.title}`](<{track.info.uri}>)"
-                )
-            else:
-                await ctx.respond(
-                    f"Added to queue: `{track.info.author} - {track.info.title}`"
-                )
-        else:
-            tracks = loaded_tracks.tracks
-
-            for i in tracks:
-                i.user_data = {"requester_id": int(ctx.author.id)}
-
-            queue = player_ctx.get_queue()
-            queue.append(tracks)
-
-            await ctx.respond(f"Added playlist to queue: `{loaded_tracks.info.name}`")
-
-    # Error or no search results
-    else:
-        await ctx.respond("No songs found")
-        return None
-
-    if has_joined:
-        return None
-
-    player_data = await player_ctx.get_player()
-    queue = player_ctx.get_queue()
-
-    if player_data:
-        if not player_data.track and await queue.get_track(0):
-            player_ctx.skip()
+    player = MusicPlayerManager.get_player(ctx.guild_id)
+    player.set_context(ctx)
+    await player.play(ctx.options.query)
 
 
 @plugin.command()
