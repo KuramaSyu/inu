@@ -2,16 +2,37 @@ import random
 
 import lightbulb
 from lightbulb import Context
+import hikari 
 
 from core import Inu
 from .music_utils import LavalinkVoice
-from core import getLogger
+from core import getLogger, get_context
 
 log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Music (advanced) commands")
 plugin.add_checks(lightbulb.guild_only)
 
+
+MENU_CUSTOM_IDS = [
+    "music_play", 
+    "music_pause", 
+    "music_shuffle", 
+    "music_skip_1", 
+    "music_skip_2", 
+    "music_resume", 
+    "music_stop"
+]
+@plugin.listener(hikari.InteractionCreateEvent)
+async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
+    if not isinstance(event.interaction, hikari.ComponentInteraction):
+        return
+    
+    ctx = get_context(event)
+    if not [custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id == custom_id]:
+        # wrong custom id
+        return
+    
 
 @plugin.command
 @lightbulb.command("pause", "Pause the currently playing song")
