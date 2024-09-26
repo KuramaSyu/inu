@@ -1,18 +1,62 @@
-bot:
-    DEFAULT_PREFIX: inu.
-    SPECIAL_ROLE_NAME: Inu.
-    DISCORD_TOKEN: xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx
-    owner_id: 0000000000000000
-    reboot: True
-    color: "475ad3"
-    guild_invite_url: "https://discord.gg/XXXXXXX"
-    bug_channel_id: 0000000000000000
-    domain: "example-domain.org"
+##############################################################
+######################## USER SETTINGS #######################
+##############################################################
 
+bot:
+    # ESSENTIAL! 
+    # get it from https://discord.com/developers/applications -> your app -> bot -> token
+    DISCORD_TOKEN: XXX  
+
+    owner_id: 000       
+    bug_channel_id: 000
+    DEFAULT_PREFIX: inu.  # for message commands; will be deprecated
+    SPECIAL_ROLE_NAME: Inu.  # name for a rule which gives users more privileges
+    reboot: True  # whether to restart the bot when it crashes
+    color: "475ad3"  # color used for some embeds
+    guild_invite_url: "https://discord.gg/XXXXXXX"  # guild URL, when Error occurs where to get help
+    domain: "example-domain.org"  # just displayed in the /ping command; not needed
+
+# Rapid API for /urban
+# get it from https://rapidapi.com/community/api/urban-dictionary
+rapid:
+    SECRET: XXX
+
+# MyAnimeList for /anime, /anime-of-the-week
+# get it from https://myanimelist.net/apiconfig -> Create ID
+mal:
+    ID: XXX
+    SECRET: XXX
+
+# Reddit for /anime-of-the-week
+reddit:
+    ID: XXX
+    SECRET: XXX
+
+# watch2gether for /watch2gether
+w2g:
+    ID: XXX
+    API_URL: "https://api.w2g.tv"
+    default_links:
+        - "https://www.youtube.com/watch?v=Csek1JC4JzE" # satisfactory dev music
+        # - "https://www.youtube.com/watch?v=x-Si5PfCgrs" # fairy fountain
+        - "https://www.youtube.com/watch?v=xh_r_lEPfZ8" # dark world - zelda
+
+# for /movie and /tv-show
+tmdb:
+    SECRET: XXX
+
+# currently not used
+spotify:
+    ID: XXX
+    SECRET: XXX
+
+##############################################################
+######################## DEV SETTINGS ########################
+##############################################################
 commands:
     board_entry_lifetime: 30 # days
-    purge_limit: 50
-    poll_sync_time: 300
+    purge_limit: 50 # messages
+    poll_sync_time: 300 # seconds
     anime_corner_sync_time: 6 # hours
     board_sync_time: 24 # hours
 
@@ -57,32 +101,3 @@ tags:
 docker:
     PROJECT_NAME: inu
 
-rapid:
-    SECRET: XXX
-
-# MyAnimeList
-mal:
-    ID: XXX
-    SECRET: XXX
-
-reddit:
-    ID: XXX
-    SECRET: XXX
-
-# watch2gether
-w2g:
-    ID: XXX
-    API_URL: "https://api.w2g.tv"
-    default_links:
-        - "https://www.youtube.com/watch?v=Csek1JC4JzE" # satisfactory dev music
-        # - "https://www.youtube.com/watch?v=x-Si5PfCgrs" # fairy fountain
-        - "https://www.youtube.com/watch?v=xh_r_lEPfZ8" # dark world
-spotify:
-    ID: XXX
-    SECRET: XXX
-
-api_ninjas:
-    SECRET: XXX
-
-tmdb:
-    SECRET: XXX
