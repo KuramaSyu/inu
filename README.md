@@ -1,8 +1,17 @@
 # Setup
-1. copy the repo
-2. copy the `config_template.yaml` file and rename it to `config.yaml`
-3. Fill in all your credentials where you see a `X`
-4. Download the Lavalink.jar file and put it into `dependencies/fred_boat/`
+```bash
+# copy repo
+git clone https://github.com/zp33dy/inu
+
+cd inu
+cp template-config.yaml config.yaml
+
+# Set the Discord token in the config.yaml
+# Set other with `x` filled fields in the config
+
+# start the bot
+docker compose up --build
+```
 
 # Commands
 
