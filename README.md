@@ -7,7 +7,7 @@ cd inu
 cp template-config.yaml config.yaml
 
 # Set the Discord token in the config.yaml
-# Set other with `x` filled fields in the config
+# Set other with `XXX` or `000` filled fields in the config
 
 # start the bot
 docker compose up --build
