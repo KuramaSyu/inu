@@ -58,7 +58,7 @@ from ..tags import get_tag, _tag_add
 from .helpers import YouTubeHelper, MusicHelper, MusicDialogs
 from .queue import Queue
 from .constants import *
-from .lavalink_voice import LavalinkVoice, LavalinkClient
+from ..music_utils.lavalink_voice import LavalinkVoice, LavalinkClient
 
 log = getLogger(__name__)
 
