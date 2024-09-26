@@ -1,12 +1,15 @@
 from typing import *
+from datetime import datetime, timedelta
 
 import hikari
 from hikari.api import VoiceConnection
+from hikari import Embed
 import lightbulb
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
 
 from . import LavalinkVoice
+from utils import Human, YouTubeHelper
 from core import Inu, get_context, InuContext, getLogger
 
 log = getLogger(__name__)
@@ -220,3 +223,164 @@ class MusicPlayer:
 
         assert isinstance(voice, LavalinkVoice)
         return voice, has_joined
+    
+
+class QueueMessage:
+    """
+    Represents the queue message of one player
+    """
+
+    def __init__(
+        self,
+        player: MusicPlayer,
+    ):
+        self.palyer = player
+
+    @property
+    def bot(self) -> Inu:
+        return self.player.bot
+    
+    @property
+    def embed(self) -> hikari.Embed:
+        """builds the embed for the music message"""
+        AMOUNT_OF_SONGS_IN_QUEUE = 4
+        node = self.player._node
+        if not node:
+            return Embed(
+                description=(
+                    "Queue is currently empty.\n"
+                    "Add some songs with `/play` and the name or URL of the song\n"
+                ),
+                color=hikari.Color.from_hex_code(self.bot.conf.bot.color),
+            )
+        numbers = [
+            '1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'
+        ] # double 1 to make it start at 1 (0 is current playing song)
+
+        upcomping_song_fields: List[hikari.EmbedField] = []
+        first_field: hikari.EmbedField = hikari.EmbedField(
+            name=" ", 
+            value=" ", 
+            inline=True
+        )
+        second_field: hikari.EmbedField = hikari.EmbedField(
+            name=" ", 
+            value=" ", 
+            inline=True
+        )
+        pre_titles_total_delta = datetime.timedelta()
+
+        # create upcoming song fields
+        for i, items in enumerate(zip(node.queue, numbers)):
+            _track, num = items
+            track = _track.track
+            if i == 0:
+                # skip current playing song
+                try:
+                    pre_titles_total_delta += timedelta(milliseconds=track.info.length)
+                except OverflowError:  # Python int too large for C int
+                    pre_titles_total_delta += timedelta(milliseconds=36_000_000)  # 10 hours
+                continue
+            if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
+                # only show 4 upcoming songs
+                break
+
+            if node.is_paused:
+                discord_timestamp = "--:--"
+            else:
+                discord_timestamp = f"<t:{(datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
+
+            pre_titles_total_delta += timedelta(milliseconds=track.info.length)
+            upcomping_song_fields.append(
+                hikari.EmbedField(
+                    name=f"{num}{'' if node.is_paused else ' -'} {discord_timestamp}",
+                    value=f"```ml\n{Human.short_text(track.info.title, 50, '...')}```",
+                    inline=True,
+                )
+            )
+
+        # split upcomping_song_fields into two EmbedFields
+        total_len = len(upcomping_song_fields)
+        for i, field in enumerate(upcomping_song_fields):
+            # x.5 is first field
+            if i < total_len / 2:
+                if first_field.name == " ":
+                    first_field.name = field.name
+                    first_field.value = field.value
+                else:
+                    first_field.value += f"**{field.name}**\n{field.value}"
+            elif i >= total_len / 2:
+                if second_field.name == " ":
+                    second_field.name = field.name
+                    second_field.value = field.value
+                else:
+                    second_field.value += f"**{field.name}**\n{field.value}"
+            else:
+                if first_field.name == " ":
+                    first_field.name = field.name
+                    first_field.value = field.value
+                else:
+                    first_field.value += f"**{field.name}**\n{field.value}"
+        
+        upcomping_song_fields = []
+        if first_field.name != " ":
+            upcomping_song_fields.append(first_field)
+        if second_field.name != " ":
+            upcomping_song_fields.append(second_field)
+
+        try:
+            track = self.player.node.queue[0].track
+        except Exception as e:
+            return log.warning(f"can't get current playing song: {e}")
+
+        if not node.queue[0].requester:
+            log.warning("no requester of current track - returning")
+
+        requester = self.bot.cache.get_member(self.player.guild_id, node.queue[0].requester)
+        try:
+            music_over_in = (
+                datetime.datetime.now() 
+                + datetime.timedelta(
+                    milliseconds=track.info.length-track.info.position
+                )
+            ).timestamp()
+        except OverflowError:
+            music_over_in = (datetime.datetime.now() + datetime.timedelta(hours=10)).timestamp()
+        if node.is_paused:
+            paused_at = datetime.datetime.now()
+            # min:sec
+            music_over_in_str = f"<t:{paused_at.timestamp():.0f}:t>"    
+        else:
+            music_over_in_str = f'<t:{music_over_in:.0f}:R>'
+
+        # create embed
+        music_embed = hikari.Embed(
+            colour=hikari.Color.from_rgb(71, 89, 211)
+        )
+        music_embed.add_field(
+            name = "Was played:" if node.is_paused else "Playing:", 
+            value=f'[{track.info.title}]({track.info.uri})', 
+            inline=True
+        )
+        music_embed.add_field(
+            name="Author:", 
+            value=f'{track.info.author}', 
+            inline=True
+        )
+        music_embed.add_field(
+            name="Added by:", 
+            value=f'{requester.display_name}' , 
+            inline=True
+        )
+        music_embed.add_field(
+            name = "Paused at:" if node.is_paused else "Over in:", 
+            value=music_over_in_str, 
+            inline=False
+        )
+        music_embed._fields.extend(upcomping_song_fields)
+        music_embed.set_footer(**self._build_custom_footer())
+        music_embed.set_thumbnail(
+            YouTubeHelper.thumbnail_from_url(track.info.uri) 
+            or self.bot.me.avatar_url
+        )
+        return music_embed
