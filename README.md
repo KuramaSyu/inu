@@ -30,7 +30,7 @@ week-activity | | the same as `current-games` but with one chart summing it up
 
 ## `/current-games`
 shows the last played games as a line chart. Example:
-![](https://i.postimg.cc/8zgK5c1m/grafik.png)
+[![grafik.png](https://i.postimg.cc/8zgK5c1m/grafik.png)](https://postimg.cc/mtVNpb1P)
 
 ## `/week-activity`
 Similar to `/current-games` but with one chart summing all games up:
@@ -53,15 +53,19 @@ to enter the terminal and use psql:
 
 `docker exec -it postgresql psql -U inu inu_db`
 
-
-# Keyboard shortcuts
-
-to move docker-compose into the background:
-
-`ctrl + z`
-
 ## Database
+### automatically
+backup:
+```bash
+python inu.py backup
+```
 
+restore:
+```bash
+python inu.py restore
+```
+The restore command is interactive and lets you choose the dumb to restore
+### manual
 to backup the database:
 
 `docker exec -t <postgres-container-id> pg_dumpall -c -U inu > dump_file.sql`
