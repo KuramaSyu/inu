@@ -699,6 +699,7 @@ class Paginator():
         self.onetime_kwargs = {}  # used once when sending a message
         self._stop: asyncio.Event = asyncio.Event()
         self._pages: List[Embed | str] = page_s
+        self._position: int = 0
         self._old_position: int = 0
 
         self._component: Optional[MessageActionRowBuilder] = None
