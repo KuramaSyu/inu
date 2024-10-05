@@ -99,16 +99,16 @@ class Inu(lightbulb.BotApp):
             "incremental": True,
             "loggers": loggers 
         }
+        
+        # @property
+        # def lavalink(self) -> lavalink_rs.LavalinkClient:
+        #     if not self._lavalink:
+        #         raise RuntimeError("Lavalink client is not initialized")
+        #     return self._lavalink
 
-        @property
-        def lavalink(self) -> lavalink_rs.LavalinkClient:
-            if not self._lavalink:
-                raise RuntimeError("Lavalink client is not initialized")
-            return self._lavalink
-
-        @lavalink.setter
-        def lavalink(self, value: lavalink_rs.LavalinkClient) -> None:
-            self._lavalink = value
+        # @lavalink.setter
+        # def lavalink(self, value: lavalink_rs.LavalinkClient) -> None:
+        #     self._lavalink = value
 
         def get_prefix(bot: Inu, message: hikari.Message):
             return bot.prefixes_from(message.guild_id)
@@ -127,7 +127,13 @@ class Inu(lightbulb.BotApp):
         self.mrest = MaybeRest(self)
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
-
+        
+    @property
+    def accent_color(self) -> hikari.Color:
+        """
+        The accent color defined in the config (`bot.color`)
+        """
+        return hikari.Color.from_hex_code(self.conf.bot.color)
     def prefixes_from(self, guild_id: Optional[int]) -> List[str]:
         if not guild_id:
             return [self._default_prefix, ""]
@@ -152,8 +158,8 @@ class Inu(lightbulb.BotApp):
         hours: int = 0,
         days: int = 0,
         weeks: int = 0,
-        args: Sequence[Any] = None,
-        kwargs: Sequence[Any] = None,
+        args: Sequence[Any] | None = None,
+        kwargs: Sequence[Any] | None = None,
     ):
         trigger = IntervalTrigger(
             seconds=seconds,
