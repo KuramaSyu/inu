@@ -12,7 +12,7 @@ from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
 
 from .music_utils import LavalinkVoice, MusicPlayerManager, MusicPlayer
-from core import Inu, getLogger
+from core import Inu, getLogger, get_context
 
 log = getLogger(__name__)
 
@@ -166,18 +166,8 @@ async def join(ctx: Context) -> None:
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
 async def leave(ctx: Context) -> None:
     """Leaves the voice channel"""
-    if not ctx.guild_id:
-        return None
-
-    voice = ctx.bot.voice.connections.get(ctx.guild_id)
-
-    if not voice:
-        await ctx.respond("Not in a voice channel")
-        return None
-
-    await voice.disconnect()
-
-    await ctx.respond("Left the voice channel")
+    player = MusicPlayerManager.get_player(get_context(ctx.event))
+    await player.leave()
 
 
 @plugin.command()
@@ -210,32 +200,8 @@ async def play(ctx: Context) -> None:
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
 async def skip(ctx: Context) -> None:
     """Skip the currently playing song"""
-    if not ctx.guild_id:
-        return None
-
-    voice = ctx.bot.voice.connections.get(ctx.guild_id)
-
-    if not voice:
-        await ctx.respond("Not connected to a voice channel")
-        return None
-
-    assert isinstance(voice, LavalinkVoice)
-
-    player = await voice.player.get_player()
-
-    if player.track:
-        if player.track.info.uri:
-            await ctx.respond(
-                f"Skipped: [`{player.track.info.author} - {player.track.info.title}`](<{player.track.info.uri}>)"
-            )
-        else:
-            await ctx.respond(
-                f"Skipped: `{player.track.info.author} - {player.track.info.title}`"
-            )
-
-        voice.player.skip()
-    else:
-        await ctx.respond("Nothing to skip")
+    player = MusicPlayerManager.get_player(get_context(ctx.event))
+    await player.skip()
 
 
 @plugin.command()
@@ -243,32 +209,8 @@ async def skip(ctx: Context) -> None:
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
 async def stop(ctx: Context) -> None:
     """Stop the currently playing song"""
-    if not ctx.guild_id:
-        return None
-
-    voice = ctx.bot.voice.connections.get(ctx.guild_id)
-
-    if not voice:
-        await ctx.respond("Not connected to a voice channel")
-        return None
-
-    assert isinstance(voice, LavalinkVoice)
-
-    player = await voice.player.get_player()
-
-    if player.track:
-        if player.track.info.uri:
-            await ctx.respond(
-                f"Stopped: [`{player.track.info.author} - {player.track.info.title}`](<{player.track.info.uri}>)"
-            )
-        else:
-            await ctx.respond(
-                f"Stopped: `{player.track.info.author} - {player.track.info.title}`"
-            )
-
-        await voice.player.stop_now()
-    else:
-        await ctx.respond("Nothing to stop")
+    player = MusicPlayerManager.get_player(get_context(ctx.event))
+    await player.stop()
 
 
 def load(bot: Inu) -> None:
