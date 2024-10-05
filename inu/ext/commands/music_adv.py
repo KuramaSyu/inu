@@ -94,7 +94,7 @@ async def resume(ctx: Context) -> None:
             await ctx.respond(
                 f"Resumed: `{player.track.info.author} - {player.track.info.title}`"
             )
-
+        voice.player
         await voice.player.set_pause(False)
     else:
         await ctx.respond("Nothing to resume")
@@ -143,8 +143,10 @@ async def seek(ctx: Context) -> None:
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
 async def queue(ctx: Context) -> None:
     """List the current queue"""
-    player = MusicPlayerManager.get_player(get_context(ctx.event))
-    await player.send_queue()
+    ctx = get_context(ctx.event)
+    await ctx.defer()
+    player = MusicPlayerManager.get_player(ctx)
+    await player.send_queue(True)
 
 
 async def actual_queue(ctx: Context) -> None:
