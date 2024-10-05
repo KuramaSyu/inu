@@ -8,8 +8,8 @@ import lightbulb
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
 
-from . import LavalinkVoice
-from utils import Human, YouTubeHelper
+from . import LavalinkVoice, YouTubeHelper
+from utils import Human
 from core import Inu, get_context, InuContext, getLogger
 
 log = getLogger(__name__)
@@ -20,13 +20,34 @@ class MusicPlayerManager:
     _ctx: InuContext
 
     @classmethod
-    def get_player(cls, guild_id: int) -> "MusicPlayer":
-        if player := cls._instances.get(guild_id):
-            return player
+    def get_player(cls, ctx_or_guild_id: int | InuContext) -> "MusicPlayer":
+        """
+        Args:
+        -----
+        `ctx_or_guild_id` (`int` | `InuContext`):
+            The guild id or the context of the command.
+            If it's the context, then it will be automatically set as player ctx.
+        """
+        guild_id = None
+        ctx = None
+
+        if isinstance(ctx_or_guild_id, InuContext):
+            guild_id = ctx_or_guild_id.guild_id
+            ctx = ctx_or_guild_id
         else:
+            guild_id = ctx_or_guild_id
+
+        player = None
+        player = cls._instances.get(guild_id)
+
+        if not player:
             player = MusicPlayer(cls._bot, guild_id)
             cls._instances[guild_id] = player
-            return player
+        
+        if ctx:
+            player.set_context(ctx)
+
+        return player
 
     @classmethod
     def set_bot(cls, bot: lightbulb.BotApp) -> None:
@@ -40,8 +61,16 @@ class MusicPlayer:
         self.bot = bot
         self._guild_id = guild_id
         self._ctx: InuContext | None = None
+        self._queue: QueueMessage | None = None
 
     def _get_voice(self) -> VoiceConnection | None:
+        """
+        Returns:
+        --------
+        `VoiceConnection | None`:
+            The voice connection of the bot in the guild
+            (`self.bot.voice.connections.get(self.guild_id)`)
+        """
         return self.bot.voice.connections.get(self.guild_id)
     
     @property   
@@ -53,6 +82,18 @@ class MusicPlayer:
     @property
     def guild_id(self) -> int:
         return self._guild_id
+    
+    async def is_paused(self) -> bool:
+        """
+        https://docs.rs/lavalink-rs/latest/lavalink_rs/player_context/struct.PlayerContext.html
+
+        Returns:
+            bool: whether the player is paused or not
+        """
+        voice = self._get_voice()
+        if not voice:
+            return False
+        return (await voice.player.get_player()).paused
     
     def set_context(self, ctx: InuContext) -> None:
         self._ctx = ctx
@@ -76,7 +117,7 @@ class MusicPlayer:
 
             channel_id = voice_state.channel_id
 
-        voice = self.bot.voice.connections.get(self.guild_id)
+        voice = self._get_voice()
 
         if not voice:
             await LavalinkVoice.connect(
@@ -99,6 +140,84 @@ class MusicPlayer:
             )
 
         return channel_id
+    
+    async def skip(self, amount: int = 1) -> None:
+        ctx = self.ctx
+        if not ctx.guild_id:
+            return None
+
+        voice = self._get_voice()
+
+        if not voice:
+            await ctx.respond("Not connected to a voice channel")
+            return None
+
+        assert isinstance(voice, LavalinkVoice)
+
+        player = await voice.player.get_player()
+
+        if not player.track:
+            await ctx.respond("No song is playing")
+            return None
+        
+        for _ in range(amount):
+            voice.player.skip()
+            # if player.track:
+            #     if player.track.info.uri:
+            #         await ctx.respond(
+            #             f"Skipped: [`{player.track.info.author} - {player.track.info.title}`](<{player.track.info.uri}>)"
+            #         )
+            #     else:
+            #         await ctx.respond(
+            #             f"Skipped: `{player.track.info.author} - {player.track.info.title}`"
+            #         )
+        await ctx.respond(f"Skipped {amount} songs")
+
+    async def stop(self) -> None:
+        ctx = self.ctx
+        if not ctx.guild_id:
+            return None
+
+        voice = self._get_voice()
+
+        if not voice:
+            await ctx.respond("Not connected to a voice channel")
+            return None
+
+        assert isinstance(voice, LavalinkVoice)
+
+        player = await voice.player.get_player()
+
+        if player.track:
+            if player.track.info.uri:
+                await ctx.respond(
+                    f"Stopped: [`{player.track.info.author} - {player.track.info.title}`](<{player.track.info.uri}>)"
+                )
+            else:
+                await ctx.respond(
+                    f"Stopped: `{player.track.info.author} - {player.track.info.title}`"
+                )
+
+            await voice.player.stop_now()
+        else:
+            await ctx.respond("Nothing to stop")
+                
+        
+    async def leave(self) -> None:
+        ctx = self.ctx
+        if not ctx.guild_id:
+            return None
+
+        voice = self._get_voice()
+
+        if not voice:
+            await ctx.respond("I can't leave without beeing in a voice channel in the first place, y'know?")
+            return None
+
+        await voice.disconnect()
+
+        await ctx.respond("Left the voice channel")
+
 
     async def play(self, query: str) -> None:
         voice, has_joined = await self._connect()
@@ -116,6 +235,7 @@ class MusicPlayer:
             else:
                 if player.track:
                     await ctx.respond("A song is already playing")
+                    # TODO: enqueue track
                 else:
                     await ctx.respond("The queue is empty")
 
@@ -224,6 +344,15 @@ class MusicPlayer:
         assert isinstance(voice, LavalinkVoice)
         return voice, has_joined
     
+    def _make_queue_message(self) -> None:
+        if not self._queue:
+            self._queue = QueueMessage(self)
+    
+    async def send_queue(self) -> None:
+        self._make_queue_message()
+        await self._queue._send_or_update_message()
+
+    
 
 class QueueMessage:
     """
@@ -234,25 +363,34 @@ class QueueMessage:
         self,
         player: MusicPlayer,
     ):
-        self.palyer = player
+        self._player: MusicPlayer = player
+
+    @property
+    def player(self) -> MusicPlayer:
+        return self._player
 
     @property
     def bot(self) -> Inu:
         return self.player.bot
     
-    @property
-    def embed(self) -> hikari.Embed:
+    async def build_embed(self) -> hikari.Embed:
         """builds the embed for the music message"""
         AMOUNT_OF_SONGS_IN_QUEUE = 4
-        node = self.player._node
-        if not node:
-            return Embed(
-                description=(
-                    "Queue is currently empty.\n"
-                    "Add some songs with `/play` and the name or URL of the song\n"
-                ),
-                color=hikari.Color.from_hex_code(self.bot.conf.bot.color),
-            )
+        # node = self.player._node
+        # if not node:
+        #     return Embed(
+        #         description=(
+        #             "Queue is currently empty.\n"
+        #             "Add some songs with `/play` and the name or URL of the song\n"
+        #         ),
+        #         color=hikari.Color.from_hex_code(self.bot.conf.bot.color),
+        #     )
+        voice = self._player._get_voice()
+        log.debug(f"fetch queue")
+        queue = await voice.player.get_queue().get_queue()
+        log.debug(f"{queue = }")
+        is_paused = self._player.is_paused
+        
         numbers = [
             '1️⃣','1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟'
         ] # double 1 to make it start at 1 (0 is current playing song)
@@ -268,10 +406,11 @@ class QueueMessage:
             value=" ", 
             inline=True
         )
-        pre_titles_total_delta = datetime.timedelta()
+        pre_titles_total_delta = timedelta()
 
         # create upcoming song fields
-        for i, items in enumerate(zip(node.queue, numbers)):
+        log.debug(f"create upcoming song fields")
+        for i, items in enumerate(zip(queue, numbers)):
             _track, num = items
             track = _track.track
             if i == 0:
@@ -285,7 +424,7 @@ class QueueMessage:
                 # only show 4 upcoming songs
                 break
 
-            if node.is_paused:
+            if is_paused:
                 discord_timestamp = "--:--"
             else:
                 discord_timestamp = f"<t:{(datetime.now() + pre_titles_total_delta).timestamp():.0f}:t>"
@@ -293,7 +432,7 @@ class QueueMessage:
             pre_titles_total_delta += timedelta(milliseconds=track.info.length)
             upcomping_song_fields.append(
                 hikari.EmbedField(
-                    name=f"{num}{'' if node.is_paused else ' -'} {discord_timestamp}",
+                    name=f"{num}{'' if is_paused else ' -'} {discord_timestamp}",
                     value=f"```ml\n{Human.short_text(track.info.title, 50, '...')}```",
                     inline=True,
                 )
@@ -329,24 +468,25 @@ class QueueMessage:
             upcomping_song_fields.append(second_field)
 
         try:
-            track = self.player.node.queue[0].track
+            track = queue[0].track
         except Exception as e:
+            # TODO: currently always out of range
             return log.warning(f"can't get current playing song: {e}")
 
-        if not node.queue[0].requester:
+        if not queue[0].requester:
             log.warning("no requester of current track - returning")
 
-        requester = self.bot.cache.get_member(self.player.guild_id, node.queue[0].requester)
+        requester = self.bot.cache.get_member(self.player.guild_id, queue[0].requester)
         try:
             music_over_in = (
                 datetime.datetime.now() 
-                + datetime.timedelta(
+                + timedelta(
                     milliseconds=track.info.length-track.info.position
                 )
             ).timestamp()
         except OverflowError:
-            music_over_in = (datetime.datetime.now() + datetime.timedelta(hours=10)).timestamp()
-        if node.is_paused:
+            music_over_in = (datetime.datetime.now() + timedelta(hours=10)).timestamp()
+        if is_paused:
             paused_at = datetime.datetime.now()
             # min:sec
             music_over_in_str = f"<t:{paused_at.timestamp():.0f}:t>"    
@@ -358,7 +498,7 @@ class QueueMessage:
             colour=hikari.Color.from_rgb(71, 89, 211)
         )
         music_embed.add_field(
-            name = "Was played:" if node.is_paused else "Playing:", 
+            name = "Was played:" if is_paused else "Playing:", 
             value=f'[{track.info.title}]({track.info.uri})', 
             inline=True
         )
@@ -373,7 +513,7 @@ class QueueMessage:
             inline=True
         )
         music_embed.add_field(
-            name = "Paused at:" if node.is_paused else "Over in:", 
+            name = "Paused at:" if is_paused else "Over in:", 
             value=music_over_in_str, 
             inline=False
         )
@@ -383,4 +523,13 @@ class QueueMessage:
             YouTubeHelper.thumbnail_from_url(track.info.uri) 
             or self.bot.me.avatar_url
         )
+        log.debug(f"{music_embed = }")
         return music_embed
+    
+    async def _send_or_update_message(self) -> None:
+        """
+        Sends the message or updates it if it already exists
+        """
+        embed = await self.build_embed()
+        log.debug(f"{embed = }")
+        await self.player.ctx.respond(embeds=[embed])
