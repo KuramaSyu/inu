@@ -38,37 +38,12 @@ class Events(lavalink_rs.EventHandler):
     ) -> None:
         del session_id
 
-        logging.info(
+        log.info(
             f"Started track {event.track.info.author} - {event.track.info.title} in {event.guild_id.inner}"
         )
 
-        player_ctx = client.get_player_context(event.guild_id.inner)
-
-        assert player_ctx
-        assert player_ctx.data
-
-        data = t.cast(t.Tuple[hikari.Snowflake, hikari.api.RESTClient], player_ctx.data)
-
-        assert event.track.user_data and isinstance(event.track.user_data, dict)
-
-        if event.track.info.uri:
-            await data[1].create_message(
-                data[0],
-                f"Started playing [`{event.track.info.author} - {event.track.info.title}`](<{event.track.info.uri}>) | Requested by <@!{event.track.user_data['requester_id']}>",
-            )
-        else:
-            await data[1].create_message(
-                data[0],
-                f"Started playing `{event.track.info.author} - {event.track.info.title}` | Requested by <@!{event.track.user_data['requester_id']}>",
-            )
-
-
-# async def custom_node(
-#    client: lavalink_rs.LavalinkClient, guild_id: lavalink_rs.GuildId | int
-# ) -> lavalink_rs.Node:
-#    node = client.get_node_by_index(0)
-#    assert node
-#    return node
+        player = MusicPlayerManager.get_player(event.guild_id.inner)
+        await player.send_queue()
 
 
 @plugin.listener(hikari.ShardReadyEvent, bind=True)
@@ -167,6 +142,8 @@ async def join(ctx: Context) -> None:
 async def leave(ctx: Context) -> None:
     """Leaves the voice channel"""
     player = MusicPlayerManager.get_player(get_context(ctx.event))
+    player._queue.add_footer_info(f"🛑 Stopped by {ctx.author.username}", ctx.author.avatar_url)
+    await player.send_queue(True)
     await player.leave()
 
 
@@ -180,19 +157,24 @@ async def leave(ctx: Context) -> None:
 @lightbulb.command(
     "play",
     "Searches the query on Soundcloud",
-    auto_defer=True,
 )
 @lightbulb.implements(
     lightbulb.PrefixCommand,
     lightbulb.SlashCommand,
 )
-async def play(ctx: Context) -> None:
-    if not ctx.guild_id:
+async def play(_ctx: Context) -> None:
+    if not _ctx.guild_id:
         return None
-
-    player = MusicPlayerManager.get_player(ctx.guild_id)
-    player.set_context(ctx)
-    await player.play(ctx.options.query)
+    ctx = get_context(_ctx.event)
+    await ctx.defer()
+    player = MusicPlayerManager.get_player(ctx)
+    was_playing = not (await player.is_paused())
+    log.debug(f"{was_playing = }")
+    await player.play(_ctx.options.query)
+    
+    # if was_playing:
+    #     # if its the first /play, then the listener will trigger
+    #     await player.send_queue(True)
 
 
 @plugin.command()
@@ -200,8 +182,11 @@ async def play(ctx: Context) -> None:
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
 async def skip(ctx: Context) -> None:
     """Skip the currently playing song"""
-    player = MusicPlayerManager.get_player(get_context(ctx.event))
+    ctx = get_context(ctx.event)
+    await ctx.defer()
+    player = MusicPlayerManager.get_player(ctx)
     await player.skip()
+    #await player.send_queue(True)
 
 
 @plugin.command()
@@ -211,6 +196,7 @@ async def stop(ctx: Context) -> None:
     """Stop the currently playing song"""
     player = MusicPlayerManager.get_player(get_context(ctx.event))
     await player.stop()
+    await player.send_queue(True)
 
 
 def load(bot: Inu) -> None:
