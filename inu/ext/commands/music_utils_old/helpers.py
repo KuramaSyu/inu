@@ -147,7 +147,7 @@ class MusicDialogs:
             .add_interactive_button(
                 hikari.ButtonStyle.SECONDARY, 
                 f"stop_query_menu-{id_}", 
-                label="I don't find it ¯\_(ツ)_/¯",
+                label=r"I don't find it ¯\_(ツ)_/¯",
                 emoji="🗑️"
             )
         )
