@@ -5,7 +5,7 @@ from lightbulb import Context
 import hikari 
 
 from core import Inu
-from .music_utils import LavalinkVoice
+from .music_utils import LavalinkVoice, MusicPlayerManager
 from core import getLogger, get_context
 
 log = getLogger(__name__)
@@ -143,6 +143,11 @@ async def seek(ctx: Context) -> None:
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
 async def queue(ctx: Context) -> None:
     """List the current queue"""
+    player = MusicPlayerManager.get_player(get_context(ctx.event))
+    await player.send_queue()
+
+
+async def actual_queue(ctx: Context) -> None:
     if not ctx.guild_id:
         return None
 
