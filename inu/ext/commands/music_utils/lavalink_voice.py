@@ -10,6 +10,10 @@ from lavalink_rs.model.player import ConnectionInfo
 
 from core import Inu
 
+class TrackUserData(t.TypedDict):
+    requester_id: hikari.Snowflake
+
+
 class LavalinkVoice(VoiceConnection):
     __slots__ = [
         "lavalink",
