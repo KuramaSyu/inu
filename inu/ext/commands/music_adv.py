@@ -46,6 +46,7 @@ async def pause(ctx: Context) -> None:
     if not ctx.guild_id:
         return None
     player = MusicPlayerManager.get_player(get_context(ctx.event))
+    await player.ctx.defer()
     await player.pause()
     await player.send_queue(True)
 
@@ -58,6 +59,7 @@ async def resume(ctx: Context) -> None:
     if not ctx.guild_id:
         return None
     player = MusicPlayerManager.get_player(get_context(ctx.event))
+    await player.ctx.defer()
     await player.resume()
     await player.send_queue(True)
 
@@ -109,55 +111,6 @@ async def queue(ctx: Context) -> None:
     await ctx.defer()
     player = MusicPlayerManager.get_player(ctx)
     await player.send_queue(True)
-
-
-async def actual_queue(ctx: Context) -> None:
-    if not ctx.guild_id:
-        return None
-
-    voice = ctx.bot.voice.connections.get(ctx.guild_id)
-
-    if not voice:
-        await ctx.respond("Not connected to a voice channel")
-        return None
-
-    assert isinstance(voice, LavalinkVoice)
-
-    player = await voice.player.get_player()
-
-    now_playing = "Nothing"
-
-    if player.track:
-        time_s = int(player.state.position / 1000 % 60)
-        time_m = int(player.state.position / 1000 / 60)
-        time_true_s = int(player.state.position / 1000)
-        time = f"{time_m:02}:{time_s:02}"
-
-        assert player.track.user_data and isinstance(player.track.user_data, dict)
-
-        if player.track.info.uri:
-            now_playing = f"[`{player.track.info.author} - {player.track.info.title}`](<{player.track.info.uri}>) | {time} (Second {time_true_s}), Requested by <@!{player.track.user_data['requester_id']}>"
-        else:
-            now_playing = f"`{player.track.info.author} - {player.track.info.title}` | {time} (Second {time_true_s}), Requested by <@!{player.track.user_data['requester_id']}>"
-
-    queue = await voice.player.get_queue().get_queue()
-    queue_text = ""
-
-    for idx, i in enumerate(queue):
-        if idx == 9:
-            break
-
-        assert i.track.user_data and isinstance(i.track.user_data, dict)
-
-        if i.track.info.uri:
-            queue_text += f"{idx+1} -> [`{i.track.info.author} - {i.track.info.title}`](<{i.track.info.uri}>) | Requested by <@!{i.track.user_data['requester_id']}>\n"
-        else:
-            queue_text += f"{idx+1} -> `{i.track.info.author} - {i.track.info.title}` | Requested by <@!{i.track.user_data['requester_id']}>\n"
-
-    if not queue_text:
-        queue_text = "Empty queue"
-
-    await ctx.respond(f"Now playing: {now_playing}\n\n{queue_text}")
 
 
 @plugin.command
