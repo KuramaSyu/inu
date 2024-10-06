@@ -10,7 +10,7 @@ class ResponseLock:
     """
     def __init__(self, minimum_delay: timedelta) -> None:
         self._minimum_delay: timedelta = minimum_delay
-        self._last_response: datetime = datetime(2000, 0 , 0)
+        self._last_response: datetime = datetime(2000, 1, 1)
         
     def is_available(self) -> bool:
         """
