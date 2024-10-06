@@ -11,7 +11,7 @@ from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
 from lavalink_rs.model.player import Player
 
-from . import LavalinkVoice, YouTubeHelper, TrackUserData
+from . import LavalinkVoice, YouTubeHelper, TrackUserData, ResponseLock
 from utils import Human
 from core import Inu, get_context, InuContext, getLogger
 
@@ -65,6 +65,7 @@ class MusicPlayer:
         self._guild_id = guild_id
         self._ctx: InuContext | None = None
         self._queue: QueueMessage = QueueMessage(self)
+        self.response_lock = ResponseLock(timedelta(seconds=3))
 
     def _get_voice(self) -> VoiceConnection | None:
         """
@@ -157,6 +158,26 @@ class MusicPlayer:
 
         return channel_id
     
+    async def pause(self) -> None:
+        """
+        Pauses the MusicPlayer
+        """
+        ctx = self.ctx
+        voice = self._get_voice()
+
+        if not voice:
+            return
+
+        assert isinstance(voice, LavalinkVoice)
+
+        player = await voice.player.get_player()
+
+        if player.track:
+            await voice.player.set_pause(True)
+        else:
+            return
+        
+        
     async def skip(self, amount: int = 1) -> None:
         ctx = self.ctx
         if not ctx.guild_id:
@@ -349,9 +370,19 @@ class MusicPlayer:
         if not self._queue:
             self._queue = QueueMessage(self)
     
-    async def send_queue(self, force_resend: bool = False) -> None:
+    async def send_queue(self, force_resend: bool = False) -> bool:
+        """
+        Returns:
+        --------
+        `bool`:
+            Whether the message was sent
+        """
+        is_locked = self.response_lock.lock()
+        if not is_locked:
+            return False
         self._make_queue_message()
         await self._queue._send_or_update_message(force_resend)
+        return True
 
 
 @dataclass
