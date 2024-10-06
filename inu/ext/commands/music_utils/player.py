@@ -445,8 +445,8 @@ class QueueMessage:
     
     def add_footer_info(self, info: str, icon: str | None = None) -> None:
         self._footer.infos.append(info)
-        if icon:
-            self._footer.icon_url = icon
+        if icon is not None:
+            self._footer.icon = icon
         
     async def _build_footer(self) -> Dict[str, str]:
         """
@@ -471,6 +471,9 @@ class QueueMessage:
         queue = await voice.player.get_queue().get_queue()
         voice_player = await self._player._fetch_voice_player()
         is_paused = await self._player.is_paused()
+        
+        if not voice_player:
+            return Embed(description="Nothing is playing currently", color=self.bot.accent_color)
         
         numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
 
@@ -595,7 +598,8 @@ class QueueMessage:
             inline=False
         )
         music_embed._fields.extend(upcomping_song_fields)
-        music_embed.set_footer(**(await self._build_footer()))
+        footer = await self._build_footer()
+        music_embed.set_footer(footer["text"], icon=footer.get("icon"))
         music_embed.set_thumbnail(
             YouTubeHelper.thumbnail_from_url(track.info.uri) 
             or self.bot.me.avatar_url
@@ -649,7 +653,7 @@ class QueueMessage:
     
         self.reset_footer()
         
-async def is_in_history(channel_id: int, message_id: int, amount: int = 4) -> bool:
+async def is_in_history(channel_id: int, message_id: int, amount: int = 3) -> bool:
     """
     Checks whether a message_id is in channel_id in the last <amount> messages
     """
@@ -665,4 +669,4 @@ def make_track_message(track) -> str:
     """
     track needs info field which as author and title
     """
-    return  f"🎵 Added to queue: {track.info.author} - {track.info.title}"
+    return  f"➕ Added to queue: {track.info.author} - {track.info.title}"
