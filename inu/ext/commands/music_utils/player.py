@@ -159,9 +159,26 @@ class MusicPlayer:
         return channel_id
     
     async def pause(self) -> None:
+        """Pauses a player and adds a footer info"""
+        self._queue.add_footer_info(
+            f"⏸️ Music paused by {self.ctx.author.username}", 
+            self.ctx.author.avatar_url
+        )
+        await self._set_pause(True)
+        
+    async def resume(self) -> None:
+        """Resumes the player and adds a footer info"""
+        self._queue.add_footer_info(
+            f"▶️ Music resumed by {self.ctx.author.username}", 
+            self.ctx.author.avatar_url
+        )
+        await self._set_pause(False)
+
+    async def _set_pause(self, pause: bool) -> None:
         """
-        Pauses the MusicPlayer
+        Pauses or resumes the MusicPlayer
         """
+
         ctx = self.ctx
         voice = self._get_voice()
 
@@ -173,7 +190,7 @@ class MusicPlayer:
         player = await voice.player.get_player()
 
         if player.track:
-            await voice.player.set_pause(True)
+            await voice.player.set_pause(pause)
         else:
             return
         
