@@ -603,6 +603,7 @@ class QueueMessage:
         )
         return music_embed
     
+    
     async def _send_or_update_message(
         self, 
         force_resend: bool,
@@ -614,11 +615,13 @@ class QueueMessage:
         log.debug(f"send or update message")	
         embed = await self.build_embed()
         components = (
-            MusicMessageComponents
-            .from_player(self.player)
-            .disable_all(disable_components)
+            MusicMessageComponents()
+            .disable(disable_components)
+            .pause(await self._player.is_paused())
             .build()
         )
+        
+        log.debug(f"{components = } {disable_components = }")
         if force_resend:
             edit_history = False
         else:
@@ -658,6 +661,9 @@ class QueueMessage:
             self._message = MessageData(id=message_id, proxy=message_proxy)
     
         self.reset_footer()
+        
+        
+        
         
 async def is_in_history(channel_id: int, message_id: int, amount: int = 3) -> bool:
     """
