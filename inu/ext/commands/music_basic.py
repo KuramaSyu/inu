@@ -2,6 +2,7 @@ import os
 import logging
 import typing as t
 
+import asyncio
 import hikari
 import lightbulb
 from lightbulb import Context
@@ -43,6 +44,7 @@ class Events(lavalink_rs.EventHandler):
         )
 
         player = MusicPlayerManager.get_player(event.guild_id.inner)
+        log.debug(f"Send play message from track_start event")
         await player.send_queue()
 
 
@@ -141,7 +143,9 @@ async def join(ctx: Context) -> None:
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
 async def leave(ctx: Context) -> None:
     """Leaves the voice channel"""
-    player = MusicPlayerManager.get_player(get_context(ctx.event))
+    ctx = get_context(ctx.event)
+    await ctx.defer()
+    player = MusicPlayerManager.get_player()
     player._queue.add_footer_info(f"🛑 Stopped by {ctx.author.username}", ctx.author.avatar_url)
     await player.send_queue(True)
     await player.leave()
@@ -171,6 +175,7 @@ async def play(_ctx: Context) -> None:
     was_playing = not (await player.is_paused())
     log.debug(f"{was_playing = }")
     await player.play(_ctx.options.query)
+    await asyncio.sleep(0.15)  # without this, it does not start playing
     await player.send_queue(True)
 
 @plugin.command()
@@ -185,14 +190,14 @@ async def skip(ctx: Context) -> None:
     await player.send_queue(True)
 
 
-@plugin.command()
-@lightbulb.command("stop", "Stop the currently playing song")
-@lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
-async def stop(ctx: Context) -> None:
-    """Stop the currently playing song"""
-    player = MusicPlayerManager.get_player(get_context(ctx.event))
-    await player.stop()
-    await player.send_queue(True)
+# @plugin.command()
+# @lightbulb.command("stop", "Stop the currently playing song")
+# @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
+# async def stop(ctx: Context) -> None:
+#     """Stop the currently playing song"""
+#     player = MusicPlayerManager.get_player(get_context(ctx.event))
+#     await player.stop()
+#     await player.send_queue(True)
 
 
 def load(bot: Inu) -> None:
