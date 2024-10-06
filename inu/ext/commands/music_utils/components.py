@@ -4,16 +4,16 @@ from hikari.impl import MessageActionRowBuilder
 
 
 class MusicMessageComponents:
-    def __init__(self, player: "MusicPlayer"):
-        self._player = player
+    def __init__(self):
         self._disable_all = False
-        
-    @classmethod
-    def from_player(cls, player: "MusicPlayer"):
-        return cls(player)
+        self._is_paused = False
     
-    def disable_all(self, disable: bool = True):
+    def disable(self, disable: bool = True) -> "MusicMessageComponents":
         self._disable_all = disable
+        return self
+    
+    def pause(self, pause: bool = False) -> "MusicMessageComponents":
+        self._is_paused = pause
         return self
     
     def build(
@@ -26,15 +26,10 @@ class MusicMessageComponents:
         disable_all : bool=False
             If all buttons should be disabled, by default False
         """
-        is_paused = self.player.is_paused
+        is_paused = self._is_paused
         paused_or_stopped = False
         disable_all = self._disable_all
-        if not disable_all:
-            node = self.player._node
-            if not node:
-                disable_all = True
 
-            
         action_rows = [
             (
                 MessageActionRowBuilder()
