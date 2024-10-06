@@ -383,9 +383,9 @@ class MusicPlayer:
         assert isinstance(voice, LavalinkVoice)
         return voice, has_joined
     
-    def _make_queue_message(self) -> None:
-        if not self._queue:
-            self._queue = QueueMessage(self)
+    # def _make_queue_message(self) -> None:
+    #     if not self._queue:
+    #         self._queue = QueueMessage(self)
     
     async def send_queue(self, force_resend: bool = False) -> bool:
         """
@@ -397,7 +397,6 @@ class MusicPlayer:
         is_locked = self.response_lock.lock()
         if not is_locked:
             return False
-        self._make_queue_message()
         await self._queue._send_or_update_message(force_resend)
         return True
 
@@ -494,7 +493,7 @@ class QueueMessage:
         for i, items in enumerate(zip(queue, numbers)):
             _track, num = items
             track = _track.track
-            if i >= AMOUNT_OF_SONGS_IN_QUEUE + 1:
+            if i >= AMOUNT_OF_SONGS_IN_QUEUE:
                 # only show 4 upcoming songs
                 break
 
@@ -650,13 +649,14 @@ class QueueMessage:
     
         self.reset_footer()
         
-        
-
 async def is_in_history(channel_id: int, message_id: int, amount: int = 4) -> bool:
     """
     Checks whether a message_id is in channel_id in the last <amount> messages
     """
     async for m in MusicPlayerManager._bot.rest.fetch_messages(channel_id):
+        amount -= 1
+        if amount <= 0:
+            break
         if m.id == message_id:
             return True
     return False
