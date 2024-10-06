@@ -11,7 +11,7 @@ from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
 from lavalink_rs.model.player import Player
 
-from . import LavalinkVoice, YouTubeHelper, TrackUserData, ResponseLock
+from . import LavalinkVoice, YouTubeHelper, TrackUserData, ResponseLock, MusicMessageComponents
 from utils import Human
 from core import Inu, get_context, InuContext, getLogger
 
@@ -383,11 +383,8 @@ class MusicPlayer:
         assert isinstance(voice, LavalinkVoice)
         return voice, has_joined
     
-    # def _make_queue_message(self) -> None:
-    #     if not self._queue:
-    #         self._queue = QueueMessage(self)
     
-    async def send_queue(self, force_resend: bool = False) -> bool:
+    async def send_queue(self, force_resend: bool = False, disable_components: bool = False) -> bool:
         """
         Returns:
         --------
@@ -397,7 +394,7 @@ class MusicPlayer:
         is_locked = self.response_lock.lock()
         if not is_locked:
             return False
-        await self._queue._send_or_update_message(force_resend)
+        await self._queue._send_or_update_message(force_resend, disable_components)
         return True
 
 
@@ -606,13 +603,22 @@ class QueueMessage:
         )
         return music_embed
     
-    async def _send_or_update_message(self, force_resend: bool) -> None:
+    async def _send_or_update_message(
+        self, 
+        force_resend: bool,
+        disable_components: bool
+    ) -> None:
         """
         Sends the message or updates it if it already exists
         """
         log.debug(f"send or update message")	
         embed = await self.build_embed()
-
+        components = (
+            MusicMessageComponents
+            .from_player(self.player)
+            .disable_all(disable_components)
+            .build()
+        )
         if force_resend:
             edit_history = False
         else:
@@ -624,7 +630,7 @@ class QueueMessage:
             if self._message:
                 try:
                     log.debug(f"edit message with proxy")
-                    await self._message.proxy.edit(embed=embed)
+                    await self._message.proxy.edit(embeds=[embed], components=components)
                 except Exception as e:
                     failed = True
             if not self._message or failed:
@@ -633,7 +639,7 @@ class QueueMessage:
                     log.debug(f"edit message with rest")
                     await self.bot.rest.edit_message(
                         self.player.ctx.channel_id, 
-                        self._message_id, embed=embed
+                        self._message_id, embeds=[embed], components=components
                     )
                 except:
                     failed = True
@@ -647,7 +653,7 @@ class QueueMessage:
                     self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
                 )
             log.debug(f"create music message with rest")
-            message_proxy = await self._player.ctx.respond(embeds=[embed])
+            message_proxy = await self._player.ctx.respond(embeds=[embed], components=components)
             message_id = (await message_proxy.message()).id
             self._message = MessageData(id=message_id, proxy=message_proxy)
     
