@@ -33,6 +33,10 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
         # wrong custom id
         return
     
+    player = MusicPlayerManager.get_player(ctx)
+    if ctx.custom_id == "music_pause":
+        await player.pause()
+    
 
 @plugin.command
 @lightbulb.command("pause", "Pause the currently playing song")
@@ -53,30 +57,9 @@ async def resume(ctx: Context) -> None:
     """Resume the currently playing song"""
     if not ctx.guild_id:
         return None
-
-    voice = ctx.bot.voice.connections.get(ctx.guild_id)
-
-    if not voice:
-        await ctx.respond("Not connected to a voice channel")
-        return None
-
-    assert isinstance(voice, LavalinkVoice)
-
-    player = await voice.player.get_player()
-
-    if player.track:
-        if player.track.info.uri:
-            await ctx.respond(
-                f"Resumed: [`{player.track.info.author} - {player.track.info.title}`](<{player.track.info.uri}>)"
-            )
-        else:
-            await ctx.respond(
-                f"Resumed: `{player.track.info.author} - {player.track.info.title}`"
-            )
-        voice.player
-        await voice.player.set_pause(False)
-    else:
-        await ctx.respond("Nothing to resume")
+    player = MusicPlayerManager.get_player(get_context(ctx.event))
+    await player.resume()
+    await player.send_queue(True)
 
 
 @plugin.command
