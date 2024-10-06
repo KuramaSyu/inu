@@ -11,11 +11,11 @@ class MusicMessageComponents:
     def from_player(cls, player: "MusicPlayer"):
         return cls(player)
     
-    def disable_all(self):
-        self._disable_all = True
+    def disable_all(self, disable: bool = True):
+        self._disable_all = disable
         return self
     
-    def build_components(
+    def build(
         self,
     ) -> List[hikari.impl.MessageActionRowBuilder]:
         """builds the components for the music message
