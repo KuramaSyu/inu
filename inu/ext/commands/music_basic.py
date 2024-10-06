@@ -171,11 +171,7 @@ async def play(_ctx: Context) -> None:
     was_playing = not (await player.is_paused())
     log.debug(f"{was_playing = }")
     await player.play(_ctx.options.query)
-    
-    # if was_playing:
-    #     # if its the first /play, then the listener will trigger
-    #     await player.send_queue(True)
-
+    await player.send_queue(True)
 
 @plugin.command()
 @lightbulb.command("skip", "Skip the currently playing song")
@@ -186,7 +182,7 @@ async def skip(ctx: Context) -> None:
     await ctx.defer()
     player = MusicPlayerManager.get_player(ctx)
     await player.skip()
-    #await player.send_queue(True)
+    await player.send_queue(True)
 
 
 @plugin.command()
