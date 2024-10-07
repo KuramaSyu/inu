@@ -16,17 +16,22 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 class InuContext(ABC):
     @abstractmethod
-    def from_context(cls: Context, ctx: Context) -> T:
+    def from_context(cls, ctx: Context) -> T:
         ...
 
     @abstractmethod
-    def from_event(cls: Context, event: hikari.Event) -> T:
+    def from_event(cls, event: hikari.Event) -> T:
         ...
     
     @property
     @abstractmethod
     def original_message(self) -> hikari.Message:
         ...
+
+    @property
+    @abstractmethod
+    def custom_id(self) -> str:
+        """the custom_id of the current interaction"""
 
     @property
     @abstractmethod
