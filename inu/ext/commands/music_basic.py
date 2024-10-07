@@ -17,7 +17,8 @@ from core import Inu, getLogger, get_context
 
 log = getLogger(__name__)
 
-plugin =lightbulb.Plugin("Music (base) events")
+plugin = lightbulb.Plugin("Music (base) events")
+t.cast(Inu, plugin.bot)
 plugin.add_checks(lightbulb.guild_only)
 
 
@@ -52,11 +53,11 @@ class Events(lavalink_rs.EventHandler):
 async def start_lavalink(plug: lightbulb.Plugin, event: hikari.ShardReadyEvent) -> None:
     """Event that triggers when the hikari gateway is ready."""
     MusicPlayerManager.set_bot(plug.bot)
-
+    bot: Inu = plug.bot
     node = lavalink_rs.NodeBuilder(
-        f"{plug.bot.conf.lavalink.IP}:2333",
+        f"{bot.conf.lavalink.IP}:2333",
         False,  # is the server SSL?
-        plug.bot.conf.lavalink.PASSWORD,
+        bot.conf.lavalink.PASSWORD,
         event.my_user.id,
     )
 
@@ -67,7 +68,7 @@ async def start_lavalink(plug: lightbulb.Plugin, event: hikari.ShardReadyEvent) 
         # lavalink_rs.NodeDistributionStrategy.custom(custom_node),
     )
 
-    plug.bot.lavalink = lavalink_client
+    bot.lavalink = lavalink_client
     log.info("Lavalink client started", prefix="init")
 
 async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
@@ -96,7 +97,7 @@ async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
             ctx.guild_id,
             channel_id,
             ctx.bot,
-            ctx.bot.lavalink,
+            ctx.bot.lavalink,  # type: ignore
             (ctx.channel_id, ctx.bot.rest),
         )
     else:
@@ -106,9 +107,9 @@ async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
             ctx.guild_id,
             channel_id,
             ctx.bot,
-            ctx.bot.lavalink,
+            ctx.bot.lavalink,  # type: ignore
             (ctx.channel_id, ctx.bot.rest),
-            old_voice=voice,
+            # old_voice=voice,
         )
 
     return channel_id
