@@ -2,6 +2,7 @@ from typing import *
 from datetime import datetime, timedelta
 from dataclasses import dataclass
 import asyncio
+import random 
 
 import hikari
 from hikari.api import VoiceConnection
@@ -67,15 +68,15 @@ class MusicPlayer:
         self._queue: QueueMessage = QueueMessage(self)
         self.response_lock = ResponseLock(timedelta(seconds=3))
 
-    def _get_voice(self) -> VoiceConnection | None:
+    def _get_voice(self) -> LavalinkVoice | None:
         """
         Returns:
         --------
-        `VoiceConnection | None`:
+        `LavalinkVoice | None`:
             The voice connection of the bot in the guild
             (`self.bot.voice.connections.get(self.guild_id)`)
         """
-        return self.bot.voice.connections.get(self.guild_id)
+        return self.bot.voice.connections.get(self.guild_id)  # type: ignore
     
     async def _fetch_voice_player(self) -> Player | None:
         """
@@ -110,7 +111,7 @@ class MusicPlayer:
         voice = self._get_voice()
         if not voice:
             return True
-        return (await voice.player.get_player()).paused
+        return (await voice.player.get_player()).paused  # type: ignore
     
     def set_context(self, ctx: InuContext) -> None:
         self._ctx = ctx
@@ -153,7 +154,7 @@ class MusicPlayer:
                 self.bot,
                 self.bot.lavalink,
                 (self.ctx.channel_id, self.ctx.bot.rest),
-                old_voice=voice,
+                #old_voice=voice,
             )
 
         return channel_id
@@ -276,11 +277,11 @@ class MusicPlayer:
         """
         if not ctx:
             ctx = self.ctx
-        return {"requester_id": int(ctx.author.id)}
+        return {"requester_id": ctx.author.id}
     
     async def fetch_current_track(self) -> Any | None:
         voice_player = await self._fetch_voice_player()
-        return voice_player.track
+        return voice_player.track  # type: ignore
     
     async def play(self, query: str) -> None:
         log.debug(f"play: {query = }")
@@ -288,7 +289,7 @@ class MusicPlayer:
         log.debug(f"{voice = }; {has_joined = }")
         if not has_joined:
             return
-        player_ctx = voice.player
+        player_ctx = voice.player  # type: ignore
         ctx = self.ctx
         user_data: TrackUserData = self._make_user_data(ctx)
 
@@ -368,7 +369,7 @@ class MusicPlayer:
                 player_ctx.skip()
 
 
-    async def _connect(self) -> Tuple[VoiceConnection, bool]:
+    async def _connect(self) -> Tuple[VoiceConnection | None, bool]:
         voice = self._get_voice()
         has_joined = False
 
@@ -376,7 +377,7 @@ class MusicPlayer:
             if not await self._join():
                 await self.ctx.respond("Please join a voice channel first.")
                 return None, False
-            voice = self.bot.voice.connections.get(self.guild_id)
+            voice = self.bot.voice.connections.get(self.guild_id)  # type: ignore
             has_joined = True
         else:
             has_joined = True
@@ -417,7 +418,7 @@ class MusicPlayer:
         queue_ref.replace(queue)
         self._queue.add_footer_info(
             f"🔀 Queue shuffled by {self.ctx.author.username}", 
-            ctx.author.avatar_url
+            self.ctx.author.avatar_url
         )
 
 
@@ -473,7 +474,7 @@ class QueueMessage:
         Joins the footer infos into 'text' and adds 'icon' if set. Amount of in queue is 
         """
         d = {}
-        queue = await self._player._get_voice().player.get_queue().get_queue()
+        queue = await self._player._get_voice().player.get_queue().get_queue()  # type: ignore
         upcoming_songs = max(len(queue) - 4, 0)
         time_amount_milis = sum([x.track.info.length for i, x in enumerate(queue) if i > 4] or [0])
         time_amount = timedelta(milliseconds=time_amount_milis)
@@ -483,17 +484,24 @@ class QueueMessage:
             d["icon"] = self._footer.icon
         return d
 
+    def error_embed(self, info: str | None = None) -> Embed:
+        return Embed(
+            title="Error",
+            description=info or "An error occured",
+            color=self.bot.error_color
+        )
+
     async def build_embed(self) -> hikari.Embed:
         """builds the embed for the music message"""
         AMOUNT_OF_SONGS_IN_QUEUE = 4
         
         voice = self._player._get_voice()
-        queue = await voice.player.get_queue().get_queue()
+        queue = await voice.player.get_queue().get_queue()  # type: ignore
         voice_player = await self._player._fetch_voice_player()
         is_paused = await self._player.is_paused()
         
         if not voice_player:
-            return Embed(description="Nothing is playing currently", color=self.bot.accent_color)
+            return self.error_embed("Not connected to a voice channel")
         
         numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
 
@@ -567,7 +575,7 @@ class QueueMessage:
             track = voice_player.track
         except Exception as e:
             # TODO: currently always out of range
-            return log.warning(f"can't get current playing song: {e}")
+            log.warning(f"can't get current playing song: {e}")
 
         if not voice_player.track.user_data:
             log.warning("no requester of current track - returning")
@@ -700,7 +708,7 @@ async def is_in_history(channel_id: int, message_id: int, amount: int = 3) -> bo
             return True
     return False
 
-def make_track_message(track) -> str:
+def make_track_message(track: TrackData) -> str:
     """
     track needs info field which as author and title
     """
