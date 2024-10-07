@@ -397,6 +397,29 @@ class MusicPlayer:
         await self._queue._send_or_update_message(force_resend, disable_components)
         return True
 
+    async def shuffle(self) -> None:
+        if not self.ctx.guild_id:
+            return None
+
+        voice = self._get_voice()
+
+        if not voice:
+            # not connected to a voice channel
+            return None
+
+        assert isinstance(voice, LavalinkVoice)
+
+        queue_ref = voice.player.get_queue()
+        queue = await queue_ref.get_queue()
+
+        random.shuffle(queue)
+
+        queue_ref.replace(queue)
+        self._queue.add_footer_info(
+            f"🔀 Queue shuffled by {self.ctx.author.username}", 
+            ctx.author.avatar_url
+        )
+
 
 @dataclass
 class MessageData:
