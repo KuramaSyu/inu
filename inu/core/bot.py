@@ -100,15 +100,7 @@ class Inu(lightbulb.BotApp):
             "loggers": loggers 
         }
         
-        # @property
-        # def lavalink(self) -> lavalink_rs.LavalinkClient:
-        #     if not self._lavalink:
-        #         raise RuntimeError("Lavalink client is not initialized")
-        #     return self._lavalink
 
-        # @lavalink.setter
-        # def lavalink(self, value: lavalink_rs.LavalinkClient) -> None:
-        #     self._lavalink = value
 
         def get_prefix(bot: Inu, message: hikari.Message):
             return bot.prefixes_from(message.guild_id)
@@ -127,7 +119,17 @@ class Inu(lightbulb.BotApp):
         self.mrest = MaybeRest(self)
         self.load("inu/ext/commands/")
         self.load("inu/ext/tasks/")
-        
+    
+    @property
+    def lavalink(self) -> lavalink_rs.LavalinkClient:
+        if not self._lavalink:
+            raise RuntimeError("Lavalink client is not initialized")
+        return self._lavalink
+
+    @lavalink.setter
+    def lavalink(self, value: lavalink_rs.LavalinkClient) -> None:
+        self._lavalink = value
+
     @property
     def accent_color(self) -> hikari.Color:
         """
