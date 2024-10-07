@@ -1,12 +1,15 @@
 import random
 
+from typing import *
+import asyncio
 import lightbulb
 from lightbulb import Context
 import hikari 
+from hikari import Embed
 
 from core import Inu
 from .music_utils import LavalinkVoice, MusicPlayerManager
-from core import getLogger, get_context
+from core import getLogger, get_context, BotResponseError
 
 log = getLogger(__name__)
 
@@ -32,23 +35,41 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> Non
     if not [custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id == custom_id]:
         # wrong custom id
         return
+    tasks: List[asyncio.Task] = []
+    add_task = lambda coro: tasks.append(asyncio.create_task(coro))
+
+    member: hikari.Member = ctx.member  # type: ignore
     custom_id = ctx.custom_id
     player = MusicPlayerManager.get_player(ctx)
     if custom_id == "music_pause":
-        await player.pause()
+        add_task(player.pause())
     elif custom_id == "music_shuffle":
-        await player.shuffle()
+        add_task(player.shuffle())
     elif custom_id == "music_skip_1":
-        await player.skip()
+        add_task(player.skip())
     elif custom_id == "music_skip_2":
-        await player.skip(2)
+        add_task(player.skip(2))
     elif custom_id == "music_resume":
-        await player.resume()
+        add_task(player.resume())
     elif custom_id == "music_pause":
-        await player.pause()
+        add_task(player.pause())
     elif custom_id == "music_stop":
-        await player.leave()
-    
+        add_task(ctx.respond(
+            embed=(
+                Embed(title="🛑 music stopped")
+                .set_footer(text=f"🛑 Music stopped by {member.display_name}", icon=member.avatar_url)
+            ),
+            delete_after=30,
+        ))
+        add_task(player.leave())
+
+    if tasks:
+        done, pending = await asyncio.wait(tasks, return_when=asyncio.ALL_COMPLETED)
+        for task in [*done, *pending]:
+            task.cancel()
+            if isinstance(task.exception(), BotResponseError):
+                await ctx.respond(**task.exception().kwargs)  # type: ignore
+                return
     await player.send_queue()
 
     
