@@ -24,7 +24,7 @@ MENU_CUSTOM_IDS = [
     "music_stop"
 ]
 @plugin.listener(hikari.InteractionCreateEvent)
-async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
+async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> None:
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
     
@@ -32,10 +32,25 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent):
     if not [custom_id for custom_id in MENU_CUSTOM_IDS if ctx.custom_id == custom_id]:
         # wrong custom id
         return
-    
+    custom_id = ctx.custom_id
     player = MusicPlayerManager.get_player(ctx)
-    if ctx.custom_id == "music_pause":
+    if custom_id == "music_pause":
         await player.pause()
+    elif custom_id == "music_shuffle":
+        await player.shuffle()
+    elif custom_id == "music_skip_1":
+        await player.skip()
+    elif custom_id == "music_skip_2":
+        await player.skip(2)
+    elif custom_id == "music_resume":
+        await player.resume()
+    elif custom_id == "music_pause":
+        await player.pause()
+    elif custom_id == "music_stop":
+        await player.leave()
+    
+    await player.send_queue()
+
     
 
 @plugin.command
@@ -105,9 +120,9 @@ async def seek(ctx: Context) -> None:
 @plugin.command
 @lightbulb.command("queue", "List the current queue")
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
-async def queue(ctx: Context) -> None:
+async def queue(_ctx: Context) -> None:
     """List the current queue"""
-    ctx = get_context(ctx.event)
+    ctx = get_context(_ctx.event)
     await ctx.defer()
     player = MusicPlayerManager.get_player(ctx)
     await player.send_queue(True)
