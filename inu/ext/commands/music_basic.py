@@ -76,6 +76,7 @@ async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
         return None
 
     channel_id = None
+    bot: Inu = ctx.bot  # type: ignore
 
     for i in ctx.options.items():
         if i[0] == "channel" and i[1]:
@@ -96,8 +97,8 @@ async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
         await LavalinkVoice.connect(
             ctx.guild_id,
             channel_id,
-            ctx.bot,
-            ctx.bot.lavalink,  # type: ignore
+            bot,
+            bot.lavalink,  # type: ignore
             (ctx.channel_id, ctx.bot.rest),
         )
     else:
@@ -106,9 +107,9 @@ async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
         await LavalinkVoice.connect(
             ctx.guild_id,
             channel_id,
-            ctx.bot,
-            ctx.bot.lavalink,  # type: ignore
-            (ctx.channel_id, ctx.bot.rest),
+            bot,
+            bot.lavalink,  # type: ignore
+            (ctx.channel_id, bot.rest),
             # old_voice=voice,
         )
 
@@ -142,12 +143,12 @@ async def join(ctx: Context) -> None:
 @plugin.command()
 @lightbulb.command("leave", "Leaves the voice channel")
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
-async def leave(ctx: Context) -> None:
+async def leave(_ctx: Context) -> None:
     """Leaves the voice channel"""
-    ctx = get_context(ctx.event)
+    ctx = get_context(_ctx.event)
     await ctx.defer()
-    player = MusicPlayerManager.get_player()
-    player._queue.add_footer_info(f"🛑 Stopped by {ctx.author.username}", ctx.author.avatar_url)
+    player = MusicPlayerManager.get_player(ctx)
+    player._queue.add_footer_info(f"🛑 Stopped by {ctx.author.username}", str(ctx.author.avatar_url))
     await player.send_queue(True)
     await player.leave()
 
@@ -182,9 +183,9 @@ async def play(_ctx: Context) -> None:
 @plugin.command()
 @lightbulb.command("skip", "Skip the currently playing song")
 @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
-async def skip(ctx: Context) -> None:
+async def skip(_ctx: Context) -> None:
     """Skip the currently playing song"""
-    ctx = get_context(ctx.event)
+    ctx = get_context(_ctx.event)
     await ctx.defer()
     player = MusicPlayerManager.get_player(ctx)
     await player.skip()
