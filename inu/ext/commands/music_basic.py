@@ -1,24 +1,28 @@
 import os
 import logging
-import typing as t
+from typing import *
 
 import asyncio
 import hikari
 import lightbulb
 from lightbulb import Context
+from fuzzywuzzy import fuzz
 import lavalink_rs
 from lavalink_rs.model import events
-
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
 
-from .music_utils import LavalinkVoice, MusicPlayerManager, MusicPlayer
+from .music_utils import (
+    LavalinkVoice, MusicPlayerManager, HISTORY_PREFIX, 
+    MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, DISCONNECT_AFTER
+)
+from utils import TagManager, TagType, MusicHistoryHandler
 from core import Inu, getLogger, get_context
 
 log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Music (base) events")
-t.cast(Inu, plugin.bot)
+cast(Inu, plugin.bot)
 plugin.add_checks(lightbulb.guild_only)
 
 
@@ -53,11 +57,18 @@ class Events(lavalink_rs.EventHandler):
 async def start_lavalink(plug: lightbulb.Plugin, event: hikari.ShardReadyEvent) -> None:
     """Event that triggers when the hikari gateway is ready."""
     MusicPlayerManager.set_bot(plug.bot)
-    bot: Inu = plug.bot
+    bot: Inu = plug.bot  # type: ignore
+    try:
+        ip = bot.conf.lavalink.IP  # type: ignore
+        password = bot.conf.lavalink.PASSWORD  # type: ignore
+    except AttributeError:
+        log.error("Lavalink IP or PASSWORD not set in config.yaml", prefix="init")
+        return
+
     node = lavalink_rs.NodeBuilder(
-        f"{bot.conf.lavalink.IP}:2333",
+        f"{ip}:2333",
         False,  # is the server SSL?
-        bot.conf.lavalink.PASSWORD,
+        password,
         event.my_user.id,
     )
 
@@ -71,7 +82,7 @@ async def start_lavalink(plug: lightbulb.Plugin, event: hikari.ShardReadyEvent) 
     bot.lavalink = lavalink_client
     log.info("Lavalink client started", prefix="init")
 
-async def _join(ctx: Context) -> t.Optional[hikari.Snowflake]:
+async def _join(ctx: Context) -> Optional[hikari.Snowflake]:
     if not ctx.guild_id:
         return None
 
@@ -192,14 +203,54 @@ async def skip(_ctx: Context) -> None:
     await player.send_queue(True)
 
 
-# @plugin.command()
-# @lightbulb.command("stop", "Stop the currently playing song")
-# @lightbulb.implements(lightbulb.PrefixCommand, lightbulb.SlashCommand)
-# async def stop(ctx: Context) -> None:
-#     """Stop the currently playing song"""
-#     player = MusicPlayerManager.get_player(get_context(ctx.event))
-#     await player.stop()
-#     await player.send_queue(True)
+
+@play.autocomplete("query")
+async def query_auto_complete(
+    option: hikari.AutocompleteInteractionOption,
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    query = str(option.value) or ""
+    records = [
+        {"title": record["title"], "prefix": HISTORY_PREFIX} 
+        for record in await MusicHistoryHandler.cached_get(interaction.guild_id)  # type: ignore
+    ]
+    if not query:
+        records = records[:23]
+    else:
+        if len(str(query)) > 1:
+            tag_records = await TagManager.cached_find_similar(query, interaction.guild_id, tag_type=TagType.MEDIA)
+            # add tags
+            records.extend([
+                {"title": d["tag_key"], "prefix": MEDIA_TAG_PREFIX} for d in tag_records
+            ])
+        new_records = []
+
+        for r in records:
+            r = dict(r)
+            if query:
+                r["ratio"] = fuzz.partial_token_sort_ratio(query, r["title"])
+            if not r in new_records:
+                new_records.append(r)
+        records = new_records
+        
+        # prefer top 2 media tags
+        tag_records = [ 
+            r for r in records 
+            if r["prefix"] == MEDIA_TAG_PREFIX
+            and r["ratio"] > 65
+        ]
+        tag_records.sort(key=lambda r: r["ratio"], reverse=True)
+
+        for r in tag_records[:2]:
+            r["ratio"] += 40
+
+        records.sort(key=lambda r: r["ratio"], reverse=True)
+
+    # add prefixes
+    converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"] for r in records]
+    if len(str(query)) > 3:
+        converted_records.insert(0, str(query))
+    return [r[:100] for r in converted_records[:23]]
 
 
 def load(bot: Inu) -> None:
