@@ -11,9 +11,18 @@ import lightbulb
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
 from lavalink_rs.model.player import Player
+from sortedcontainers.sortedlist import traceback
 
-from . import LavalinkVoice, YouTubeHelper, TrackUserData, ResponseLock, MusicMessageComponents
-from utils import Human
+from inu.core.bot import BotResponseError
+
+
+from . import (
+    LavalinkVoice, YouTubeHelper, TrackUserData, 
+    ResponseLock, MusicMessageComponents, HISTORY_PREFIX,
+    MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX
+)
+from ..tags import get_tag
+from utils import Human, MusicHistoryHandler
 from core import Inu, get_context, InuContext, getLogger
 
 log = getLogger(__name__)
@@ -40,6 +49,7 @@ class MusicPlayerManager:
             ctx = ctx_or_guild_id
         else:
             guild_id = ctx_or_guild_id
+        guild_id = cast(int, guild_id)
 
         player = None
         player = cls._instances.get(guild_id)
@@ -283,6 +293,39 @@ class MusicPlayer:
         voice_player = await self._fetch_voice_player()
         return voice_player.track  # type: ignore
     
+
+    async def _process_query(self, query: str) -> str:
+        """
+        Checks the query and returns the query.
+        Changes MEDIA TAGS and HISTORY PREFIXES to the actual url or name.
+        Adds scsearch: if the query is not a url
+        """
+        if not query:
+            return query
+        elif query.startswith(HISTORY_PREFIX):
+            # -> history -> get url from history
+            # only edits the query
+            query = query.replace(HISTORY_PREFIX, "")
+            history = await MusicHistoryHandler.cached_get(self.guild_id)
+            if (alt_query:=[t["url"] for t in history if query in t["title"]]):
+                return alt_query[0]
+            else:
+                raise BotResponseError(f"Couldn't find the title `{query}` in the history")
+
+        elif query.startswith(MEDIA_TAG_PREFIX):
+            # -> media tag -> get url from tag
+            # only edits the query
+            query = query.replace(MEDIA_TAG_PREFIX, "")
+            tag = await get_tag(self.ctx, query)  # type: ignore
+            if not tag:
+                raise BotResponseError(f"Couldn't find the tag `{query}`")
+            self._queue.add_footer_info(f"🎵 {tag['tag_key']} added by {self.ctx.author.username}", self.ctx.author.avatar_url)
+            return tag["tag_value"][0]
+
+        if not query.startswith("http"):
+            query = SearchEngines.soundcloud(query)
+        return query
+
     async def play(self, query: str) -> None:
         log.debug(f"play: {query = }")
         voice, has_joined = await self._connect()
@@ -307,15 +350,19 @@ class MusicPlayer:
 
             return None
 
-        if not query.startswith("http"):
-            # add scsearch: to the query
-            query = SearchEngines.soundcloud(query)
+        # process query
+        try:
+            query = await self._process_query(query)
+        except BotResponseError as e:
+            await self.ctx.respond(**e.context_kwargs)
+            return
+
         try:
             tracks = await ctx.bot.lavalink.load_tracks(ctx.guild_id, query)
             loaded_tracks = tracks.data
 
         except Exception as e:
-            log.error(e)
+            log.error(traceback.format_exc())
             await ctx.respond("Error")
             return None
 
@@ -476,9 +523,9 @@ class QueueMessage:
         d = {}
         queue = await self._player._get_voice().player.get_queue().get_queue()  # type: ignore
         upcoming_songs = max(len(queue) - 4, 0)
-        time_amount_milis = sum([x.track.info.length for i, x in enumerate(queue) if i > 4] or [0])
+        time_amount_milis = sum([x.track.info.length for i, x in enumerate(queue)] or [0])
         time_amount = timedelta(milliseconds=time_amount_milis)
-        self.add_footer_info(f"🎵 {Human.plural_('other song', upcoming_songs, True)} remaining [{time_amount}]")
+        self.add_footer_info(f"⤵️ {Human.plural_('song', upcoming_songs, True)} ({time_amount}) remaining in queue ")
         d["text"] = Human.short_text("\n".join(self._footer.infos), 1024, "...")
         if self._footer.icon:
             d["icon"] = self._footer.icon
