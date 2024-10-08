@@ -8,14 +8,16 @@ import hikari
 from hikari import Embed
 
 from core import Inu
-from .music_utils import LavalinkVoice, MusicPlayerManager
+from .music_utils import (
+    LavalinkVoice, MusicPlayerManager, HISTORY_PREFIX, 
+    MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, DISCONNECT_AFTER
+)
 from core import getLogger, get_context, BotResponseError
 
 log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Music (advanced) commands")
 plugin.add_checks(lightbulb.guild_only)
-
 
 MENU_CUSTOM_IDS = [
     "music_play", 
@@ -307,6 +309,56 @@ async def shuffle(ctx: Context) -> None:
     queue_ref.replace(queue)
 
     await ctx.respond("Shuffled the queue")
+
+
+@play.autocomplete("query")
+async def query_auto_complete(
+    option: hikari.AutocompleteInteractionOption,
+    interaction: hikari.AutocompleteInteraction
+) -> List[str]:
+    query = option.value or ""
+    records = [
+        {"title": record["title"], "prefix": HISTORY_PREFIX} 
+        for record in await MusicHistoryHandler.cached_get(interaction.guild_id)
+    ]
+    if not query:
+        records = records[:23]
+    else:
+        if len(str(query)) > 1:
+            tag_records = await TagManager.cached_find_similar(query, interaction.guild_id, tag_type=TagType.MEDIA)
+            # add tags
+            records.extend([
+                {"title": d["tag_key"], "prefix": MEDIA_TAG_PREFIX} for d in tag_records
+            ])
+        new_records = []
+
+        for r in records:
+            r = dict(r)
+            if query:
+                r["ratio"] = fuzz.partial_token_sort_ratio(query, r["title"])
+            if not r in new_records:
+                new_records.append(r)
+        records = new_records
+        
+        # prefer top 2 media tags
+        tag_records = [ 
+            r for r in records 
+            if r["prefix"] == MEDIA_TAG_PREFIX
+            and r["ratio"] > 65
+        ]
+        tag_records.sort(key=lambda r: r["ratio"], reverse=True)
+
+        for r in tag_records[:2]:
+            r["ratio"] += 40
+
+        records.sort(key=lambda r: r["ratio"], reverse=True)
+
+    # add prefixes
+    converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"] for r in records]
+    if len(str(query)) > 3:
+        converted_records.insert(0, str(query))
+    return [r[:100] for r in converted_records[:23]]
+
 
 
 def load(bot: Inu) -> None:
