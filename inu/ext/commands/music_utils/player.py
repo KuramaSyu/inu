@@ -7,9 +7,10 @@ import random
 import hikari
 from hikari.api import VoiceConnection
 from hikari import Embed
+from lavalink_rs import PlayerContext, TrackInQueue
 import lightbulb
 from lavalink_rs.model.search import SearchEngines
-from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType
+from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType
 from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
 
@@ -289,7 +290,7 @@ class MusicPlayer:
             ctx = self.ctx
         return {"requester_id": ctx.author.id}
     
-    async def fetch_current_track(self) -> Any | None:
+    async def fetch_current_track(self) -> TrackData | None:
         voice_player = await self._fetch_voice_player()
         return voice_player.track  # type: ignore
     
@@ -375,7 +376,7 @@ class MusicPlayer:
         elif tracks.load_type == TrackLoadType.Search:
             assert isinstance(loaded_tracks, list)
             loaded_tracks[0].user_data = user_data
-            player_ctx.queue(loaded_tracks[0])
+            self.add_to_queue(loaded_tracks[0], player_ctx)
             self._queue.add_footer_info(make_track_message(loaded_tracks[0]), ctx.author.avatar_url)
 
         elif tracks.load_type == TrackLoadType.Playlist:
@@ -384,7 +385,7 @@ class MusicPlayer:
             if loaded_tracks.info.selected_track:
                 track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
                 track.user_data = user_data
-                player_ctx.queue(track)
+                self.add_to_queue(track, player_ctx)
                 self._queue.add_footer_info(make_track_message(track), ctx.author.avatar_url)
             else:
                 tracks = loaded_tracks.tracks
@@ -398,7 +399,6 @@ class MusicPlayer:
                     f"🎵 Added playlist to queue: `{loaded_tracks.info.name}`", 
                     ctx.author.avatar_url
                 )
-
 
         # Error or no search results
         else:
@@ -415,6 +415,30 @@ class MusicPlayer:
             if not player_data.track and await queue.get_track(0):
                 player_ctx.skip()
 
+    def add_to_queue(
+
+        self, 
+        track: TrackInQueue | TrackData, 
+        player_ctx: PlayerContext, 
+        position: int = 0
+    ):
+        """
+        Adds a track to the player's queue at the specified position.
+
+        Parameters:
+        - track (TrackInQueue | TrackData): The track to be added to the queue.
+        - player_ctx (PlayerContext): The context of the player managing the queue.
+        - position (int, optional): The position in the queue where the track should be added. 
+          Defaults to 0, which means the track will be added to the end of the queue.
+
+        Returns:
+        None
+        """
+        if position == 0:
+            player_ctx.queue(track)
+        else:
+            queue = player_ctx.get_queue()
+            queue.insert(position, track)
 
     async def _connect(self) -> Tuple[VoiceConnection | None, bool]:
         voice = self._get_voice()
@@ -465,7 +489,7 @@ class MusicPlayer:
         queue_ref.replace(queue)
         self._queue.add_footer_info(
             f"🔀 Queue shuffled by {self.ctx.author.username}", 
-            self.ctx.author.avatar_url
+            self.ctx.author.avatar_url  # type: ignore
         )
 
 
