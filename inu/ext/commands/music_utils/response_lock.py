@@ -18,14 +18,14 @@ class ResponseLock:
         """
         return datetime.now() - self._last_response >= self._minimum_delay
     
-    def lock(self) -> bool:
+    def lock(self, force: bool = False) -> bool:
         """
         Lock the lock.
         
         Returns:
             bool: Wheter or not the lock was locked.
         """
-        if not self.is_available():
+        if not (self.is_available() or force):
             return False
         self._last_response = datetime.now()
         return True
