@@ -699,10 +699,11 @@ class QueueMessage:
         music_embed._fields.extend(upcomping_song_fields)
         footer = await self._build_footer()
         music_embed.set_footer(footer["text"], icon=footer.get("icon"))
-        music_embed.set_thumbnail(
-            YouTubeHelper.thumbnail_from_url(track.info.uri) 
-            or self.bot.me.avatar_url
-        )
+        # music_embed.set_thumbnail(
+        #     YouTubeHelper.thumbnail_from_url(track.info.uri) 
+        #     or self.bot.me.avatar_url
+        # )
+        music_embed.set_thumbnail(track.info.artwork_url or self.bot.me.avatar_url)
         return music_embed
     
     
