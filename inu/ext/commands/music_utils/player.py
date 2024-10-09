@@ -14,7 +14,7 @@ from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadTyp
 from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
 
-from inu.core.bot import BotResponseError
+from core import BotResponseError
 
 
 from . import (
@@ -77,7 +77,7 @@ class MusicPlayer:
         self._guild_id = guild_id
         self._ctx: InuContext | None = None
         self._queue: QueueMessage = QueueMessage(self)
-        self.response_lock = ResponseLock(timedelta(seconds=3))
+        self.response_lock = ResponseLock(timedelta(seconds=6))
 
     def _get_voice(self) -> LavalinkVoice | None:
         """
@@ -456,14 +456,14 @@ class MusicPlayer:
         return voice, has_joined
     
     
-    async def send_queue(self, force_resend: bool = False, disable_components: bool = False) -> bool:
+    async def send_queue(self, force_resend: bool = False, disable_components: bool = False, force_lock: bool = False) -> bool:
         """
         Returns:
         --------
         `bool`:
             Whether the message was sent
         """
-        is_locked = self.response_lock.lock()
+        is_locked = self.response_lock.lock(force=force_resend or force_lock)
         if not is_locked:
             return False
         await self._queue._send_or_update_message(force_resend, disable_components)
@@ -548,7 +548,7 @@ class QueueMessage:
         queue = await self._player._get_voice().player.get_queue().get_queue()  # type: ignore
         upcoming_songs = max(len(queue) - 4, 0)
         time_amount_milis = sum([x.track.info.length for i, x in enumerate(queue)] or [0])
-        time_amount = timedelta(milliseconds=time_amount_milis)
+        time_amount = timedelta(seconds=time_amount_milis // 1000)
         self.add_footer_info(f"⤵️ {Human.plural_('song', upcoming_songs, True)} ({time_amount}) remaining in queue ")
         d["text"] = Human.short_text("\n".join(self._footer.infos), 1024, "...")
         if self._footer.icon:
@@ -753,7 +753,7 @@ class QueueMessage:
         if not edit_history or failed:
             if self.message_id:
                 # delete old message
-                log.debug(f"delete message: {self.message_id}")
+                log.debug(f"delete message: {self.message_id}; {failed = }")
                 task = asyncio.create_task(
                     self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
                 )
