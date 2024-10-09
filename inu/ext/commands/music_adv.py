@@ -40,9 +40,12 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> Non
     tasks: List[asyncio.Task] = []
     add_task = lambda coro: tasks.append(asyncio.create_task(coro))
 
+    await ctx.defer(update=True)
     member: hikari.Member = ctx.member  # type: ignore
     custom_id = ctx.custom_id
     player = MusicPlayerManager.get_player(ctx)
+    player.set_context(ctx)
+
     if custom_id == "music_pause":
         add_task(player.pause())
     elif custom_id == "music_shuffle":
@@ -72,7 +75,10 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> Non
             if isinstance(task.exception(), BotResponseError):
                 await ctx.respond(**task.exception().kwargs)  # type: ignore
                 return
-    await player.send_queue()
+    # if "skip" in custom_id:
+    #     # handled by track_start event
+    #     return
+    await player.send_queue(force_resend=False, force_lock=True)
 
     
 
@@ -311,53 +317,7 @@ async def shuffle(ctx: Context) -> None:
     await ctx.respond("Shuffled the queue")
 
 
-@play.autocomplete("query")
-async def query_auto_complete(
-    option: hikari.AutocompleteInteractionOption,
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
-    query = option.value or ""
-    records = [
-        {"title": record["title"], "prefix": HISTORY_PREFIX} 
-        for record in await MusicHistoryHandler.cached_get(interaction.guild_id)
-    ]
-    if not query:
-        records = records[:23]
-    else:
-        if len(str(query)) > 1:
-            tag_records = await TagManager.cached_find_similar(query, interaction.guild_id, tag_type=TagType.MEDIA)
-            # add tags
-            records.extend([
-                {"title": d["tag_key"], "prefix": MEDIA_TAG_PREFIX} for d in tag_records
-            ])
-        new_records = []
 
-        for r in records:
-            r = dict(r)
-            if query:
-                r["ratio"] = fuzz.partial_token_sort_ratio(query, r["title"])
-            if not r in new_records:
-                new_records.append(r)
-        records = new_records
-        
-        # prefer top 2 media tags
-        tag_records = [ 
-            r for r in records 
-            if r["prefix"] == MEDIA_TAG_PREFIX
-            and r["ratio"] > 65
-        ]
-        tag_records.sort(key=lambda r: r["ratio"], reverse=True)
-
-        for r in tag_records[:2]:
-            r["ratio"] += 40
-
-        records.sort(key=lambda r: r["ratio"], reverse=True)
-
-    # add prefixes
-    converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"] for r in records]
-    if len(str(query)) > 3:
-        converted_records.insert(0, str(query))
-    return [r[:100] for r in converted_records[:23]]
 
 
 
