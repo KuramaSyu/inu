@@ -27,6 +27,9 @@ plugin.add_checks(lightbulb.guild_only)
 
 
 class Events(lavalink_rs.EventHandler):
+    """
+    Handler for incoming Lavalink Events
+    """
     async def ready(
         self,
         client: lavalink_rs.LavalinkClient,
@@ -34,7 +37,7 @@ class Events(lavalink_rs.EventHandler):
         event: events.Ready,
     ) -> None:
         del client, session_id, event
-        logging.info("HOLY READY")
+        log.info("Lavalink_rs is ready", prefix="init")
 
     async def track_start(
         self,
