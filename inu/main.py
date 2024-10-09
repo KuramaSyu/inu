@@ -65,6 +65,7 @@ def main():
     @inu.listen(hikari.StartingEvent)
     async def on_ready(event : hikari.StartingEvent):
         try:
+            set_bot(inu)
             await inu.init_db()
             InvokationStats.init_db(inu)
             await Reminders.init_bot(inu)
@@ -74,7 +75,6 @@ def main():
             await BoardManager.init_bot(inu)
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
             await tmdb_setup()
-            set_bot(inu)
             AutoroleManager.set_bot(inu)
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
