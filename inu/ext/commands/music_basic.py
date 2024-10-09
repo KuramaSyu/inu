@@ -22,7 +22,7 @@ from core import Inu, getLogger, get_context
 log = getLogger(__name__)
 
 plugin = lightbulb.Plugin("Music (base) events")
-cast(Inu, plugin.bot)
+#cast(Inu, plugin.bot)
 plugin.add_checks(lightbulb.guild_only)
 
 
@@ -173,7 +173,7 @@ async def leave(_ctx: Context) -> None:
     "query",
     "The spotify search query, or any URL",
     modifier=lightbulb.OptionModifier.CONSUME_REST,
-    required=False,
+    autocomplete=True
 )
 @lightbulb.command(
     "play",
