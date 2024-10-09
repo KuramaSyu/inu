@@ -4,17 +4,19 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 import aiohttp
 
-from core import Inu
+from core import Inu, getLogger
 from utils import pacman
 
+log = getLogger(__name__)
 # Pictures
 MAGIC_ERROR_MONSTER = "https://media.discordapp.net/attachments/818871393369718824/1106177322069012542/error-monster-1.png?width=1308&height=946"
 
-bot: Inu
+bot: Inu = None
 
 def set_bot(bot_: Inu):
     global bot
     bot = bot_
+    log.debug(f"Bot set in shortcuts: {bot = }")
 
 
 def make_message_link(
