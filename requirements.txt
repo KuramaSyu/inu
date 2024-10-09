@@ -13,7 +13,7 @@ APScheduler
 colorama
 python-dotenv
 typer
-lavalink-rs==0.13.0
+lavalink_rs==0.13.0
 pyparsing
 mock
 jikanpy
