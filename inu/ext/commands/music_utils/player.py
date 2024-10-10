@@ -14,6 +14,7 @@ from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadTyp
 from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
 
+from utils.shortcuts import display_name_or_id
 from core import BotResponseError
 
 
@@ -170,7 +171,7 @@ class MusicPlayer:
 
         return channel_id
     
-    async def pause(self) -> None:
+    async def pause(self, suppress_info: bool = False) -> None:
         """Pauses a player and adds a footer info"""
         self._queue.add_footer_info(
             f"⏸️ Music paused by {self.ctx.author.username}", 
@@ -492,7 +493,23 @@ class MusicPlayer:
             self.ctx.author.avatar_url  # type: ignore
         )
 
-
+    @staticmethod
+    def create_leave_embed(author: hikari.Member) -> Embed:
+        return (
+                Embed(title="🛑 Music stopped")
+                .set_footer(text=f"Music stopped by {author.display_name}", icon=author.avatar_url)
+        )
+    
+    async def pre_leave(self, force_resend: bool) -> None:
+        """
+        Pauses the player, updates the queue message and sends the leave embed
+        """
+        await self.pause()
+        self._queue.add_footer_info(f"🛑 stopped by {self.ctx.display_name}", icon=self.ctx.author.avatar_url)
+        await self.send_queue(force_resend=force_resend, disable_components=True)
+        assert(self.ctx.member is not None)
+        await self.ctx.respond(embed=self.create_leave_embed(self.ctx.member))
+        await self.leave()
 @dataclass
 class MessageData:
     id: int
@@ -531,7 +548,7 @@ class QueueMessage:
     @property
     def bot(self) -> Inu:
         return self.player.bot
-    
+
     def reset_footer(self) -> None:
         self._footer = Footer(None, [])
     
