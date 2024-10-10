@@ -59,13 +59,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> Non
     elif custom_id == "music_pause":
         add_task(player.pause())
     elif custom_id == "music_stop":
-        add_task(ctx.respond(
-            embed=(
-                Embed(title="🛑 music stopped")
-                .set_footer(text=f"🛑 Music stopped by {member.display_name}", icon=member.avatar_url)
-            ),
-            delete_after=30,
-        ))
+        await player.pre_leave(force_resend=True)
         add_task(player.leave())
 
     if tasks:
@@ -75,9 +69,9 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> Non
             if isinstance(task.exception(), BotResponseError):
                 await ctx.respond(**task.exception().kwargs)  # type: ignore
                 return
-    # if "skip" in custom_id:
-    #     # handled by track_start event
-    #     return
+
+    if "stop" in custom_id:
+        return
     await player.send_queue(force_resend=False, force_lock=True)
 
     
