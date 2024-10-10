@@ -400,6 +400,18 @@ class InteractionContext(_InteractionContext):
     @property
     def message_id(self) -> hikari.Snowflake | None:
         return self.interaction.message.id
+
+    @property
+    def is_deferred(self) -> bool:
+        return self._deferred
+
+    @property
+    def is_responded(self) -> bool:
+        return self._responded
+
+    @property
+    def needs_response(self) -> bool:
+        return not self.is_responded and self.is_deferred
     
     def set(
         self,
@@ -452,7 +464,7 @@ class InteractionContext(_InteractionContext):
         """
         if update:
             self._update = True
-        if not self._deferred and not self._responded:
+        if not (self._deferred or self._responded):
             self.log.debug(f"defer interaction {background=}")
             self._deferred = True
             if background:
