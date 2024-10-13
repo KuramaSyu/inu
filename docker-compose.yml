@@ -20,6 +20,9 @@ services:
     restart: "unless-stopped"
     labels:
       - "com.centurylinklabs.watchtower.enable=false" # disable watchtower for this container
+    extra_hosts:
+      - "host.docker.internal:host-gateway"  # Add this to enable host access on Linux
+
   lava:
     container_name: lavalink
     restart: "unless-stopped"
