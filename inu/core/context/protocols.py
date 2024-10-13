@@ -1,10 +1,13 @@
 from typing import *
 from abc import ABC, abstractmethod
+from datetime import timedelta
+
 
 import hikari
 from hikari import TextInputStyle
 from lightbulb.context import Context
 from lightbulb import ResponseProxy
+
 
 from ..bot import Inu
 
@@ -98,6 +101,10 @@ class InuContext(ABC):
         if self.member:
             return self.member.display_name
         return self.author.username
+
+    @abstractmethod
+    async def execute(self, *args, delete_after: timedelta | int | None = None, **kwargs) -> ResponseProxy:
+        ...
 
     @abstractmethod
     async def respond(self, *args, **kwargs) -> ResponseProxy:
