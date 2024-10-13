@@ -3,10 +3,11 @@ version: '3.8'  # Specify the version of the Docker Compose file
 networks:
   inu_net:
     enable_ipv6: true
+    driver: bridge
     ipam:
       config:
         - subnet: 172.21.0.0/16  # IPv4 subnet
-        - subnet: "fd00:1::/64"  # IPv6 subnet
+        - subnet: "2001:470:50d8::/48"  # IPv6 subnet
 
 services:
   db:
