@@ -26,3 +26,4 @@ services:
     image: fredboat/lavalink:4 #ghcr.io/lavalink-devs/lavalink:v3-update-lp-alpine #fredboat/lavalink:v3-update-lp-alpine
     volumes:
       - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
+    network_mode: host  # Use host's network stack
