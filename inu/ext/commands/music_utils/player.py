@@ -3,14 +3,16 @@ from datetime import datetime, timedelta
 from dataclasses import dataclass
 import asyncio
 import random 
+from contextlib import suppress
 
 import hikari
 from hikari.api import VoiceConnection
 from hikari import Embed
+from hikari.impl import MessageActionRowBuilder
 from lavalink_rs import PlayerContext, TrackInQueue
 import lightbulb
 from lavalink_rs.model.search import SearchEngines
-from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType
+from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo
 from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
 
@@ -74,7 +76,7 @@ class MusicPlayerManager:
 
 class MusicPlayer:
     def __init__(self, bot: lightbulb.BotApp, guild_id: int) -> None:
-        self.bot = bot
+        self.bot: Inu = bot
         self._guild_id = guild_id
         self._ctx: InuContext | None = None
         self._queue: QueueMessage = QueueMessage(self)
@@ -322,7 +324,7 @@ class MusicPlayer:
             tag = await get_tag(self.ctx, query)  # type: ignore
             if not tag:
                 raise BotResponseError(f"Couldn't find the tag `{query}`")
-            self._queue.add_footer_info(f"🎵 {tag['tag_key']} added by {self.ctx.author.username}", self.ctx.author.avatar_url)
+            # self._queue.add_footer_info(f"🎵 {tag['tag_key']} added by {self.ctx.author.username}", self.ctx.author.avatar_url)
             return tag["tag_value"][0]
 
         if not query.startswith("http"):
@@ -361,7 +363,7 @@ class MusicPlayer:
             return
 
         try:
-            tracks = await ctx.bot.lavalink.load_tracks(ctx.guild_id, query)
+            tracks: Track = await ctx.bot.lavalink.load_tracks(ctx.guild_id, query)
             loaded_tracks = tracks.data
 
         except Exception as e:
@@ -377,21 +379,23 @@ class MusicPlayer:
 
         elif tracks.load_type == TrackLoadType.Search:
             assert isinstance(loaded_tracks, list)
-            loaded_tracks[0].user_data = user_data
-            self.add_to_queue(loaded_tracks[0], player_ctx)
-            self._queue.add_footer_info(make_track_message(loaded_tracks[0]), ctx.author.avatar_url)
+            track = await self._choose_track(loaded_tracks)
+            if not track:
+                raise TimeoutError("No track selected")
+            track.user_data = user_data
+            self.add_to_queue(track, player_ctx)
+            self._queue.add_footer_info(make_track_message(track), ctx.author.avatar_url)
 
         elif tracks.load_type == TrackLoadType.Playlist:
             assert isinstance(loaded_tracks, PlaylistData)
-
             if loaded_tracks.info.selected_track:
                 track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
                 track.user_data = user_data
                 self.add_to_queue(track, player_ctx)
                 self._queue.add_footer_info(make_track_message(track), ctx.author.avatar_url)
             else:
+                log.debug(f"load playlist without selected track")
                 tracks = loaded_tracks.tracks
-                
                 for i in tracks:
                     i.user_data = user_data
 
@@ -401,6 +405,8 @@ class MusicPlayer:
                     f"🎵 Added playlist to queue: `{loaded_tracks.info.name}`", 
                     ctx.author.avatar_url
                 )
+                # query should be the playlist URL
+                await MusicHistoryHandler.add(ctx.guild_id, loaded_tracks.info.name, query)
 
         # Error or no search results
         else:
@@ -417,6 +423,57 @@ class MusicPlayer:
             if not player_data.track and await queue.get_track(0):
                 player_ctx.skip()
 
+    async def _choose_track(self, tracks: List[TrackData]) -> TrackData | None:
+        id_ = self.bot.id_creator.create_id()
+        # create component
+        menu: hikari.impl.TextSelectMenuBuilder = (
+            MessageActionRowBuilder()
+            .add_text_menu(f"query_menu-{id_}")
+            .set_min_values(1)
+            .set_max_values(1)
+            .set_placeholder("Choose a song")
+        )
+        
+        # add songs to menu with index as ID
+        for i, track in enumerate(tracks):
+            if i >= 25:
+                break
+            query_display = f"{i+1} | {track.info.title} ({track.info.author})"[:100]
+            menu.add_option(query_display, str(i))
+            stop_button = (
+                MessageActionRowBuilder()
+                .add_interactive_button(
+                    hikari.ButtonStyle.SECONDARY, 
+                    f"stop_query_menu-{id_}", 
+                    label="I don't find it ¯\_(ツ)_/¯",
+                    emoji="🗑️"
+                )
+            )
+        
+        # ask the user
+        menu = menu.parent
+        proxy = await self.ctx.respond(components=[menu, stop_button])
+        menu_msg = await proxy.message()
+        
+        # wait for interaction
+        value_or_custom_id, event, _ = await self.bot.wait_for_interaction(
+            custom_ids=[f"query_menu-{id_}", f"stop_query_menu-{id_}"],
+            message_id=menu_msg.id,
+            timeout=60
+        )
+        if value_or_custom_id in [None, f"stop_query_menu-{id_}"]:
+            # probably timeout -> delete message
+            with suppress(hikari.NotFoundError):
+                await proxy.delete()
+            return None
+        
+        # set new context and return
+        ctx = get_context(event)
+        await ctx.defer(update=True)
+        self.set_context(ctx)
+        return tracks[int(value_or_custom_id)]
+        
+        
     def add_to_queue(
 
         self, 
@@ -512,10 +569,10 @@ class MusicPlayer:
         """
         await self.pause(suppress_info=True)
         self._queue.add_footer_info(f"🛑 stopped by {self.ctx.display_name}", icon=self.ctx.author.avatar_url)
-        await self.send_queue(force_resend=force_resend, disable_components=True)
+        await self.send_queue(force_resend=force_resend, disable_components=True, force_lock=True)
         assert(self.ctx.member is not None)
-        #await self.ctx.execute(embed=self.create_leave_embed(self.ctx.member), delete_after=30)
-        await self.leave()
+        await self.ctx.execute(embed=self.create_leave_embed(self.ctx.member), delete_after=30)
+
 @dataclass
 class MessageData:
     id: int
@@ -631,45 +688,15 @@ class QueueMessage:
             pre_titles_total_delta += timedelta(milliseconds=track.info.length)
             upcomping_song_fields.append(
                 hikari.EmbedField(
-                    name=f"{num}{'' if is_paused else ' -'} {discord_timestamp}",
+                    name=f"{num}{'' if is_paused else '  -'} {discord_timestamp}:",
                     value=f"```ml\n{Human.short_text(track.info.title, 50, '...')}```",
-                    inline=True,
+                    inline=False,
                 )
             )
-
-        # split upcomping_song_fields into two EmbedFields
-        total_len = len(upcomping_song_fields)
-        for i, field in enumerate(upcomping_song_fields):
-            # x.5 is first field
-            if i < total_len / 2:
-                if first_field.name == " ":
-                    first_field.name = field.name
-                    first_field.value = field.value
-                else:
-                    first_field.value += f"**{field.name}**\n{field.value}"
-            elif i >= total_len / 2:
-                if second_field.name == " ":
-                    second_field.name = field.name
-                    second_field.value = field.value
-                else:
-                    second_field.value += f"**{field.name}**\n{field.value}"
-            else:
-                if first_field.name == " ":
-                    first_field.name = field.name
-                    first_field.value = field.value
-                else:
-                    first_field.value += f"**{field.name}**\n{field.value}"
-        
-        upcomping_song_fields = []
-        if first_field.name != " ":
-            upcomping_song_fields.append(first_field)
-        if second_field.name != " ":
-            upcomping_song_fields.append(second_field)
 
         try:
             track = voice_player.track
         except Exception as e:
-            # TODO: currently always out of range
             log.warning(f"can't get current playing song: {e}")
 
         if not voice_player.track.user_data:
@@ -697,7 +724,6 @@ class QueueMessage:
 
         # create embed
         music_embed = hikari.Embed(
-            # colour=hikari.Color.from_rgb(71, 89, 211)
             color=self.bot.accent_color
         )
         music_embed.add_field(
@@ -723,10 +749,6 @@ class QueueMessage:
         music_embed._fields.extend(upcomping_song_fields)
         footer = await self._build_footer()
         music_embed.set_footer(footer["text"], icon=footer.get("icon"))
-        # music_embed.set_thumbnail(
-        #     YouTubeHelper.thumbnail_from_url(track.info.uri) 
-        #     or self.bot.me.avatar_url
-        # )
         music_embed.set_thumbnail(track.info.artwork_url or self.bot.me.avatar_url)
         return music_embed
     
@@ -801,8 +823,6 @@ class QueueMessage:
         message_id = (await proxy.message()).id
         self._message = MessageData(id=message_id, proxy=proxy)
     
-        
-        
         
         
         
