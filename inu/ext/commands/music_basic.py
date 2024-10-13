@@ -46,14 +46,17 @@ class Events(lavalink_rs.EventHandler):
         event: events.TrackStart,
     ) -> None:
         del session_id
-
+        log = getLogger(__name__, "Lavalink Event Handler")
         log.info(f"Started track {event.track.info.author} - {event.track.info.title} in {event.guild_id.inner}")
 
         player = MusicPlayerManager.get_player(event.guild_id.inner)
         track = await player.fetch_current_track()
         if track:
             await MusicHistoryHandler.add(event.guild_id.inner, track.info.title, track.info.uri)  # type: ignore
-        log.debug(f"Send play message from track_start event")
+        if not player.response_lock.is_available():
+            log.debug(f"message locked - dont send")
+            return
+        log.debug(f"message not locked - send")
         await player.send_queue()
 
 
