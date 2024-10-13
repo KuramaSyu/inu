@@ -191,6 +191,7 @@ def stopwatch(
                 if inspect.isfunction(note):
                     text += note()
                 else:
+                    assert(isinstance(note, str))
                     text += note
             log.info(text)
         
@@ -214,7 +215,7 @@ def stopwatch(
 
 
 logs = set()
-def getLogger(*names):
+def getLogger(*names) -> LoggingHandler:
     """
     returns the logger and the level from the corresponding config.ini file
 
@@ -238,7 +239,7 @@ def getLevel(name_s: Union[List, str], log4file: bool = False):
     # to implement:
     # level will be min(logging, file_logging)
     # recheck logging level in Logger.handle()
-    logging_section = config.file_logging if log4file else config.logging
+    logging_section: Dict[str, str] = config.file_logging if log4file else config.logging  # type: ignore
     if isinstance(name_s, list):
         count = len(name_s)
         name = f"{'.'.join(name_s)}"

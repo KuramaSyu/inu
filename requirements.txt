@@ -13,7 +13,7 @@ APScheduler
 colorama
 python-dotenv
 typer
-lavasnek-rs==0.1.0a5
+lavalink_rs==0.13.0
 pyparsing
 mock
 jikanpy
@@ -39,5 +39,4 @@ expiring-dict
 selenium_async
 colorcet
 setuptools
-uvloop
 emoji==2.12.1

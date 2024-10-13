@@ -226,7 +226,7 @@ async def lavalink_test_coro() -> bool:
         return False
     lavalink = None
     if bot.conf.lavalink.connect:
-        from .music import lavalink
+        from ._music import lavalink
     test_title = "Alan Walker - Faded"
     query_information = await lavalink.auto_search_tracks(test_title)
     if len(query_information.tracks) == 0:

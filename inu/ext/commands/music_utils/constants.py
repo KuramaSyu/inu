@@ -1,8 +1,5 @@
 import re
 
-# If True connect to voice with the hikari gateway instead of lavasnek_rs's
-HIKARI_VOICE = True
-
 # prefix for autocomplete history values
 HISTORY_PREFIX = "History: "
 MEDIA_TAG_PREFIX = "Media Tag: "

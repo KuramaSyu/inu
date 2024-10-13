@@ -1,4 +1,5 @@
 """Context based on REST responses"""
+from operator import is_
 from typing import * 
 
 import asyncio
@@ -29,6 +30,19 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
         self = UniqueContextInstance.get(self)
         self._options: Dict[str, Any] = {}
 
+    @property
+    def is_responded(self) -> bool:
+        return len(self._responses) > 0
+
+    @property
+    def is_deferred(self) -> bool:
+        return False
+
+    @property
+    def needs_response(self) -> bool:
+        return False
+
+    
     @property
     def raw_options(self) -> Dict[str, Any]:
         return self._options
@@ -114,6 +128,14 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             return self.app.cache.get_guild_channel(self.channel_id)
         return self.app.cache.get_dm_channel_id(self.author.id)
 
+    async def execute(        
+        self, 
+        *args: Any, 
+        delete_after: Union[int, float, None] = None, 
+        **kwargs: Any
+    ):
+        await self.respond(*args, delete_after=delete_after, update=False, **kwargs,)
+        
     async def respond(
         self, 
         *args: Any, 

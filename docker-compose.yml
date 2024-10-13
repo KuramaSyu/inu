@@ -23,6 +23,6 @@ services:
   lava:
     container_name: lavalink
     restart: "unless-stopped"
-    image: ghcr.io/lavalink-devs/lavalink:v3-update-lp-alpine #fredboat/lavalink:v3-update-lp-alpine
+    image: fredboat/lavalink:4 #ghcr.io/lavalink-devs/lavalink:v3-update-lp-alpine #fredboat/lavalink:v3-update-lp-alpine
     volumes:
       - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml

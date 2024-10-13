@@ -28,7 +28,7 @@ from utils import (
     set_bot,
     AutoroleManager
 )
-import lavasnek_rs
+import lavalink_rs
 from core import getLogger
 from utils import Human
 
@@ -36,7 +36,7 @@ from utils import Human
 log = getLogger(__name__)
 log.info(f"hikari version:{hikari.__version__}")
 log.info(f"lightbulb version:{lightbulb.__version__}")
-log.info(f"lavasnek-rs version:{lavasnek_rs.__version__}")
+log.info(f"lavasnek-rs version:{lavalink_rs.__version__}")
 log.info(f"hikari-miru version:{miru.__version__}")
 
 def main():
@@ -65,6 +65,7 @@ def main():
     @inu.listen(hikari.StartingEvent)
     async def on_ready(event : hikari.StartingEvent):
         try:
+            set_bot(inu)
             await inu.init_db()
             InvokationStats.init_db(inu)
             await Reminders.init_bot(inu)
@@ -74,7 +75,6 @@ def main():
             await BoardManager.init_bot(inu)
             MyAnimeListAIOClient.set_credentials(inu.db.bot.conf.MAL.id)
             await tmdb_setup()
-            set_bot(inu)
             AutoroleManager.set_bot(inu)
         except Exception:
             log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
@@ -156,7 +156,7 @@ def main():
     log.info(f"Bot shutted down!")
 
 if __name__ == "__main__":
-    if os.name != "nt":
-        import uvloop
-        uvloop.install()
+    # if os.name != "nt":
+    #     import uvloop
+    #     uvloop.install()
     main()

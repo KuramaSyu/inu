@@ -1,10 +1,15 @@
 from typing import *
 from abc import ABC, abstractmethod
+from datetime import timedelta
+
 
 import hikari
 from hikari import TextInputStyle
 from lightbulb.context import Context
 from lightbulb import ResponseProxy
+
+
+from ..bot import Inu
 
 
 T = TypeVar("T")
@@ -14,11 +19,11 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 class InuContext(ABC):
     @abstractmethod
-    def from_context(cls: Context, ctx: Context) -> T:
+    def from_context(cls, ctx: Context) -> T:
         ...
 
     @abstractmethod
-    def from_event(cls: Context, event: hikari.Event) -> T:
+    def from_event(cls, event: hikari.Event) -> T:
         ...
     
     @property
@@ -28,7 +33,29 @@ class InuContext(ABC):
 
     @property
     @abstractmethod
-    def bot(self) -> hikari.GatewayBot:
+    def is_responded(self) -> bool:
+        "Whether or not the interaction has been responded to"
+
+    @property
+    @abstractmethod
+    def is_deferred(self) -> bool:
+        "Whether or not the interaction has been deferred"
+        return False
+
+    @property
+    @abstractmethod
+    def needs_response(self) -> bool:
+        "Whether or not the interaction needs a response because is was deferred"
+        return False
+
+    @property
+    @abstractmethod
+    def custom_id(self) -> str:
+        """the custom_id of the current interaction"""
+
+    @property
+    @abstractmethod
+    def bot(self) -> Inu:
         ...
 
     @property
@@ -74,6 +101,10 @@ class InuContext(ABC):
         if self.member:
             return self.member.display_name
         return self.author.username
+
+    @abstractmethod
+    async def execute(self, *args, delete_after: timedelta | int | None = None, **kwargs) -> ResponseProxy:
+        ...
 
     @abstractmethod
     async def respond(self, *args, **kwargs) -> ResponseProxy:
