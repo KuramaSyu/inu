@@ -49,6 +49,10 @@ lavalink:
     youtubeSearchEnabled: true
     soundcloudSearchEnabled: true
     gc-warnings: true
+    ratelimit:
+      ipBlocks: ["2001:470:50d8::/48"]
+      strategy: "LoadBalance"
+      searchTriggersFail: true
     #ratelimit:
       #ipBlocks: ["1.0.0.0/8", "..."] # list of ip blocks
       #excludedIps: ["...", "..."] # ips which should be explicit excluded from usage by lavalink
