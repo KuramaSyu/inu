@@ -328,7 +328,7 @@ class MusicPlayer:
             return tag["tag_value"][0]
 
         if not query.startswith("http"):
-            query = SearchEngines.soundcloud(query)
+            query = SearchEngines.youtube(query)
         return query
 
     async def play(self, query: str) -> None:
