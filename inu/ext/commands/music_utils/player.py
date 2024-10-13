@@ -173,10 +173,11 @@ class MusicPlayer:
     
     async def pause(self, suppress_info: bool = False) -> None:
         """Pauses a player and adds a footer info"""
-        self._queue.add_footer_info(
-            f"⏸️ Music paused by {self.ctx.author.username}", 
-            self.ctx.author.avatar_url
-        )
+        if not suppress_info:
+            self._queue.add_footer_info(
+                f"⏸️ Music paused by {self.ctx.author.username}", 
+                self.ctx.author.avatar_url
+            )
         await self._set_pause(True)
         
     async def resume(self) -> None:
@@ -296,7 +297,7 @@ class MusicPlayer:
         return voice_player.track  # type: ignore
     
 
-    async def _process_query(self, query: str) -> str:
+    async def _process_query(self, query: str, user_data: TrackUserData) -> str:
         """
         Checks the query and returns the query.
         Changes MEDIA TAGS and HISTORY PREFIXES to the actual url or name.
@@ -354,7 +355,7 @@ class MusicPlayer:
 
         # process query
         try:
-            query = await self._process_query(query)
+            query = await self._process_query(query, user_data)
         except BotResponseError as e:
             await self.ctx.respond(**e.context_kwargs)
             return
@@ -467,7 +468,10 @@ class MusicPlayer:
         is_locked = self.response_lock.lock(force=force_resend or force_lock)
         if not is_locked:
             return False
-        await self._queue._send_or_update_message(force_resend, disable_components)
+        await self._queue._send_or_update_message(
+            force_resend=force_resend, 
+            disable_components=disable_components
+        )
         return True
 
     async def shuffle(self) -> None:
@@ -504,11 +508,11 @@ class MusicPlayer:
         """
         Pauses the player, updates the queue message and sends the leave embed
         """
-        await self.pause()
+        await self.pause(suppress_info=True)
         self._queue.add_footer_info(f"🛑 stopped by {self.ctx.display_name}", icon=self.ctx.author.avatar_url)
         await self.send_queue(force_resend=force_resend, disable_components=True)
         assert(self.ctx.member is not None)
-        await self.ctx.respond(embed=self.create_leave_embed(self.ctx.member))
+        #await self.ctx.execute(embed=self.create_leave_embed(self.ctx.member), delete_after=30)
         await self.leave()
 @dataclass
 class MessageData:
@@ -566,6 +570,7 @@ class QueueMessage:
         upcoming_songs = max(len(queue) - 4, 0)
         time_amount_milis = sum([x.track.info.length for i, x in enumerate(queue)] or [0])
         time_amount = timedelta(seconds=time_amount_milis // 1000)
+        self._footer.infos = [f for f in self._footer.infos if "remaining in queue" not in f]
         self.add_footer_info(f"⤵️ {Human.plural_('song', upcoming_songs, True)} ({time_amount}) remaining in queue ")
         d["text"] = Human.short_text("\n".join(self._footer.infos), 1024, "...")
         if self._footer.icon:
@@ -742,19 +747,27 @@ class QueueMessage:
         )
         
         log.debug(f"{components = } {disable_components = }")
+        ctx = self._player.ctx
+
         if force_resend:
             edit_history = False
         else:
             edit_history = await is_in_history(self.player.ctx.channel_id, self.message_id)
         
         # edit history message
+        failed = False
         if edit_history:
-            failed = False
-            if self._message:
+            if ctx.needs_response:
+                try:
+                    log.debug(f"respond edit history")
+                    await ctx.respond(embeds=[embed], components=components)
+                except Exception:
+                    failed = True
+            elif self._message:
                 try:
                     log.debug(f"edit message with proxy")
                     await self._message.proxy.edit(embeds=[embed], components=components)
-                except Exception as e:
+                except Exception:
                     failed = True
             if not self._message or failed:
                 failed = False
@@ -767,6 +780,11 @@ class QueueMessage:
                 except:
                     failed = True
         
+        if not edit_history and ctx.needs_response:
+            # respond and delete
+            proxy = await ctx.respond(components=components)
+            await proxy.delete()
+
         # send new message
         if not edit_history or failed:
             if self.message_id:
@@ -776,7 +794,7 @@ class QueueMessage:
                     self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
                 )
             log.debug(f"create music message with rest")
-            message_proxy = await self._player.ctx.respond(embeds=[embed], components=components)
+            message_proxy = await ctx.respond(embeds=[embed], components=components)
             message_id = (await message_proxy.message()).id
             self._message = MessageData(id=message_id, proxy=message_proxy)
     
