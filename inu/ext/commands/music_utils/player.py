@@ -465,13 +465,15 @@ class MusicPlayer:
         `bool`:
             Whether the message was sent
         """
-        is_locked = self.response_lock.lock(force=force_resend or force_lock)
-        if not is_locked:
+        if not self.response_lock.is_available() and not force_lock:
             return False
+        self.response_lock.lock()
         await self._queue._send_or_update_message(
             force_resend=force_resend, 
             disable_components=disable_components
         )
+        self._queue.reset_footer()
+        
         return True
 
     async def shuffle(self) -> None:
@@ -745,8 +747,6 @@ class QueueMessage:
             .pause(await self._player.is_paused())
             .build()
         )
-        
-        log.debug(f"{components = } {disable_components = }")
         ctx = self._player.ctx
 
         if force_resend:
@@ -757,19 +757,15 @@ class QueueMessage:
         # edit history message
         failed = False
         if edit_history:
-            if ctx.needs_response:
+            log.debug(f"edit history: {ctx.needs_response = }; ")
+            if ctx.needs_response or self._message:
                 try:
-                    log.debug(f"respond edit history")
-                    await ctx.respond(embeds=[embed], components=components)
+                    log.debug(f"ctx respond edit history; {self._message.id = } == {ctx.message_id = }")
+                    await ctx.respond(embeds=[embed], components=components, update=self._message.id or True)
                 except Exception:
+                    log.debug(f"failed to ctx respond edit history")
                     failed = True
-            elif self._message:
-                try:
-                    log.debug(f"edit message with proxy")
-                    await self._message.proxy.edit(embeds=[embed], components=components)
-                except Exception:
-                    failed = True
-            if not self._message or failed:
+            if failed:
                 failed = False
                 try:
                     log.debug(f"edit message with rest")
@@ -778,27 +774,34 @@ class QueueMessage:
                         self._message_id, embeds=[embed], components=components
                     )
                 except:
+                    log.debug(f"failed to edit message with rest")
                     failed = True
         
-        if not edit_history and ctx.needs_response:
-            # respond and delete
+        if edit_history and not failed:
+            return
+        
+        if ctx.needs_response:
+            log.debug(f"make init resp and delete")
+            # respond and delete since id is not in history
             proxy = await ctx.respond(components=components)
+            proxy_id = (await proxy.message()).id
             await proxy.delete()
+            if proxy_id == self.message_id:
+                self._message = None
 
         # send new message
-        if not edit_history or failed:
-            if self.message_id:
-                # delete old message
-                log.debug(f"delete message: {self.message_id}; {failed = }")
-                task = asyncio.create_task(
-                    self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
-                )
-            log.debug(f"create music message with rest")
-            message_proxy = await ctx.respond(embeds=[embed], components=components)
-            message_id = (await message_proxy.message()).id
-            self._message = MessageData(id=message_id, proxy=message_proxy)
+        if self.message_id:
+            # delete old message
+            log.debug(f"delete old message first: {self.message_id}; {failed = }")
+            task = asyncio.create_task(
+                self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
+            )
+        log.debug(f"create music message with ctx respond")
+        proxy = await ctx.respond(embeds=[embed], components=components, update=False)
+        message_id = (await proxy.message()).id
+        self._message = MessageData(id=message_id, proxy=proxy)
     
-        self.reset_footer()
+        
         
         
         
