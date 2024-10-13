@@ -1,4 +1,5 @@
 import random
+from contextlib import suppress
 
 from typing import *
 import asyncio
@@ -59,7 +60,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> Non
     elif custom_id == "music_pause":
         add_task(player.pause())
     elif custom_id == "music_stop":
-        await player.pre_leave(force_resend=True)
+        await player.pre_leave(force_resend=False)
         add_task(player.leave())
 
     if tasks:
