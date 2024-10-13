@@ -128,6 +128,14 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             return self.app.cache.get_guild_channel(self.channel_id)
         return self.app.cache.get_dm_channel_id(self.author.id)
 
+    async def execute(        
+        self, 
+        *args: Any, 
+        delete_after: Union[int, float, None] = None, 
+        **kwargs: Any
+    ):
+        await self.respond(*args, delete_after=delete_after, update=False, **kwargs,)
+        
     async def respond(
         self, 
         *args: Any, 
