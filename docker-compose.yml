@@ -6,7 +6,7 @@ networks:
     ipam:
       config:
         - subnet: 172.21.0.0/16  # IPv4 subnet
-        - subnet: "2001:db8:1::/64"  # IPv6 subnet
+        - subnet: "2001:470:50d8::/48"  # IPv6 subnet
 
 services:
   db:
@@ -22,9 +22,7 @@ services:
     volumes:
       - ./../postgres-data:/var/lib/postgresql/data
     networks:
-      inu_net:
-        ipv4_address: 172.21.0.2  # Optional: assign a specific IPv4 address
-        ipv6_address: "2001:db8:1::2"  # Optional: assign a specific IPv6 address
+      inu_net:  # Connect to the custom network
 
   app:
     container_name: inu
@@ -38,11 +36,9 @@ services:
       LAVALINK_HOST: "lava"  # Use the service name here
       LAVALINK_PORT: 2333
     networks:
-      inu_net:
-        ipv4_address: 172.21.0.3  # Assign a specific IPv4 address
-        ipv6_address: "2001:db8:1::3"  # Assign a specific IPv6 address
+      inu_net:  # Connect to the custom network
     labels:
-      - "com.centurylinklabs.watchtower.enable=false" # disable watchtower for this container
+      - "com.centurylinklabs.watchtower.enable=false"  # Disable watchtower for this container
 
   lava:
     container_name: lavalink
@@ -51,6 +47,4 @@ services:
     volumes:
       - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
     networks:
-      inu_net:
-        ipv4_address: 172.21.0.4  # Assign a specific IPv4 address
-        ipv6_address: "2001:db8:1::4"  # Assign a specific IPv6 address
+      inu_net:  # Connect to the custom network
