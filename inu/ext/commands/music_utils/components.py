@@ -27,7 +27,7 @@ class MusicMessageComponents:
             If all buttons should be disabled, by default False
         """
         is_paused = self._is_paused
-        paused_or_stopped = False
+        paused_or_stopped = self._is_paused
         disable_all = self._disable_all
 
         action_rows = [
