@@ -51,7 +51,7 @@ lavalink:
     gc-warnings: true
     ratelimit:
       ipBlocks: ["2001:470:50d8::/48"]
-      strategy: "RotatingNanoSwitch"
+      strategy: "LoadBalance"
       searchTriggersFail: true
     #ratelimit:
       #ipBlocks: ["1.0.0.0/8", "..."] # list of ip blocks
