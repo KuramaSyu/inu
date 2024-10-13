@@ -194,7 +194,12 @@ async def play(_ctx: Context) -> None:
     player = MusicPlayerManager.get_player(ctx)
     was_playing = not (await player.is_paused())
     log.debug(f"{was_playing = }")
-    await player.play(_ctx.options.query)
+    try:
+        await player.play(_ctx.options.query)
+    except TimeoutError:
+        # triggered, when no song was selected
+        return
+    
     await asyncio.sleep(0.15)  # without this, it does not start playing
     await player.send_queue(True)
 
