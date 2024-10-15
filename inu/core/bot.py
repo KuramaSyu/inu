@@ -10,11 +10,11 @@ import logging
 from asyncpraw.config import Config
 from hikari.events.interaction_events import InteractionCreateEvent
 from hikari.interactions.component_interactions import ComponentInteraction
-from hikari import ModalInteraction
+from hikari import GatewayBot, ModalInteraction
 from copy import copy
 
 import lightbulb
-from lightbulb import context, commands, when_mentioned_or
+from lightbulb import context, commands
 import hikari
 from hikari.snowflakes import Snowflakeish
 from hikari.impl import ModalActionRowBuilder, TextInputBuilder
@@ -24,7 +24,6 @@ from dotenv import dotenv_values
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from colorama import Fore, Style
-from lightbulb.context.base import Context
 from matplotlib.colors import cnames
 
 
@@ -33,8 +32,6 @@ from . import ConfigProxy, ConfigType
 from . import Bash
 
 T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
-T_INTERACTION_TYPE = TypeVar("T_INTERACTION_TYPE", bound=Union[ComponentInteraction, ModalInteraction])
-T_INTERACTION_CTX = TypeVar("T_INTERACTION_CTX", lightbulb.SlashContext, hikari.ComponentInteraction, hikari.ModalInteraction)
 T = TypeVar("T")
 
 log = getLogger(__name__)
@@ -65,28 +62,36 @@ class BotResponseError(Exception):
 
 
 
-class Inu(lightbulb.BotApp):
+class Inu(lightbulb.GatewayEnabledClient):
     restart_count: int
+    app: GatewayBot
+
     def __init__(self, *args, **kwargs):
         self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
-        self.conf: ConfigProxy = ConfigProxy(ConfigType.YAML)  #Configuration(dotenv_values())
+        self.conf: ConfigProxy = ConfigProxy(
+            config_type=ConfigType.YAML
+        )  #Configuration(dotenv_values())
         self.log = getLogger(__name__, self.__class__.__name__)
         (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
         self.startup = datetime.datetime.now()
+
         from core.db import Database
         self.db = Database()
         self.db.bot = self
+        
+        self.restart_count = 0
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
         self.scheduler.start()
         self._prefixes = {}
-        self._default_prefix = self.conf.bot.DEFAULT_PREFIX
+        self._default_prefix = self.conf.bot.DEFAULT_PREFIX  # type: ignore[attr-defined]
         self.search = Search(self)
         self.shortcuts: "Shortcuts" = Shortcuts(bot=self)
         self.id_creator = IDCreator()
         self._lavalink: Optional[lavalink_rs.LavalinkClient] = None
+        
 
         
         logger_names = [
@@ -99,26 +104,27 @@ class Inu(lightbulb.BotApp):
             "incremental": True,
             "loggers": loggers 
         }
-        
-
-
-        def get_prefix(bot: Inu, message: hikari.Message):
-            return bot.prefixes_from(message.guild_id)
 
         super().__init__(
-            *args, 
-            prefix=when_mentioned_or(get_prefix), 
-            token=self.conf.bot.DISCORD_TOKEN, 
-            **kwargs,
-            case_insensitive_prefix_commands=True,
-            banner=None,
-            logs=logs,
-            intents=hikari.Intents.ALL,
-            # default_enabled_guilds=[984380094699147294]
+            *args,
+            default_enabled_guilds=(),
+            default_locale=hikari.Locale.EN_US,
+            execution_step_order=lightbulb.DEFAULT_EXECUTION_STEP_ORDER,
+            localization_provider=lightbulb.localization_unsupported,
+            deferred_registration_callback=None,
+            delete_unknown_commands=False,
+            hooks=(),
+            rest=hikari.GatewayBot(  # type: ignore[reportArgumentType]
+                self.conf.bot.DISCORD_TOKEN,  # type: ignore[arg-type]
+                intents=hikari.Intents.ALL,
+                #logs=logs,
+            )
         )
         self.mrest = MaybeRest(self)
-        self.load("inu/ext/commands/")
-        self.load("inu/ext/tasks/")
+        # self.load("inu/ext/commands/")
+        # self.load("inu/ext/tasks/")
+
+        self.wait_for = self.app.wait_for
     
     @property
     def lavalink(self) -> lavalink_rs.LavalinkClient:
@@ -152,35 +158,19 @@ class Inu(lightbulb.BotApp):
             )
         return prefixes or [self._default_prefix]
 
-    def add_task(
-        self,
-        func: Callable,
-        seconds: int = 0,
-        minutes: int = 0,
-        hours: int = 0,
-        days: int = 0,
-        weeks: int = 0,
-        args: Sequence[Any] | None = None,
-        kwargs: Sequence[Any] | None = None,
-    ):
-        trigger = IntervalTrigger(
-            seconds=seconds,
-            minutes=minutes,
-            hours=hours,
-            days=days,
-            weeks=weeks,
-        )
-        if args is None:
-            args = []
-        if kwargs is None:
-            kwargs = {}
-        self.scheduler.add_job(func, trigger, args=args, kwargs=kwargs)
-
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
         if not (loop := asyncio.get_running_loop()):
             raise RuntimeError("Eventloop could not be returned")
         return loop
+
+    @property
+    def cache(self) -> hikari.api.Cache:
+        return self.app.cache
+
+    @property
+    def rest(self) -> hikari.api.RESTClient:
+        return self.app.rest
 
     @property
     def me(self) -> hikari.User:
@@ -196,23 +186,19 @@ class Inu(lightbulb.BotApp):
 
     @property
     def color(self) -> hikari.Color:
+        """
+        `self.conf.bot.color` as hikari.Color
+        """
         color = self.conf.bot.color
         hex_ = cnames.get(str(color), None)
         if not isinstance(hex_, str):
             raise RuntimeError(f"matplatlib cnames has no color with name: {color}")
         return hikari.Color.from_hex_code(str(hex_))
 
-
-    def load_slash(self):
-        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/slash")):
-            if extension == "__init__.py" or not extension.endswith(".py"):
-                continue
-            try:
-                self.load_extensions(f"ext.slash.{extension[:-3]}")
-            except Exception as e:
-                self.log.critical(f"slash command {extension} can't load", exc_info=True)
-
-    def load(self, folder_path: str):
+    async def load(self, folder_path: str):
+        """
+        Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
+        """
         for extension in os.listdir(os.path.join(os.getcwd(), folder_path)):
             if (
                 extension == "__init__.py" 
@@ -221,23 +207,9 @@ class Inu(lightbulb.BotApp):
             ):
                 continue
             try:
-                self.load_extensions(f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}")
+                await self.load_extensions(f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}")
                 # self.log.debug(f"loaded plugin: {extension}")
             except Exception:
-                self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
-
-    def load_task(self):
-        for extension in os.listdir(os.path.join(os.getcwd(), "inu/ext/tasks")):
-            if (
-                extension == "__init__.py" 
-                or not extension.endswith(".py")
-                or extension.startswith("_")
-            ):
-                continue
-            try:
-                self.load_extensions(f"ext.tasks.{extension[:-3]}")
-                self.log.debug(f"loaded plugin: {extension}")
-            except Exception as e:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
 
     async def init_db(self):
@@ -273,17 +245,16 @@ class Inu(lightbulb.BotApp):
         if isinstance(user_ids, int):
             user_ids = [user_ids]
         try:
-            event = await self.wait_for(
+            event = await self.app.wait_for(
                 InteractionCreateEvent,
                 timeout=timeout or 15*60,
                 predicate=lambda e:(
                     isinstance(e.interaction, interaction_instance)
-                    and (True if not custom_id else custom_id == e.interaction.custom_id)
-                    and (True if not user_ids else e.interaction.user.id in user_ids)
-                    and (True if not channel_id else e.interaction.channel_id == channel_id)
-                    and (True if not message_id else e.interaction.message.id == message_id)
-                    and (True if not custom_ids else e.interaction.custom_id in custom_ids)
-                    
+                    and (True if not custom_id else custom_id == e.interaction.custom_id)     # type: ignore
+                    and (True if not user_ids else e.interaction.user.id in user_ids)         # type: ignore
+                    and (True if not channel_id else e.interaction.channel_id == channel_id)  # type: ignore
+                    and (True if not message_id else e.interaction.message.id == message_id)  # type: ignore
+                    and (True if not custom_ids else e.interaction.custom_id in custom_ids)   # type: ignore
                 )
             )
             if not isinstance(event.interaction, ComponentInteraction):
@@ -298,7 +269,7 @@ class Inu(lightbulb.BotApp):
     async def wait_for_message(
         self,
         timeout: int = 60,
-        channel_id: int = None,
+        channel_id: int | None = None,
         user_id: Optional[Snowflakeish] = None,
         interaction: Optional[ComponentInteraction] = None,
         response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE,
@@ -323,10 +294,10 @@ class Inu(lightbulb.BotApp):
 
     async def ask(
         self,
-        question: str = None,
+        question: str | None = None,
         *,
         timeout: int = 60,
-        channel_id: int = None,
+        channel_id: int | None = None,
         user_id: Optional[Snowflakeish] = None,
         interaction: Optional[ComponentInteraction] = None,
         response_type: hikari.ResponseType = hikari.ResponseType.MESSAGE_CREATE,
@@ -360,7 +331,7 @@ class Inu(lightbulb.BotApp):
         else:
             msg = None
         try:
-            event = await self.wait_for(
+            event = await self.app.wait_for(
                 hikari.MessageCreateEvent,
                 timeout=timeout,
                 predicate=lambda e:(
@@ -373,11 +344,7 @@ class Inu(lightbulb.BotApp):
         except asyncio.TimeoutError:
             return None, None
 
-        
 
-    #override
-    def run(self):
-        super().run()
 
 class Data:
     """Global data shared across the entire bot, used to store dashboard values."""
@@ -405,7 +372,7 @@ class MaybeRest:
     def __init__(self, bot: Inu):
         self.bot = bot
 
-    async def fetch_T(self, cache_method: Callable, rest_coro: Callable[[Any], Awaitable[Any]], t_ids: List[Snowflakeish]):
+    async def fetch_T(self, cache_method: Callable[[], T], rest_coro: Coroutine[Any, Any, T], t_ids: List[Snowflakeish]) -> T:
         t = cache_method(*t_ids)
         if t:
             return t
@@ -421,7 +388,7 @@ class MaybeRest:
     async def fetch_member(self, guild_id: int, member_id: int) -> Optional[hikari.Member]:
         return await self.fetch_T(
             cache_method=self.bot.cache.get_member,
-            rest_coro= self.bot.rest.fetch_member,
+            rest_coro=self.bot.rest.fetch_member,
             t_ids=[guild_id, member_id],
         )
 
@@ -465,6 +432,7 @@ class Search:
     def __init__(self, bot: Inu):
         self.__class__.bot = bot
 
+    @classmethod
     async def member(cls, guild_id: int, member_query: str) -> List[hikari.Member]:
         member_query = member_query.strip().lower()
         members = await cls.bot.mrest.fetch_members(guild_id)
@@ -540,7 +508,7 @@ class Shortcuts:
             The belonging event
 
         """
-        event = await self.bot.wait_for(
+        event = await self.bot.app.wait_for(
             InteractionCreateEvent,
             timeout=timeout,
             predicate=lambda e:(
