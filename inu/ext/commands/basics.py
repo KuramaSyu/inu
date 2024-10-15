@@ -111,11 +111,12 @@ class RestDelay:
         else:
             return "🟢"
 
-basics = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
-if not isinstance(basics.d, lightbulb_utils.DataStore):
-    raise RuntimeError("Plugin don't contain a datastore")
-if basics.d is None:
-    raise RuntimeError("Plugin don't contain a datastore")
+
+#basics = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
+# if not isinstance(basics.d, lightbulb_utils.DataStore):
+#     raise RuntimeError("Plugin don't contain a datastore")
+# if basics.d is None:
+#     raise RuntimeError("Plugin don't contain a datastore")
 
 
 
@@ -139,8 +140,9 @@ def ping_to_color_rest(ping: float) -> str:
     else:
         return "🟢"
 
+loader = lightbulb.Loader()
 
-@basics.listener(InteractionCreateEvent)
+@loader.listener(InteractionCreateEvent)
 async def on_interaction(event: InteractionCreateEvent):
     if not isinstance(event.interaction, ComponentInteraction):
         return
@@ -150,67 +152,71 @@ async def on_interaction(event: InteractionCreateEvent):
         await pag.start(get_context(event), guilds)
 
 
-@basics.command
-@lightbulb.command("ping", "is the bot alive?", auto_defer=True)
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def ping(ctx: context.Context):
-    task = asyncio.create_task(
-        IP.fetch_public_ip(), 
-        name="IP"
-    )
-    task_2 = asyncio.create_task(
-        xkcdAPI.fetch_comic(xkcdAPI.random_comic_endpoint()), 
-        name="comic"
-    )
-    #fact = await Facts.fetch_random_fact()
+@loader.command
+class PingCommand(
+    lightbulb.SlashCommand,
+    name="ping",
+    description="Simple Ping"
+):
+    @lightbulb.invoke
+    async def ping(self, ctx: lightbulb.Context):
+        task = asyncio.create_task(
+            IP.fetch_public_ip(), 
+            name="IP"
+        )
+        task_2 = asyncio.create_task(
+            xkcdAPI.fetch_comic(xkcdAPI.random_comic_endpoint()), 
+            name="comic"
+        )
+        #fact = await Facts.fetch_random_fact()
 
-    embed = Embed(title="Pong")
-    embed.description = (
+        embed = Embed(title="Pong")
+        embed.description = (
+            
+            f"{ping_to_color(ctx.client.lat*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+            f"⚫ REST: .... ms\n\n"
+        )
+        embed.add_field("Public IP", "....", inline=True)
+        if bot.conf.bot.domain:
+            embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
         
-        f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-        f"⚫ REST: .... ms\n\n"
-    )
-    embed.add_field("Public IP", "....", inline=True)
-    if bot.conf.bot.domain:
-        embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
-    
-    request_start = datetime.now()
-    msg = await ctx.respond(embed=embed)
-    rest_delay = datetime.now() - request_start
+        request_start = datetime.now()
+        msg = await ctx.respond(embed=embed)
+        rest_delay = datetime.now() - request_start
 
-    done, pending = await asyncio.wait([task, task_2], timeout=8)
-    ip = None
-    comic = {}
-    for d in done:
-        if d.get_name() == "IP":
-            ip = d.result()
-        if d.get_name() == "comic":
-            comic = d.result()
-    
-    for p in pending:
-        p.cancel()
+        done, pending = await asyncio.wait([task, task_2], timeout=8)
+        ip = None
+        comic = {}
+        for d in done:
+            if d.get_name() == "IP":
+                ip = d.result()
+            if d.get_name() == "comic":
+                comic = d.result()
+        
+        for p in pending:
+            p.cancel()
 
-    if (title := comic.get("title")):
-        embed.title += f" -- {title}"
-    embed.description = (
-        f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-        f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
-    )
-    # reset fields
-    embed._fields = []
-    embed.add_field("Public IP", ip, inline=True)
-    if bot.conf.bot.domain:
-        embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
-    if (comic_link := comic.get("img")):
-        embed.set_image(comic_link)
-    if comic:
-        embed.add_field("Comic", (
-            f"release date: {comic.get('year')}-{comic.get('month', '??')}-{comic.get('day', '??')}\n"
-            f"number: {comic.get('num')}\n"
-            f"[link]({comic.get('link')})\n"
-            f"[explanation]({comic.get('explanation_url')})"
-        ))
-    await msg.edit(embed=embed)
+        if (title := comic.get("title")):
+            embed.title += f" -- {title}"
+        embed.description = (
+            f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+            f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
+        )
+        # reset fields
+        embed._fields = []
+        embed.add_field("Public IP", ip, inline=True)
+        if bot.conf.bot.domain:
+            embed.add_field("Domain:", f"{bot.conf.bot.domain}", inline=True)
+        if (comic_link := comic.get("img")):
+            embed.set_image(comic_link)
+        if comic:
+            embed.add_field("Comic", (
+                f"release date: {comic.get('year')}-{comic.get('month', '??')}-{comic.get('day', '??')}\n"
+                f"number: {comic.get('num')}\n"
+                f"[link]({comic.get('link')})\n"
+                f"[explanation]({comic.get('explanation_url')})"
+            ))
+        await msg.edit(embed=embed)
 
 
 async def tmdb_coro(search: str):
