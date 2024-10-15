@@ -314,3 +314,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
     @property
     def author_id(self) -> hikari.Snowflake:
         return self.author.id
+
+    @property
+    def custom_id(self) -> str | None:
+        return None
