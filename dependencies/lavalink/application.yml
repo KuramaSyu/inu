@@ -14,7 +14,8 @@ plugins:
 lavalink:
   plugins:
     # Replace VERSION with the current version as shown by the Releases tab or a long commit hash for snapshots.
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.7.1"
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.8.3"
+    # URL: https://github.com/lavalink-devs/youtube-source/releases
       snapshot: false # Set to true if you want to use a snapshot version.
   pluginsDir: "./plugins"
   server:
@@ -50,7 +51,7 @@ lavalink:
     soundcloudSearchEnabled: true
     gc-warnings: true
     ratelimit:
-      ipBlocks: ["2001:470:50d8::/48"]
+      # ipBlocks: ["2001:470:50d8::/48"]
       strategy: "LoadBalance"
       searchTriggersFail: true
     #ratelimit:
