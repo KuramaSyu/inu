@@ -7,7 +7,6 @@ networks:
     ipam:
       config:
         - subnet: 172.21.0.0/16  # IPv4 subnet
-        - subnet: "2001:470:50d8::/48"  # IPv6 subnet
 
 services:
   db:
@@ -32,10 +31,6 @@ services:
       - db
     build: .
     restart: "unless-stopped"
-    environment:
-      # Lavalink host can be accessed via its service name in the Docker network
-      LAVALINK_HOST: "lava"  # Use the service name here
-      LAVALINK_PORT: 2333
     networks:
       inu_net:  # Connect to the custom network
     labels:
@@ -44,7 +39,7 @@ services:
   lava:
     container_name: lavalink
     restart: "unless-stopped"
-    image: fredboat/lavalink:4
+    image: fredboat/lavalink:latest-alpine
     volumes:
       - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
     networks:
