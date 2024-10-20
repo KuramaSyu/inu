@@ -309,7 +309,7 @@ class Tag():
         return user_id in self.owners
 
     @classmethod
-    async def from_id(cls, tag_id: int, user_id: int, guild_or_channel_id: int = 0) -> Optional["Tag"]:
+    async def from_id(cls, tag_id: int, user_id: int, guild_or_channel_id: int = 0, only_accessable: bool = True) -> Optional["Tag"]:
         """
         returns a Tag created from the id
 
@@ -321,8 +321,10 @@ class Tag():
             the id of a user which should be contained in the tag
         guild_or_channel_id : int = 0
             the guild or channel id which should be contained in that guild
+        only_accessable : bool = True
+            wether the results should be filtered with the given guilds or users
         """
-        d = await TagManager.get(tag_id=tag_id, author_id=user_id, guild_id=guild_or_channel_id)
+        d = await TagManager.get(tag_id=tag_id, author_id=user_id, guild_id=guild_or_channel_id, only_accessable=only_accessable)
         if not d:
             return None
         return await cls.from_record(d[0])
@@ -338,7 +340,7 @@ class Tag():
         """
         Fetches the tag from the database. Updates value, name etc.
         """
-        tag = await Tag.from_id(self.id, user_id=0)
+        tag = await Tag.from_id(self.id, user_id=0, only_accessable=False)
         if tag is None:
             raise RuntimeError(f"Tag with id {self.id} not found")
         self = tag
