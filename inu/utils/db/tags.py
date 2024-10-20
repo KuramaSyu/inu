@@ -327,7 +327,7 @@ class Tag():
         if only_accessable:
             d = await TagManager.get(tag_id=tag_id, author_id=user_id, guild_id=guild_or_channel_id, only_accessable=only_accessable)
         else:
-            d = [await TagManager.fetch_by_id(tag_id)]
+            d = await TagManager.fetch_by_id(tag_id)
         if not d:
             return None
         return await cls.from_record(d[0])
@@ -753,7 +753,6 @@ class TagManager():
         sql = """
         SELECT * FROM tags
         WHERE tag_id = $1
-        RETURNING *
         """
         record = await cls.db.row(sql, tag_id)
         if not record:
