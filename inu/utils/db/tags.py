@@ -324,7 +324,10 @@ class Tag():
         only_accessable : bool = True
             wether the results should be filtered with the given guilds or users
         """
-        d = await TagManager.get(tag_id=tag_id, author_id=user_id, guild_id=guild_or_channel_id, only_accessable=only_accessable)
+        if only_accessable:
+            d = await TagManager.get(tag_id=tag_id, author_id=user_id, guild_id=guild_or_channel_id, only_accessable=only_accessable)
+        else:
+            d = await TagManager.fetch_by_id(tag_id)
         if not d:
             return None
         return await cls.from_record(d[0])
@@ -742,7 +745,20 @@ class TagManager():
             record["type"],
             record["info_visible"],
         )
-
+    @classmethod
+    async def fetch_by_id(cls, tag_id: int) -> Optional[Dict[str, Any]]:
+        """
+        Fetches a tag by ID
+        """
+        sql = """
+        SELECT * FROM tags
+        WHERE tag_id = $1
+        """
+        record = await cls.db.row(sql, tag_id)
+        if not record:
+            return None
+        return record
+    
     @classmethod
     async def is_global_taken(cls, key: str, tags: Optional[List[str]] = None):
         """
