@@ -334,6 +334,15 @@ class Tag():
         embed.add_field(name="Status", value=str(self))
         return embed
 
+    async def fetch(self) -> None:
+        """
+        Fetches the tag from the database. Updates value, name etc.
+        """
+        tag = await Tag.from_id(self.id, user_id=0)
+        if tag is None:
+            raise RuntimeError(f"Tag with id {self.id} not found")
+        self = tag
+
     async def prepare_new_tag(self, author: Union[hikari.Member, hikari.User]):
         """
         creates a new tag in form of `Tag`
