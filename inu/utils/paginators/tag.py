@@ -559,6 +559,7 @@ class TagHandler(StatelessPaginator):
         except asyncio.TimeoutError:
             return False
         self.set_context(event=event)
+        await self.tag.fetch()
         if value is None or not value:
             # no new value or value is the same
             return False
