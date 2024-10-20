@@ -327,8 +327,8 @@ class Tag():
         if only_accessable:
             d = await TagManager.get(tag_id=tag_id, author_id=user_id, guild_id=guild_or_channel_id, only_accessable=only_accessable)
         else:
-            d = await TagManager.fetch_by_id(tag_id)
-        if not d:
+            d = [await TagManager.fetch_by_id(tag_id)]
+        if d is None:
             return None
         return await cls.from_record(d[0])
 
@@ -346,7 +346,17 @@ class Tag():
         tag = await Tag.from_id(self.id, user_id=0, only_accessable=False)
         if tag is None:
             raise RuntimeError(f"Tag with id {self.id} not found")
-        self = tag
+        self.owners = tag.owners
+        self.name = tag.name
+        self.value = tag.value
+        self.is_stored = tag.is_stored
+        self.guild_ids = tag.guild_ids
+        self.aliases = tag.aliases
+        self.tag_type = tag.tag_type
+        self.uses = tag.uses
+        self.info_visible = tag.info_visible
+        self.is_local_available = tag.is_local_available
+        self.is_global_available = tag.is_global_available
 
     async def prepare_new_tag(self, author: Union[hikari.Member, hikari.User]):
         """
@@ -754,7 +764,9 @@ class TagManager():
         SELECT * FROM tags
         WHERE tag_id = $1
         """
-        record = await cls.db.row(sql, tag_id)
+        table = Table("tags")
+        record = await table.fetch_by_id("tag_id", tag_id)
+        log.debug(f"Record fetched by id: {record}")
         if not record:
             return None
         return record
