@@ -1,16 +1,32 @@
 from weakref import WeakValueDictionary
 from abc import abstractmethod
 from typing import *
+from datetime import timedelta
 
 from cachetools import cached, TTLCache
+from hikari import Embed
+from hikari.impl import MessageActionRowBuilder
 from core import getLogger
 from . import InuContext
-from lightbulb import ResponseProxy, OptionsProxy
 
 log = getLogger(__name__)
 
 InuContextT = TypeVar("InuContextT", bound="InuContext")
 
+
+class Response:
+    @abstractmethod
+    async def respond(
+        self,
+        embeds: List[Embed] | None = None,
+        content: str | None = None,
+        delete_after: timedelta | None = None,
+        ephemeral: bool = False,
+        components: List[MessageActionRowBuilder] | None = None,
+    ):
+        ...
+    
+    
 class UniqueContextInstance:
     _instances: WeakValueDictionary[int, InuContext] = WeakValueDictionary()
 
@@ -42,11 +58,17 @@ class ContextEqualTrait:
 
 
 class InuContextBase(ContextEqualTrait):
-    _responses: List[ResponseProxy] = []
+    _responses: List[Response] = []
     _options: Dict[str, Any] = {}
     _update: bool
     _defered: bool
     _responded: bool
+    
+    def __init__(self) -> None:
+        self._update = False
+        self._defered = False
+        self._responded = False
+        self._responses: List[Response] = []
     
     @property
     def defered(self):
@@ -78,18 +100,13 @@ class InuContextBase(ContextEqualTrait):
         self._update = value
 
     @property
-    def last_response(self) -> Optional[ResponseProxy]:
+    def last_response(self) -> Optional[Response]:
         return self._responses[-1] if self._responses else None
 
     @property
     def is_hashable(self) -> bool:
         return self.id is not None
-    
-    @property
-    def raw_options(self) -> Dict[str, Any]:
-        return self._options
 
     @property
-    def options(self) -> OptionsProxy:
-        """:obj:`~OptionsProxy` wrapping the options that the user invoked the command with."""
-        return OptionsProxy(self.raw_options)
+    def options(self) -> Dict[str, Any]:
+        return {}
