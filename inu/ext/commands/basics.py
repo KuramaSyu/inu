@@ -9,26 +9,26 @@ from hikari.impl import MessageActionRowBuilder
 import lightbulb
 import lightbulb.utils as lightbulb_utils
 
-from core import BotResponseError, Inu, Table, getLogger, get_context
-from hikari import ActionRowComponent, ButtonStyle, ComponentInteraction, Embed, GatewayGuild, InteractionCreateEvent, MessageCreateEvent, embeds, ResponseType, TextInputStyle
+from core import (
+    BotResponseError, Inu, Table, 
+    getLogger, get_context
+)
+from hikari import (
+    ActionRowComponent, ButtonStyle, ComponentInteraction, 
+    Embed, GatewayGuild, InteractionCreateEvent, 
+    MessageCreateEvent, embeds, ResponseType, TextInputStyle,
+    Permissions
+)
 from tabulate import tabulate
 from lightbulb import OptionModifier as OM
-from lightbulb import commands, context
-from lightbulb.context import Context
+from lightbulb import (
+    commands, SlashCommand, invoke, Context, 
+)
 from tmdb import route
 from utils import (
-    Colors, 
-    Human,
-    Paginator, 
-    GuildPaginator,
-    Reddit, 
-    Urban, 
-    crumble, 
-    MyAnimeList, 
-    BoredAPI, 
-    IP, 
-    Facts,
-    xkcdAPI,
+    Colors, Human, Paginator, GuildPaginator,
+    Reddit, Urban, crumble, MyAnimeList, 
+    BoredAPI, IP, Facts, xkcdAPI,
 )
 from utils.shortcuts import display_name_or_id
 
@@ -112,14 +112,6 @@ class RestDelay:
             return "🟢"
 
 
-#basics = lightbulb.Plugin("Basics", "Extends the commands with basic commands", include_datastore=True)
-# if not isinstance(basics.d, lightbulb_utils.DataStore):
-#     raise RuntimeError("Plugin don't contain a datastore")
-# if basics.d is None:
-#     raise RuntimeError("Plugin don't contain a datastore")
-
-
-
 def ping_to_color(ping: float) -> str:
     if ping >= 500:
         return "🔴"
@@ -144,6 +136,7 @@ loader = lightbulb.Loader()
 
 @loader.listener(InteractionCreateEvent)
 async def on_interaction(event: InteractionCreateEvent):
+    """Listens for Guild-Paginator interactions"""
     if not isinstance(event.interaction, ComponentInteraction):
         return
     if event.interaction.custom_id == "pag-guilds":
@@ -240,62 +233,73 @@ async def lavalink_test_coro() -> bool:
     return True
         
 
-@basics.command 
-@lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.command("status", "get information to the current status of the bot")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def status(ctx: context.Context):
-    request_start = datetime.now()
-    embed = Embed(
-            title="Status",
-            description=(
-                f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-                f"⚫ REST: .... ms\n\n"
-            ),
-    )
-    msg = await ctx.respond(embed=embed)
-    rest_delay = datetime.now() - request_start
-
-
-    apis = [
-        RestDelay("Database").with_coro(Table("bot").select_row, [["key"], ["restart_count"]]),
-        RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":3, "top":True}),
-        RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"]),
-        RestDelay("MyAnimeList API").with_coro(MyAnimeList.search_anime, ["naruto"]),
-        RestDelay("Bored API").with_coro(BoredAPI.fetch_idea),
-        # RestDelay("Facts API").with_coro(Facts._fetch_from_rest),
-        RestDelay("TMDB API").with_coro(tmdb_coro, ["game of thrones"]),
-        RestDelay("xkcd API").with_coro(xkcdAPI.fetch_comic, [xkcdAPI.random_comic_endpoint()]),
-        RestDelay("Lavalink API - YT").with_coro(lavalink_test_coro)
-    ]
-    tasks = [asyncio.create_task(api.do_request()) for api in apis]
-    await asyncio.wait(tasks, timeout=20, return_when=asyncio.ALL_COMPLETED)
-
-    embed.description = (
-        f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
-        f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
-    )
-    embed.description += "\n\n".join(str(api) for api in apis)
-    embed.add_field(
-        "IPs",
-        (        
-            "```"
-            f"{'Public IP:':<15}{await IP.fetch_public_ip()}\n"
-            f"{'Private IP:':<15}{IP.get_private_ip()}\n"
-            "```"
+class Status(
+    lightbulb.SlashCommand,
+    name="status",
+    description="Get the status of the bot",
+):
+    @invoke
+    async def status(ctx: context.Context):
+        request_start = datetime.now()
+        embed = Embed(
+                title="Status",
+                description=(
+                    f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+                    f"⚫ REST: .... ms\n\n"
+                ),
         )
-    )
-    embed.add_field(f"Daily DB calls", f"```py\n{bot.db.daily_queries.tail(7)}```", inline=False)
-    embed.add_field(f"Hourly DB calls", f"```py\n{bot.db.hourly_queries.tail(24)}```", inline=False)
-    embed.add_field(f"Guilds:", f"{len(bot.cache.get_guilds_view())}")
-    await msg.edit(embed=embed, 
-        components=[ 
-            MessageActionRowBuilder()
-            .add_interactive_button(ButtonStyle.SECONDARY, "pag-guilds", label="Guilds")
+        msg = await ctx.respond(embed=embed)
+        rest_delay = datetime.now() - request_start
+
+
+        apis = [
+            RestDelay("Database").with_coro(Table("bot").select_row, [["key"], ["restart_count"]]),
+            RestDelay("Reddit API").with_coro(Reddit.get_posts, ["memes"], {"minimum":3, "top":True}),
+            RestDelay("Urban Dictionary API").with_coro(Urban.fetch, ["stfu"]),
+            RestDelay("MyAnimeList API").with_coro(MyAnimeList.search_anime, ["naruto"]),
+            RestDelay("Bored API").with_coro(BoredAPI.fetch_idea),
+            # RestDelay("Facts API").with_coro(Facts._fetch_from_rest),
+            RestDelay("TMDB API").with_coro(tmdb_coro, ["game of thrones"]),
+            RestDelay("xkcd API").with_coro(xkcdAPI.fetch_comic, [xkcdAPI.random_comic_endpoint()]),
+            RestDelay("Lavalink API - YT").with_coro(lavalink_test_coro)
         ]
-    )
+        tasks = [asyncio.create_task(api.do_request()) for api in apis]
+        await asyncio.wait(tasks, timeout=20, return_when=asyncio.ALL_COMPLETED)
 
+        embed.description = (
+            f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+            f"{ping_to_color_rest(rest_delay.total_seconds()*1000)} REST: {rest_delay.total_seconds()*1000:.2f} ms\n\n"
+        )
+        embed.description += "\n\n".join(str(api) for api in apis)
+        embed.add_field(
+            "IPs",
+            (        
+                "```"
+                f"{'Public IP:':<15}{await IP.fetch_public_ip()}\n"
+                f"{'Private IP:':<15}{IP.get_private_ip()}\n"
+                "```"
+            )
+        )
+        embed.add_field(f"Daily DB calls", f"```py\n{bot.db.daily_queries.tail(7)}```", inline=False)
+        embed.add_field(f"Hourly DB calls", f"```py\n{bot.db.hourly_queries.tail(24)}```", inline=False)
+        embed.add_field(f"Guilds:", f"{len(bot.cache.get_guilds_view())}")
+        await msg.edit(embed=embed, 
+            components=[ 
+                MessageActionRowBuilder()
+                .add_interactive_button(ButtonStyle.SECONDARY, "pag-guilds", label="Guilds")
+            ]
+        )
 
+@loader.command
+class Purge(
+    SlashCommand,
+    name="purge",
+    description="Delete the last messages from a channel",
+    dm_enabled=False,
+    default_member_permissions=Permissions.MANAGE_MESSAGES,
+):
+    message_link = lightbulb.string("message-link", "Delete until this message", default=None)
+    amount = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None)
 
 @basics.command
 @lightbulb.add_cooldown(3, 1, lightbulb.UserBucket)
