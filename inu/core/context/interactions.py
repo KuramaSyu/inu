@@ -9,7 +9,8 @@ from hikari import ComponentInteraction, ResponseType, TextInputStyle, Snowflake
 from hikari.impl import MessageActionRowBuilder
 from .._logging import getLogger
 import lightbulb
-from lightbulb.context.base import Context, ResponseProxy, OptionsProxy
+from lightbulb import Context
+from hikari import CommandInteractionOption
 
 from ..bot import Inu
 from . import InuContext, InuContextProtocol, InuContextBase, UniqueContextInstance
@@ -49,7 +50,7 @@ class _InteractionContext(Context ,InuContext, InuContextProtocol, InuContextBas
         return self._options
 
     @property
-    def options(self) -> OptionsProxy:
+    def options(self) -> CommandInteractionOption:
         """:obj:`~OptionsProxy` wrapping the options that the user invoked the command with."""
         return OptionsProxy(self.raw_options)
     
