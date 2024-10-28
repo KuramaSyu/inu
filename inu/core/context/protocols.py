@@ -4,7 +4,7 @@ from datetime import timedelta
 
 
 import hikari
-from hikari import TextInputStyle
+from hikari import Snowflake, TextInputStyle
 from lightbulb.context import Context
 from lightbulb import ResponseProxy
 
@@ -90,7 +90,7 @@ class InuContext(ABC):
         
     @property
     @abstractmethod
-    def channel_id(self) -> int:
+    def channel_id(self) -> Snowflake:
         ...
         
     @property
@@ -136,7 +136,7 @@ class InuContext(ABC):
         ...
     @property
     @abstractmethod
-    def id(self):
+    def id(self) -> int:
         """used to Compare `InuContext` classes"""
         ...
 
