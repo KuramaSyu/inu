@@ -8,6 +8,7 @@ from hikari import Embed
 from hikari.impl import MessageActionRowBuilder
 from core import getLogger
 from . import InuContext
+from .response import BaseResponseState, InitialResponseStatus
 
 log = getLogger(__name__)
 
@@ -25,6 +26,7 @@ class Response:
         components: List[MessageActionRowBuilder] | None = None,
     ):
         ...
+        
     
     
 class UniqueContextInstance:
@@ -58,6 +60,9 @@ class ContextEqualTrait:
 
 
 class InuContextBase(ContextEqualTrait):
+    """
+    Base class for InuContext defining all necessary properties and methods
+    """
     _responses: List[Response] = []
     _options: Dict[str, Any] = {}
     _update: bool
@@ -69,7 +74,12 @@ class InuContextBase(ContextEqualTrait):
         self._defered = False
         self._responded = False
         self._responses: List[Response] = []
+        self.response_state: BaseResponseState = InitialResponseStatus(self.interaction)
     
+    def set_response_state(self, new_state: BaseResponseState):
+        """Changes the response state to a new state"""
+        self.response_state = new_state
+
     @property
     def defered(self):
         """
@@ -110,3 +120,5 @@ class InuContextBase(ContextEqualTrait):
     @property
     def options(self) -> Dict[str, Any]:
         return {}
+    
+
