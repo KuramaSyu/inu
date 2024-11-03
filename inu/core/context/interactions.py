@@ -5,7 +5,11 @@ import abc
 import functools
 
 import hikari
-from hikari import CommandInteraction, ComponentInteraction, ResponseType, Snowflake, TextInputStyle, SnowflakeishOr
+from hikari import (
+    CommandInteraction, ComponentInteraction, ResponseType, 
+    Snowflake, TextInputStyle, SnowflakeishOr, Embed
+)
+from hikari import embeds
 from hikari.impl import MessageActionRowBuilder
 from .._logging import getLogger
 import lightbulb
@@ -13,11 +17,17 @@ from lightbulb import Context
 from hikari import CommandInteractionOption
 
 from ..bot import Inu
-from . import InuContext, InuContextProtocol, InuContextBase, UniqueContextInstance, Response
+from . import InuContextProtocol, UniqueContextInstance, Response
+
+if TYPE_CHECKING:
+    from .base import InuContextBase, InuContext
 
 log = getLogger(__name__)
 
 
+
+        
+    
 class BaseInteractionContext(InuContextBase, InuContext):
     def __init__(self, app: Inu, event: hikari.InteractionCreateEvent) -> None:
         super().__init__()
