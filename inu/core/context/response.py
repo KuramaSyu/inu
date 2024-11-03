@@ -53,24 +53,27 @@ class InteractionResponse(Response):
         pass
     
     
+async def delete_after_task(time: timedelta, interaction: ComponentInteraction | CommandInteraction):
+    await asyncio.sleep(time.total_seconds())
+    await interaction.delete_initial_response()
+
+
+
 class BaseResponseState(abc.ABC):
     interaction: CommandInteraction | ComponentInteraction
-    webhooks: List[Message]
+    responses: List[Message]
     context: 'InuContextBase'
-    embeds: List[hikari.Embed] | None
-    content: str | None
-    delete_after: timedelta | None
-    components: List[MessageActionRowBuilder] | None
-    ephemeral: bool
-    
+    last_response: datetime
+
     def __init__(
-        self,
-        interaction: CommandInteraction | ComponentInteraction,
+        self, 
+        interaction: ComponentInteraction | CommandInteraction, 
         context: 'InuContextBase'
     ) -> None:
-        self.interaction = interaction
-        self.context = context
-        self.last_response: datetime | None = None
+        self._deferred: bool = False
+        self._responded: bool = False
+        self._response_lock: asyncio.Lock = asyncio.Lock()
+        self.last_response: datetime = self.created_at
         
     def change_state(self, new_state: Type["BaseResponseState"]):
             """
@@ -99,12 +102,8 @@ class BaseResponseState(abc.ABC):
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
     ) -> None:
-        embeds = embeds or self.embeds
-        content = content or self.content
-        components = components or self.components
-        
         await self.interaction.edit_message(
-            self.webhooks[-1],
+            self.responses[-1],
             embeds=embeds,
             content=content,
             components=components
@@ -143,20 +142,12 @@ class BaseResponseState(abc.ABC):
         
         
 class InitialResponseState(BaseResponseState):
-    def __init__(
-        self, 
-        interaction: ComponentInteraction | CommandInteraction, 
-        context: 'InuContextBase'
-    ) -> None:
-        super().__init__(interaction, context)
-        self._deferred: bool = False
-        self._responded: bool = False
-        self._response_lock: asyncio.Lock = asyncio.Lock()
+
         
     
     @property
     def is_valid(self) -> bool:
-        return (datetime.now() - self.interaction.created_at) < timedelta(seconds=3)
+        return (datetime.now() - self.last_response) < timedelta(seconds=3)
         
     async def respond(
         self,
@@ -216,7 +207,11 @@ class InitialResponseState(BaseResponseState):
             
         await self.interaction.create_initial_response(response_type)  # type: ignore
         self.last_response = datetime.now()
-        self.change_state(DeferredCreateResponseState)
+        
+        if update:
+            self.change_state(DeferredUpdateResponseState)
+        else:
+            self.change_state(DeferredCreateResponseState)
         
         self._response_lock.release()
 
@@ -236,10 +231,10 @@ class CreatedResponseState(BaseResponseState):
 
     async def edit(
         self,
-        message_id: Snowflake,
         embeds: List[Embed] | None = None,
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
+        message_id: Snowflake | None = None,
     ) -> None:
         # Implement the method
         pass
@@ -248,9 +243,9 @@ class CreatedResponseState(BaseResponseState):
         # Implement the method
         pass
 
+    @property
     def is_valid(self) -> bool:
-        # Implement the method
-        return True
+        return (datetime.now() - self.last_response) < timedelta(minutes=15)
 
 
 
@@ -263,58 +258,54 @@ class DeferredCreateResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
     ) -> None:
-        # Implement the method
-        pass
+        """Edits the initial response"""
+        await self._response_lock.acquire()
+        await self.interaction.edit_initial_response(
+            content,
+            embeds=embeds,
+            components=components
+        )
+
+        async def delete_after_task(time: timedelta, interaction: ComponentInteraction | CommandInteraction):
+            await asyncio.sleep(time.total_seconds())
+            await interaction.delete_initial_response()
+            self.change_state(DeletedResponseState)
+
+        if delete_after:
+            await asyncio.create_task(delete_after_task(delete_after, self.interaction))
+        self._response_lock.release()
+            
+        
 
     async def edit(
         self,
-        message_id: Snowflake,
         embeds: List[Embed] | None = None,
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
+        message_id: Snowflake | None = None,
     ) -> None:
-        # Implement the method
-        pass
+        """same as respond -> respond edits initial response"""
+        await self.respond(
+            embeds=embeds,
+            content=content,
+            components=components
+        )
 
     async def defer(self, update: bool = False) -> None:
-        # Implement the method
+        """cannot be deferred again"""
         pass
 
+    @property
     def is_valid(self) -> bool:
         # Implement the method
-        return True
+        return (datetime.now() - self.last_response) < timedelta(minutes=15)
 
 
 
-class DeferredUpdateResponseState(BaseResponseState):
-    async def respond(
-        self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
-        delete_after: timedelta | None = None,
-        ephemeral: bool = False,
-        components: List[MessageActionRowBuilder] | None = None,
-    ) -> None:
-        # Implement the method
-        pass
-
-    async def edit(
-        self,
-        message_id: Snowflake,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
-    ) -> None:
-        # Implement the method
-        pass
-
-    async def defer(self, update: bool = False) -> None:
-        # Implement the method
-        pass
-
-    def is_valid(self) -> bool:
-        # Implement the method
-        return True
+class DeferredUpdateResponseState(DeferredCreateResponseState):
+    """currently the same as DeferredCreateResponseState"""
+    pass
+    
 
 
 
