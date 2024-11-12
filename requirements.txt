@@ -1,5 +1,5 @@
 
-hikari-lightbulb==3.0.0a13
+hikari-lightbulb==3.0.0a14
 hikari==2.1.0
 hikari-miru==3.3.0
 asyncache==0.1.1
@@ -13,7 +13,7 @@ APScheduler
 colorama
 python-dotenv
 typer
-lavalink_rs==0.13.0
+lavalink-rs==0.13.0
 pyparsing
 mock
 jikanpy
