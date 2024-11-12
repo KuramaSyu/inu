@@ -20,7 +20,6 @@ from hikari import (
     Permissions
 )
 from tabulate import tabulate
-from lightbulb import OptionModifier as OM
 from lightbulb import (
     commands, SlashCommand, invoke, Context, 
 )
@@ -50,7 +49,7 @@ class RestDelay:
         self.uri = uri
         self.headers: Optional[Dict[str, str]] = {}
         self.params: Optional[Dict[str, str]] = {}
-        self.delay: Optional[float] = -1
+        self.delay: float = -1
         self.status: Optional[int] = 400
         self.coro: Optional[Callable[[Any], Awaitable]] = None
         self.coro_args = None
