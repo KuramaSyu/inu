@@ -108,7 +108,7 @@ class BaseResponseState(abc.ABC):
             content=content,
             components=components
         )
-        
+
     @abc.abstractmethod
     async def edit(
         self,
@@ -323,10 +323,10 @@ class DeletedResponseState(BaseResponseState):
 
     async def edit(
         self,
-        message_id: Snowflake,
         embeds: List[Embed] | None = None,
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
+        message_id: Snowflake | None = None,
     ) -> None:
         # Implement the method
         pass
@@ -335,6 +335,7 @@ class DeletedResponseState(BaseResponseState):
         # Implement the method
         pass
 
+    @property
     def is_valid(self) -> bool:
         # Implement the method
         return True
