@@ -4,16 +4,14 @@ from datetime import timedelta
 
 
 import hikari
-from hikari import Snowflake, TextInputStyle
+from hikari import Message, Snowflake, TextInputStyle
 from lightbulb.context import Context
-from lightbulb import ResponseProxy
-
 
 from ..bot import Inu
 
 
 T = TypeVar("T")
-
+Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | hikari.ComponentInteraction]
 T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 
@@ -75,7 +73,7 @@ class InuContext(ABC):
     
     @property
     @abstractmethod
-    def author_id(self) -> int:
+    def author_id(self) -> Snowflake:
         ...
 
     @property
@@ -85,7 +83,7 @@ class InuContext(ABC):
         
     @property
     @abstractmethod
-    def guild_id(self) -> int | None:
+    def guild_id(self) -> Snowflake | None:
         ...
         
     @property
@@ -103,11 +101,11 @@ class InuContext(ABC):
         return self.author.username
 
     @abstractmethod
-    async def execute(self, *args, delete_after: timedelta | int | None = None, **kwargs) -> ResponseProxy:
+    async def execute(self, *args, delete_after: timedelta | int | None = None, **kwargs) -> Message:
         ...
 
     @abstractmethod
-    async def respond(self, *args, **kwargs) -> ResponseProxy:
+    async def respond(self, *args, **kwargs) -> Message:
         """
         Create a response for this context. The first time this method is called, the initial
         interaction response will be created by calling
@@ -141,7 +139,7 @@ class InuContext(ABC):
         ...
 
     @property
-    def interaction(self) -> hikari.PartialInteraction | None:
+    def interaction(self) -> Interaction:
         ...
     
     @abstractmethod
@@ -183,7 +181,7 @@ class InuContext(ABC):
         return self.id is not None
     
     @property
-    def last_response(self) -> ResponseProxy | None:
+    def last_response(self) -> Message:
         """the last response message"""
         ...
     
@@ -309,7 +307,7 @@ class InuContextProtocol(Protocol[T]):
         ...
 
     @property
-    def interaction(self) -> hikari.PartialInteraction | None:
+    def interaction(self) -> Interaction:
         ...
     
     async def defer(self, background: bool = True):
