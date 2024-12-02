@@ -60,7 +60,6 @@ async def on_message(event: hikari.MessageCreateEvent | hikari.MessageUpdateEven
     elif text.startswith("="):
         base = None
         content = str(event.message.content)
-        #log.debug(content)
         try:
             # extract base 
             base = re.findall(r"-(-)?(?:b|base)(?:[ ])?(\d|bin|dec|oct|hex)[ ]", content)[0]
