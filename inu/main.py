@@ -9,6 +9,7 @@ from pprint import pprint
 
 import aiohttp
 from core import LoggingHandler
+from inu.core.context.factory import get_context
 logging.setLoggerClass(LoggingHandler)
 
 import miru
@@ -29,7 +30,7 @@ from utils import (
     AutoroleManager
 )
 import lavalink_rs
-from core import getLogger
+from core import getLogger, InuContext
 from utils import Human
 
 
@@ -42,6 +43,15 @@ log.info(f"hikari-miru version:{miru.__version__}")
 
 log.info("Create Inu")
 inu = Inu()
+# Get the registry for the default context
+registry = inu.di.registry_for(lightbulb.di.Contexts.DEFAULT)
+# Register our new dependency
+def get_custom_context(ctx: lightbulb.Context):
+    get_context()
+    ... # TODO: How to access event?
+registry.register_factory(
+    InuContext, get_inu_context
+)
 inu.conf.pprint()
 inu.app.subscribe(hikari.StartingEvent, inu.start)
 loader = lightbulb.Loader()
@@ -51,6 +61,7 @@ def main():
     while not stop:
         try:
             inu.app.run()
+
             print(f"Press Strl C again to exit")
             time.sleep(3)
         except KeyboardInterrupt:
