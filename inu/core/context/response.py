@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from .base import InuContextBase
 
 
+# TODO: CreatedState -> DeletedState: Transfer .responses
 
 class InteractionResponse(Response):
     def __init__(self, interaction: ComponentInteraction) -> None:
@@ -104,12 +105,19 @@ class BaseResponseState(abc.ABC):
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
     ) -> None:
-        await self.interaction.edit_message(
-            self.responses[-1],
-            embeds=embeds,
-            content=content,
-            components=components
-        )
+        if len(self.responses) > 0:
+            await self.interaction.edit_message(
+                self.responses[-1],
+                embeds=embeds,
+                content=content,
+                components=components
+            )
+        else:
+            await self.interaction.edit_initial_response(
+                content=content,
+                embeds=embeds,
+                components=components
+            )
 
     @abc.abstractmethod
     async def edit(
@@ -186,6 +194,7 @@ class InitialResponseState(BaseResponseState):
         components: List[MessageActionRowBuilder] | None = None,
         message_id: Snowflake | None = None,
     ) -> None:
+        """Initial Response with MESSAGE_UPDATE"""
         await self._response_lock.acquire()
         await self.interaction.create_initial_response(
             ResponseType.MESSAGE_UPDATE, content,  # type: ignore
@@ -237,6 +246,7 @@ class CreatedResponseState(BaseResponseState):
             embeds=embeds or [],
             components=components or []
         )
+        self.responses.append(message)
 
         async def delete_after_task(time: timedelta, interaction: ComponentInteraction | CommandInteraction):
             await asyncio.sleep(time.total_seconds())
@@ -292,7 +302,7 @@ class DeferredCreateResponseState(BaseResponseState):
     ) -> None:
         """Edits the initial response"""
         await self._response_lock.acquire()
-        await self.interaction.edit_initial_response(
+        message = await self.interaction.edit_initial_response(
             content,
             embeds=embeds,
             components=components

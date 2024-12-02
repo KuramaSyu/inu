@@ -71,12 +71,27 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
         )
         
     async def edit_last_response(self):
-        ...
+        await self.response_state.edit_last_response()
+
+    async def defer(self, update: bool = False, background: bool = False):
+        await self.response_state.defer(update=update)
 
 class CommandInteractionContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin):  # type: ignore[union-attr]
     def __init__(self, app: Inu, interaction: hikari.CommandInteraction) -> None:
         super().__init__(app, interaction)
         
+
+
+class ComponentInteractionContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin):  # type: ignore[union-attr]
+    def __init__(self, app: Inu, interaction: hikari.ComponentInteraction) -> None:
+        super().__init__(app, interaction)
+        
+    @property
+    def custom_id(self) -> str:
+        return self.interaction.custom_id
     
+    @property
+    def interaction(self) -> ComponentInteraction:
+        return self._interaction  # type: ignore
     
         
