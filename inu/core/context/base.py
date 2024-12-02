@@ -8,7 +8,7 @@ from hikari import Embed
 from hikari.impl import MessageActionRowBuilder
 from core import getLogger
 from . import InuContext
-from .response import BaseResponseState, InitialResponseStatus
+from .response import BaseResponseState, InitialResponseState
 
 log = getLogger(__name__)
 
@@ -74,7 +74,7 @@ class InuContextBase(ContextEqualTrait):
         self._defered = False
         self._responded = False
         self._responses: List[Response] = []
-        self.response_state: BaseResponseState = InitialResponseStatus(self.interaction)
+        self.response_state: BaseResponseState = InitialResponseState(self.interaction, self)
     
     def set_response_state(self, new_state: BaseResponseState):
         """Changes the response state to a new state"""

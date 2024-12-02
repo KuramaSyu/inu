@@ -74,6 +74,8 @@ class BaseResponseState(abc.ABC):
         self._responded: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self.last_response: datetime = self.created_at
+        self.interaction = interaction
+        self.context = context
         
     def change_state(self, new_state: Type["BaseResponseState"]):
             """
@@ -93,7 +95,7 @@ class BaseResponseState(abc.ABC):
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
-    ) -> None:
+    ) -> Snowflake | None:
         ...
         
     async def edit_last_response(
@@ -156,7 +158,7 @@ class InitialResponseState(BaseResponseState):
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
-    ):
+    ) -> Snowflake | None:
         await self._response_lock.acquire()
         
         if self._responded or self._deferred:
@@ -218,6 +220,9 @@ class InitialResponseState(BaseResponseState):
 
 
 class CreatedResponseState(BaseResponseState):
+    """
+    State when the initial response has been created
+    """
     async def respond(
         self,
         embeds: List[Embed] | None = None,
@@ -226,8 +231,22 @@ class CreatedResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
     ) -> None:
-        # Implement the method
-        pass
+        await self._response_lock.acquire()
+        message = await self.interaction.execute(
+            content,
+            embeds=embeds or [],
+            components=components or []
+        )
+
+        async def delete_after_task(time: timedelta, interaction: ComponentInteraction | CommandInteraction):
+            await asyncio.sleep(time.total_seconds())
+            await interaction.delete_message(message)
+            self.change_state(DeletedResponseState)
+
+        if delete_after:
+            await asyncio.create_task(delete_after_task(delete_after, self.interaction))
+        self._response_lock.release()
+        
 
     async def edit(
         self,
@@ -236,11 +255,24 @@ class CreatedResponseState(BaseResponseState):
         components: List[MessageActionRowBuilder] | None = None,
         message_id: Snowflake | None = None,
     ) -> None:
-        # Implement the method
-        pass
+        await self._response_lock.acquire()
+        if message_id is None:
+            _message = await self.interaction.edit_initial_response(
+                content,
+                embeds=embeds,
+                components=components
+            )
+        else:
+            _message = await self.interaction.edit_message(
+                message_id,
+                content,
+                embeds=embeds,
+                components=components
+            )
+        self._response_lock.release()
 
     async def defer(self, update: bool = False) -> None:
-        # Implement the method
+        """Cannot be deferred again"""
         pass
 
     @property
@@ -297,7 +329,6 @@ class DeferredCreateResponseState(BaseResponseState):
 
     @property
     def is_valid(self) -> bool:
-        # Implement the method
         return (datetime.now() - self.last_response) < timedelta(minutes=15)
 
 
@@ -318,8 +349,18 @@ class DeletedResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
     ) -> None:
-        # Implement the method
-        pass
+        """
+        Creates a Followup message
+        """
+        kwargs = {}
+        if content:
+            kwargs['content'] = content
+        if embeds:
+            kwargs['embeds'] = embeds
+        if components:
+            kwargs['components'] = components
+
+        await self.interaction.execute(**kwargs)
 
     async def edit(
         self,
