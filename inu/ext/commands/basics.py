@@ -8,6 +8,8 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 import lightbulb.utils as lightbulb_utils
+from lightbulb import Context
+from lightbulb.prefab import sliding_window
 
 from core import (
     BotResponseError, Inu, Table, 
@@ -151,7 +153,7 @@ class PingCommand(
     description="Simple Ping"
 ):
     @lightbulb.invoke
-    async def ping(self, ctx: lightbulb.Context):
+    async def ping(self, ctx: Context):
         task = asyncio.create_task(
             IP.fetch_public_ip(), 
             name="IP"
@@ -232,13 +234,14 @@ async def lavalink_test_coro() -> bool:
     return True
         
 
+
 class Status(
     lightbulb.SlashCommand,
     name="status",
     description="Get the status of the bot",
 ):
     @invoke
-    async def status(ctx: context.Context):
+    async def status(self, ctx: Context):
         request_start = datetime.now()
         embed = Embed(
                 title="Status",
@@ -296,69 +299,49 @@ class Purge(
     description="Delete the last messages from a channel",
     dm_enabled=False,
     default_member_permissions=Permissions.MANAGE_MESSAGES,
+    hooks=[sliding_window(3, 1, "user")]
 ):
     message_link = lightbulb.string("message-link", "Delete until this message", default=None)
     amount = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None)
 
-@basics.command
-@lightbulb.add_cooldown(3, 1, lightbulb.UserBucket)
-@lightbulb.app_command_permissions(hikari.Permissions.MANAGE_MESSAGES, bypass_checks=True)
-@lightbulb.add_checks(
-    lightbulb.guild_only,
-    # lightbulb.has_channel_permissions(hikari.Permissions.MANAGE_CHANNELS)
-    lightbulb.has_role_permissions(hikari.Permissions.MANAGE_CHANNELS)
-)
-@lightbulb.option(
-    "message_link",
-    "Delete until this message",
-    default=None,
-    type=str,
-)
-@lightbulb.option(
-    "amount", 
-    "The amount of messages you want to delete, Default: 5", 
-    default=None, 
-    type=int, 
-)
-@lightbulb.command("purge", "Delete the last messages from a channel", aliases=["clean"])
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def purge(ctx: context.Context):
-    userid_to_amount: Dict[int, int] = {}
-    MAX_AMOUNT = 100
-    if not (channel := ctx.get_channel()):
-        return
-    if not isinstance(channel, hikari.TextableGuildChannel):
-        return
-    if not ctx.options.amount and not ctx.options.message_link:
-        raise BotResponseError(
-            f"I need the amount of messages I should delete, or the message link until which I should delete messages"
+    @invoke
+    async def purge(self, ctx: lightbulb.Context):
+        userid_to_amount: Dict[int, int] = {}
+        MAX_AMOUNT = 100
+        if not (channel := ctx.get_channel()):
+            return
+        if not isinstance(channel, hikari.TextableGuildChannel):
+            return
+        if not ctx.options.amount and not ctx.options.message_link:
+            raise BotResponseError(
+                f"I need the amount of messages I should delete, or the message link until which I should delete messages"
+            )
+        if (amount := ctx.options.amount) and amount > MAX_AMOUNT:
+            raise BotResponseError("I can't delete that much messages")
+        if ctx.options.message_link:
+            amount = MAX_AMOUNT
+        messages = []
+        amount += 2
+        table = tabulate(userid_to_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
+        delete_in = datetime.now() + timedelta(seconds=20)
+        answer = await ctx.respond(
+            f"I'll do it. Let me some time.\n<t:{delete_in.timestamp():.0f}:R>",
+            delete_after=20
         )
-    if (amount := ctx.options.amount) and amount > MAX_AMOUNT:
-        raise BotResponseError("I can't delete that much messages")
-    if ctx.options.message_link:
-        amount = MAX_AMOUNT
-    messages = []
-    amount += 2
-    table = tabulate(userid_to_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
-    delete_in = datetime.now() + timedelta(seconds=20)
-    answer = await ctx.respond(
-        f"I'll do it. Let me some time.\n<t:{delete_in.timestamp():.0f}:R>",
-        delete_after=20
-    )
-    async for m in channel.fetch_history():
-        if m.author.id not in userid_to_amount:
-            userid_to_amount[m.author.id] = 0
-        userid_to_amount[m.author.id] += 1
-        messages.append(m)
-        amount -= 1
-        if amount <= 0:
-            break
-        elif ctx.options.message_link and m.make_link(ctx.guild_id) == ctx.options.message_link.strip():
-            break
-    if ctx.options.message_link and amount <= 0:
-        raise BotResponseError(f"Your linked message is not under the last {MAX_AMOUNT} messages")
-    messages.remove(await answer.message())
-    await channel.delete_messages(messages)
+        async for m in channel.fetch_history():
+            if m.author.id not in userid_to_amount:
+                userid_to_amount[m.author.id] = 0
+            userid_to_amount[m.author.id] += 1
+            messages.append(m)
+            amount -= 1
+            if amount <= 0:
+                break
+            elif ctx.options.message_link and m.make_link(ctx.guild_id) == ctx.options.message_link.strip():
+                break
+        if ctx.options.message_link and amount <= 0:
+            raise BotResponseError(f"Your linked message is not under the last {MAX_AMOUNT} messages")
+        messages.remove(await answer.message())
+        await channel.delete_messages(messages)
 
 
 
