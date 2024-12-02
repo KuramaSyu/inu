@@ -9,9 +9,9 @@ from .interactions import InteractionContext, CommandInteractionContext, Message
 from .rest import RESTContext
 
 ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
-
+Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction]
 def get_context(
-    event: ContextEvent, 
+    event: ContextEvent | Interaction, 
     **kwargs,
 ) -> InuContext:
     """
@@ -44,7 +44,7 @@ def get_context(
 def from_context():
     ...
 
-def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
+def builder(event: ContextEvent | Interaction, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
     """
     returns the coresponding class to an event
     """
@@ -52,8 +52,11 @@ def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, 
         return RESTContext, kwargs
     elif isinstance(event, hikari.MessageUpdateEvent):
         return RESTContext, kwargs
-    if isinstance(event, hikari.InteractionCreateEvent):
-        interaction = event.interaction
+    if isinstance(event, hikari.InteractionCreateEvent) or isinstance(event, hikari.PartialInteraction):
+        if isinstance(event, hikari.PartialInteraction):
+            interaction = event
+        else:
+            interaction = event.interaction
         if isinstance(interaction, hikari.ComponentInteraction):
             return InteractionContext, kwargs
         elif isinstance(interaction, hikari.ModalInteraction):
