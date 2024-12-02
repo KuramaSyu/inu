@@ -1,12 +1,12 @@
 import asyncio
 from typing import *
 from datetime import datetime, timedelta
-import abc
+from abc import ABC, abstractmethod
 import functools
-
+import attrs
 import hikari
 from hikari import (
-    CommandInteraction, ComponentInteraction, ResponseType, 
+    CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, ModalInteraction, PartialInteraction, RESTAware, ResponseType, 
     Snowflake, TextInputStyle, SnowflakeishOr, Embed
 )
 from hikari import embeds
@@ -17,39 +17,109 @@ from lightbulb import Context
 from hikari import CommandInteractionOption
 
 from ..bot import Inu
-from . import InuContextProtocol, UniqueContextInstance, Response
+from . import InuContextProtocol, UniqueContextInstance, Response, BaseResponseState, InitialResponseState
 
 if TYPE_CHECKING:
     from .base import InuContextBase, InuContext
 
 log = getLogger(__name__)
+Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | ComponentInteraction]
 
+class AppAware(Protocol):
+    @property
+    @abstractmethod
+    def app(self) -> Inu:
+        ...
 
+class GuildChannelInteractionProtocol(Protocol):
+    @property
+    @abstractmethod
+    def interaction(self) -> hikari.CommandInteraction | hikari.ComponentInteraction:
+        ...
 
-        
+@attrs.define(kw_only=True)
+class GuildsAndChannelsMixin(ABC, AppAware, GuildChannelInteractionProtocol):
+    """
+    A mixin for channel and guild properties.
+    """
+
+    @property
+    def channel_id(self) -> Snowflake:
+        """Channel ID where interaction was triggered"""
+        return self.interaction.channel_id
+
+    @property
+    def guild_id(self) -> Snowflake | None:
+        """Guild ID where interaction was triggered"""
+        return self.interaction.guild_id
+
     
-class BaseInteractionContext(InuContextBase, InuContext):
-    def __init__(self, app: Inu, event: hikari.InteractionCreateEvent) -> None:
+    def get_channel(self) -> hikari.GuildChannel | None:
+        return self.app.cache.get_guild_channel(self.channel_id)
+
+    def get_guild(self) -> hikari.Guild | None:
+        if self.guild_id is None:
+            return None
+        return self.app.cache.get_guild(self.guild_id)
+
+
+@attrs.define(kw_only=True)
+class AuthorMixin(ABC):
+    """
+    A mixin for author properties.
+    """
+
+    @property
+    @abstractmethod
+    def interaction(self) -> Union[ModalInteraction, CommandInteraction, ComponentInteraction]:
+        pass
+
+    @property
+    @abstractmethod
+    def app(self) -> Inu:
+        pass
+
+    @property
+    def author_id(self) -> Snowflake:
+        """Author ID of the interaction"""
+        return self.interaction.user.id
+
+    @property
+    def author(self) -> hikari.User:
+        """Author of the interaction"""
+        return self.interaction.user
+
+
+@attrs.define(kw_only=True)
+class CustomIDMixin(ABC):
+    """
+    A mixin for author properties.
+    """
+    @property
+    @abstractmethod
+    def interaction(self) -> hikari.ComponentInteraction | hikari.ModalInteraction:
+        ...
+
+    @property
+    def custom_id(self) -> str:
+        """Custom ID of the interaction"""
+        return self.interaction.custom_id
+
+
+class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMixin):  # type: ignore[union-attr]
+    def __init__(self, app: Inu, interaction: Interaction) -> None:
         super().__init__()
-        self.event = event
+        self._interaction: Interaction = interaction
         self.update: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
-    
+        self._app = app
+        self.response_state: BaseResponseState = InitialResponseState(
+            self, self.interaction
+        )
+
     @property
     def responses(self) -> List[Response]:
         return self._responses
-
-    @property
-    def interaction(self) -> CommandInteraction | ComponentInteraction:
-        return self.event.interaction  # type: ignore
-    
-    @property    
-    def channel_id(self) -> Snowflake:
-        return self.interaction.channel_id
-    
-    @property
-    def guild_id(self) -> Snowflake | None:
-        return self.interaction.guild_id
     
     @property
     def last_response(self) -> Response | None:
@@ -77,6 +147,11 @@ class BaseInteractionContext(InuContextBase, InuContext):
         
     async def edit_last_response(self):
         ...
+
+class CommandInteractionContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin):  # type: ignore[union-attr]
+    def __init__(self, app: Inu, interaction: hikari.CommandInteraction) -> None:
+        super().__init__(app, interaction)
+        
     
     
         
