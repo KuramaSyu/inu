@@ -39,7 +39,7 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self._app = app
         self.response_state: BaseResponseState = InitialResponseState(
-            self, self.interaction
+            self, self.interaction  # type: ignore[arg-type]
         )
 
     @property
@@ -47,14 +47,14 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
         return self._responses
     
     @property
-    def last_response(self) -> Response | None:
+    def last_response(self) -> Response | None:  # type: ignore[override]
         return self._responses[-1] if self._responses else None
     
     @property
     def first_response(self) -> Response | None:
         return self._responses[0] if self._responses else None
     
-    async def respond(
+    async def respond(  # type: ignore[override]
         self, 
         embeds: List[hikari.Embed] | None = None,
         content: str | None = None,
