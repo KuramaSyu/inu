@@ -46,9 +46,9 @@ inu = Inu()
 # Get the registry for the default context
 registry = inu.di.registry_for(lightbulb.di.Contexts.DEFAULT)
 # Register our new dependency
-def get_custom_context(ctx: lightbulb.Context):
-    get_context()
-    ... # TODO: How to access event?
+def get_inu_context(ctx: lightbulb.Context):
+    return get_context(ctx.interaction)
+
 registry.register_factory(
     InuContext, get_inu_context
 )
