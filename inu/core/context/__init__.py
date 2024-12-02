@@ -6,7 +6,7 @@ from .mixins import (
 )
 from .response import (
     BaseResponseState, CreatedResponseState, DeferredCreateResponseState, 
-    DeferredUpdateResponseState, DeletedResponseState, InitialResponseState
+    DeletedResponseState, InitialResponseState
 )
 from .interactions import CommandInteractionContext
 from .rest import RESTContext

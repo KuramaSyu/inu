@@ -208,10 +208,10 @@ class InitialResponseState(BaseResponseState):
         await self.interaction.create_initial_response(response_type)  # type: ignore
         self.last_response = datetime.now()
         
-        if update:
-            self.change_state(DeferredUpdateResponseState)
-        else:
-            self.change_state(DeferredCreateResponseState)
+        # if update:
+        #     self.change_state(DeferredUpdateResponseState)
+        # else:
+        self.change_state(DeferredCreateResponseState)
         
         self._response_lock.release()
 
@@ -302,9 +302,9 @@ class DeferredCreateResponseState(BaseResponseState):
 
 
 
-class DeferredUpdateResponseState(DeferredCreateResponseState):
-    """currently the same as DeferredCreateResponseState"""
-    pass
+# class DeferredUpdateResponseState(DeferredCreateResponseState):
+#     """currently the same as DeferredCreateResponseState"""
+#     pass
     
 
 
