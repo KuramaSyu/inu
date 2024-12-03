@@ -14,7 +14,6 @@ from hikari import GatewayBot, ModalInteraction
 from copy import copy
 
 import lightbulb
-from lightbulb import context, commands
 import hikari
 from hikari.snowflakes import Snowflakeish
 from hikari.impl import ModalActionRowBuilder, TextInputBuilder
@@ -25,7 +24,6 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from colorama import Fore, Style
 from matplotlib.colors import cnames
-
 
 from ._logging import LoggingHandler, getLogger, getLevel 
 from . import ConfigProxy, ConfigType
@@ -62,10 +60,8 @@ class BotResponseError(Exception):
 
 
 
-class Inu(lightbulb.GatewayEnabledClient):
+class Inu(hikari.GatewayBot):
     restart_count: int
-    rest: hikari.api.RESTClient
-    #app: GatewayBot
 
     def __init__(self, *args, **kwargs):
         self.print_banner_()
@@ -77,19 +73,13 @@ class Inu(lightbulb.GatewayEnabledClient):
         (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
         self.startup = datetime.datetime.now()
-        self._hikari_app = hikari.GatewayBot(
-            self.conf.bot.DISCORD_TOKEN,  # type: ignore[arg-type]
-        )
-        self._rest = self._hikari_app.rest
 
         from core.db import Database
         self.db = Database()
         self.db.bot = self
         
         self.restart_count = 0
-        self.data = Data()
         self.scheduler = AsyncIOScheduler()
-        self._prefixes = {}
         self._default_prefix = self.conf.bot.DEFAULT_PREFIX  # type: ignore[attr-defined]
         self.search = Search(self)
         self.shortcuts: "Shortcuts" = Shortcuts(bot=self)
@@ -110,29 +100,20 @@ class Inu(lightbulb.GatewayEnabledClient):
         }
 
         super().__init__(
+            self.conf.bot.DISCORD_TOKEN,
             *args,
-            default_enabled_guilds=(),
-            default_locale=hikari.Locale.EN_US,
-            execution_step_order=lightbulb.DEFAULT_EXECUTION_STEP_ORDER,
-            localization_provider=lightbulb.localization_unsupported,
-            deferred_registration_callback=None,
-            delete_unknown_commands=False,
-            hooks=(),
-            # rest=hikari.GatewayBot(  # type: ignore[reportArgumentType]
-            #     self.conf.bot.DISCORD_TOKEN,  # type: ignore[arg-type]
-            #     intents=hikari.Intents.ALL,
-            #     #logs=logs,
-            # ),
-            app=self._hikari_app,
+            intents=hikari.Intents.ALL,
+            logs=logs,
         )
         self.mrest = MaybeRest(self)
         # self.load("inu/ext/commands/")
         # self.load("inu/ext/tasks/")
 
-        self.wait_for = self.app.wait_for
-    
-    def run(self):
-        super().app.run()
+        self.wait_for = self.wait_for
+
+    async def start(self, *args, **kwargs):
+        await self.init_db()
+        await super().start(*args, **kwargs)
     
     @property
     def lavalink(self) -> lavalink_rs.LavalinkClient:
@@ -150,21 +131,6 @@ class Inu(lightbulb.GatewayEnabledClient):
         The accent color defined in the config (`bot.color`)
         """
         return hikari.Color.from_hex_code(self.conf.bot.color)
-    def prefixes_from(self, guild_id: Optional[int]) -> List[str]:
-        if not guild_id:
-            return [self._default_prefix, ""]
-        prefixes = self._prefixes.get(guild_id, None)
-        if not prefixes:
-            # insert guild into table
-            from core.db import Table
-            table = Table("guilds")
-            asyncio.create_task(
-                table.upsert(
-                    ["guild_id", "prefixes"], 
-                    [guild_id, [self._default_prefix]]
-                )
-            )
-        return prefixes or [self._default_prefix]
 
     @property
     def loop(self) -> asyncio.AbstractEventLoop:
@@ -174,16 +140,7 @@ class Inu(lightbulb.GatewayEnabledClient):
 
     @property
     def cache(self) -> hikari.api.Cache:
-        return self.app.cache
-
-    @property
-    def rest(self) -> hikari.api.RESTClient:
-        return self._rest
-
-    @rest.setter
-    def rest(self, value: hikari.api.RESTClient):
-        #pass # TODO: lightbulb calls this on program start
-        self._rest = value
+        return self.cache
 
     @property
     def me(self) -> hikari.User:
@@ -259,7 +216,7 @@ class Inu(lightbulb.GatewayEnabledClient):
         if isinstance(user_ids, int):
             user_ids = [user_ids]
         try:
-            event = await self.app.wait_for(
+            event = await self.wait_for(
                 InteractionCreateEvent,
                 timeout=timeout or 15*60,
                 predicate=lambda e:(
