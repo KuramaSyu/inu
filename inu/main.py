@@ -42,8 +42,12 @@ log.info(f"hikari-miru version:{miru.__version__}")
 
 log.info("Create Inu")
 inu = Inu()
+
+inu.conf.pprint()
+
+client = lightbulb.client_from_app(inu)
 # Get the registry for the default context
-registry = inu.di.registry_for(lightbulb.di.Contexts.DEFAULT)
+registry = client.di.registry_for(lightbulb.di.Contexts.DEFAULT)
 # Register our new dependency
 def get_inu_context(ctx: lightbulb.Context):
     return get_context(ctx.interaction)
@@ -51,15 +55,17 @@ def get_inu_context(ctx: lightbulb.Context):
 registry.register_factory(
     InuContext, get_inu_context
 )
-inu.conf.pprint()
-inu.app.subscribe(hikari.StartingEvent, inu.start)
+
+
+inu.subscribe(hikari.StartingEvent, inu.start)
 loader = lightbulb.Loader()
 
 def main():
     stop = False
     while not stop:
         try:
-            inu.app.run()
+            print(f"Starting bot")
+            inu.run()
 
             print(f"Press Strl C again to exit")
             time.sleep(3)
@@ -97,6 +103,7 @@ async def sync_prefixes(event: hikari.StartedEvent):
 
 @loader.listener(hikari.StartingEvent)
 async def on_ready(event : hikari.StartingEvent):
+    log.info("Connecting Database to classes", prefix="init")
     try:
         set_bot(inu)
         await inu.init_db()
