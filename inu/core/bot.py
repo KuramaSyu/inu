@@ -113,7 +113,7 @@ class Inu(hikari.GatewayBot):
 
     async def start(self, *args, **kwargs):
         await self.init_db()
-        await super().start(*args, **kwargs)
+        #await super().start(**kwargs)
     
     @property
     def lavalink(self) -> lavalink_rs.LavalinkClient:
