@@ -25,7 +25,7 @@ class InuContext(ABC):
         ...
 
     @abstractmethod
-    def from_event(cls, event: hikari.Event) -> T:
+    def from_event(cls, interaction: Interaction) -> T:
         ...
     
     @property
