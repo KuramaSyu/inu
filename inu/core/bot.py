@@ -1,6 +1,7 @@
 import asyncio
 import datetime
 from email.message import Message
+import importlib
 from optparse import Option
 import os
 import traceback
@@ -105,7 +106,7 @@ class Inu(hikari.GatewayBot):
             self.conf.bot.DISCORD_TOKEN,
             *args,
             intents=hikari.Intents.ALL,
-            logs=logs,
+            logs="DEBUG",
         )
         self.mrest = MaybeRest(self)
         # self.load("inu/ext/commands/")
@@ -187,7 +188,7 @@ class Inu(hikari.GatewayBot):
         Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
         """
         # TODO: remove when finished with testing
-        ALLOWED_EXTENSIONS = ["basics"]
+        ALLOWED_EXTENSIONS = ["basics", "errors"]
         def is_allowed(extension: str) -> bool:
             for allowed in ALLOWED_EXTENSIONS:
                 if allowed in extension:
@@ -205,7 +206,7 @@ class Inu(hikari.GatewayBot):
                 trimmed_name = f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}"
                 if not is_allowed(trimmed_name):
                     continue
-                
+                importlib.import_module(trimmed_name)
                 await self.client.load_extensions(trimmed_name)
                 self.log.debug(f"loaded plugin: {extension}")
             except Exception:
