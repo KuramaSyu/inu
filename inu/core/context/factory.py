@@ -37,7 +37,10 @@ def get_context(
     """
 
     ctx_cls, custom_attrs = builder(event, **kwargs)
-    ctx = ctx_cls.from_event(event=event)
+    if isinstance(event, ContextEvent):
+        ctx = ctx_cls.from_event(interaction=event.interaction)
+    else:
+         ctx = ctx_cls.from_event(interaction=event)
     ctx.set(**custom_attrs)
     return ctx
 
