@@ -8,12 +8,12 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 import lightbulb.utils as lightbulb_utils
-from lightbulb import Context
+from lightbulb import Client, Context
 from lightbulb.prefab import sliding_window
 
 from core import (
     BotResponseError, Inu, Table, 
-    getLogger, get_context
+    getLogger, get_context, InuContext
 )
 from hikari import (
     ActionRowComponent, ButtonStyle, ComponentInteraction, 
@@ -37,7 +37,6 @@ from utils.shortcuts import display_name_or_id
 lavalink = None
 
 log = getLogger(__name__)
-bot: Inu = None
 
 
 
@@ -293,7 +292,7 @@ class Status(
         )
 
 @loader.command
-class Purge(
+class PurgeSlash(
     SlashCommand,
     name="purge",
     description="Delete the last messages from a channel",
@@ -345,140 +344,173 @@ class Purge(
 
 
 @loader.command
-class CommandName(
-    SlashCommand,
-    name="name",
-    description="description",
+class UserInfo(
+    lightbulb.UserCommand,
+    name="info",
+    description="about him/her",
+
+):
+    @invoke
+    async def callback(self, ctx_: Context):
+        ctx: InuContext = get_context(ctx_.interaction)
+        bot: Inu = ctx.bot
+        author: hikari.Member = bot.cache.get_member(ctx.guild_id, self.target)  # type: ignore
+        embed = hikari.Embed(title=f"About {author.display_name}", color=Colors.default_color())
+        embed.add_field(name="Full name", value=str(author), inline=True)
+        embed.add_field(name="ID", value=f"`{author.id}`")
+        embed.add_field(name="Created at", value=f"<t:{author.created_at.timestamp():.0f}:F>", inline=True)
+        embed.add_field(name="Flags", value=f"{author.flags}", inline=True)
+        embed.add_field(name="Joined here", value=f"<t:{author.joined_at.timestamp():.0f}:F>", inline=True)
+        embed.add_field(name="Roles", value=f"{', '.join([r.mention for r in await bot.mrest.fetch_roles(author)])}", inline=True)
+        embed.add_field(
+            name=f"About {author.get_guild().name}", 
+            value=(
+                f"**ID**: `{author.get_guild().id}`\n"
+                f"**Owner**: {(await ctx.bot.mrest.fetch_member(author.guild_id, author.get_guild().owner_id)).display_name}\n"
+                f"**Created at**: <t:{author.get_guild().created_at.timestamp():.0f}:F>\n"
+                f"**Members**: {len(author.get_guild().get_members())}\n"
+                f"**Channels**: {len(author.get_guild().get_channels())}\n"
+                f"**Roles**: {len(author.get_guild().get_roles())}\n"
+                f"**Emojis**: {len(author.get_guild().get_emojis())}\n"
+            ),
+            inline=True
+        )
+        embed.set_thumbnail(author.avatar_url)
+
+        await ctx.respond(embed=embed)
+
+@loader.command
+class Purge(
+    lightbulb.MessageCommand,
+    name="purge until here",
+    description="Deletes all messages until the message (including)",
     dm_enabled=False,
-    default_member_permissions=None,
+    default_member_permissions=Permissions.MANAGE_MESSAGES,
     hooks=[sliding_window(3, 1, "user")]
 ):
-    optional_string = lightbulb.string("message-link", "Delete until this message", default=None)
-    optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None)
-
     @invoke
-    async def purge(self, ctx: lightbulb.Context):
-        ...
-
-
-
-@basics.command
-@lightbulb.command("info", "Get information about the user")
-@lightbulb.implements(commands.UserCommand)
-async def user_info(ctx: context.UserContext):
-    bot: Inu = ctx.bot
-    author: hikari.Member = ctx.options.target
-    embed = hikari.Embed(title=f"About {author.display_name}", color=Colors.default_color())
-    embed.add_field(name="Full name", value=str(author), inline=True)
-    embed.add_field(name="ID", value=f"`{author.id}`")
-    embed.add_field(name="Created at", value=f"<t:{author.created_at.timestamp():.0f}:F>", inline=True)
-    embed.add_field(name="Flags", value=f"{author.flags}", inline=True)
-    embed.add_field(name="Joined here", value=f"<t:{author.joined_at.timestamp():.0f}:F>", inline=True)
-    embed.add_field(name="Roles", value=f"{', '.join([r.mention for r in await bot.mrest.fetch_roles(author)])}", inline=True)
-    embed.add_field(
-        name=f"About {author.get_guild().name}", 
-        value=(
-            f"**ID**: `{author.get_guild().id}`\n"
-            f"**Owner**: {(await ctx.bot.mrest.fetch_member(author.guild_id, author.get_guild().owner_id)).display_name}\n"
-            f"**Created at**: <t:{author.get_guild().created_at.timestamp():.0f}:F>\n"
-            f"**Members**: {len(author.get_guild().get_members())}\n"
-            f"**Channels**: {len(author.get_guild().get_channels())}\n"
-            f"**Roles**: {len(author.get_guild().get_roles())}\n"
-            f"**Emojis**: {len(author.get_guild().get_emojis())}\n"
-        ),
-        inline=True
-    )
-    embed.set_thumbnail(author.avatar_url)
-
-    await ctx.respond(embed=embed)
-
-
-
-@basics.command
-@lightbulb.add_cooldown(3, 1, lightbulb.UserBucket)
-@lightbulb.app_command_permissions(hikari.Permissions.MANAGE_MESSAGES, bypass_checks=True)
-@lightbulb.command("purge until here", "Delete all messages until the message (including)")
-@lightbulb.implements(commands.MessageCommand)
-async def purge_until_this_message(ctx: context.MessageContext):
-    userid_to_amount: Dict[int, int] = {}
-    message = await ctx.respond(f"Let me get the trash bin ready...\nY'know, this thing is pretty heavy")
-    try:
-        bot: Inu = ctx.bot
-        message_id: int = ctx.options.target.id
-        messages = []
-        amount = 100
-        async for m in ctx.get_channel().fetch_history():
-            if m.author.id not in userid_to_amount:
-                userid_to_amount[m.author.id] = 0
-            userid_to_amount[m.author.id] += 1
-            messages.append(m)
-            amount -= 1
+    async def callback(self, ctx: InuContext):
+        userid_to_amount: Dict[int, int] = {}
+        message = await ctx.respond(f"Let me get the trash bin ready...\nY'know, this thing is pretty heavy")
+        try:
+            bot: Inu = ctx.bot
+            message_id: int = self.target.id
+            messages = []
+            amount = 100
+            async for m in ctx.get_channel().fetch_history():
+                if m.author.id not in userid_to_amount:
+                    userid_to_amount[m.author.id] = 0
+                userid_to_amount[m.author.id] += 1
+                messages.append(m)
+                amount -= 1
+                if amount <= 0:
+                    break
+                elif m.id == message_id:
+                    break
             if amount <= 0:
-                break
-            elif m.id == message_id:
-                break
-        if amount <= 0:
-            raise BotResponseError(f"Your linked message is not under the last 50 messages")
-        
-        user_name_amount = []
-        for user_id, amount in userid_to_amount.items():
-            user_name_amount.append([
-                    display_name_or_id(user_id, guild_id=ctx.guild_id),
-                    amount
-            ])
-        user_name_amount.append(["Total", len(messages)])
-        table = tabulate(user_name_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
-        delete_in = datetime.now() + timedelta(seconds=20)
-        msg = await ctx.edit_last_response(
-            f"I'll do it. Let me some time.\n```\n{table}\n```🗑️ <t:{delete_in.timestamp():.0f}:R>"
+                raise BotResponseError(f"Your linked message is not under the last 50 messages")
+            
+            user_name_amount = []
+            for user_id, amount in userid_to_amount.items():
+                user_name_amount.append([
+                        display_name_or_id(user_id, guild_id=ctx.guild_id),
+                        amount
+                ])
+            user_name_amount.append(["Total", len(messages)])
+            table = tabulate(user_name_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
+            delete_in = datetime.now() + timedelta(seconds=20)
+            msg = await ctx.edit_last_response(
+                content=f"I'll do it. Let me some time.\n```\n{table}\n```🗑️ <t:{delete_in.timestamp():.0f}:R>"
+            )
+            messages.remove(msg)
+            await ctx.get_channel().delete_messages(messages)
+            await asyncio.sleep((delete_in - datetime.now()).total_seconds())
+            await msg.delete()
+
+
+        except:
+            log.error(traceback.format_exc())
+
+
+
+@loader.command
+class AddAlias(
+    lightbulb.UserCommand,
+    name="add alias / nickname",
+    description="Set a nickname for a user",
+
+):
+    @invoke
+    async def callback(self, ctx: InuContext):
+        member: hikari.Member = await bot.mrest.fetch_member(
+            guild_id=ctx.guild_id,
+            member_id=ctx.options.target.id,
         )
-        messages.remove(await message.message())
-        await ctx.get_channel().delete_messages(messages)
-        await asyncio.sleep((delete_in - datetime.now()).total_seconds())
-        await msg.delete()
+        answers, ctx = await ctx.ask_with_modal(  # type: ignore
+            title="Add alias",
+            question_s=["Nickname:", "Alias / Name:", "Seperater between name and alias:"],
+            pre_value_s=[member.display_name.split("|")[0], "", "|"],
+            input_style_s=[TextInputStyle.SHORT, TextInputStyle.SHORT, TextInputStyle.SHORT],
+        )
 
-
-    except:
-        log.error(traceback.format_exc())
-
-
-
-@basics.command
-@lightbulb.command("add alias / nickname / name", "Get information about the user")
-@lightbulb.implements(commands.UserCommand)
-async def add_alias(ctx: context.UserContext):
-    member: hikari.Member = await bot.mrest.fetch_member(
-        guild_id=ctx.guild_id,
-        member_id=ctx.options.target.id,
-    )
-    answers, interaction, event = await bot.shortcuts.ask_with_modal(
-        modal_title="Add alias",
-        question_s=["Nickname:", "Alias / Name:", "Seperater between name and alias:"],
-        pre_value_s=[member.display_name.split("|")[0], "", "|"],
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.SHORT, TextInputStyle.SHORT],
-        interaction=ctx.interaction,
-    )
-    nickname, alias, seperator = answers
-    ctx._interaction = interaction
-    try:
-        await member.edit(nickname=f"{nickname} {seperator} {alias}")
-    except hikari.ForbiddenError as e:
+        nickname, alias, seperator = answers
+        try:
+            await member.edit(nickname=f"{nickname} {seperator} {alias}")
+        except hikari.ForbiddenError as e:
+            await ctx.respond(
+                f"I don't have the permissions to edit nicknames. Some permissions are missing.",
+                flags=hikari.MessageFlag.EPHEMERAL,
+            )       
+            return
+        except hikari.BadRequestError:
+            raise BotResponseError(
+                (
+                    "Discord don't accept it.\n"
+                    "Maybe the new name is too long?"
+                ),
+                ephemeral=True
+            )
         await ctx.respond(
-            f"I don't have the permissions to edit nicknames. Some permissions are missing.",
+            f"Added alias `{alias}` to {member.display_name}\nNew name: {nickname} {seperator} {alias}",
             flags=hikari.MessageFlag.EPHEMERAL,
-        )       
-        return
-    except hikari.BadRequestError:
-        raise BotResponseError(
-            (
-                "Discord don't accept it.\n"
-                "Maybe the new name is too long?"
-            ),
-            ephemeral=True
         )
-    await ctx.respond(
-        f"Added alias `{alias}` to {member.display_name}\nNew name: {nickname} {seperator} {alias}",
-        flags=hikari.MessageFlag.EPHEMERAL,
-    )
+        
+# @basics.command
+# @lightbulb.command("add alias / nickname / name", "Get information about the user")
+# @lightbulb.implements(commands.UserCommand)
+# async def add_alias(ctx: context.UserContext):
+#     member: hikari.Member = await bot.mrest.fetch_member(
+#         guild_id=ctx.guild_id,
+#         member_id=ctx.options.target.id,
+#     )
+#     answers, interaction, event = await bot.shortcuts.ask_with_modal(
+#         modal_title="Add alias",
+#         question_s=["Nickname:", "Alias / Name:", "Seperater between name and alias:"],
+#         pre_value_s=[member.display_name.split("|")[0], "", "|"],
+#         input_style_s=[TextInputStyle.SHORT, TextInputStyle.SHORT, TextInputStyle.SHORT],
+#         interaction=ctx.interaction,
+#     )
+#     nickname, alias, seperator = answers
+#     ctx._interaction = interaction
+#     try:
+#         await member.edit(nickname=f"{nickname} {seperator} {alias}")
+#     except hikari.ForbiddenError as e:
+#         await ctx.respond(
+#             f"I don't have the permissions to edit nicknames. Some permissions are missing.",
+#             flags=hikari.MessageFlag.EPHEMERAL,
+#         )       
+#         return
+#     except hikari.BadRequestError:
+#         raise BotResponseError(
+#             (
+#                 "Discord don't accept it.\n"
+#                 "Maybe the new name is too long?"
+#             ),
+#             ephemeral=True
+#         )
+#     await ctx.respond(
+#         f"Added alias `{alias}` to {member.display_name}\nNew name: {nickname} {seperator} {alias}",
+#         flags=hikari.MessageFlag.EPHEMERAL,
+#     )
 
 
