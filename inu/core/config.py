@@ -79,7 +79,7 @@ class ConfigProxy(metaclass=Singleton):
     """
     def __init__(
         self,
-        config_type: Union[Callable[[Optional[str]], "ConfigProxy"], "ConfigType", None],
+        config_type: Union[Callable[[Optional[str]], "ConfigProxy"], Type["ConfigType"], None],
         path: Optional[str] = None,
     ):
         if config_type is None:

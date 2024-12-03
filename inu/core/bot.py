@@ -62,13 +62,14 @@ class BotResponseError(Exception):
 
 class Inu(hikari.GatewayBot):
     restart_count: int
-
+    _client: lightbulb.GatewayEnabledClient | None
+    
     def __init__(self, *args, **kwargs):
         self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
         self.conf: ConfigProxy = ConfigProxy(
             config_type=ConfigType.YAML
-        )  #Configuration(dotenv_values())
+        )
         self.log = getLogger(__name__, self.__class__.__name__)
         (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
@@ -85,6 +86,7 @@ class Inu(hikari.GatewayBot):
         self.shortcuts: "Shortcuts" = Shortcuts(bot=self)
         self.id_creator = IDCreator()
         self._lavalink: Optional[lavalink_rs.LavalinkClient] = None
+        self._client = None
         
 
         
@@ -115,6 +117,16 @@ class Inu(hikari.GatewayBot):
     #     await self.init_db()
         #await super().start(**kwargs)
     
+    @property
+    def client(self) -> lightbulb.GatewayEnabledClient:
+        if not self._client:
+            raise RuntimeError("Lightbulb Client is not initialized")
+        return self._client
+
+    @client.setter
+    def client(self, value: lightbulb.GatewayEnabledClient) -> None:
+        self._client = value
+        
     @property
     def lavalink(self) -> lavalink_rs.LavalinkClient:
         if not self._lavalink:
@@ -165,7 +177,12 @@ class Inu(hikari.GatewayBot):
             raise RuntimeError(f"matplatlib cnames has no color with name: {color}")
         return hikari.Color.from_hex_code(str(hex_))
 
-    async def load(self, folder_path: str):
+
+    async def load_tasks_and_commands(self):
+        await self._load("inu/ext/commands/")
+        await self._load("inu/ext/tasks/")
+
+    async def _load(self, folder_path: str):
         """
         Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
         """
@@ -178,8 +195,9 @@ class Inu(hikari.GatewayBot):
             ):
                 continue
             try:
-                await self.load_extensions(f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}")
-                # self.log.debug(f"loaded plugin: {extension}")
+                trimmed_name = f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}"
+                await self.client.load_extensions(trimmed_name)
+                self.log.debug(f"loaded plugin: {extension}")
             except Exception:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
 

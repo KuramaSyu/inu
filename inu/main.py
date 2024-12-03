@@ -56,7 +56,7 @@ client = lightbulb.client_from_app(inu)
 #     InuContext, get_inu_context
 # )
 
-
+inu.client = client
 inu.subscribe(hikari.StartingEvent, client.start)
 
 @inu.listen(hikari.ExceptionEvent)
@@ -67,7 +67,6 @@ def main():
     stop = False
     while not stop:
         try:
-            print(f"Starting bot")
             inu.run()
 
             print(f"Press Strl C again to exit")
@@ -137,6 +136,9 @@ async def on_ready(event : hikari.StartingEvent):
         log.info(f'Number: {(await table.select_row(["key"], ["restart_count"]))["value"]}', prefix="init")
     except Exception:
         log.error(traceback.format_exc())
+        
+    # laod extensions
+    await inu.load_tasks_and_commands()
 
 
 @inu.listen(hikari.StartedEvent)

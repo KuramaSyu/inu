@@ -528,10 +528,3 @@ async def add_alias(ctx: context.UserContext):
     )
 
 
-
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-
-    inu.add_plugin(basics)
-
