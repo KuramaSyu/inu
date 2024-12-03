@@ -52,10 +52,3 @@ async def testmodal(ctx: context.Context):
     await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
 
 
-
-
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
-

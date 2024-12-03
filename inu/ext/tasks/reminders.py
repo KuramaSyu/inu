@@ -40,5 +40,5 @@ async def load_upcoming_reminders():
     )
     Reminders.add_reminders_to_set(records)
 
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(plugin)
+# def load(bot: lightbulb.BotApp):
+#     bot.add_plugin(plugin)

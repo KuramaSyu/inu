@@ -38,7 +38,7 @@ from hikari.undefined import UNDEFINED
 import lightbulb
 from lightbulb.context import Context
 
-from core import InteractionContext, RESTContext, InuContext, get_context, BotResponseError, getLogger
+from core import InuContext, get_context, BotResponseError, getLogger
 from utils.buttons import add_row_when_filled
 LOGLEVEL = logging.WARNING
 log = logging.getLogger(__name__)
@@ -62,7 +62,7 @@ REJECTION_MESSAGES = [
 NUMBER_BUTTON_PREFIX = "pagination_page_"
 
 class PaginatorReadyEvent(hikari.Event):
-    def __init__(self, bot: lightbulb.BotApp):
+    def __init__(self, bot: lightbulb.GatewayEnabledClient):
         self.bot = bot
 
     @property
@@ -70,7 +70,7 @@ class PaginatorReadyEvent(hikari.Event):
         return self.bot
 
 class PaginatorTimeoutEvent(hikari.Event):
-    def __init__(self, bot: lightbulb.BotApp):
+    def __init__(self, bot: lightbulb.GatewayEnabledClient):
         self.bot = bot
 
     @property
@@ -725,7 +725,7 @@ class Paginator():
         self._with_update_button = False
         self._hide_components_when_one_site = hide_components_when_one_site
 
-        self.bot: lightbulb.BotApp
+        self.bot: lightbulb.GatewayEnabledClient
         self._ctx: InuContext | None = None
         self._channel_id: int | None = None
         self._author_id: int | None = None
