@@ -6,6 +6,7 @@ import time
 import os
 import re
 from pprint import pprint 
+import asyncio
 
 import aiohttp
 from core import LoggingHandler, get_context
@@ -41,20 +42,21 @@ log.info(f"hikari-miru version:{miru.__version__}")
 
 
 log.info("Create Inu")
-inu = Inu()
+
+inu = Inu()  # Instance of GatewayBot
 
 inu.conf.pprint()
 
 client = lightbulb.client_from_app(inu)
 # Get the registry for the default context
-# registry = client.di.registry_for(lightbulb.di.Contexts.DEFAULT)
-# # Register our new dependency
-# def get_inu_context(ctx: lightbulb.Context):
-#     return get_context(ctx.interaction)
+registry = client.di.registry_for(lightbulb.di.Contexts.DEFAULT)
+# Register our new dependency
+def get_inu_context(ctx: lightbulb.Context):
+    return get_context(ctx.interaction)
 
-# registry.register_factory(
-#     InuContext, get_inu_context
-# )
+registry.register_factory(
+    InuContext, get_inu_context
+)
 
 inu.client = client
 inu.subscribe(hikari.StartingEvent, client.start)
@@ -67,6 +69,7 @@ def main():
     stop = False
     while not stop:
         try:
+            asyncio.run(inu.load_tasks_and_commands())
             inu.run()
 
             print(f"Press Strl C again to exit")
@@ -138,7 +141,7 @@ async def on_ready(event : hikari.StartingEvent):
         log.error(traceback.format_exc())
         
     # laod extensions
-    await inu.load_tasks_and_commands()
+    
 
 
 @inu.listen(hikari.StartedEvent)
