@@ -234,7 +234,7 @@ async def lavalink_test_coro() -> bool:
     return True
         
 
-
+@loader.command
 class Status(
     lightbulb.SlashCommand,
     name="status",
@@ -344,67 +344,21 @@ class Purge(
         await channel.delete_messages(messages)
 
 
+@loader.command
+class CommandName(
+    SlashCommand,
+    name="name",
+    description="description",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    optional_string = lightbulb.string("message-link", "Delete until this message", default=None)
+    optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None)
 
-@basics.command
-@lightbulb.command("search", "search different things and get it's ID with the name")
-@lightbulb.implements(commands.SlashCommandGroup, commands.PrefixCommandGroup)
-async def search(ctx: Context):
-    pass
-
-@search.child
-@lightbulb.option(
-    "guild", 
-    "The name/part of the name/id from the guild", 
-    modifier=OM.CONSUME_REST,
-    type=str,
-)
-@lightbulb.command(
-    "guild", 
-    "seach guilds/servers and get it's ID with the name",
-    aliases=["server"]
-)
-@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
-async def search_guild(ctx: Context):
-    matches = await bot.search.guild(ctx.options.guild)
-    if not matches:
-        await ctx.respond(f"No guilds with partial ID/name `{ctx.options.guild}` found")
-        return
-    str_matches = "\n".join(f"name: {g.name:<35} id: {str(g.id):>}" for g in matches)
-    result = (
-        f"I found {Human.plural_('guild', len(matches), with_number=True)}:\n"
-        f"```\n{str_matches}\n```"
-    )
-    pag = Paginator(page_s=[f"```\n{p.replace('```', '')}```" for p in crumble(result)])
-    await pag.start(ctx)
-
-
-
-@search.child
-@lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option(
-    "member", 
-    "A part of the name/id/alias of the member from the guild", 
-    modifier=OM.CONSUME_REST,
-    type=str,
-)
-@lightbulb.command(
-    "member", 
-    "seach a member in this guild",
-    aliases=["user", "person"]
-)
-@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
-async def search_member(ctx: Context):
-    matches = await bot.search.member(ctx.guild_id, ctx.options.member)
-    if not matches:
-        await ctx.respond(f"No member with partial name/ID/alias `{ctx.options.member}` found")
-        return
-    str_matches = "\n".join(f"name: {m.display_name:<35} id: {str(m.id):>}" for m in matches)
-    result = (
-        f"I found {Human.plural_('member', len(matches), with_number=True)}:\n"
-        f"```\n{str_matches}\n```"
-    )
-    pag = Paginator(page_s=[f"```\n{p.replace('```', '')}```" for p in crumble(result)])
-    await pag.start(ctx)
+    @invoke
+    async def purge(self, ctx: lightbulb.Context):
+        ...
 
 
 
