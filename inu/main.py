@@ -8,8 +8,7 @@ import re
 from pprint import pprint 
 
 import aiohttp
-from core import LoggingHandler
-from inu.core.context.factory import get_context
+from core import LoggingHandler, get_context
 logging.setLoggerClass(LoggingHandler)
 
 import miru

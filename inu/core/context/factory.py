@@ -6,7 +6,7 @@ from lightbulb.context import *
 
 from .protocols import InuContext, InuContextProtocol
 from .interactions import CommandInteractionContext, ComponentInteractionContext
-from .rest import RESTContext
+# from .rest import RESTContext
 
 ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
 Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction]
@@ -49,9 +49,9 @@ def builder(event: ContextEvent | Interaction, **kwargs) -> Tuple[Type[InuContex
     returns the coresponding class to an event
     """
     if isinstance(event, hikari.MessageCreateEvent):
-        return RESTContext, kwargs
+        raise NotImplementedError("MessageCreateEvent is not supported yet")
     elif isinstance(event, hikari.MessageUpdateEvent):
-        return RESTContext, kwargs
+        raise NotImplementedError("MessageUpdateEvent is not supported yet")
     if isinstance(event, hikari.InteractionCreateEvent) or isinstance(event, hikari.PartialInteraction):
         if isinstance(event, hikari.PartialInteraction):
             interaction = event

@@ -9,5 +9,5 @@ from .response import (
     DeletedResponseState, InitialResponseState
 )
 from .interactions import CommandInteractionContext
-from .rest import RESTContext
+#from .rest import RESTContext
 from .factory import get_context

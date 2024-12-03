@@ -19,8 +19,10 @@ from hikari import CommandInteractionOption
 from ..bot import Inu
 from . import (
     InuContextProtocol, UniqueContextInstance, Response, 
-    BaseResponseState, InitialResponseState, Interaction
+    BaseResponseState, InitialResponseState, Interaction,
+    GuildsAndChannelsMixin, AuthorMixin, CustomIDMixin
 )
+from .base import InuContextBase, InuContext
 
 if TYPE_CHECKING:
     from .base import InuContextBase, InuContext
