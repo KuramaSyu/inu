@@ -7,7 +7,7 @@ from cachetools import cached, TTLCache
 from hikari import Embed
 from hikari.impl import MessageActionRowBuilder
 from core import getLogger
-from . import InuContext
+from .protocols import InuContext
 from .response import BaseResponseState, InitialResponseState
 
 log = getLogger(__name__)
