@@ -10,7 +10,6 @@ from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, 
 from hikari import ButtonStyle, MessageFlag
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
-from lightbulb import MemberConverter, GuildConverter, UserConverter
 from lightbulb.context import Context
 
 from utils import TagIsTakenError
@@ -448,7 +447,8 @@ class TagHandler(StatelessPaginator):
         )
         self.set_context(event=event)
         try:
-            user = await UserConverter(self.ctx).convert(user_str)
+            raise NotImplementedError("User search not implemented vor lightbulb v3")
+            #user = await UserConverter(self.ctx).convert(user_str)
         except TypeError:
             return await self.create_message(f"No person like `{user_str}` found.")
         try:
