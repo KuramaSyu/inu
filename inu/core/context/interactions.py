@@ -77,6 +77,13 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
 
     async def defer(self, update: bool = False, background: bool = False):
         await self.response_state.defer(update=update)
+        
+    @classmethod
+    def from_event(cls, interaction: Interaction) -> "BaseInteractionContext":
+        return cls(interaction.app, interaction)
+    
+    def set(self, **kwargs: Any):
+        return
 
 class CommandInteractionContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin):  # type: ignore[union-attr]
     def __init__(self, app: Inu, interaction: hikari.CommandInteraction) -> None:
