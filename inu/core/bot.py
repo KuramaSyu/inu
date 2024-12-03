@@ -180,12 +180,19 @@ class Inu(hikari.GatewayBot):
 
     async def load_tasks_and_commands(self):
         await self._load("inu/ext/commands/")
-        await self._load("inu/ext/tasks/")
+        #await self._load("inu/ext/tasks/")
 
     async def _load(self, folder_path: str):
         """
         Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
         """
+        # TODO: remove when finished with testing
+        ALLOWED_EXTENSIONS = ["basics"]
+        def is_allowed(extension: str) -> bool:
+            for allowed in ALLOWED_EXTENSIONS:
+                if allowed in extension:
+                    return True
+
         self.scheduler.start()  # TODO: this should go somewhere else
         for extension in os.listdir(os.path.join(os.getcwd(), folder_path)):
             if (
@@ -196,6 +203,9 @@ class Inu(hikari.GatewayBot):
                 continue
             try:
                 trimmed_name = f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}"
+                if not is_allowed(trimmed_name):
+                    continue
+                
                 await self.client.load_extensions(trimmed_name)
                 self.log.debug(f"loaded plugin: {extension}")
             except Exception:
