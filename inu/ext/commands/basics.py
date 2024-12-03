@@ -352,7 +352,7 @@ class UserInfo(
 ):
     @invoke
     async def callback(self, ctx_: Context):
-        ctx: InuContext = get_context(ctx_.interaction)
+        ctx = get_context(ctx_.interaction)
         bot: Inu = ctx.bot
         author: hikari.Member = bot.cache.get_member(ctx.guild_id, self.target)  # type: ignore
         embed = hikari.Embed(title=f"About {author.display_name}", color=Colors.default_color())
