@@ -84,7 +84,7 @@ class CommandInteractionContext(BaseInteractionContext, AuthorMixin, GuildsAndCh
         
 
 
-class ComponentInteractionContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin):  # type: ignore[union-attr]
+class InteractionContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin):  # type: ignore[union-attr]
     def __init__(self, app: Inu, interaction: hikari.ComponentInteraction) -> None:
         super().__init__(app, interaction)
         
