@@ -9,9 +9,11 @@ from hikari import (
     Embed,
     ResponseType, 
     TextInputStyle,
+    Permissions
 )
 from hikari.impl import MessageActionRowBuilder
-from lightbulb import commands, context
+from lightbulb import SlashCommand, invoke
+from lightbulb.prefab import sliding_window
 
 
 from utils import (
@@ -31,24 +33,22 @@ from core import (
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Name", "Description")
+loader = lightbulb.Loader()
 bot: Inu
 
-@plugin.command
-@lightbulb.command("testmodal", "test command for modal interactions")
-@lightbulb.implements(commands.SlashCommand)
-async def testmodal(ctx: context.Context):
-    bot: Inu = ctx.bot
-    answers, interaction, _ = await bot.shortcuts.ask_with_modal(
-        "Tag", 
-        ["Name:", "Value:"], 
-        interaction=ctx.interaction,
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
-        placeholder_s=[None, "What you will see, when you do /tag get <name>"],
-        is_required_s=[True, None],
-        pre_value_s=[None, "Well idc"]
+@loader.command
+class CommandName(
+    SlashCommand,
+    name="name",
+    description="description",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    optional_string = lightbulb.string("message-link", "Delete until this message", default=None)
+    optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None)
 
-    )
-    await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
-
+    @invoke
+    async def callback(self, ctx: lightbulb.Context):
+        ...
 
