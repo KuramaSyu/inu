@@ -111,8 +111,8 @@ class Inu(hikari.GatewayBot):
 
         self.wait_for = self.wait_for
 
-    async def start(self, *args, **kwargs):
-        await self.init_db()
+    # async def start(self, *args, **kwargs):
+    #     await self.init_db()
         #await super().start(**kwargs)
     
     @property

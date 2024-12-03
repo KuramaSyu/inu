@@ -28,7 +28,7 @@ services:
   app:
     container_name: inu
     depends_on:
-      - lava
+      # - lava
       - db
     build: .
     restart: "unless-stopped"
@@ -41,11 +41,11 @@ services:
     labels:
       - "com.centurylinklabs.watchtower.enable=false"  # Disable watchtower for this container
 
-  lava:
-    container_name: lavalink
-    restart: "unless-stopped"
-    image: fredboat/lavalink:4
-    volumes:
-      - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
-    networks:
-      inu_net:  # Connect to the custom network
+  # lava:
+  #   container_name: lavalink
+  #   restart: "unless-stopped"
+  #   image: fredboat/lavalink:4
+  #   volumes:
+  #     - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
+  #   networks:
+  #     inu_net:  # Connect to the custom network
