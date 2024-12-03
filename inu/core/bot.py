@@ -64,7 +64,8 @@ class BotResponseError(Exception):
 
 class Inu(lightbulb.GatewayEnabledClient):
     restart_count: int
-    app: GatewayBot
+    rest: hikari.api.RESTClient
+    #app: GatewayBot
 
     def __init__(self, *args, **kwargs):
         self.print_banner_()
@@ -76,6 +77,10 @@ class Inu(lightbulb.GatewayEnabledClient):
         (logging.getLogger("py.warnings")).setLevel(logging.ERROR)
         self._me: Optional[hikari.User] = None
         self.startup = datetime.datetime.now()
+        self._hikari_app = hikari.GatewayBot(
+            self.conf.bot.DISCORD_TOKEN,  # type: ignore[arg-type]
+        )
+        self._rest = self._hikari_app.rest
 
         from core.db import Database
         self.db = Database()
@@ -84,7 +89,6 @@ class Inu(lightbulb.GatewayEnabledClient):
         self.restart_count = 0
         self.data = Data()
         self.scheduler = AsyncIOScheduler()
-        self.scheduler.start()
         self._prefixes = {}
         self._default_prefix = self.conf.bot.DEFAULT_PREFIX  # type: ignore[attr-defined]
         self.search = Search(self)
@@ -114,17 +118,21 @@ class Inu(lightbulb.GatewayEnabledClient):
             deferred_registration_callback=None,
             delete_unknown_commands=False,
             hooks=(),
-            rest=hikari.GatewayBot(  # type: ignore[reportArgumentType]
-                self.conf.bot.DISCORD_TOKEN,  # type: ignore[arg-type]
-                intents=hikari.Intents.ALL,
-                #logs=logs,
-            )
+            # rest=hikari.GatewayBot(  # type: ignore[reportArgumentType]
+            #     self.conf.bot.DISCORD_TOKEN,  # type: ignore[arg-type]
+            #     intents=hikari.Intents.ALL,
+            #     #logs=logs,
+            # ),
+            app=self._hikari_app,
         )
         self.mrest = MaybeRest(self)
         # self.load("inu/ext/commands/")
         # self.load("inu/ext/tasks/")
 
         self.wait_for = self.app.wait_for
+    
+    def run(self):
+        super().app.run()
     
     @property
     def lavalink(self) -> lavalink_rs.LavalinkClient:
@@ -170,7 +178,12 @@ class Inu(lightbulb.GatewayEnabledClient):
 
     @property
     def rest(self) -> hikari.api.RESTClient:
-        return self.app.rest
+        return self._rest
+
+    @rest.setter
+    def rest(self, value: hikari.api.RESTClient):
+        #pass # TODO: lightbulb calls this on program start
+        self._rest = value
 
     @property
     def me(self) -> hikari.User:
@@ -199,6 +212,7 @@ class Inu(lightbulb.GatewayEnabledClient):
         """
         Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
         """
+        self.scheduler.start()  # TODO: this should go somewhere else
         for extension in os.listdir(os.path.join(os.getcwd(), folder_path)):
             if (
                 extension == "__init__.py" 

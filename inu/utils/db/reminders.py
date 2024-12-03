@@ -550,7 +550,7 @@ class HikariReminder(BaseReminder):
 
 class Reminders:
     db: Database
-    bot: lightbulb.BotApp
+    bot: lightbulb.GatewayEnabledClient
     running_reminders = set()
     REMINDER_UPDATE = REMINDER_UPDATE
     
@@ -558,7 +558,7 @@ class Reminders:
         self.key = key
 
     @classmethod
-    async def init_bot(cls, bot: lightbulb.BotApp):
+    async def init_bot(cls, bot: lightbulb.GatewayEnabledClient):
         cls.bot = bot
         cls.db = bot.db
         await cls.clean_up_reminders()

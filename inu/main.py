@@ -59,6 +59,7 @@ def main():
     stop = False
     while not stop:
         try:
+            print(f"Starting bot")
             inu.app.run()
 
             print(f"Press Strl C again to exit")
@@ -97,6 +98,7 @@ async def sync_prefixes(event: hikari.StartedEvent):
 
 @loader.listener(hikari.StartingEvent)
 async def on_ready(event : hikari.StartingEvent):
+    log.info("Connecting Database to classes", prefix="init")
     try:
         set_bot(inu)
         await inu.init_db()
