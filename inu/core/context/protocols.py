@@ -5,10 +5,14 @@ from datetime import timedelta
 
 import hikari
 from hikari import Message, Snowflake, TextInputStyle
+from hikari.impl import MessageActionRowBuilder
 from lightbulb.context import Context
 
+from .mixins import GuildsAndChannelsMixin, AuthorMixin, CustomIDMixin
 from ..bot import Inu
 
+if TYPE_CHECKING:
+    from .response import BaseResponseState
 
 T = TypeVar("T")
 Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | hikari.ComponentInteraction]
@@ -248,7 +252,7 @@ class InuContext(ABC):
             pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
             is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
             timeout: int = 120
-    ) -> Tuple[T_STR_LIST, "InuContext"] | None:
+    ) -> Tuple[T_STR_LIST, "InuContext"] | Tuple[None, None]:
         """
         ask a question with buttons
 
@@ -294,6 +298,21 @@ class InuContext(ABC):
     def message_id(self) -> hikari.Snowflake | None:
         """the ID of the initial response message if there is one"""
         ...
+
+    async def edit_last_response(
+        self,
+        embeds: List[hikari.Embed] | None = None,
+        content: str | None = None,
+        components: List[MessageActionRowBuilder] | None = None,
+    ) -> Message:
+        """edits the last response"""
+        ...
+
+    @property
+    @abstractmethod
+    def response_state(self) -> "BaseResponseState":
+        ...
+
 
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
@@ -401,3 +420,4 @@ class InuContextProtocol(Protocol[T]):
     async def delete_inital_response(self) -> None:
         """deletes the initial response"""
         ...
+        
