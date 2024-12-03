@@ -104,16 +104,16 @@ class BaseResponseState(abc.ABC):
         embeds: List[hikari.Embed] | None = None,
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
-    ) -> None:
+    ) -> hikari.Message:
         if len(self.responses) > 0:
-            await self.interaction.edit_message(
+            return await self.interaction.edit_message(
                 self.responses[-1],
                 embeds=embeds,
                 content=content,
                 components=components
             )
         else:
-            await self.interaction.edit_initial_response(
+            return await self.interaction.edit_initial_response(
                 content=content,
                 embeds=embeds,
                 components=components
