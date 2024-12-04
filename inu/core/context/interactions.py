@@ -47,6 +47,11 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
     @property
     def app(self) -> Inu:
         return self._app
+    
+    @property
+    def bot(self) -> Inu:
+        return self._app
+    
     @property
     def responses(self) -> List[Response]:
         return self._responses
