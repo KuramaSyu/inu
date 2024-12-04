@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from xml.etree.ElementPath import prepare_parent
 
 import hikari
-from hikari import COMMAND_RESPONSE_TYPES, Embed, ComponentInteraction, CommandInteraction, InteractionCreateEvent, Message, ResponseType, Snowflake
+from hikari import COMMAND_RESPONSE_TYPES, Embed, ComponentInteraction, CommandInteraction, InteractionCreateEvent, Message, ResponseType, Snowflake, SnowflakeishOr
 from hikari.impl import MessageActionRowBuilder
 from datetime import timedelta
 
@@ -119,6 +119,9 @@ class BaseResponseState(abc.ABC):
                 components=components
             )
 
+    async def delete_webhook_message(self, message: SnowflakeishOr[Message]) -> None:
+        await self.interaction.delete_message(message)
+
     @abc.abstractmethod
     async def edit(
         self,
@@ -149,6 +152,9 @@ class BaseResponseState(abc.ABC):
     @abc.abstractmethod
     def is_valid(self) -> bool:
         ...
+
+    async def delete_initial_response(self) -> None:
+        await self.interaction.delete_initial_response()
         
         
 class InitialResponseState(BaseResponseState):
