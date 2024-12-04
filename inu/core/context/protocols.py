@@ -33,22 +33,22 @@ class InuContext(ABC):
     def original_message(self) -> hikari.Message:
         ...
 
-    @property
-    @abstractmethod
-    def is_responded(self) -> bool:
-        "Whether or not the interaction has been responded to"
+    # @property
+    # @abstractmethod
+    # def is_responded(self) -> bool:
+    #     "Whether or not the interaction has been responded to"
 
-    @property
-    @abstractmethod
-    def is_deferred(self) -> bool:
-        "Whether or not the interaction has been deferred"
-        return False
+    # @property
+    # @abstractmethod
+    # def is_deferred(self) -> bool:
+    #     "Whether or not the interaction has been deferred"
+    #     return False
 
-    @property
-    @abstractmethod
-    def needs_response(self) -> bool:
-        "Whether or not the interaction needs a response because is was deferred"
-        return False
+    # @property
+    # @abstractmethod
+    # def needs_response(self) -> bool:
+    #     "Whether or not the interaction needs a response because is was deferred"
+    #     return False
 
     @property
     @abstractmethod
