@@ -94,7 +94,7 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
         return cls(interaction.app, interaction)
 
     @classmethod
-    def from_ctx(cls, ctx: Context) -> "BaseInteractionContext":
+    def from_context(cls, ctx: Context) -> "BaseInteractionContext":
         raise NotImplementedError
     
     def set(self, **kwargs: Any):
