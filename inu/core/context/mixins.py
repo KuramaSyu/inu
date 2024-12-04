@@ -2,7 +2,7 @@ from typing import *
 from abc import abstractmethod
 
 import hikari
-from hikari import Snowflake
+from hikari import Member, Snowflake
 from ..bot import Inu
 #from . import InuContextProtocol, UniqueContextInstance, Response, BaseResponseState, InitialResponseState
 
@@ -66,6 +66,11 @@ class AuthorMixin(HasInteraction):
         pass
 
     @property
+    @abstractmethod
+    def guild_id(self) -> Snowflake | None:
+        pass
+
+    @property
     def author_id(self) -> Snowflake:
         """Author ID of the interaction"""
         return self.interaction.user.id
@@ -74,6 +79,11 @@ class AuthorMixin(HasInteraction):
     def author(self) -> hikari.User:
         """Author of the interaction"""
         return self.interaction.user
+
+    @property
+    def member(self) -> Member | None:
+        assert(isinstance(self.guild_id, Snowflake))
+        return self.app.cache.get_member(self.guild_id, self.author_id) 
 
 
 class CustomIDMixin():
