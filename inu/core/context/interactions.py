@@ -71,9 +71,20 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
             ephemeral=ephemeral,
             components=components
         )
+    
+    async def delete_initial_response(self):
+        await self.response_state.delete_initial_response()
+    
+    async def delete_webhook_message(self, message: SnowflakeishOr[hikari.Message], after: int | None = None) -> None:
+        await self.response_state.delete_webhook_message(message)
         
-    async def edit_last_response(self):
-        await self.response_state.edit_last_response()
+    async def edit_last_response(
+        self, 
+        embeds: List[hikari.Embed] | None = None,
+        content: str | None = None,
+        components: List[MessageActionRowBuilder] | None = None,
+    ) -> hikari.Message:
+        return await self.response_state.edit_last_response()
 
     async def defer(self, update: bool = False, background: bool = False):
         await self.response_state.defer(update=update)
@@ -81,6 +92,10 @@ class BaseInteractionContext(InuContextBase, InuContext, AuthorMixin, CustomIDMi
     @classmethod
     def from_event(cls, interaction: Interaction) -> "BaseInteractionContext":
         return cls(interaction.app, interaction)
+
+    @classmethod
+    def from_ctx(cls, ctx: Context) -> "BaseInteractionContext":
+        raise NotImplementedError
     
     def set(self, **kwargs: Any):
         return
