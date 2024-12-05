@@ -1,101 +1,92 @@
-from typing import *
-from abc import abstractmethod
-
+from typing import Protocol, Union, runtime_checkable
 import hikari
-from hikari import Member, Snowflake
-from ..bot import Inu
-#from . import InuContextProtocol, UniqueContextInstance, Response, BaseResponseState, InitialResponseState
+from hikari import Snowflake
 
-Interaction = Union[
-    hikari.ModalInteraction | hikari.CommandInteraction 
-    | hikari.MessageInteraction | hikari.ComponentInteraction
-]
-
-class HasApp(Protocol):
+# Define a protocol that requires the methods
+@runtime_checkable
+class InteractionContextProtocol(Protocol):
     @property
-    @abstractmethod
-    def app(self) -> Inu:
-        ...
-
-class HasInteraction(Protocol):
-    @property
-    @abstractmethod
-    def interaction(self) -> Interaction:
-        ... 
-
-class HasChannelLikeInteraction(Protocol):
-    @property
-    @abstractmethod
-    def interaction(self) -> hikari.CommandInteraction | hikari.ComponentInteraction:
-        ...
-
-
-class GuildsAndChannelsMixin(HasChannelLikeInteraction, HasApp):
-    """
-    A mixin for channel and guild properties.
-    """
+    def interaction(self) -> Union[
+        hikari.CommandInteraction, 
+        hikari.ComponentInteraction, 
+        hikari.ModalInteraction
+    ]: ...
 
     @property
-    def channel_id(self) -> Snowflake:
-        """Channel ID where interaction was triggered"""
-        return self.interaction.channel_id
+    def app(self) -> 'Inu': ...
 
-    @property
-    def guild_id(self) -> Snowflake | None:
-        """Guild ID where interaction was triggered"""
-        return self.interaction.guild_id
-
-    
-    def get_channel(self) -> hikari.GuildChannel | None:
-        return self.app.cache.get_guild_channel(self.channel_id)
-
-    def get_guild(self) -> hikari.Guild | None:
-        if self.guild_id is None:
-            return None
-        return self.app.cache.get_guild(self.guild_id)
-
-
-class AuthorMixin(HasInteraction):
-    """
-    A mixin for author properties. auth
-    """
-
-    @property
-    @abstractmethod
-    def app(self) -> Inu:
-        pass
-
-    @property
-    @abstractmethod
-    def guild_id(self) -> Snowflake | None:
-        pass
-
+# Modify your existing mixins to use this protocol
+class AuthorMixin:
     @property
     def author_id(self) -> Snowflake:
-        """Author ID of the interaction"""
+        assert isinstance(self, InteractionContextProtocol)
         return self.interaction.user.id
 
     @property
     def author(self) -> hikari.User:
-        """Author of the interaction"""
+        assert isinstance(self, InteractionContextProtocol)
         return self.interaction.user
 
     @property
-    def member(self) -> Member | None:
-        assert(isinstance(self.guild_id, Snowflake))
-        return self.app.cache.get_member(self.guild_id, self.author_id) 
+    def user(self) -> hikari.User:
+        assert isinstance(self, InteractionContextProtocol)
+        return self.interaction.user
 
-
-class CustomIDMixin():
-    """
-    A mixin for author properties.
-    """
     @property
-    @abstractmethod
-    def interaction(self) -> hikari.ComponentInteraction | hikari.ModalInteraction:
-        ...
+    def member(self) -> hikari.Member | None:
+        assert isinstance(self, InteractionContextProtocol)
+        if guild_id := getattr(self.interaction, 'guild_id', None):
+            return self.app.cache.get_member(guild_id, self.author_id)
+        return None
 
+class GuildsAndChannelsMixin:
+    @property
+    def channel_id(self) -> Snowflake:
+        assert isinstance(self, InteractionContextProtocol)
+        return self.interaction.channel_id
+
+    @property
+    def guild_id(self) -> Snowflake | None:
+        assert isinstance(self, InteractionContextProtocol)
+        return getattr(self.interaction, 'guild_id', None)
+
+    def get_channel(self) -> hikari.GuildChannel | None:
+        assert isinstance(self, InteractionContextProtocol)
+        return self.app.cache.get_guild_channel(self.channel_id)
+
+    def get_guild(self) -> hikari.Guild | None:
+        assert isinstance(self, InteractionContextProtocol)
+        if guild_id := self.guild_id:
+            return self.app.cache.get_guild(guild_id)
+        return None
+
+class MessageMixin:
+    _initial_response_message: hikari.Message | None = None
+
+    async def message(self) -> hikari.Message:
+        assert isinstance(self, InteractionContextProtocol)
+        if (msg := self._initial_response_message):
+            return msg
+        msg = await self.interaction.fetch_initial_response()
+        self._initial_response_message = msg
+        return msg
+
+    @property
+    def message_id(self) -> Snowflake | None:
+        assert isinstance(self, InteractionContextProtocol)
+        try:
+            return self.interaction.message.id
+        except Exception:
+            if self._initial_response_message:
+                return self._initial_response_message.id
+            return None
+
+    @property
+    def initial_response(self) -> hikari.Message | None:
+        return self._initial_response_message
+
+class CustomIDMixin:
     @property
     def custom_id(self) -> str:
-        """Custom ID of the interaction"""
+        assert isinstance(self, InteractionContextProtocol)
         return self.interaction.custom_id
