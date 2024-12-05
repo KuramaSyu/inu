@@ -5,7 +5,7 @@ import lightbulb
 from lightbulb.context import *
 
 from .protocols import InuContext, InuContextProtocol
-from .interactions import CommandInteractionContext, InteractionContext
+from .interactions import CommandContext, ComponentContext
 # from .rest import RESTContext
 
 ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
@@ -61,11 +61,11 @@ def builder(event: ContextEvent | Interaction, **kwargs) -> Tuple[Type[InuContex
         else:
             interaction = event.interaction
         if isinstance(interaction, hikari.ComponentInteraction):
-            return InteractionContext, kwargs
+            return ComponentContext, kwargs
         elif isinstance(interaction, hikari.ModalInteraction):
             raise NotImplementedError("ModalInteraction is not supported yet")
         elif isinstance(interaction, hikari.CommandInteraction):
-            return CommandInteractionContext, kwargs  # lightbulb acknowledges them automatically
+            return CommandContext, kwargs  # lightbulb acknowledges them automatically
         else:
             raise TypeError(
                 f"Can't create `InuContext` out of an `InteractionCreateEvent` with `{type(interaction)}` as interaction"
