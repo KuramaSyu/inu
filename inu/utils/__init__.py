@@ -1,5 +1,6 @@
 
 from .progress_bar import pacman
+from .inspection import *
 from .shortcuts import *
 from .buttons import *
 from .colors import Colors
