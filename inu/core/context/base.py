@@ -74,11 +74,15 @@ class InuContextBase(ContextEqualTrait):
         self._defered = False
         self._responded = False
         self._responses: List[Response] = []
-        self.response_state: BaseResponseState = InitialResponseState(self.interaction, self)
+        self._response_state: BaseResponseState = InitialResponseState(self.interaction, self)
     
     def set_response_state(self, new_state: BaseResponseState):
         """Changes the response state to a new state"""
-        self.response_state = new_state
+        self._response_state = new_state
+    
+    @property
+    def response_state(self) -> BaseResponseState:
+        return self._response_state
 
     @property
     def defered(self):
