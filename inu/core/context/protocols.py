@@ -322,7 +322,7 @@ class InuContextProtocol(Protocol[T]):
         ...
 
     @property
-    def original_message(self) -> hikari.Message:
+    def initial_response(self) -> hikari.Message:
         ...
 
     @property
