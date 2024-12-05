@@ -152,10 +152,6 @@ class Inu(hikari.GatewayBot):
         return loop
 
     @property
-    def cache(self) -> hikari.api.Cache:
-        return self.cache
-
-    @property
     def me(self) -> hikari.User:
         if self._me:
             return self._me
