@@ -17,17 +17,11 @@ import hikari
 import lightbulb
 from core import Inu, Table
 from utils import (
-    tmdb_setup,
-    InvokationStats, 
-    Reminders, 
-    TagManager, 
-    PollManager, 
-    Urban, 
-    MyAnimeListAIOClient,
-    CurrentGamesManager,
-    BoardManager,
-    set_bot,
-    AutoroleManager
+    tmdb_setup, InvokationStats, Reminders, 
+    TagManager, PollManager, Urban, 
+    MyAnimeListAIOClient, CurrentGamesManager,
+    BoardManager, set_bot, AutoroleManager,
+    check_unimplemented_methods
 )
 import lavalink_rs
 from core import getLogger, InuContext
@@ -45,7 +39,7 @@ log.info("Create Inu")
 
 inu = Inu()  # Instance of GatewayBot
 
-inu.conf.pprint()
+
 
 client = lightbulb.client_from_app(inu)
 # Get the registry for the default context
@@ -184,10 +178,22 @@ async def on_bot_ready(event : hikari.StartedEvent):
         log.error(f"failed to set presence: {traceback.format_exc()}", prefix="start")
 
 
-
+def tests():
+    from core.context import CommandContext, ComponentContext
+    def check_unimplemented():
+        classes = [CommandContext, ComponentContext]
+        for c in classes:
+            m = check_unimplemented_methods(c)
+            log.critical(
+                f"Following functions for `{c.__name__}` are missing: {m}"
+            )
+    # check for unimplemented methods
+    log.critical(f"Unimplemented: {CommandContext.__abstractmethods__}")
 
 if __name__ == "__main__":
     # if os.name != "nt":
     #     import uvloop
     #     uvloop.install()
+    #tests()
+    #inu.conf.pprint()
     main()
