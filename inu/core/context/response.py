@@ -71,11 +71,12 @@ class BaseResponseState(abc.ABC):
         interaction: ComponentInteraction | CommandInteraction, 
         context: 'InuContextBase'
     ) -> None:
+        self.interaction = interaction
         self._deferred: bool = False
         self._responded: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self.last_response: datetime = self.created_at
-        self.interaction = interaction
+        
         self.context = context
         
     def change_state(self, new_state: Type["BaseResponseState"]):
@@ -98,7 +99,19 @@ class BaseResponseState(abc.ABC):
         components: List[MessageActionRowBuilder] | None = None,
     ) -> Snowflake | None:
         ...
-        
+    
+    async def execute(
+        self,
+        content: str,
+        embeds: List[hikari.Embed] | None = None,
+        components: List[MessageActionRowBuilder] | None = None,
+    ) -> hikari.Message:
+        return await self.interaction.execute(
+            content,
+            embeds=embeds or [],
+            components=components or []
+        )
+    
     async def edit_last_response(
         self,
         embeds: List[hikari.Embed] | None = None,
