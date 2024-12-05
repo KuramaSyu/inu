@@ -18,7 +18,7 @@ import mplcyberpunk
 
 from utils.db import PollManager
 from utils import Colors
-from core import Table, Inu, getLogger, ConfigProxy, ConfigType, InteractionContext
+from core import Table, Inu, getLogger, ConfigProxy, ConfigType, ComponentContext
 
 log = getLogger(__name__)
 conf = ConfigProxy(ConfigType.YAML)
@@ -473,7 +473,7 @@ class Poll():
 
     async def dispatch_embed(
         self, 
-        ictx: InteractionContext,
+        ictx: ComponentContext,
         edit: bool = True, 
         embed: Optional[hikari.Embed] = None,
         **kwargs,

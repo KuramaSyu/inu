@@ -26,7 +26,7 @@ from pytimeparse.timeparse import timeparse
 from hikari import TextInputStyle
 
 from utils import Colors, Human, Paginator, crumble, Poll, PollManager
-from core import getLogger, Inu, Table, BotResponseError, InteractionContext
+from core import getLogger, Inu, Table, BotResponseError, ComponentContext
 # import Dataset
 
 
@@ -51,7 +51,7 @@ async def on_interaction_create(event: hikari.InteractionCreateEvent):
     # change letter_emojis to the actual emoji
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
-    ictx = InteractionContext(event, app=bot)
+    ictx = ComponentContext(event, app=bot)
     log = getLogger(__name__, "INTERACTION RECEIVE")
     if ictx.user.id == bot.me.id:
         return
@@ -215,7 +215,7 @@ async def make_poll(ctx: context.SlashContext):
             ephemeral=True,
         )
 
-    ictx = InteractionContext(event, bot)
+    ictx = ComponentContext(event, bot)
     message = await (await ictx.respond("Wait...")).message()
     dummy_record["message_id"] = message.id
 

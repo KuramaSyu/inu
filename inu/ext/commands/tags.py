@@ -48,7 +48,7 @@ from core import (
     BotResponseError,
     getLogger, 
     BotResponseError, 
-    InteractionContext, 
+    ComponentContext, 
     get_context, 
     InuContext
 )
@@ -346,7 +346,7 @@ async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
     log = getLogger(__name__, "tag link interaction")
     if not isinstance(i, hikari.ComponentInteraction):
         return
-    ctx = InteractionContext(event, app=bot)
+    ctx = ComponentContext(event, app=bot)
     try:
         if not (
             ctx.custom_id.startswith("tag://")  # button

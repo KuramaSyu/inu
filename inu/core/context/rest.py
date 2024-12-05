@@ -10,7 +10,7 @@ import lightbulb
 from lightbulb.context import Context, ResponseProxy, OptionsProxy
 from lightbulb.context.prefix import PrefixContext
 
-from . import InuContextProtocol, InuContext, InuContextBase, UniqueContextInstance, InteractionContext
+from . import InuContextProtocol, InuContext, InuContextBase, UniqueContextInstance, ComponentContext
 
 
 
@@ -302,7 +302,7 @@ class RESTContext(Context, InuContextProtocol, InuContext, InuContextBase):
             message_id=(await proxy.message()).id,
             timeout=timeout
         )
-        new_ctx = InteractionContext.from_event(event)
+        new_ctx = ComponentContext.from_event(event)
         return selected_label.replace(prefix, "", 1), new_ctx
 
     async def ask_with_modal(

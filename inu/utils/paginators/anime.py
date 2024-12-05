@@ -25,7 +25,7 @@ from fuzzywuzzy import fuzz
 import asyncpraw
 
 from core.api.anime import PartialAnimeMatch, AnimeMatch
-from core import getLogger, InteractionContext
+from core import getLogger, ComponentContext
 from utils import Human, Colors, MyAnimeList, Anime, AnimeCornerAPI, AnimeCornerView
 
 log = getLogger(__name__)

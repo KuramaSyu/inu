@@ -12,7 +12,7 @@ from lightbulb.context import Context
 from core import Inu
 from utils.language import Human
 
-from core import getLogger, BotResponseError, Inu, InteractionContext
+from core import getLogger, BotResponseError, Inu, ComponentContext
 
 log = getLogger("Error Handler")
 pl = lightbulb.Loader()

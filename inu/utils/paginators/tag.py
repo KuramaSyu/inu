@@ -29,7 +29,7 @@ from utils import crumble, TagManager, add_row_when_filled, ListParser
 from utils.language import Human
 from utils.db import Tag, TagType
 
-from core import Inu, BotResponseError, InteractionContext, get_context
+from core import Inu, BotResponseError, ComponentContext, get_context
 import hashlib
 
 log = logging.getLogger(__name__)
