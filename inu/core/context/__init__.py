@@ -2,9 +2,7 @@ from .types import *
 from .mixins import (
     AuthorMixin, CustomIDMixin, GuildsAndChannelsMixin, MessageMixin
 )
-
-
-
+from .response_proxy import ResponseProxy, InitialResponseProxy, WebhookProxy
 from .base import InuContextBase, UniqueContextInstance, Response
 
 from .response import (
