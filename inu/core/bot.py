@@ -26,6 +26,8 @@ from apscheduler.triggers.interval import IntervalTrigger
 from colorama import Fore, Style
 from matplotlib.colors import cnames
 
+from .singleton import Singleton
+
 from ._logging import LoggingHandler, getLogger, getLevel 
 from . import ConfigProxy, ConfigType
 from . import Bash
@@ -62,10 +64,14 @@ class BotResponseError(Exception):
 
 
 class Inu(hikari.GatewayBot):
+    instance: Optional["Inu"] = None
     restart_count: int
     _client: lightbulb.GatewayEnabledClient | None
     
     def __init__(self, *args, **kwargs):
+        if self.instance:
+            raise RuntimeError("Inu is a singleton")
+        self.instance = self
         self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
         self.conf: ConfigProxy = ConfigProxy(
