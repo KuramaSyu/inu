@@ -37,7 +37,7 @@ from utils.shortcuts import display_name_or_id
 lavalink = None
 
 log = getLogger(__name__)
-
+bot = Inu.instance
 
 
 class RestDelay:
@@ -140,7 +140,7 @@ async def on_interaction(event: InteractionCreateEvent):
     if not isinstance(event.interaction, ComponentInteraction):
         return
     if event.interaction.custom_id == "pag-guilds":
-        guilds = [g for g in bot.cache.get_guilds_view().values()]
+        guilds = [g for g in event.app.cache.get_guilds_view().values()]
         pag = GuildPaginator([])
         await pag.start(get_context(event), guilds)
 
@@ -152,7 +152,9 @@ class PingCommand(
     description="Simple Ping"
 ):
     @lightbulb.invoke
-    async def ping(self, ctx: Context):
+    async def ping(self, _: Context, ctx: InuContext):
+        assert(isinstance(ctx, InuContext))
+        bot = ctx.bot
         task = asyncio.create_task(
             IP.fetch_public_ip(), 
             name="IP"
@@ -161,12 +163,12 @@ class PingCommand(
             xkcdAPI.fetch_comic(xkcdAPI.random_comic_endpoint()), 
             name="comic"
         )
-        #fact = await Facts.fetch_random_fact()
+        
 
         embed = Embed(title="Pong")
         embed.description = (
             
-            f"{ping_to_color(ctx.client.lat*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
+            f"{ping_to_color(ctx.bot.heartbeat_latency*1000)} Gateway: {ctx.bot.heartbeat_latency*1000:.2f} ms\n\n"
             f"⚫ REST: .... ms\n\n"
         )
         embed.add_field("Public IP", "....", inline=True)
@@ -441,11 +443,13 @@ class AddAlias(
 
 ):
     @invoke
-    async def callback(self, ctx: InuContext):
-        member: hikari.Member = await bot.mrest.fetch_member(
+    async def callback(self, _: Context, ctx: InuContext):
+        member = await ctx.bot.mrest.fetch_member(
             guild_id=ctx.guild_id,
-            member_id=ctx.options.target.id,
+            member_id=self.target.id,
         )
+        assert(isinstance(member, hikari.Member))
+
         answers, ctx = await ctx.ask_with_modal(  # type: ignore
             title="Add alias",
             question_s=["Nickname:", "Alias / Name:", "Seperater between name and alias:"],
