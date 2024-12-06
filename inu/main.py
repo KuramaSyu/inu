@@ -43,7 +43,7 @@ inu = Inu()  # Instance of GatewayBot
 
 client = lightbulb.client_from_app(inu)
 # Get the registry for the default context
-registry = client.di.registry_for(lightbulb.di.Contexts.DEFAULT)
+registry = client.di.registry_for(lightbulb.di.Contexts.COMMAND)
 # Register our new dependency
 def get_inu_context(ctx: lightbulb.Context):
     return get_context(ctx.interaction)
@@ -178,17 +178,17 @@ async def on_bot_ready(event : hikari.StartedEvent):
         log.error(f"failed to set presence: {traceback.format_exc()}", prefix="start")
 
 
-def tests():
-    from core.context import CommandContext, ComponentContext
-    def check_unimplemented():
-        classes = [CommandContext, ComponentContext]
-        for c in classes:
-            m = check_unimplemented_methods(c)
-            log.critical(
-                f"Following functions for `{c.__name__}` are missing: {m}"
-            )
-    # check for unimplemented methods
-    log.critical(f"Unimplemented: {CommandContext.__abstractmethods__}")
+# def tests():
+#     from core.context import CommandContext, ComponentContext
+#     def check_unimplemented():
+#         classes = [CommandContext, ComponentContext]
+#         for c in classes:
+#             m = check_unimplemented_methods(c)
+#             log.critical(
+#                 f"Following functions for `{c.__name__}` are missing: {m}"
+#             )
+#     # check for unimplemented methods
+#     log.critical(f"Unimplemented: {CommandContext.__abstractmethods__}")
 
 if __name__ == "__main__":
     # if os.name != "nt":
