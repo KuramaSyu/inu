@@ -37,6 +37,7 @@ log = getLogger(__name__)
 
 
 class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
+    
     def __init__(self, app: Inu, interaction: TInteraction) -> None:
         self._interaction = interaction
         self.update: bool = False
@@ -75,15 +76,17 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,   
+        flags: hikari.MessageFlag = hikari.MessageFlag.NONE
     ):
         embeds = embeds or [embed] if embed else []
-        
+
         await self.response_state.respond(
             embeds=embeds,
             content=content,
             delete_after=delete_after,
             ephemeral=ephemeral,
-            components=components
+            components=components,
+            flags=flags
         )
     
     async def delete_initial_response(self):
@@ -116,6 +119,9 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         
     @classmethod
     def from_event(cls, interaction: TInteraction) -> "BaseInteractionContext":
+        if isinstance(interaction, hikari.InteractionCreateEvent):
+            interaction = interaction.interaction  # type: ignore
+        
         return cls(interaction.app, interaction)
 
     @classmethod
