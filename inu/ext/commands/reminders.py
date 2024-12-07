@@ -16,11 +16,8 @@ from hikari import ButtonStyle, PartialMessage
 from hikari.impl.special_endpoints import MessageActionRowBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
-from lightbulb.commands import message
-from lightbulb.events import CommandErrorEvent
 import lightbulb.utils as lightbulb_utils
-from lightbulb import commands, context
-from lightbulb.commands.base import OptionModifier as OM
+from lightbulb import Context
 import hikari
 from numpy import isin
 import apscheduler
