@@ -20,43 +20,25 @@ from hikari import (
 from hikari.impl import MessageActionRowBuilder
 from hikari import ButtonStyle
 import lightbulb
-from lightbulb import commands
-from lightbulb.commands import OptionModifier as OM
-from lightbulb.context import Context
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
 import asyncpg
 from fuzzywuzzy import fuzz
-
 from utils import (
-    TagIsTakenError, 
-    TagManager, 
-    TagScope, 
-    Human, 
-    get_guild_or_channel_id, 
-    guild_name_or_id, 
-    TagType,
-    crumble,
-    ListParser,
-    Paginator, StatelessPaginator,
-    TagHandler, Tag, TagViewPaginator,
-    add_row_when_filled, 
-    TagCustomID,
-    mockup_action_row
+    TagIsTakenError, TagManager, TagScope, Human, get_guild_or_channel_id, 
+    guild_name_or_id, TagType, crumble, ListParser, Paginator, StatelessPaginator, 
+    TagHandler, Tag, TagViewPaginator, add_row_when_filled, TagCustomID, mockup_action_row
 )
 from utils.paginators.base import navigation_row
 from core import (
-    Inu,
-    BotResponseError,
-    getLogger, 
-    BotResponseError, 
-    ComponentContext, 
-    get_context, 
-    InuContext
+    Inu, BotResponseError, getLogger, BotResponseError, ComponentContext, 
+    get_context, InuContext
 )
 
 log = getLogger(__name__)
+loader = lightbulb.Loader()
 
 
-tags = lightbulb.Plugin("Tags", "Commands all arround tags")
+
 bot: Inu
 EPHEMERAL = {"flags": hikari.MessageFlag.EPHEMERAL}
 
@@ -133,7 +115,7 @@ class CheckForTagType:
 
 
 
-@tags.listener(event=hikari.InteractionCreateEvent)
+@loader.listener(hikari.InteractionCreateEvent)
 async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
     """
     Handler for all tag paginator related interactions
@@ -166,7 +148,7 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
 
 
 
-async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping[str, Any]]:
+async def get_tag_interactive(ctx: InuContext, key: str = None) -> Optional[Mapping[str, Any]]:
     """
     Get the tag interactive via message menues and interactions
 
@@ -210,7 +192,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
         )
         try:
             await ctx.respond("There are multiple tags with this name. Which one do you want?", component=menu, **EPHEMERAL)
-            event = await tags.bot.wait_for(
+            event = await ctx.bot.wait_for(
                 InteractionCreateEvent,
                 30,
             )
@@ -223,7 +205,7 @@ async def get_tag_interactive(ctx: Context, key: str = None) -> Optional[Mapping
             
 
 
-async def get_tag(ctx: Context, name: str) -> Optional[Mapping[str, Any]]:
+async def get_tag(ctx: InuContext, name: str) -> Optional[Mapping[str, Any]]:
     """
     Searches the <key> and sends the result into the channel of <ctx>
     NOTE:
@@ -247,7 +229,7 @@ async def get_tag(ctx: Context, name: str) -> Optional[Mapping[str, Any]]:
 
 async def show_record(
     record: Mapping[str, Any], 
-    ctx: Context, 
+    ctx: InuContext, 
     name: Optional[str] = None,
     force_show_name: bool = False,
     tag: Optional[Tag] = None,
@@ -317,7 +299,7 @@ def records_to_embed(
 
 
 async def no_tag_found_msg(
-    ctx: Context,
+    ctx: InuContext,
     tag_name: str, 
     guild_id: Optional[int], 
     creator_id: Optional[int] = None
@@ -336,7 +318,7 @@ async def no_tag_found_msg(
 
 
 
-@tags.listener(hikari.InteractionCreateEvent)
+@loader.listener(hikari.InteractionCreateEvent)
 async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
     """
     Handler for Button/Menu Interactions with tag links
@@ -346,7 +328,7 @@ async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
     log = getLogger(__name__, "tag link interaction")
     if not isinstance(i, hikari.ComponentInteraction):
         return
-    ctx = ComponentContext(event, app=bot)
+    ctx = get_context(event)
     try:
         if not (
             ctx.custom_id.startswith("tag://")  # button
@@ -366,7 +348,7 @@ async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
 
 
 
-@tags.listener(hikari.InteractionCreateEvent)
+@loader.listener(hikari.InteractionCreateEvent)  # type: ignore
 async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     """Handler for Tag edit one time paginator"""
     if not isinstance(event.interaction, hikari.ComponentInteraction):
@@ -456,56 +438,39 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
     await pag.rebuild(event)
 
 
+tags = Group(name="tag", description="Tags - simple digital sticky notes")
 
-@tags.command
-@lightbulb.option("name", "the name of the tag you want to get", modifier=commands.OptionModifier.CONSUME_REST, default=None) 
-@lightbulb.command("tag", "get a stored tag")
-@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup) 
-async def tag(ctx: Context):
-    """
-    Get the tag by `name`
-    Args:
-    ----
+@tags.register
+class CommandName(
+    SlashCommand,
+    name="add",
+    description="description",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The tags name", default=None)
+    value = lightbulb.string("content", "the text your tag should return", default=None)
 
-    key: the name of the tag
-    if `key` isn't provided I'll start an interactive tag creation menu
-    """
-    try:
-        ctx.raw_options["name"] = ctx.options.name.strip()
-    except:
-        pass
-    name = ctx.options.name
-    if name is None:
-        taghandler = TagHandler()
-        return await taghandler.start(ctx)
-    record = await get_tag(ctx, name)
-    await show_record(record, ctx, name)
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        ...
 
-
-
-@tag.child
-@lightbulb.option(
-    "value", 
-    "the value (text) your tag should return",
-     modifier=commands.OptionModifier.CONSUME_REST,
-     required=False
-)
-@lightbulb.option("name", "the name of your tag", required=False) 
-@lightbulb.command("add", "add a new tag")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def _tag_add(ctx: Union[lightbulb.SlashContext, lightbulb.PrefixContext]):
-    """Add a tag to my storage
-    
-    Args:
-    -----
-        - name: the name the tag should have
-        NOTE: the key is the first word you type in! Not more and not less!!!
-        - value: that what the tag should return when you type in the name. The value is all after the fist word
-    """
-    await _tag_add(get_context(ctx.event, options=ctx.raw_options))
+        """Add a tag to my storage
+        
+        Args:
+        -----
+            - name: the name the tag should have
+            NOTE: the key is the first word you type in! Not more and not less!!!
+            - value: that what the tag should return when you type in the name. The value is all after the fist word
+        """
+        await _tag_add(ctx, name=self.name, value=self.value)
     
     
-async def _tag_add(ctx: InuContext, tag_type: Optional[TagType] = None) -> str | None:
+async def _tag_add(
+    ctx: InuContext, 
+    name: str | None, 
+    value: str | None, 
+    tag_type: type[TagType] | None = None
+) -> str | None:
     """
     Adds a tag to the storage.
 
@@ -521,31 +486,34 @@ async def _tag_add(ctx: InuContext, tag_type: Optional[TagType] = None) -> str |
     """
     # get args with command
     try:
-        name = ctx.options.name.strip()
-        value = ctx.options.value.strip()
-    # get args with modal
+        name = name.strip()
+        value = value.strip()
+    
     except:
+        # get args with modal
         try:
-            answers, ctx = await ctx.ask_with_modal(
+            answers, new_ctx = await ctx.ask_with_modal(
                 "Tag", 
                 ["Name:", "Value:"], 
                 input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
                 placeholder_s=["The name of your tag", "What you will see, when you do /tag get <name>"],
-                pre_value_s=[ctx.options.name or "", ctx.options.value or ""],
+                pre_value_s=[name or "", value or ""],
             )
         except asyncio.TimeoutError:
             return
+        assert(new_ctx is not None and answers is not None)
         name, value = answers
         name = name.strip()
+        
+        ctx = new_ctx
     try:
         tag = Tag(
             owner=ctx.author,
             channel_id=ctx.guild_id or ctx.channel_id,
         )
+
         tag.name = name
         tag.value = [value]
-        if tag_type is not None:
-            tag.tag_type = tag_type
         await tag.save()
     except TagIsTakenError:
         raise BotResponseError("Your tag is already taken", ephemeral=True)
@@ -1182,9 +1150,3 @@ async def guild_auto_complete(
 def guild_autocomplete_get_id(value: str) -> int :
     return int(value[:value.find("|")])
 
-
-
-def load(inu: Inu):
-    inu.add_plugin(tags)
-    global bot
-    bot = inu
