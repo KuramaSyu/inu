@@ -12,7 +12,7 @@ from hikari import (
     Permissions
 )
 from hikari.impl import MessageActionRowBuilder
-from lightbulb import SlashCommand, invoke
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
 from lightbulb.prefab import sliding_window
 
 
