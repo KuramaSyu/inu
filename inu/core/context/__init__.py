@@ -5,7 +5,7 @@ from .mixins import (
 from .response_proxy import ResponseProxy, InitialResponseProxy, WebhookProxy
 from .base import InuContextBase, UniqueContextInstance, Response
 
-from .response import (
+from .response_state import (
     BaseResponseState, CreatedResponseState, DeferredCreateResponseState, 
     DeletedResponseState, InitialResponseState
 )
