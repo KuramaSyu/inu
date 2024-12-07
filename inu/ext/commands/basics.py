@@ -391,7 +391,7 @@ class Purge(
     hooks=[sliding_window(3, 1, "user")]
 ):
     @invoke
-    async def callback(self, ctx: InuContext):
+    async def callback(self, _: Context, ctx: InuContext):
         userid_to_amount: Dict[int, int] = {}
         message = await ctx.respond(f"Let me get the trash bin ready...\nY'know, this thing is pretty heavy")
         try:
