@@ -7,8 +7,9 @@ from cachetools import cached, TTLCache
 from hikari import Embed
 from hikari.impl import MessageActionRowBuilder
 from core import getLogger
+
 from .protocols import InuContext
-from .response import BaseResponseState, InitialResponseState
+from .response_state import BaseResponseState, InitialResponseState
 
 log = getLogger(__name__)
 
@@ -74,7 +75,7 @@ class InuContextBase(ContextEqualTrait):
         self._defered = False
         self._responded = False
         self._responses: List[Response] = []
-        self._response_state: BaseResponseState = InitialResponseState(self.interaction, self)
+        self._response_state: BaseResponseState = InitialResponseState(self.interaction, self, [])
     
     def set_response_state(self, new_state: BaseResponseState):
         """Changes the response state to a new state"""
