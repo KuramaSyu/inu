@@ -190,7 +190,7 @@ class Inu(hikari.GatewayBot):
         Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
         """
         # TODO: remove when finished with testing
-        ALLOWED_EXTENSIONS = ["basics", "errors"]
+        ALLOWED_EXTENSIONS = ["basics", "errors", "counter"]
         def is_allowed(extension: str) -> bool:
             for allowed in ALLOWED_EXTENSIONS:
                 if allowed in extension:
