@@ -13,8 +13,6 @@ from hikari import (
 from hikari import embeds
 from hikari.impl import MessageActionRowBuilder
 
-from inu.core.context.response_proxy import ResponseProxy
-
 from .._logging import getLogger
 import lightbulb
 from lightbulb import Context
