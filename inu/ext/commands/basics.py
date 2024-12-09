@@ -242,7 +242,7 @@ class Status(
     description="Get the status of the bot",
 ):
     @invoke
-    async def status(self, ctx: Context):
+    async def status(self, _: Context, ctx: InuContext):
         request_start = datetime.now()
         embed = Embed(
                 title="Status",
@@ -306,27 +306,29 @@ class PurgeSlash(
     amount = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None)
 
     @invoke
-    async def purge(self, ctx: lightbulb.Context):
+    async def purge(self, _: Context, ctx: InuContext):
         userid_to_amount: Dict[int, int] = {}
+        amount = self.amount or 0
+        message_link = self.message_link
         MAX_AMOUNT = 100
         if not (channel := ctx.get_channel()):
             return
         if not isinstance(channel, hikari.TextableGuildChannel):
             return
-        if not ctx.options.amount and not ctx.options.message_link:
+        if not amount and not message_link:
             raise BotResponseError(
                 f"I need the amount of messages I should delete, or the message link until which I should delete messages"
             )
-        if (amount := ctx.options.amount) and amount > MAX_AMOUNT:
+        if amount > MAX_AMOUNT:
             raise BotResponseError("I can't delete that much messages")
-        if ctx.options.message_link:
+        if message_link:
             amount = MAX_AMOUNT
         messages = []
         amount += 2
         table = tabulate(userid_to_amount, tablefmt="rounded_outline", headers=["User", "Amount"])
         delete_in = datetime.now() + timedelta(seconds=20)
         answer = await ctx.respond(
-            f"I'll do it. Let me some time.\n<t:{delete_in.timestamp():.0f}:R>",
+            f"I'll do it. Let me some time.\n```\n{table}```\n<t:{delete_in.timestamp():.0f}:R>",
             delete_after=20
         )
         async for m in channel.fetch_history():
@@ -337,9 +339,9 @@ class PurgeSlash(
             amount -= 1
             if amount <= 0:
                 break
-            elif ctx.options.message_link and m.make_link(ctx.guild_id) == ctx.options.message_link.strip():
+            elif message_link and m.make_link(ctx.guild_id) == message_link.strip():
                 break
-        if ctx.options.message_link and amount <= 0:
+        if message_link and amount <= 0:
             raise BotResponseError(f"Your linked message is not under the last {MAX_AMOUNT} messages")
         messages.remove(await answer.message())
         await channel.delete_messages(messages)
@@ -355,6 +357,13 @@ class UserInfo(
     @invoke
     async def callback(self, ctx_: Context):
         ctx = get_context(ctx_.interaction)
+        guild = None
+        member = None
+        if ctx.member:
+            guild = ctx.member.get_guild()
+            member = ctx.member
+        assert(isinstance(guild, hikari.Guild) and isinstance(member, hikari.Member))
+        member.username
         bot: Inu = ctx.bot
         author: hikari.Member = bot.cache.get_member(ctx.guild_id, self.target)  # type: ignore
         embed = hikari.Embed(title=f"About {author.display_name}", color=Colors.default_color())
@@ -362,18 +371,18 @@ class UserInfo(
         embed.add_field(name="ID", value=f"`{author.id}`")
         embed.add_field(name="Created at", value=f"<t:{author.created_at.timestamp():.0f}:F>", inline=True)
         embed.add_field(name="Flags", value=f"{author.flags}", inline=True)
-        embed.add_field(name="Joined here", value=f"<t:{author.joined_at.timestamp():.0f}:F>", inline=True)
+        embed.add_field(name="Joined here", value=f"<t:{member.joined_at.timestamp():.0f}:F>", inline=True)
         embed.add_field(name="Roles", value=f"{', '.join([r.mention for r in await bot.mrest.fetch_roles(author)])}", inline=True)
         embed.add_field(
-            name=f"About {author.get_guild().name}", 
+            name=f"About {member.username}", 
             value=(
-                f"**ID**: `{author.get_guild().id}`\n"
-                f"**Owner**: {(await ctx.bot.mrest.fetch_member(author.guild_id, author.get_guild().owner_id)).display_name}\n"
-                f"**Created at**: <t:{author.get_guild().created_at.timestamp():.0f}:F>\n"
-                f"**Members**: {len(author.get_guild().get_members())}\n"
-                f"**Channels**: {len(author.get_guild().get_channels())}\n"
-                f"**Roles**: {len(author.get_guild().get_roles())}\n"
-                f"**Emojis**: {len(author.get_guild().get_emojis())}\n"
+                f"**ID**: `{member.id}`\n"
+                f"**Owner**: {(await ctx.bot.mrest.fetch_member(author.guild_id, guild.owner_id)).display_name}\n"
+                f"**Created at**: <t:{guild.created_at.timestamp():.0f}:F>\n"
+                f"**Members**: {len(guild.get_members())}\n"
+                f"**Channels**: {len(guild.get_channels())}\n"
+                f"**Roles**: {len(guild.get_roles())}\n"
+                f"**Emojis**: {len(guild.get_emojis())}\n"
             ),
             inline=True
         )
