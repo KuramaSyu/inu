@@ -606,7 +606,7 @@ class Shortcuts:
         is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
         components: Optional[List[ModalActionRowBuilder]] = None,
         timeout: int = 60 * 15,
-    ) -> Tuple[List[str], ModalInteraction, InteractionCreateEvent]:
+    ) -> Tuple[T_STR_LIST, ModalInteraction, InteractionCreateEvent]:
         """
         Asks a question with a modal
 
