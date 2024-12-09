@@ -110,7 +110,11 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
     ) -> hikari.Message:
-        return await self.response_state.edit_last_response()
+        return await self.response_state.edit_last_response(
+            embeds=embeds,
+            content=content,
+            components=components
+        )
 
     async def defer(self, update: bool = False, background: bool = False):
         await self.response_state.defer(update=update)
