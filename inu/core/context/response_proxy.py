@@ -9,12 +9,12 @@ class ResponseProxy(ABC):
     @abstractmethod
     async def edit(
         self,
-        content: str | None,
-        *,
+        content: str | None = None,
+        embed: Embed | None = None,
         embeds: List[Embed] | None = None,
+        component: MessageActionRowBuilder | None = None,
         components: List[MessageActionRowBuilder] | None = None,
-
-    ) -> None:
+    ) -> Message:
         pass
 
     @abstractmethod
@@ -35,13 +35,17 @@ class InitialResponseProxy(ResponseProxy):
     
     async def edit(
         self,
-        content: str | None,
-        *,
+        content: str | None = None,
+        embed: Embed | None = None,
         embeds: List[Embed] | None = None,
+        component: MessageActionRowBuilder | None = None,
         components: List[MessageActionRowBuilder] | None = None,
-    ) -> None:
-        msg = await self._interaction.edit_initial_response(
-            content=content,
+    ) -> Message:
+        embeds = embeds or [embed] if embed else []
+        components = components or [component] if component else []
+        
+        return await self._interaction.edit_initial_response(
+            content,
             embeds=embeds,
             components=components,
         )
@@ -64,13 +68,18 @@ class WebhookProxy(ResponseProxy):
 
     async def edit(
         self,
-        content: str | None,
-        *,
+        content: str | None = None,
+        embed: Embed | None = None,
         embeds: List[Embed] | None = None,
+        component: MessageActionRowBuilder | None = None,
         components: List[MessageActionRowBuilder] | None = None,
-    ) -> None:
-        await self._interaction.edit_message(
-            self._message, content,
+    ) -> Message:
+        embeds = embeds or [embed] if embed else []
+        components = components or [component] if component else []
+        
+        return await self._interaction.edit_message(
+            self._message, 
+            content,
             embeds=embeds,
             components=components,
         )
