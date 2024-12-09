@@ -13,6 +13,8 @@ from hikari import (
 from hikari import embeds
 from hikari.impl import MessageActionRowBuilder
 
+from inu.core.context.response_proxy import ResponseProxy
+
 from .._logging import getLogger
 import lightbulb
 from lightbulb import Context
@@ -23,7 +25,7 @@ from . import (
     InuContextProtocol, UniqueContextInstance, Response, 
     BaseResponseState, InitialResponseState, TInteraction,
     GuildsAndChannelsMixin, AuthorMixin, CustomIDMixin,
-    MessageMixin, T_STR_LIST
+    MessageMixin, T_STR_LIST, ResponseProxy
 )
 from .base import InuContextBase, InuContext
 
@@ -77,10 +79,10 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE
-    ):
+    ) -> ResponseProxy:
         embeds = embeds or [embed] if embed else []
 
-        await self.response_state.respond(
+        return await self.response_state.respond(
             embeds=embeds,
             content=content,
             delete_after=delete_after,
