@@ -9,11 +9,12 @@ from hikari import (
     Embed,
     ResponseType, 
     TextInputStyle,
-    ButtonStyle,
-    InteractionCreateEvent
+    Permissions, InteractionCreateEvent, ButtonStyle
 )
 from hikari.impl import MessageActionRowBuilder
-from lightbulb import commands, context
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
+
 
 
 from utils import (
@@ -33,7 +34,7 @@ from core import (
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Name", "Description")
+loader = lightbulb.Loader()
 bot: Inu
 
 def get_counter_custom_id(action: str, counter: int, title: str, all_visible: bool = True) -> str:
@@ -57,7 +58,7 @@ def get_counter_message_components(counter: int, title: str, all_visible: bool) 
     if all_visible:
         # add option buttons if needed
         rows.append(
-        MessageActionRowBuilder()
+            MessageActionRowBuilder()
             .add_interactive_button(
                 ButtonStyle.SECONDARY, 
                 get_counter_custom_id("reset", *args),
@@ -76,16 +77,16 @@ def get_counter_message_components(counter: int, title: str, all_visible: bool) 
                 label="Close",
                 emoji="❌"
             )
-        ),
+        )
 
     # add increment button
     rows.append(
         MessageActionRowBuilder()
-            .add_interactive_button(
-                ButtonStyle.PRIMARY, 
-                get_counter_custom_id("incr", *args),
-                label="+1"
-            )
+        .add_interactive_button(
+            ButtonStyle.PRIMARY, 
+            get_counter_custom_id("incr", *args),
+            label="+1"
+        )
         )
     if all_visible:
         # add decrement button if needed
@@ -116,7 +117,7 @@ def get_counter_message_components(counter: int, title: str, all_visible: bool) 
 
 
 
-@plugin.listener(hikari.InteractionCreateEvent)
+@loader.listener(hikari.InteractionCreateEvent)
 async def on_coutner_button(event: InteractionCreateEvent):
     """
     A message with the counter as content.
@@ -136,6 +137,7 @@ async def on_coutner_button(event: InteractionCreateEvent):
     custom_id = None
     try:
         # un json the custom_id
+        assert(isinstance(event.interaction, hikari.ComponentInteraction))
         custom_id = json.loads(event.interaction.custom_id)
     except (json.JSONDecodeError, AttributeError):
         return
@@ -194,29 +196,26 @@ async def on_coutner_button(event: InteractionCreateEvent):
         update=True
     )
 
-@plugin.command
-@lightbulb.option("title", "The title of the counter", type=str, default="")
-@lightbulb.option("start-at", "The counter to start with", type=int, default=0)
-@lightbulb.command("counter", "A counter")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def counter(ctx: context.Context):
-    title: str = ctx.options["title"]
-    start_at: int = ctx.options["start-at"]
-    ctx = get_context(ctx.event)
-    MAX_TITLE_LENGTH = 60
-    if len(title) > MAX_TITLE_LENGTH:
-        await ctx.respond(f"The title is {Human.plural_('character', len(title) - MAX_TITLE_LENGTH)} to long", ephemeral=True)
-        return
-    await ctx.respond(
-        get_counter_message_content(start_at, title), 
-        components=get_counter_message_components(start_at, title, False)
-    )
+@loader.command
+class CommandName(
+    SlashCommand,
+    name="counter",
+    description="Start a counter",
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    start_at = lightbulb.integer("start-at", "The counter to start with", default=0)
+    title = lightbulb.string("title", "The title of the counter", default="")
 
-
-
-
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
-
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        title = self.title
+        start_at: int = self.start_at
+        MAX_TITLE_LENGTH = 60
+        if len(title) > MAX_TITLE_LENGTH:
+            await ctx.respond(f"The title is {Human.plural_('character', len(title) - MAX_TITLE_LENGTH)} to long", ephemeral=True)
+            return
+        await ctx.respond(
+            get_counter_message_content(start_at, title), 
+            components=get_counter_message_components(start_at, title, False)
+        )
