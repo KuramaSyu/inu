@@ -1,4 +1,5 @@
 import asyncio
+from multiprocessing import get_context
 from types import prepare_class
 from typing import *
 from datetime import datetime, timedelta
@@ -31,9 +32,6 @@ if TYPE_CHECKING:
     from .base import InuContextBase, InuContext
 
 log = getLogger(__name__)
-
-
-
 
 
 class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
@@ -118,7 +116,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         await self.response_state.defer(update=update)
         
     @classmethod
-    def from_event(cls, interaction: TInteraction) -> "BaseInteractionContext":
+    def from_event(cls, interaction: TInteraction | InteractionCreateEvent) -> "BaseInteractionContext":
         if isinstance(interaction, hikari.InteractionCreateEvent):
             interaction = interaction.interaction  # type: ignore
         
@@ -200,7 +198,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
             pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
             is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
             timeout: int = 120
-    ) -> Tuple[T_STR_LIST, "InteractionContext"] | Tuple[None, None]:
+    ) -> Tuple[T_STR_LIST, "InuContext"] | Tuple[None, None]:
         try:
             answer_s, interaction, event = await self.app.shortcuts.ask_with_modal(
                 modal_title=title,
