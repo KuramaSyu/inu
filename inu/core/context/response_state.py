@@ -60,6 +60,7 @@ class BaseResponseState(abc.ABC):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False,
     ) -> ResponseProxy:
         ...
     
@@ -105,6 +106,7 @@ class BaseResponseState(abc.ABC):
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
         message_id: Snowflake | None = None,
+        **kwargs: Dict[str, Any]
     ):
         """Edits per default the first response or makes the initial response if it hasn't been made yet.
 
@@ -146,16 +148,32 @@ class InitialResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False,
     ) -> ResponseProxy:
         await self._response_lock.acquire()
         
         if self._responded or self._deferred:
             raise RuntimeError(f"can't create a response in {type(self)} when alreaded responded or deferred")
         
+        kwargs = {
+            'embeds': embeds,
+            'content': content,
+            'components': components,
+            'flags': flags,
+            'delete_after': delete_after,
+            'ephemeral': ephemeral,
+        }
+
+        if update:
+            self._response_lock.release()
+            await self.edit(**kwargs)
+            return self.responses[-1]
+        
         flags = hikari.MessageFlag.NONE
         if ephemeral:
             flags = hikari.MessageFlag.EPHEMERAL
-            
+        
+        kwargs.pop('delete_after')
         await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
             embeds=embeds,
@@ -175,6 +193,7 @@ class InitialResponseState(BaseResponseState):
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
         message_id: Snowflake | None = None,
+        **kwargs: Dict[str, Any]
     ) -> None:
         """Initial Response with MESSAGE_UPDATE"""
         await self._response_lock.acquire()
@@ -184,8 +203,10 @@ class InitialResponseState(BaseResponseState):
             components=components,
         )
         self.last_response = datetime.now()
+        self.responses.append(InitialResponseProxy(interaction=self.interaction))
         self.change_state(CreatedResponseState)
         self._response_lock.release()
+        
         
     async def defer(self, update: bool = False) -> None:
         await self._response_lock.acquire()
@@ -222,8 +243,20 @@ class CreatedResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False,
     ) -> ResponseProxy:
         await self._response_lock.acquire()
+
+        if update:
+            # call edit_last_response() instead
+            await self.edit_last_response(
+                embeds=embeds,
+                content=content,
+                components=components
+            )
+            self._response_lock.release()
+            return self.responses[-1]
+
         message = await self.interaction.execute(
             content,
             embeds=embeds or [],
@@ -250,6 +283,7 @@ class CreatedResponseState(BaseResponseState):
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
         message_id: Snowflake | None = None,
+        **kwargs: Dict[str, Any]
     ) -> None:
         await self._response_lock.acquire()
         if message_id is None:
@@ -286,6 +320,7 @@ class DeferredCreateResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False,
     ) -> ResponseProxy:
         """Edits the initial response
         
@@ -293,6 +328,7 @@ class DeferredCreateResponseState(BaseResponseState):
         -----
         flags will be ignored here
         """
+        # update is ignored here, since deferred message needs to be updated anyways
         await self._response_lock.acquire()
         message = await self.interaction.edit_initial_response(
             content,
@@ -319,6 +355,7 @@ class DeferredCreateResponseState(BaseResponseState):
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
         message_id: Snowflake | None = None,
+        **kwargs: Dict[str, Any]
     ) -> None:
         """same as respond -> respond edits initial response"""
         await self.respond(
@@ -353,6 +390,7 @@ class DeletedResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False,
     ) -> ResponseProxy:
         """
         Creates a Followup message
@@ -365,6 +403,10 @@ class DeletedResponseState(BaseResponseState):
         if components:
             kwargs['components'] = components
 
+        if update:
+            await self.edit_last_response(**kwargs)
+            return self.responses[-1]
+
         msg = await self.interaction.execute(**kwargs, flags=flags)
         self.responses.append(WebhookProxy(msg, self.interaction))
         return self.responses[-1]
@@ -375,6 +417,7 @@ class DeletedResponseState(BaseResponseState):
         content: str | None = None,
         components: List[MessageActionRowBuilder] | None = None,
         message_id: Snowflake | None = None,
+        **kwargs: Dict[str, Any]
     ) -> None:
         # Implement the method
         pass
