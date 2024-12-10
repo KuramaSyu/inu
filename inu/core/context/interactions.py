@@ -74,7 +74,8 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
         components: List[MessageActionRowBuilder] | None = None,   
-        flags: hikari.MessageFlag = hikari.MessageFlag.NONE
+        flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False
     ) -> ResponseProxy:
         embeds = embeds or [embed] if embed else []
 
@@ -84,7 +85,8 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
             delete_after=delete_after,
             ephemeral=ephemeral,
             components=components,
-            flags=flags
+            flags=flags,
+            update=update
         )
     
     async def delete_initial_response(self):
