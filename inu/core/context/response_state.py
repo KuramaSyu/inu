@@ -11,6 +11,7 @@ from hikari.impl import MessageActionRowBuilder
 from datetime import timedelta
 
 #from . import Response
+from core import getLogger
 from .response_proxy import InitialResponseProxy, ResponseProxy, WebhookProxy
 if TYPE_CHECKING:
     from .base import InuContextBase
@@ -39,6 +40,7 @@ class BaseResponseState(abc.ABC):
         self.last_response: datetime = self.created_at
         self.responses = responses
         self.context = context
+        self.log = getLogger(__name__, self.__class__.__name__)
         
     def change_state(self, new_state: Type["BaseResponseState"]):
             """
@@ -165,10 +167,12 @@ class InitialResponseState(BaseResponseState):
         }
 
         if update:
+            self.log.debug("updating last response")
             self._response_lock.release()
             await self.edit(**kwargs)
             return self.responses[-1]
         
+        self.log.debug("creating initial response")
         flags = hikari.MessageFlag.NONE
         if ephemeral:
             flags = hikari.MessageFlag.EPHEMERAL
@@ -195,7 +199,11 @@ class InitialResponseState(BaseResponseState):
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ) -> None:
-        """Initial Response with MESSAGE_UPDATE"""
+        """
+        Initial Response with MESSAGE_UPDATE
+
+        change state -> CreatedResponseState
+        """
         await self._response_lock.acquire()
         await self.interaction.create_initial_response(
             ResponseType.MESSAGE_UPDATE, content,  # type: ignore
@@ -248,7 +256,8 @@ class CreatedResponseState(BaseResponseState):
         await self._response_lock.acquire()
 
         if update:
-            # call edit_last_response() instead
+            # call edit_last_response instead
+            self.log.debug("updating last response")
             await self.edit_last_response(
                 embeds=embeds,
                 content=content,
@@ -257,6 +266,7 @@ class CreatedResponseState(BaseResponseState):
             self._response_lock.release()
             return self.responses[-1]
 
+        self.log.debug("creating followup message")
         message = await self.interaction.execute(
             content,
             embeds=embeds or [],
@@ -330,6 +340,7 @@ class DeferredCreateResponseState(BaseResponseState):
         """
         # update is ignored here, since deferred message needs to be updated anyways
         await self._response_lock.acquire()
+        self.log.debug("updating (ignoring update) deferred initial response")
         message = await self.interaction.edit_initial_response(
             content,
             embeds=embeds,
