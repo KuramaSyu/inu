@@ -12,7 +12,8 @@ from .mixins import GuildsAndChannelsMixin, AuthorMixin, CustomIDMixin
 from ..bot import Inu
 
 if TYPE_CHECKING:
-    from .response import BaseResponseState
+    from .response_state import BaseResponseState
+    from .response_proxy import ResponseProxy
 
 T = TypeVar("T")
 Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | hikari.ComponentInteraction]
@@ -109,7 +110,7 @@ class InuContext(ABC):
         ...
 
     @abstractmethod
-    async def respond(self, *args, **kwargs) -> Message:
+    async def respond(self, *args, **kwargs) -> ResponseProxy:
         """
         Create a response for this context. The first time this method is called, the initial
         interaction response will be created by calling
