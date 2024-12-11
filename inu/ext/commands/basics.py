@@ -283,9 +283,9 @@ class Status(
                 "```"
             )
         )
-        embed.add_field(f"Daily DB calls", f"```py\n{bot.db.daily_queries.tail(7)}```", inline=False)
-        embed.add_field(f"Hourly DB calls", f"```py\n{bot.db.hourly_queries.tail(24)}```", inline=False)
-        embed.add_field(f"Guilds:", f"{len(bot.cache.get_guilds_view())}")
+        embed.add_field(f"Daily DB calls", f"```py\n{ctx.bot.db.daily_queries.tail(7)}```", inline=False)
+        embed.add_field(f"Hourly DB calls", f"```py\n{ctx.bot.db.hourly_queries.tail(24)}```", inline=False)
+        embed.add_field(f"Guilds:", f"{len(ctx.bot.cache.get_guilds_view())}")
         await msg.edit(embed=embed, 
             components=[ 
                 MessageActionRowBuilder()
