@@ -20,7 +20,7 @@ from hikari import (
 from hikari.impl import MessageActionRowBuilder
 from hikari import ButtonStyle
 import lightbulb
-from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
+from lightbulb import AutocompleteContext, Context, Loader, Group, SubGroup, SlashCommand, invoke
 import asyncpg
 from fuzzywuzzy import fuzz
 from utils import (
@@ -112,9 +112,6 @@ class CheckForTagType:
 
 
 
-
-
-
 @loader.listener(hikari.InteractionCreateEvent)
 async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
     """
@@ -148,7 +145,7 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
 
 
 
-async def get_tag_interactive(ctx: InuContext, key: str = None) -> Optional[Mapping[str, Any]]:
+async def get_tag_interactive(ctx: InuContext, key: str) -> Optional[Mapping[str, Any]]:
     """
     Get the tag interactive via message menues and interactions
 
@@ -158,8 +155,6 @@ async def get_tag_interactive(ctx: InuContext, key: str = None) -> Optional[Mapp
     - if there are multiple tags with same name, the user will be asked, which one to use
     """
 
-    if key is None:
-        key = ctx.options.name
     key = key.strip()
     raw_results: List[Mapping[str, Any]] = await TagManager.get(key, ctx.guild_id or ctx.channel_id)
     results = []
@@ -228,12 +223,11 @@ async def get_tag(ctx: InuContext, name: str) -> Optional[Mapping[str, Any]]:
 
 
 async def show_record(
-    record: Mapping[str, Any], 
+    record: Mapping[str, Any] | None, 
     ctx: InuContext, 
     name: Optional[str] = None,
     force_show_name: bool = False,
     tag: Optional[Tag] = None,
-    event: hikari.Event | None = None,
 ) -> None:
     """
     Sends the given tag(record) into the channel of <ctx>.
@@ -266,15 +260,14 @@ async def show_record(
     BotResponseError:
         when the tag creation raises an RuntimeError
     """
-    if record is None and tag is None:
-        return await no_tag_found_msg(ctx, name, ctx.guild_id)
+    if not record:
+        await no_tag_found_msg(ctx, name or "<not given>", ctx.guild_id or ctx.channel_id)
+        return
     if not tag:
         try:
             tag = await Tag.from_record(record,  db_checks=False)
         except RuntimeError as e:
             raise BotResponseError(e.args[0], ephemeral=True)
-    if not ctx:
-        ctx = get_context(event)
     pag = TagViewPaginator(
         tag=tag
     )
@@ -315,6 +308,27 @@ async def no_tag_found_msg(
         )
         answer += "\n".join(f"`{sim['tag_key']}`" for sim in similar_records)
         await ctx.respond(answer)
+
+
+# @tag_remove.autocomplete("name")
+# @tag_change_name.autocomplete("old_name")
+# @tag_append.autocomplete("name")
+# @tag_info.autocomplete("name")
+# @tag_edit.autocomplete("name")
+# @tag_remove_alias.autocomplete("name")
+# @tag_add_alias.autocomplete("name")
+# @tag_remove_guild.autocomplete("name")
+# @tag_remove_author.autocomplete("name")
+# @tag_add_author.autocomplete("name")
+# @tag_add_guild.autocomplete("name")
+# @tag_remove.autocomplete("name")
+# @tag_get.autocomplete("name")
+async def tag_name_auto_complete(
+    ctx: AutocompleteContext
+) -> List[str]:
+    """autocomplete for tag names"""
+    option = ctx.options[0]
+    return await TagManager.tag_name_auto_complete(option, ctx.interaction)
 
 
 
@@ -441,19 +455,17 @@ async def on_tag_edit_interaction(event: hikari.InteractionCreateEvent):
 tags = Group(name="tag", description="Tags - simple digital sticky notes")
 
 @tags.register
-class CommandName(
+class TagAdd(
     SlashCommand,
     name="add",
     description="description",
     dm_enabled=True,
 ):
-    name = lightbulb.string("name", "The tags name", default=None)
+    name = lightbulb.string("name", "The tags name", default=None, autocomplete=tag_name_auto_complete)
     value = lightbulb.string("content", "the text your tag should return", default=None)
 
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
-        ...
-
         """Add a tag to my storage
         
         Args:
@@ -489,7 +501,7 @@ async def _tag_add(
         name = name.strip()
         value = value.strip()
     
-    except:
+    except Exception:
         # get args with modal
         try:
             answers, new_ctx = await ctx.ask_with_modal(
@@ -539,155 +551,156 @@ async def _tag_add(
     return name
 
 
+@tags.register
+class TagEdit(
+    SlashCommand,
+    name="edit",
+    description="edit a tag you own",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
 
-@tag.child
-@lightbulb.option(
-    "name", 
-    "the name of your tag",
-    autocomplete=True,
-) 
-@lightbulb.command("edit", "edit a tag you own")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_edit(ctx: Context):
-    """Add a tag to my storage
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Add a tag to my storage
+        
+        Args:
+        -----
+            - key: the name the tag should have
+            NOTE: the key is the first word you type in! Not more and not less!!!
+            - value: that what the tag should return when you type in the name. The value is all after the fist word
+        """
+        record = await get_tag_interactive(ctx, key=self.name)
+        if not record:
+            return
+        taghandler = TagHandler()
+        await taghandler.start(ctx, record)
+
+@tags.register
+class TagRemove(
+    SlashCommand,
+    name="remove",
+    description="remove a tag you own",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
     
-    Args:
-    -----
-        - key: the name the tag should have
-        NOTE: the key is the first word you type in! Not more and not less!!!
-        - value: that what the tag should return when you type in the name. The value is all after the fist word
-    """
-    ctx.raw_options["name"] = ctx.options.name.strip()
-    record = await get_tag_interactive(ctx)
-    if not record:
-        return
-    taghandler = TagHandler()
-    await taghandler.start(ctx, record)
-
-
-    
-@tag.child
-@lightbulb.option(
-    "name", 
-    "the name of your tag",
-    autocomplete=True,
-) 
-@lightbulb.command("remove", "remove a tag you own")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_remove(ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    ctx.raw_options["name"] = ctx.options.name.strip()
-    name = ctx.options.name
-    record = await get_tag_interactive(ctx)
-    if not record:
-        # await #ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
-        return
-    await TagManager.remove(record['tag_id'])
-    await ctx.respond(
-        f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{name}`"
-    )
-
-
-
-@tag.child
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    modifier=commands.OptionModifier.CONSUME_REST, 
-    required=True, 
-    autocomplete=True
-) 
-@lightbulb.command("get", "get a tag by key|name",)
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_get(ctx: Context):
-    """get a tag to my storage
-    
-    Args:
-    -----
-        - name: the name the tag should have
-    """
-    record = await get_tag(ctx, ctx.options.name)
-    await show_record(record, ctx, ctx.options.name, event=ctx.event)
-
-
-    
-@tag.child
-@lightbulb.command("overview", "get an overview of all tags", aliases=["ov"])
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def overview(ctx: Context):
-    """get an overview of all tags
-
-    """
-    menu = (
-        MessageActionRowBuilder()
-        .add_text_menu("overview_menu")
-        .add_option("all tags you can use", "all")
-        .add_option("guild tags", "guild")
-        .add_option("your tags", "your")
-        .add_option("global tags (all guilds)", "global")
-        .parent
-    )
-    msg = await ctx.respond("Which overview do you want?", component=menu)
-    msg = await msg.message()
-    try:
-        event = await ctx.bot.wait_for(
-            hikari.InteractionCreateEvent,
-            60,
-            lambda e: isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.message.id == msg.id
-            
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Remove a tag to my storage
+        
+        Args:
+        -----
+            - key: the name of the tag which you want to remove
+        """
+        name = self.name
+        record = await get_tag_interactive(ctx, key=name)
+        if not record:
+            return
+        
+        await TagManager.remove(record['tag_id'])
+        await ctx.respond(
+            f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{name}`"
         )
-    except:
-        return
-    if not isinstance(event.interaction, hikari.ComponentInteraction):
-        return
-    new_ctx = get_context(event)
-    await new_ctx.defer()
-    result = event.interaction.values[0]
-    type_ = {
-        "guild": TagScope.GUILD,
-        "all": TagScope.SCOPE,
-        "global": TagScope.GLOBAL,
-        "your": TagScope.YOUR,
-    }.get(result)
-    if type_ is None:
-        raise RuntimeError("Can't get Tags, when Tag Scope is None")
-    records = await TagManager.get_tags(type_, guild_id=ctx.guild_id or ctx.channel_id, author_id=ctx.author.id)
-    if records is None:
-        return
-    embeds = records_to_embed(records)
-    pag = Paginator(page_s=embeds, timeout=10*60)
-    await pag.start(new_ctx)
+
+@tags.register
+class TagRemove(
+    SlashCommand,
+    name="remove",
+    description="remove a tag you own",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
+    
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """get a tag to my storage
+        
+        Args:
+        -----
+            - name: the name the tag should have
+        """
+        record = await get_tag(ctx, self.name)
+        await show_record(record, ctx, self.name)
 
 
+@tags.register
+class TagOverview(
+    SlashCommand,
+    name="overview",
+    description="get an overview of all tags",
+    dm_enabled=True,
+):    
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """get an overview of all tags
 
-@tag.child
-@lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    modifier=commands.OptionModifier.CONSUME_REST, 
-    required=True, 
-    autocomplete=True
-) 
-@lightbulb.command("execute", "executes a tag with Python\nNOTE: owner only", aliases=["run", "exec"])
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_execute(ctx: Context):
-    record = await get_tag(ctx, ctx.options.name)
-    if not record:
-        raise BotResponseError(bot_message=f"I can't find a tag with called `{ctx.options.name}`")
-    ctx._options["code"] = "\n".join(record["tag_value"])  # tag value is a list
-    ext = tags.bot.get_plugin("Owner")
-    for cmd in ext.all_commands:
-        if cmd.name == "run":
-            return await cmd.callback(ctx)
+        """
+        menu = (
+            MessageActionRowBuilder()
+            .add_text_menu("overview_menu")
+            .add_option("all tags you can use", "all")
+            .add_option("guild tags", "guild")
+            .add_option("your tags", "your")
+            .add_option("global tags (all guilds)", "global")
+            .parent
+        )
+        msg = await ctx.respond("Which overview do you want?", component=menu)
+        msg = await msg.message()
+        # TODO: use ctx for the following
+        try:
+            event = await ctx.bot.wait_for(
+                hikari.InteractionCreateEvent,
+                60,
+                lambda e: isinstance(e.interaction, hikari.ComponentInteraction) and e.interaction.message.id == msg.id
+                
+            )
+        except:
+            return
+        if not isinstance(event.interaction, hikari.ComponentInteraction):
+            return
+        new_ctx = get_context(event)
+        await new_ctx.defer()
+        result = event.interaction.values[0]
+        type_ = {
+            "guild": TagScope.GUILD,
+            "all": TagScope.SCOPE,
+            "global": TagScope.GLOBAL,
+            "your": TagScope.YOUR,
+        }.get(result)
+        if type_ is None:
+            raise RuntimeError("Can't get Tags, when Tag Scope is None")
+        records = await TagManager.get_tags(type_, guild_id=ctx.guild_id or ctx.channel_id, author_id=ctx.author.id)
+        if records is None:
+            return
+        embeds = records_to_embed(records)
+        pag = Paginator(page_s=embeds, timeout=10*60)
+        await pag.start(new_ctx)
+
+# TODO: reimplement
+# @tag.child
+# @lightbulb.add_checks(lightbulb.owner_only)
+# @lightbulb.option(
+#     "name", 
+#     "the name of your tag", 
+#     modifier=commands.OptionModifier.CONSUME_REST, 
+#     required=True, 
+#     autocomplete=True
+# ) 
+# @lightbulb.command("execute", "executes a tag with Python\nNOTE: owner only", aliases=["run", "exec"])
+# @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
+# async def tag_execute(ctx: Context):
+#     record = await get_tag(ctx, ctx.options.name)
+#     if not record:
+#         raise BotResponseError(bot_message=f"I can't find a tag with called `{ctx.options.name}`")
+#     ctx._options["code"] = "\n".join(record["tag_value"])  # tag value is a list
+#     ext = tags.bot.get_plugin("Owner")
+#     for cmd in ext.all_commands:
+#         if cmd.name == "run":
+#             return await cmd.callback(ctx)
 
 
-@tags.listener(event=hikari.InteractionCreateEvent)
+@loader.listener(hikari.InteractionCreateEvent)
 async def on_tag_append(event: hikari.InteractionCreateEvent):
     """Listener for tag append button"""
     if not isinstance(event.interaction, hikari.ComponentInteraction):
@@ -701,15 +714,29 @@ async def on_tag_append(event: hikari.InteractionCreateEvent):
         user_id=event.interaction.user.id, 
         guild_or_channel_id=get_guild_or_channel_id(event.interaction)
     )
+    assert(tag is not None)
     ctx = get_context(event)
     if not tag.is_authorized_to_write(event.interaction.user.id):
         await ctx.respond("You don't own this tag hence you can't append to it", ephemeral=True)
         return
     await append_to_tag(ctx, tag, additional_flag, new_page, None)
-    
+
+yes = lightbulb.Choice("Yes", "Yes")  # value returned
+no = lightbulb.Choice("No", "No")
+
+@tags.register
+class TagAppend(
+    SlashCommand,
+    name="overview",
+    description="get an overview of all tags",
+    dm_enabled=True,
+):
+    silent_message = lightbulb.string("silent-message", "only you see the sucess message", choices=[yes], default=no)
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
 
 @tag.child
-@lightbulb.option("silent-message", "only you see the sucess message", choices=["Yes", "No"], default="No")
+@lightbulb.option("silent-message", "only you see the sucess message", choices=[yes, no], default=no)
 @lightbulb.option("new-page", "wether to write the tag on a new page or the last page", choices=["Yes", "No"], default="No")
 @lightbulb.option("text", "the text, you want to append to the current value", type=str, default=None, modifier=OM.CONSUME_REST)
 @lightbulb.option("name", "the name of your tag", autocomplete=True)  
@@ -1094,25 +1121,7 @@ async def tag_random(ctx: Context):
 
 
 
-@tag_remove.autocomplete("name")
-@tag_change_name.autocomplete("old_name")
-@tag_append.autocomplete("name")
-@tag_info.autocomplete("name")
-@tag_edit.autocomplete("name")
-@tag_remove_alias.autocomplete("name")
-@tag_add_alias.autocomplete("name")
-@tag_remove_guild.autocomplete("name")
-@tag_remove_author.autocomplete("name")
-@tag_add_author.autocomplete("name")
-@tag_add_guild.autocomplete("name")
-@tag_remove.autocomplete("name")
-@tag_get.autocomplete("name")
-async def tag_name_auto_complete(
-    option: hikari.AutocompleteInteractionOption, 
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
-    """autocomplete for tag keys"""
-    return await TagManager.tag_name_auto_complete(option, interaction)
+
 
 
 
