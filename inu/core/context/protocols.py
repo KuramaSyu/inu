@@ -110,7 +110,7 @@ class InuContext(ABC):
         ...
 
     @abstractmethod
-    async def respond(self, *args, **kwargs) -> ResponseProxy:
+    async def respond(self, *args, **kwargs) -> "ResponseProxy":
         """
         Create a response for this context. The first time this method is called, the initial
         interaction response will be created by calling
