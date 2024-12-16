@@ -774,7 +774,7 @@ class Connect4Handler(Paginator):
         log.debug(f"executing on interaction with pag id: {self.count} | msg id: {message.id}")
 
         # this is a valid interaction for this game, so set context
-        self.set_context(event=event)
+        self.set_context(interaction=event.interaction)
 
         # extract the element from the custom_id e.g. num_{num} | surrender
         custom_id = event.interaction.custom_id.replace("connect4_", "", 1)
