@@ -15,8 +15,15 @@ import re
 from hikari import (
     Embed, 
 )
-from lightbulb import commands, SlidingWindowCooldownAlgorithm
-from lightbulb.context import Context
+from hikari import (
+    Embed,
+    ResponseType, 
+    TextInputStyle,
+    Permissions
+)
+from hikari.impl import MessageActionRowBuilder
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
 import matplotlib
 import matplotlib.pyplot as plt
 import matplotlib.dates as mdates
@@ -53,13 +60,16 @@ from core import (
 )
 log = getLogger(__name__)
 register_matplotlib_converters()
-plugin = lightbulb.Plugin("Statistics", "Shows statistics about the server")
+loader = lightbulb.Loader()
 bot: Inu
 
 # mapping from guild to list with top games in it
 top_games_cache = {}
 RC_PARAMS = deepcopy(plt.rcParams)
 def switch_backend():
+    """
+    Method for switching backend between statistics and latex
+    """
     matplotlib.use("agg")
     plt.rcParams.update(RC_PARAMS)
 
