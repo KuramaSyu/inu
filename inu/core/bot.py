@@ -36,7 +36,7 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 T = TypeVar("T")
 
 log = getLogger(__name__)
-
+ALLOWED_EXTENSIONS = ["basics", "errors", "counter", "tags"]
 
 class BotResponseError(Exception):
     def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
@@ -190,7 +190,6 @@ class Inu(hikari.GatewayBot):
         Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
         """
         # TODO: remove when finished with testing
-        ALLOWED_EXTENSIONS = ["basics", "errors", "counter"]
         def is_allowed(extension: str) -> bool:
             for allowed in ALLOWED_EXTENSIONS:
                 if allowed in extension:
