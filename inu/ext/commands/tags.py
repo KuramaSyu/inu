@@ -14,7 +14,8 @@ from hikari import (
     Embed, 
     InteractionCreateEvent,
     MessageCreateEvent, 
-    ResponseType, 
+    ResponseType,
+    Snowflake, 
     TextInputStyle
 )
 from hikari.impl import MessageActionRowBuilder
@@ -325,10 +326,45 @@ async def no_tag_found_msg(
 # @tag_get.autocomplete("name")
 async def tag_name_auto_complete(
     ctx: AutocompleteContext
-) -> List[str]:
-    """autocomplete for tag names"""
+) -> None:
+    """Autocomplete for tag names"""
+    log.debug(f"Autocompleting tags {ctx.options=}")
     option = ctx.options[0]
-    return await TagManager.tag_name_auto_complete(option, ctx.interaction)
+    res = await TagManager.tag_name_auto_complete(option, ctx.interaction)
+    await ctx.respond(res)
+
+async def guild_auto_complete(
+    ctx: AutocompleteContext
+) -> List[str]:
+    """Autocomplete for guild IDs"""
+    ctx.focused.name
+    log.debug(f"Autocompleting guilds {ctx.options=}")
+    value = ctx.options[ctx.focused.name] or ""
+    value = str(value)
+    guilds: List[Dict[str, str | int]] = []
+    for gid, name in bot.cache.get_available_guilds_view().items():
+        guilds.append({'id': gid, 'name': str(name)})
+    if len(guilds) >= 1000:
+        log.warning("Too many guilds to autocomplete - optimising guild list fast..")
+        guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
+    guilds.append({'id': 000000000000000000, 'name': "Global - Everywhere where I am"})
+
+    if len(guilds) > 25:
+        if len(value) <= 2:
+            guilds = guilds[:24]
+    if len(value) > 2:
+        guilds_sorted: List[Dict[str, Union[int, str]]] = []
+        for guild in guilds:
+            guild["ratio"] = fuzz.ratio(value, guild["name"])
+            guilds_sorted.append(guild)
+        guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
+        guilds = guilds_sorted[:24]
+    
+    return [f"{guild['id']} | {guild['name']}" for guild in guilds]
+
+
+def guild_autocomplete_get_id(value: str) -> int:
+    return int(value[:value.find("|")])
 
 
 
@@ -552,6 +588,27 @@ async def _tag_add(
 
 
 @tags.register
+class TagGet(
+    SlashCommand,
+    name="get",
+    description="show a tag",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
+
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Add a tag to my storage
+        
+        Args:
+        -----
+            - key: the name the tag should have
+            NOTE: the key is the first word you type in! Not more and not less!!!
+            - value: that what the tag should return when you type in the name. The value is all after the fist word
+        """
+        await get_tag(ctx, self.name)
+
+@tags.register
 class TagEdit(
     SlashCommand,
     name="edit",
@@ -575,6 +632,7 @@ class TagEdit(
             return
         taghandler = TagHandler()
         await taghandler.start(ctx, record)
+
 
 @tags.register
 class TagRemove(
@@ -602,26 +660,6 @@ class TagRemove(
         await ctx.respond(
             f"I removed the {'global' if 0 in record['guild_ids'] else 'local'} tag `{name}`"
         )
-
-@tags.register
-class TagRemove(
-    SlashCommand,
-    name="remove",
-    description="remove a tag you own",
-    dm_enabled=True,
-):
-    name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
-    
-    @invoke
-    async def callback(self, _: Context, ctx: InuContext):
-        """get a tag to my storage
-        
-        Args:
-        -----
-            - name: the name the tag should have
-        """
-        record = await get_tag(ctx, self.name)
-        await show_record(record, ctx, self.name)
 
 
 @tags.register
@@ -724,40 +762,38 @@ async def on_tag_append(event: hikari.InteractionCreateEvent):
 yes = lightbulb.Choice("Yes", "Yes")  # value returned
 no = lightbulb.Choice("No", "No")
 
+
 @tags.register
 class TagAppend(
     SlashCommand,
-    name="overview",
-    description="get an overview of all tags",
+    name="append",
+    description="append text to a tag you own",
     dm_enabled=True,
 ):
-    silent_message = lightbulb.string("silent-message", "only you see the sucess message", choices=[yes], default=no)
+    name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
+    text = lightbulb.string("text", "The text you want to append to the current value", default=None)
+    new_page = lightbulb.boolean("new-page", "Whether to write the tag on a new page or the last page", default=False)
+    silent_message = lightbulb.string("silent-message", "Only you see the success message", choices=[yes, no], default=no)
+
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
-
-@tag.child
-@lightbulb.option("silent-message", "only you see the sucess message", choices=[yes, no], default=no)
-@lightbulb.option("new-page", "wether to write the tag on a new page or the last page", choices=["Yes", "No"], default="No")
-@lightbulb.option("text", "the text, you want to append to the current value", type=str, default=None, modifier=OM.CONSUME_REST)
-@lightbulb.option("name", "the name of your tag", autocomplete=True)  
-@lightbulb.command("append", "remove a tag you own")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_append(_ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    ctx = get_context(_ctx.event, options=_ctx._options)
-    additional_flag = True if ctx.options["silent-message"] == "Yes" else False
-    new_page = True if ctx.options["new-page"] == "Yes" else False
-    ctx.raw_options["name"] = ctx.options.name.strip()
-    record = await get_tag_interactive(ctx)
-    if not record:
-        return
-    tag: Tag = await Tag.from_record(record, ctx.author)
-    await append_to_tag(ctx, tag, additional_flag, new_page, ctx.options.text)
+        """Append text to a tag you own
+        
+        Args:
+        -----
+            - name: the name of the tag to append to
+            - text: the text to append to the tag
+            - new_page: whether to write the tag on a new page or the last page
+            - silent_message: only you see the success message
+        """
+        additional_flag = self.silent_message == "Yes"
+        new_page = self.new_page
+        name = self.name.strip()
+        record = await get_tag_interactive(ctx, key=name)
+        if not record:
+            return
+        tag: Tag = await Tag.from_record(record, ctx.author)
+        await append_to_tag(ctx, tag, additional_flag, new_page, self.text)
 
 async def append_to_tag(
     ctx: InuContext, 
@@ -770,13 +806,15 @@ async def append_to_tag(
     if text:
         to_add = text.strip()
     else:
-        to_add, ctx = await ctx.ask_with_modal(
+        to_add, new_ctx = await ctx.ask_with_modal(
             "tag append",
             "What do you want to append to the tag?",
             timeout=30*60,
         )
         if not to_add:
             return
+        if new_ctx is not None:
+            ctx = new_ctx
     if new_page:
         tag.value.append("")
     tag.value[-1] += f"\n{to_add}"
@@ -802,360 +840,351 @@ async def append_to_tag(
 
 
 
-@tag.child
-@lightbulb.option("new_name", "The new name for the tag", modifier=OM.CONSUME_REST)
-@lightbulb.option(
-    "old_name", 
-    "The old name from the tag",
-    autocomplete=True
-) 
-@lightbulb.command("change-name", "Change the key (name) of a tag")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_change_name(ctx: Context):
-    """Remove a tag to my storage
+@tags.register
+class TagChangeName(
+    SlashCommand, 
+    name="change-name",
+    description="Change the key (name) of a tag",
+    dm_enabled=True,
+):
+    old_name = lightbulb.string("old-name", "The old name from the tag", autocomplete=tag_name_auto_complete)
+    new_name = lightbulb.string("new-name", "The new name for the tag")
     
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    old_key = ctx.options.old_name
-    record = await get_tag_interactive(ctx, old_key)
-    if not record:
-        return
-    tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.name = ctx.options.new_name
-    await tag.save()
-    await ctx.respond(
-        f"Changed name from `{old_key}` to `{tag.name}`"
-    )
-
-
-
-@tag.child
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    autocomplete=True
-)
-@lightbulb.command("info", "get info to a tag")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_info(ctx: Context):
-    record = await get_tag(ctx, ctx.options.name)
-    tag = await Tag.from_record(record, ctx.author, db_checks=False)
-    if record is None:
-        return await no_tag_found_msg(ctx, ctx.options.name, ctx.guild_id or ctx.channel_id, ctx.author.id)
-    value = "\n".join(record['tag_value'])
-    message = (
-        f"**{record['tag_key']}**\n\n"
-        f"tag {Human.plural_('author', len(record['author_ids']), with_number=False)}: "
-        f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
-        f"tag guilds/channels: {Human.list_([guild_name_or_id(gid) for gid in record['guild_ids']], with_a_or_an=False)}\n"
-        f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
-        f"tag content: ```{Human.short_text(value, 1000).replace('`', '')}```\n"
-        f"tag ID: {record['tag_id']}\n"
-        f"link for this tag: `{tag.link}`"
-    )
-    await ctx.respond(
-        message,
-        component=MessageActionRowBuilder().add_interactive_button(
-            ButtonStyle.SECONDARY, 
-            tag.link,
-            label="show tag"    
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Change the name of a tag
+        
+        Args:
+        -----
+            old_name: the current name of the tag
+            new_name: what the tag should be called afterwards
+        """
+        record = await get_tag_interactive(ctx, self.old_name)
+        if not record:
+            return
+        tag: Tag = await Tag.from_record(record, ctx.author)
+        tag.name = self.new_name
+        await tag.save()
+        await ctx.respond(
+            f"Changed name from `{self.old_name}` to `{tag.name}`"
         )
-    )
+
+
+
+@tags.register
+class TagInfo(
+    SlashCommand,
+    name="info",
+    description="get info to a tag",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
+    
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Get info about a tag
+        
+        Args:
+        -----
+            name: the name of the tag to get info about
+        """
+        record = await get_tag(ctx, self.name)
+        tag = await Tag.from_record(record, ctx.author, db_checks=False)
+        if record is None:
+            return await no_tag_found_msg(ctx, self.name, ctx.guild_id or ctx.channel_id, ctx.author.id)
+        value = "\n".join(record['tag_value'])
+        message = (
+            f"**{record['tag_key']}**\n\n"
+            f"tag {Human.plural_('author', len(record['author_ids']), with_number=False)}: "
+            f"{Human.list_(record['author_ids'], '', '<@', '>', with_a_or_an=False)}\n"
+            f"tag guilds/channels: {Human.list_([guild_name_or_id(gid) for gid in record['guild_ids']], with_a_or_an=False)}\n"
+            f"tag aliases: {Human.list_(record['aliases'], '`', with_a_or_an=False)}\n"
+            f"tag content: ```{Human.short_text(value, 1000).replace('`', '')}```\n"
+            f"tag ID: {record['tag_id']}\n"
+            f"link for this tag: `{tag.link}`"
+        )
+        await ctx.respond(
+            message,
+            component=MessageActionRowBuilder().add_interactive_button(
+                ButtonStyle.SECONDARY, 
+                tag.link,
+                label="show tag"    
+            )
+        )
 
     
 
-@tag.child
-@lightbulb.option("alias", "The optional name you want to add", modifier=OM.CONSUME_REST)
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    autocomplete=True
-) 
-@lightbulb.command("add-alias", "remove a tag you own")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_add_alias(ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    record = await get_tag_interactive(ctx)
-    if not record:
-        return
-    tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.aliases.add(f"{ctx.options.alias.strip()}")
-    await tag.save()
-    await ctx.respond(
-        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`",
-        **EPHEMERAL
-    )
+@tags.register
+class TagAddAlias(
+    SlashCommand,
+    name="add-alias",
+    description="Add an alias (optional name) to a tag you own",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
+    alias = lightbulb.string("alias", "The optional name you want to add")
 
-@tag.child
-@lightbulb.option("alias", "The optional name you want to remove", modifier=OM.CONSUME_REST)
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    autocomplete=True
-) 
-@lightbulb.command("remove-alias", "remove a tag you own", aliases=["rm-alias"])
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_remove_alias(ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    record = await get_tag_interactive(ctx)
-    if not record:
-        return
-    tag: Tag = await Tag.from_record(record, ctx.author)
-    try:
-        tag.aliases.add(f"{ctx.options.alias.strip()}")
-    except ValueError:
-        return await ctx.respond(f"This tag don't have an ailias called `{ctx.options.alias.strip()}` which I could remove", **EPHEMERAL)
-    await tag.save()
-    await ctx.respond(
-        f"Added `{ctx.options.alias.strip()}` to optional names of `{tag.name}`",
-        **EPHEMERAL
-    )
-
-@tag.child
-@lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    autocomplete=True
-)  
-@lightbulb.command("add-author", "add an author to your tag")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_add_author(ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    record = await get_tag_interactive(ctx)
-    if not record:
-        return
-    tag: Tag = await Tag.from_record(record, ctx.author)
-    tag.owners.add(int(ctx.options.author.id))
-    await tag.save()
-    await ctx.respond(
-        f"Added {ctx.options.author.username} as an author of `{tag.name}`",
-        **EPHEMERAL
-    )
-
-
-
-@tag.child
-@lightbulb.option("author", "The @person you want to add as author", type=hikari.User)
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    autocomplete=True
-) 
-@lightbulb.command("remove-author", "add an author to your tag", aliases=["rm-author"])
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_remove_author(ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    record = await get_tag_interactive(ctx)
-    if not record:
-        return
-    tag: Tag = await Tag.from_record(record, ctx.author)
-    try:
-        tag.owners.remove(int(ctx.options.author.id))
-    except ValueError:
-        return await ctx.respond(f"{ctx.options.author.username} was never an author", **EPHEMERAL)
-    await tag.save()
-    await ctx.respond(
-        f"Removed {ctx.options.author.username} from the author of `{tag.name}`",
-        **EPHEMERAL
-    )
-
-
-
-@tag.child
-@lightbulb.option(
-    "guild", 
-    "The guild/server ID you want to add", 
-    autocomplete=True
-)
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    autocomplete=True
-)  
-@lightbulb.command("add-guild", "add a guild to your tag")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_add_guild(_ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    options = _ctx.options
-    ctx = get_context(_ctx.event)
-    guild_id = guild_autocomplete_get_id(value=options.guild)
-    record = await get_tag_interactive(ctx, options.name)
-    if not record:
-        return
-    main_tag: Tag = await Tag.from_record(record, ctx.author)
-    if not main_tag.is_authorized_to_write(ctx.author.id):
-        return await ctx.respond(
-            f"You are lacking on permissions to edit this tag",
+    @invoke 
+    async def callback(self, _: Context, ctx: InuContext):
+        """Add an alias to a tag
+        
+        Args:
+        -----
+            name: the name of the tag to add an alias to
+            alias: the alias to add
+        """
+        record = await get_tag_interactive(ctx, self.name)
+        if not record:
+            return
+        tag: Tag = await Tag.from_record(record, ctx.author)
+        tag.aliases.add(self.alias.strip())
+        await tag.save()
+        await ctx.respond(
+            f"Added `{self.alias.strip()}` to optional names of `{tag.name}`",
             ephemeral=True
         )
 
-    async def fetch_all_sub_tags(tag: str, tags: List[Tag], max_depth: int = 2, current_depth: int = 0) -> List[Tag]:
-        """fetches all tags from  links in a tag recursively"""
+@tags.register
+class TagRemoveAlias(
+    SlashCommand,
+    name="remove-alias",
+    description="Remove an alias (optional name) from a tag you own",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
+    alias = lightbulb.string("alias", "The optional name you want to remove")
+
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Remove an alias from a tag
+        
+        Args:
+        -----
+            name: the name of the tag to remove an alias from  
+            alias: the alias to remove
+        """
+        record = await get_tag_interactive(ctx, self.name)
+        if not record:
+            return
+        tag: Tag = await Tag.from_record(record, ctx.author)
+        try:
+            tag.aliases.remove(self.alias.strip())
+        except ValueError:
+            return await ctx.respond(
+                f"This tag doesn't have an alias called `{self.alias.strip()}` which I could remove", 
+                ephemeral=True
+            )
+        await tag.save()
+        await ctx.respond(
+            f"Removed `{self.alias.strip()}` from optional names of `{tag.name}`",
+            ephemeral=True
+        )
+
+@tags.register
+class TagAddAuthor(
+    SlashCommand,
+    name="add-author",
+    description="add an author to your tag",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "the name of your tag", autocomplete=tag_name_auto_complete)
+    author = lightbulb.user("author", "The @person you want to add as author")
+    
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Add an author to a tag
+        
+        Args:
+        -----
+            name: the name of the tag to add an author to
+            author: the @person to add as author
+        """
+        record = await get_tag_interactive(ctx, self.name)
+        if not record:
+            return
+        tag: Tag = await Tag.from_record(record, ctx.author)
+        tag.owners.add(Snowflake(self.author.id))
+        await tag.save()
+        await ctx.respond(
+            f"Added {self.author.username} as an author of `{tag.name}`",
+            **EPHEMERAL
+        )
+
+
+
+@tags.register
+class TagRemoveAuthor(
+    SlashCommand,
+    name="remove-author",
+    description="remove an author from your tag",
+    dm_enabled=True,
+):
+    name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
+    author = lightbulb.user("author", "The @person you want to remove as author")
+
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Remove an author from a tag
+        
+        Args:
+        -----
+            name: the name of the tag to remove an author from
+            author: the @person to remove as author
+        """
+        record = await get_tag_interactive(ctx, self.name)
+        if not record:
+            return
+        tag: Tag = await Tag.from_record(record, ctx.author)
+        try:
+            tag.owners.remove(Snowflake(self.author.id))
+        except ValueError:
+            return await ctx.respond(f"{self.author.username} was never an author", **EPHEMERAL)
+        await tag.save()
+        await ctx.respond(
+            f"Removed {self.author.username} from the authors of `{tag.name}`",
+            **EPHEMERAL
+        )
+
+
+
+@tags.register
+class TagAddGuild(
+    SlashCommand,
+    name="add-guild",
+    description="add a guild to your tag",
+    dm_enabled=True,
+):
+    guild = lightbulb.string("guild", "The guild/server ID you want to add", autocomplete=guild_auto_complete)
+    name = lightbulb.string("name", "the name of your tag", autocomplete=tag_name_auto_complete)
+
+    async def fetch_all_sub_tags(self, ctx: InuContext, tag: Tag, tags: List[Tag], max_depth: int = 2, current_depth: int = 0) -> List[Tag]:
+        """fetches all tags from links in a tag recursively"""
         current_depth += 1
         tag_link_list = [tag.link for tag in tags]        
         for link in tag.tag_links:
             if link in tag_link_list:
                 continue
-            sub_tag = await Tag.fetch_tag_from_link(link, current_guild=_ctx.guild_id or _ctx.channel_id)
+            sub_tag = await Tag.fetch_tag_from_link(link, current_guild=ctx.guild_id or ctx.channel_id)
             if not sub_tag:
                 continue
             tags.append(sub_tag)
             if sub_tag.tag_links and current_depth <= max_depth:
-                tags.extend(await fetch_all_sub_tags(sub_tag, tags, max_depth=max_depth, current_depth=current_depth))
+                tags.extend(await self.fetch_all_sub_tags(ctx, sub_tag, tags, max_depth=max_depth, current_depth=current_depth))
         return tags
-            
-    sub_tags = await fetch_all_sub_tags(main_tag, [main_tag])
-    sub_tags.remove(main_tag)
-    if sub_tags:
-        label, ctx = await ctx.ask(
-            f"Your tag `{main_tag.name}` has following sub-tags: {Human.list_([tag.name for tag in sub_tags], '`', with_a_or_an=False)}. Do you want to add all of them to the guild `{options.guild}`?",
-        )
-        if ctx is None:
+        
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Add a guild to your tag
+        
+        Args:
+        -----
+            guild: The guild ID you want to add the tag to
+            name: The name of the tag to add to the guild
+        """
+        guild_id = guild_autocomplete_get_id(value=self.guild)
+        record = await get_tag_interactive(ctx, self.name)
+        if not record:
             return
-        if label == "Yes":
-            failed_tags: List[str] = []
-            success_tags: List[str] = []
-            for tag in sub_tags:
-                if not tag.is_authorized_to_write(ctx.author.id):
-                    failed_tags.append(tag.name)
-                    continue
-                tag.guild_ids.add(guild_id)
-                await tag.save()
-                success_tags.append(tag.name)
-            response = ""
-            if success_tags:
-                response += f"Added the following tags to the guild `{options.guild}`: {Human.list_(success_tags, '`', with_a_or_an=False)}\n"
-            if failed_tags:
-                response += f"Failed to add the following tags to the guild `{options.guild}`: {Human.list_(failed_tags, '`', with_a_or_an=False)} because of lacking permissions"
-            await ctx.respond(
-                response,
+        main_tag: Tag = await Tag.from_record(record, ctx.author)
+        if not main_tag.is_authorized_to_write(ctx.author.id):
+            return await ctx.respond(
+                f"You are lacking permissions to edit this tag",
                 ephemeral=True
             )
-    main_tag.guild_ids.add(guild_id)
-    await main_tag.save()
-    await ctx.respond(
-        f"You will now be able to see `{main_tag.name}` in the guild `{options.guild}`",
-        ephemeral=True
-    )
 
-@tag.child
-@lightbulb.option(
-    "guild", 
-    "The guild/server ID you want to add", 
-    autocomplete=True
-)
-@lightbulb.option(
-    "name", 
-    "the name of your tag", 
-    autocomplete=True
-) 
-@lightbulb.command("remove-guild", "remove a guild/server to your tag", aliases=["rm-guild"])
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def tag_remove_guild(ctx: Context):
-    """Remove a tag to my storage
-    
-    Args:
-    -----
-        - key: the name of the tag which you want to remove
-    """
-    guild_id = guild_autocomplete_get_id(value=ctx.options.guild)
-    record = await get_tag_interactive(ctx)
-    if not record:
-        return #await ctx.respond(f"I can't find a tag with the name `{ctx.options.name}` where you are the owner :/")
-    tag: Tag = await Tag.from_record(record, ctx.author)
-    try:
-        tag.guild_ids.remove(guild_id)
-    except KeyError:
-        return await ctx.respond(
-            f"Your tag was never actually available in `{ctx.options.guild}`"
+
+            
+        sub_tags = await self.fetch_all_sub_tags(ctx, main_tag, [main_tag])
+        sub_tags.remove(main_tag)
+        if sub_tags:
+            label, new_ctx = await ctx.ask(
+                f"Your tag `{main_tag.name}` has following sub-tags: {Human.list_([tag.name for tag in sub_tags if tag.name], '`', with_a_or_an=False)}. Do you want to add all of them to the guild `{self.guild}`?",
+            )
+            if new_ctx is None:
+                return
+            if label == "Yes":
+                failed_tags: List[str] = []
+                success_tags: List[str] = []
+                for tag in sub_tags:
+                    if not tag.is_authorized_to_write(new_ctx.author.id):
+                        failed_tags.append(tag.name)
+                        continue
+                    tag.guild_ids.add(guild_id)
+                    await tag.save()
+                    success_tags.append(tag.name)
+                response = ""
+                if success_tags:
+                    response += f"Added the following tags to the guild `{self.guild}`: {Human.list_(success_tags, '`', with_a_or_an=False)}\n"
+                if failed_tags:
+                    response += f"Failed to add the following tags to the guild `{self.guild}`: {Human.list_(failed_tags, '`', with_a_or_an=False)} because of lacking permissions"
+                await new_ctx.respond(
+                    response,
+                    ephemeral=True
+                )
+        main_tag.guild_ids.add(guild_id)
+        await main_tag.save()
+        await ctx.respond(
+            f"You will now be able to see `{main_tag.name}` in the guild `{self.guild}`",
+            ephemeral=True
         )
-    await tag.save()
-    await ctx.respond(
-        f"You won't see `{tag.name}` in the guild `{ctx.options.guild}` anymore",
-        **EPHEMERAL
-    )
+
+@tags.register
+class TagRemoveGuild(
+    SlashCommand,
+    name="remove-guild",
+    description="remove a guild/server from your tag",
+    dm_enabled=True,
+):
+    guild = lightbulb.string("guild", "The guild/server ID you want to remove", autocomplete=guild_auto_complete)
+    name = lightbulb.string("name", "the name of your tag", autocomplete=tag_name_auto_complete)
+
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Remove a guild from a tag
+        
+        Args:
+        -----
+            guild: The guild ID you want to remove the tag from
+            name: The name of the tag to remove from the guild
+        """
+        guild_id = guild_autocomplete_get_id(value=self.guild)
+        record = await get_tag_interactive(ctx, self.name)
+        if not record:
+            return
+        tag: Tag = await Tag.from_record(record, ctx.author)
+        try:
+            tag.guild_ids.remove(guild_id) 
+        except KeyError:
+            return await ctx.respond(
+                f"Your tag was never actually available in `{self.guild}`",
+                ephemeral=True
+            )
+        await tag.save()
+        await ctx.respond(
+            f"You won't see `{tag.name}` in the guild `{self.guild}` anymore",
+            ephemeral=True
+        )
 
 
-
-@tag.child
-@lightbulb.command("random", "Get a random tag from all tags available")
-@lightbulb.implements(commands.SlashSubCommand, commands.PrefixSubCommand)
-async def tag_random(ctx: Context):
-    available_tags = await TagManager.get_tags(
-        TagScope.SCOPE,
-        guild_id=ctx.guild_id,
-        author_id=ctx.author.id,
-    )
-    if not available_tags:
-        raise BotResponseError(f"No tags found for the random command")
-    random_tag = random.choice(available_tags)
-    await show_record(random_tag, ctx, force_show_name=True)
-
-
-
-
-
-
-
-@tag_remove_guild.autocomplete("guild")
-@tag_add_guild.autocomplete("guild")
-async def guild_auto_complete(
-    option: hikari.AutocompleteInteractionOption,
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
-    value = option.value or ""
-    value = str(value)
-    guilds: List[Dict[str, str | int]] = []
-    for gid, name in bot.cache.get_available_guilds_view().items():
-        guilds.append({'id': gid, 'name': str(name)})
-    if len(guilds) >= 1000:
-        log.warning("Too many guilds to autocomplete - optimising guild list fast..")
-        guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
-    guilds.append({'id': 000000000000000000, 'name': "Global - Everywhere where I am"})
-
-    if len(guilds) > 25:
-        if len(value) <= 2:
-            guilds = guilds[:24]
-    if len(value) > 2:
-        guilds_sorted: List[Dict[str, Union[int, str]]] = []
-        for guild in guilds:
-            guild["ratio"] = fuzz.ratio(value, guild["name"])
-            guilds_sorted.append(guild)
-        guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
-        guilds = guilds_sorted[:24]
-    
-    return [f"{guild['id']} | {guild['name']}" for guild in guilds]
+@tags.register
+class TagRandom(
+    SlashCommand,
+    name="random",
+    description="Get a random tag from all tags available",
+    dm_enabled=True,
+):
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        """Get a random tag from all available tags"""
+        available_tags = await TagManager.get_tags(
+            TagScope.SCOPE,
+            guild_id=ctx.guild_id,
+            author_id=ctx.author.id,
+        )
+        if not available_tags:
+            raise BotResponseError(f"No tags found for the random command")
+        random_tag = random.choice(available_tags)
+        await show_record(random_tag, ctx, force_show_name=True)
 
 
-
-def guild_autocomplete_get_id(value: str) -> int :
-    return int(value[:value.find("|")])
-
+loader.command(tags)
