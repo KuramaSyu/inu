@@ -38,7 +38,7 @@ from hikari.undefined import UNDEFINED
 import lightbulb
 from lightbulb.context import Context
 
-from core import InuContext, get_context, BotResponseError, getLogger
+from core import InuContext, get_context, BotResponseError, getLogger, ResponseProxy
 from utils.buttons import add_row_when_filled
 LOGLEVEL = logging.WARNING
 log = logging.getLogger(__name__)
@@ -610,7 +610,7 @@ class NavigationMenuBuilder():
 class Paginator():
     def __init__(
         self,
-        page_s: List[Embed | str],
+        page_s: Sequence[Embed] | Sequence[str],
         timeout: int = 2*60,
         component_factory: Callable[[int], MessageActionRowBuilder] | None = None,
         components_factory: Callable[[int], List[MessageActionRowBuilder]] | None = None,
@@ -698,7 +698,7 @@ class Paginator():
         self.count = count
         self.onetime_kwargs = {}  # used once when sending a message
         self._stop: asyncio.Event = asyncio.Event()
-        self._pages: List[Embed | str] = page_s
+        self._pages: Sequence[Embed] | Sequence[str] = page_s
         self._position: int = 0
         self._old_position: int = 0
 
@@ -738,7 +738,7 @@ class Paginator():
         self._interaction: hikari.ComponentInteraction | None = None            
         self._stopped: bool = False         
         self._last_used: float = time.time()
-        self._proxy: Optional[lightbulb.ResponseProxy] = None
+        self._proxy: Optional[ResponseProxy] = None
 
         # paginator configuration
         self.pagination = not disable_pagination
