@@ -1,4 +1,5 @@
 import asyncio
+from code import interact
 from typing import *
 from enum import Enum
 from pprint import pprint
@@ -150,7 +151,7 @@ class AnimePaginator(Paginator):
             return
         custom_id = event.interaction.custom_id
         i = event.interaction
-        self.set_context(event=event)
+        self.set_context(interaction=event.interaction)
         if event.interaction.custom_id == "btn_anime_sort":
             self._sort_embeds(SortTypes.BY_SCORE)
             self._position = 0
