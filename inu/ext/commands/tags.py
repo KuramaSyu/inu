@@ -360,7 +360,7 @@ async def guild_auto_complete(
         guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
         guilds = guilds_sorted[:24]
     
-    return [f"{guild['id']} | {guild['name']}" for guild in guilds]
+    await ctx.respond([f"{guild['id']} | {guild['name']}" for guild in guilds]) 
 
 
 def guild_autocomplete_get_id(value: str) -> int:
@@ -606,7 +606,9 @@ class TagGet(
             NOTE: the key is the first word you type in! Not more and not less!!!
             - value: that what the tag should return when you type in the name. The value is all after the fist word
         """
-        await get_tag(ctx, self.name)
+        # TODO: record -> Tag; prevent typing issues with record
+        record = await get_tag(ctx, self.name)
+        await show_record(record, ctx, self.name)
 
 @tags.register
 class TagEdit(
