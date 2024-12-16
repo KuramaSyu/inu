@@ -48,6 +48,7 @@ ERROR_JOKES = [
 async def on_error(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -> bool:
     """
     """
+    # Implement BotResponseError
     for cause in exc.causes:
         log.error(f"{''.join(traceback.format_exception(cause))}")
     return True
