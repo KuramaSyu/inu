@@ -6,7 +6,7 @@ from enum import Enum
 import re
 
 import hikari
-from hikari import ComponentInteraction, InteractionCreateEvent, NotFoundError, events, ResponseType, Embed
+from hikari import CommandInteraction, ComponentInteraction, InteractionCreateEvent, NotFoundError, PartialIntegration, PartialInteraction, events, ResponseType, Embed
 from hikari import ButtonStyle, MessageFlag
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
@@ -18,7 +18,7 @@ from .base import (
     CustomID,
     Paginator,
     Event,
-    EventListener,
+    InteractionListener,
     EventObserver,
     listener,
     StatelessPaginator
@@ -824,15 +824,27 @@ class TagViewPaginator(StatelessPaginator):
     def _get_custom_id_kwargs(self) -> Dict[str, int | str]:
         return {"tid": self.tag.id}
 
-    async def _rebuild(self, event: InteractionCreateEvent, force_show_name: bool = False, name: str = ""):
-        self.set_context(event=event)
-        if not isinstance(event.interaction, ComponentInteraction):
+    async def _rebuild(self, interaction: ComponentInteraction | CommandInteraction, force_show_name: bool = False, name: str = ""):
+        self.set_context(interaction=interaction)
+        if not isinstance(interaction, ComponentInteraction):
             return
-        self.__maybe_add_edit_component(event)    
+        self.__maybe_add_edit_component(interaction)    
         self._build_pages(force_show_name=force_show_name, name=name)
 
-    def __maybe_add_edit_component(self, event: InteractionCreateEvent):
-        if self.tag.is_authorized_to_write(event.interaction.user.id):
+    def __maybe_add_edit_component(self, interaction: ComponentInteraction | CommandInteraction) -> None:
+        """
+        Adds an edit button to the tag's components if the user is authorized to write.
+        This method checks if the user who triggered the interaction is authorized to write to the tag.
+        If the user is authorized, it adds an interactive button to the tag's components that allows
+        the user to edit the tag. The button is labeled with the tag's name and an edit emoji.
+        Args:
+            event (InteractionCreateEvent): The event that triggered the interaction.
+        Attributes:
+            self._additional_components (List[MessageActionRowBuilder]): The updated list of components
+                with the added edit button if the user is authorized to write.
+        """
+
+        if self.tag.is_authorized_to_write(interaction.user.id):
             log.debug("User is authorized to write")
             # user authorized to write -> add tag edit button
             components: List[MessageActionRowBuilder] = add_row_when_filled(self.tag.components or [])
@@ -840,7 +852,7 @@ class TagViewPaginator(StatelessPaginator):
                 ButtonStyle.SECONDARY, 
                 TagCustomID(
                     custom_id="tag_options_update",
-                    author_id=event.interaction.user.id
+                    author_id=interaction.user.id
                 )
                     .set_tag_id(self.tag.id)
                     .set_position(0)
