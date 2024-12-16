@@ -5,7 +5,6 @@ from .base import (
     CustomID, 
     JsonDict,
     button,
-    ButtonObserver
 )
 from .tag import TagHandler, TagCustomID, TagViewPaginator
 from .anime import AnimePaginator, AnimeCornerPaginator, AnimeCornerPaginator2
