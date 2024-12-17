@@ -31,7 +31,7 @@ class InuContext(ABC):
     
     @property
     @abstractmethod
-    def original_message(self) -> hikari.Message:
+    def original_message(self) -> Optional[hikari.Message]:
         ...
 
     # @property
