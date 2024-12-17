@@ -43,7 +43,7 @@ from core import InuContext, get_context, BotResponseError, getLogger, ResponseP
 from utils.buttons import add_row_when_filled
 
 
-LOGLEVEL = logging.WARNING
+LOGLEVEL = logging.DEBUG
 log = logging.getLogger(__name__)
 log.setLevel(LOGLEVEL)
 
@@ -1283,7 +1283,7 @@ class Paginator():
 
     async def start(
         self, 
-        ctx: InuContext,
+        ctx: InuContext | lightbulb.Context,
         **kwargs,
     ) -> hikari.Message:
         """
@@ -1326,7 +1326,7 @@ class Paginator():
         self._stopped = False
         if not isinstance(ctx, InuContext):
             self.log.debug("get context")
-            self.ctx = get_context(ctx.event)
+            self.ctx = get_context(ctx.interaction)
         else:
             self.log.debug("set context form given")
             self.ctx = ctx
@@ -1360,16 +1360,16 @@ class Paginator():
 
         # make kwargs for first message
         kwargs.update(self._first_message_kwargs)
-        if not self._disable_component and not (len(self.pages) == 1 and self._hide_components_when_one_site):
+        if not( self._hide_components_when_one_site or self._disable_component):
             kwargs["component"] = self.component
-        elif not self._disable_components and not (len(self.pages) == 1 and self._hide_components_when_one_site):
+        elif not (self._hide_components_when_one_site or self._disable_components):
             kwargs["components"] = self.components
         if (download := self.download):
             kwargs["attachment"] = hikari.Bytes(download, self._download_name)
         kwargs.update(self._first_message_kwargs)
 
         if isinstance(self.pages[self._default_page_index], Embed):
-            self.log.debug("Creating message with embed")
+            self.log.debug(f"Creating message with embed and {kwargs=}")
             msg_proxy = await self.ctx.respond(
                 embed=self.pages[0],
                 **kwargs
