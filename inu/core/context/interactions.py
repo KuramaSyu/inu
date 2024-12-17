@@ -73,11 +73,13 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         embeds: List[hikari.Embed] | None = None,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
+        component: MessageActionRowBuilder | None = None,
         components: List[MessageActionRowBuilder] | None = None,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False
     ) -> ResponseProxy:
         embeds = embeds or [embed] if embed else []
+        components = components or ([component] if component else [])
 
         return await self.response_state.respond(
             embeds=embeds,
@@ -240,6 +242,10 @@ class CommandContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin
     def custom_id(self) -> None:
         return None
 
+    @property
+    def original_message(self) -> hikari.Message | None:
+        return None
+
 
 class ComponentContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin, MessageMixin):  # type: ignore[union-attr]
     def __init__(self, app: Inu, interaction: hikari.ComponentInteraction) -> None:
@@ -255,4 +261,7 @@ class ComponentContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMix
 
     async def message(self) -> hikari.Message:
         return await self.interaction.fetch_initial_response()
-        
+
+    @property
+    def original_message(self) -> hikari.Message:
+        return self.interaction.message
