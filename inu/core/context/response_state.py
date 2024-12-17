@@ -163,27 +163,24 @@ class InitialResponseState(BaseResponseState):
             'components': components,
             'flags': flags,
             'delete_after': delete_after,
-            'ephemeral': ephemeral,
         }
-
+        kwargs["flags"] = hikari.MessageFlag.NONE
+        if ephemeral:
+            kwargs["flags"] = hikari.MessageFlag.EPHEMERAL
+            
         if update:
             self.log.debug("updating last response")
             self._response_lock.release()
             await self.edit(**kwargs)
             return self.responses[-1]
         
-        self.log.debug("creating initial response")
-        flags = hikari.MessageFlag.NONE
-        if ephemeral:
-            flags = hikari.MessageFlag.EPHEMERAL
+        self.log.debug(f"creating initial response with args: {kwargs=}")
+
         
         kwargs.pop('delete_after')
         await self.interaction.create_initial_response(
             hikari.ResponseType.MESSAGE_CREATE,
-            embeds=embeds,
-            content=content,
-            components=components,
-            flags=flags
+            **kwargs
         )
         self.responses.append(InitialResponseProxy(interaction=self.interaction))
         self.last_response = datetime.now()
