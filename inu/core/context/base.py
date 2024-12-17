@@ -81,6 +81,10 @@ class InuContextBase(ContextEqualTrait):
         """Changes the response state to a new state"""
         self._response_state = new_state
     
+    def is_responded(self) -> bool:
+        """Whether the context has been responded. Checks is the response state is not InitialResponseState"""
+        return not isinstance(self.response_state, InitialResponseState)
+
     @property
     def response_state(self) -> BaseResponseState:
         return self._response_state

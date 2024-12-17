@@ -146,6 +146,10 @@ class InuContext(ABC):
     @property
     def interaction(self) -> Interaction:
         ...
+
+    @abstractmethod
+    def is_responded(self) -> bool:
+        "Whether or not the interaction has been responded to. Checks is the response state is not InitialResponseState"
     
     @abstractmethod
     async def defer(self, update: bool = False, background: bool = True):
