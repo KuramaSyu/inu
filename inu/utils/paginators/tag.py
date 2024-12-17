@@ -144,7 +144,7 @@ class TagHandler(StatelessPaginator):
     async def rebuild(self, event: hikari.Event, reject_user: bool = False, **kwargs) -> None:
         await super().rebuild(event, reject_user=reject_user, **kwargs)
 
-    def _interaction_pred(self, event: InteractionCreateEvent) -> Tuple[bool, bool]:
+    def _interaction_pred(self, interaction: ComponentInteraction) -> Tuple[bool, bool]:
         """Checks user in tag.owners and message id of the event interaction
         
         Returns:
@@ -152,13 +152,14 @@ class TagHandler(StatelessPaginator):
             - bool: wether or not the user is allowed to use this
             - bool: wether or not the message id is the same as the one of the paginator
         """
-        if not isinstance((i := event.interaction), ComponentInteraction):
+        i = interaction
+        if not isinstance(i, ComponentInteraction):
             self.log.debug("False interaction pred")
             return False, False
         return (i.user.id in self.tag.owners, i.message.id == self._message.id)
 
-    def interaction_pred(self, event: InteractionCreateEvent) -> bool:
-        return all(self._interaction_pred(event))
+    def interaction_pred(self, interaction: ComponentInteraction) -> bool:
+        return all(self._interaction_pred(interaction))
 
     async def check_user(self) -> bool:
         """
