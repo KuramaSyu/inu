@@ -243,7 +243,7 @@ class CommandContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin
         return None
 
     @property
-    def original_message(self) -> hikari.Message | None:
+    def original_message(self) -> Optional[hikari.Message]:
         return None
 
 
