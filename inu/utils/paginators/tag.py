@@ -21,7 +21,7 @@ from .base import (
     InteractionListener,
     EventObserver,
     listener,
-    StatelessPaginator
+    StatelessPaginator,
 )
 import asyncpg
 
@@ -29,7 +29,7 @@ from utils import crumble, TagManager, add_row_when_filled, ListParser
 from utils.language import Human
 from utils.db import Tag, TagType
 
-from core import Inu, BotResponseError, ComponentContext, get_context
+from core import Inu, BotResponseError, ComponentContext, get_context, InuContext, Interaction
 import hashlib
 
 log = logging.getLogger(__name__)
@@ -175,7 +175,7 @@ class TagHandler(StatelessPaginator):
     def set_tag(self, tag: Tag) -> None:
         self.tag = tag
 
-    async def start(self, ctx: Context, tag: Mapping = None):
+    async def start(self, ctx: InuContext, tag: Mapping = None):
         """
         Starts the paginator and initializes the tag
         Args:
@@ -196,9 +196,9 @@ class TagHandler(StatelessPaginator):
         except Exception:
             self.log.error(traceback.format_exc())
 
-    async def _rebuild(self, event: hikari.events):
+    async def _rebuild(self, interaction: Interaction):
         await self._rebuild_pages()
-        self.set_context(event=event)
+        self.set_context(interaction=interaction)
 
     async def post_start(self, **kwargs):
         await super().post_start(**kwargs)
@@ -889,9 +889,9 @@ class TagViewPaginator(StatelessPaginator):
                 messages.append(message)
         self.set_pages(messages)
 
-    async def start(self, ctx: Context, force_show_name: bool = False, name: str = ""):
+    async def start(self, ctx: InuContext, force_show_name: bool = False, name: str = ""):
         self._build_pages(force_show_name=force_show_name, name=name)
-        self.__maybe_add_edit_component(ctx.event)
+        self.__maybe_add_edit_component(ctx.interaction)
         await super().start(ctx)
 
     @property
