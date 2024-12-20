@@ -138,14 +138,15 @@ class NumericNavigation(NavigationStragegy):
         pag = self.paginator
         page_len = len(pag._pages)
         position = pag._position
+        row_amount = self.rows
         # calculate start and stop indices for the three cases
         BUTTONS_PER_ROW = 5
-        BUTTON_AMOUNT = pag.button_rows * BUTTONS_PER_ROW
-        if pag._position < BUTTONS_PER_ROW * 2:
+        BUTTON_AMOUNT = row_amount * BUTTONS_PER_ROW
+        if position < BUTTONS_PER_ROW * 2:
             start = 0
             stop = min(BUTTON_AMOUNT, page_len)
         else:
-            row_index = pag._position // BUTTONS_PER_ROW
+            row_index = position // BUTTONS_PER_ROW
             if row_index < 2:
                 start = 0
                 stop = BUTTON_AMOUNT
@@ -176,87 +177,118 @@ class NumericNavigation(NavigationStragegy):
         return action_rows
 
 
-    class ClassicNavigation(NavigationStragegy):
-        """
-        A classic navigation strategy implementation using Discord UI buttons.
-        This class implements a navigation strategy that creates a row of buttons for paginator control.
-        The buttons include navigation controls (first, previous, next, last), a stop button, and
-        optionally a sync button.
-        The navigation controls are arranged as follows (in non-compact mode):
-        ⏮ ◀ ✖ ▶ ⏭
-        In compact mode, first (⏮) and last (⏭) buttons are omitted.
+class ClassicNavigation(NavigationStragegy):
+    """
+    A classic navigation strategy implementation using Discord UI buttons.
+    This class implements a navigation strategy that creates a row of buttons for paginator control.
+    The buttons include navigation controls (first, previous, next, last), a stop button, and
+    optionally a sync button.
+    The navigation controls are arranged as follows (in non-compact mode):
+    ⏮ ◀ ✖ ▶ ⏭
+    In compact mode, first (⏮) and last (⏭) buttons are omitted.
 
-        Parameters
-        ----------
-        paginator : Paginator
-            The paginator instance this navigation strategy is attached to.
+    Parameters
+    ----------
+    paginator : Paginator
+        The paginator instance this navigation strategy is attached to.
 
-        Methods
-        -------
-        build()
-            Constructs and returns the message action rows containing navigation buttons.
+    Methods
+    -------
+    build()
+        Constructs and returns the message action rows containing navigation buttons.
 
-        Returns
-        -------
-        List[MessageActionRowBuilder]
-            A list of action rows containing the navigation buttons.
-        """
-        def __init__(self, paginator: "Paginator") -> None:
-            self.paginator = paginator
+    Returns
+    -------
+    List[MessageActionRowBuilder]
+        A list of action rows containing the navigation buttons.
+    """
+    def __init__(self, paginator: "Paginator") -> None:
+        self.paginator = paginator
 
-        def set_rows_amount(self, amount: int) -> None:
-            """does nothing"""
-            return
+    def set_rows_amount(self, amount: int) -> None:
+        """does nothing"""
+        return
 
-        def build(self) -> List[MessageActionRowBuilder]:
-            pag = self.paginator
-            page_len = len(pag.pages)
+    def build(self) -> List[MessageActionRowBuilder]:
+        pag = self.paginator
+        page_len = len(pag.pages)
 
-            rows: List[MessageActionRowBuilder] = []
-            action_row = None
-            if not pag.compact:
-                action_row = ButtonBuilder(action_row)\
-                    .set_custom_id("first")\
-                    .set_emoji("⏮")\
-                    .set_disable_condition(lambda p: p == 0)\
-                    .build()
-
-            if page_len > 1:
-                action_row = ButtonBuilder(action_row or MessageActionRowBuilder())\
-                    .set_custom_id("previous")\
-                    .set_emoji("◀")\
-                    .set_disable_condition(lambda p: p == 0)\
-                    .build()
-
+        rows: List[MessageActionRowBuilder] = []
+        action_row = None
+        if not pag.compact:
             action_row = ButtonBuilder(action_row)\
-                .set_custom_id("stop")\
-                .set_emoji("✖")\
-                .set_label(f"{pag._position+1}/{page_len}")\
-                .set_style(ButtonStyle.DANGER)\
+                .set_custom_id("first")\
+                .set_emoji("⏮")\
+                .set_disable_condition(lambda p: p == 0)\
                 .build()
 
-            if page_len > 1:
-                action_row = ButtonBuilder(action_row)\
-                    .set_custom_id("next")\
-                    .set_emoji("▶")\
-                    .set_disable_condition(lambda p: p == page_len-1)\
-                    .build()
+        if page_len > 1:
+            action_row = ButtonBuilder(action_row or MessageActionRowBuilder())\
+                .set_custom_id("previous")\
+                .set_emoji("◀")\
+                .set_disable_condition(lambda p: p == 0)\
+                .build()
 
-            if not pag.compact:
-                action_row = ButtonBuilder(action_row)\
-                    .set_custom_id("last")\
-                    .set_emoji("⏭")\
-                    .set_disable_condition(lambda p: p == page_len-1)\
-                    .build()
+        action_row = ButtonBuilder(action_row)\
+            .set_custom_id("stop")\
+            .set_emoji("✖")\
+            .set_label(f"{pag._position+1}/{page_len}")\
+            .set_style(ButtonStyle.DANGER)\
+            .build()
 
-            rows.append(action_row)
-            
-            if pag._with_update_button:
-                if len(action_row._components) >= 5:
-                    rows.append(MessageActionRowBuilder())
-                rows[-1] = ButtonBuilder(rows[-1])\
-                    .set_custom_id("sync")\
-                    .set_emoji("🔁")\
-                    .build()
+        if page_len > 1:
+            action_row = ButtonBuilder(action_row)\
+                .set_custom_id("next")\
+                .set_emoji("▶")\
+                .set_disable_condition(lambda p: p == page_len-1)\
+                .build()
 
-            return rows
+        if not pag.compact:
+            action_row = ButtonBuilder(action_row)\
+                .set_custom_id("last")\
+                .set_emoji("⏭")\
+                .set_disable_condition(lambda p: p == page_len-1)\
+                .build()
+
+        rows.append(action_row)
+        
+        if pag._with_update_button:
+            if len(action_row._components) >= 5:
+                rows.append(MessageActionRowBuilder())
+            rows[-1] = ButtonBuilder(rows[-1])\
+                .set_custom_id("sync")\
+                .set_emoji("🔁")\
+                .build()
+
+        return rows
+
+
+def get_navigation_strategy(
+    strategy_name: Literal["numeric", "classic"], 
+    paginator: "Paginator"
+) -> NavigationStragegy:
+    """
+    Factory function that returns a navigation strategy based on the provided name.
+
+    Parameters
+    ----------
+    strategy_name : str
+        The name of the strategy ('numeric' or 'classic')
+    paginator : Paginator
+        The paginator instance to attach to the strategy
+
+    Returns
+    -------
+    NavigationStragegy
+        The requested navigation strategy instance
+    """
+    strategies = {
+        'numeric': NumericNavigation,
+        'classic': ClassicNavigation
+    }
+    
+    strategy_class = strategies.get(strategy_name.lower())
+    if not strategy_class:
+        raise ValueError(f"Unknown navigation strategy: {strategy_name}")
+    
+    return strategy_class(paginator)
