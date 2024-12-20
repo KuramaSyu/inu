@@ -121,11 +121,19 @@ class NavigationStragegy(ABC):
     def build(self) -> List[MessageActionRowBuilder]:
         ...
 
+    @abstractmethod
+    def set_rows_amount(self, amount: int) -> None:
+        ...
+
 
 class NumericNavigation(NavigationStragegy):
     def __init__(self, paginator: "Paginator") -> None:
         self.paginator = paginator
+        self.rows: int = 4
     
+    def set_rows_amount(self, amount: int) -> None:
+        self.rows = amount
+
     def build(self) -> List[MessageActionRowBuilder]:
         pag = self.paginator
         page_len = len(pag._pages)
@@ -195,6 +203,10 @@ class NumericNavigation(NavigationStragegy):
         """
         def __init__(self, paginator: "Paginator") -> None:
             self.paginator = paginator
+
+        def set_rows_amount(self, amount: int) -> None:
+            """does nothing"""
+            return
 
         def build(self) -> List[MessageActionRowBuilder]:
             pag = self.paginator
