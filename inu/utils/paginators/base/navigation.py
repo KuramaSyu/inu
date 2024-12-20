@@ -9,28 +9,60 @@ if TYPE_CHECKING:
 
 
 class ButtonBuilder:
-    """A builder class for creating message action row buttons with customizable properties.
+    """
+    A builder class for creating message action row buttons with customizable properties.
     This class provides a fluent interface for constructing buttons that can be added to
     a Discord message action row. It supports customization of position, label, style,
     custom ID, emoji, and disable conditions.
-    Attributes:
-        action_row_builder (MessageActionRowBuilder): The builder for the message action row.
-        position (int): The position of the button in the action row.
-        disable_when_index_is (Callable[[Optional[int]], bool]): A function that determines when the button should be disabled.
-        label (str): The text label of the button.
-        style (ButtonStyle): The visual style of the button.
-        custom_id (str): The custom identifier for the button.
-        emoji (str): The emoji to display on the button.
-    Example:
-        ```python
-        button = ButtonBuilder()\\
-            .set_position(0)\\
-            .set_label("Click Me")\\
-            .set_style(ButtonStyle.PRIMARY)\\
-            .set_custom_id("my_button")\\
-            .set_emoji("👍")\\
-            .build()
-        ```
+
+    Parameters
+    ----------
+    action_row_builder : MessageActionRowBuilder, optional
+        The builder for the message action row, by default None
+
+    Attributes
+    ----------
+    action_row_builder : MessageActionRowBuilder
+        The builder for the message action row
+    position : int
+        The position of the button in the action row
+    disable_when_index_is : Callable[[Optional[int]], bool]
+        A function that determines when the button should be disabled
+    label : str
+        The text label of the button
+    style : ButtonStyle
+        The visual style of the button
+    custom_id : str
+        The custom identifier for the button
+    emoji : str
+        The emoji to display on the button
+
+    Methods
+    -------
+    set_position(position: int)
+        Sets the position of the button in the action row
+    set_disable_condition(condition: Callable[[Optional[int]], bool])
+        Sets the condition for when the button should be disabled
+    set_label(label: str)
+        Sets the text label of the button
+    set_style(style: ButtonStyle)
+        Sets the visual style of the button
+    set_custom_id(custom_id: str)
+        Sets the custom identifier for the button
+    set_emoji(emoji: str)
+        Sets the emoji to display on the button
+    build()
+        Constructs and returns the message action row with the configured button
+
+    Examples
+    --------
+    >>> button = ButtonBuilder()\\
+    ...     .set_position(0)\\
+    ...     .set_label("Click Me")\\
+    ...     .set_style(ButtonStyle.PRIMARY)\\
+    ...     .set_custom_id("my_button")\\
+    ...     .set_emoji("👍")\\
+    ...     .build()
     """
     def __init__(self, action_row_builder: Optional[MessageActionRowBuilder] = None):
         self.action_row_builder = action_row_builder or MessageActionRowBuilder()
@@ -132,5 +164,87 @@ class NumericNavigation(NavigationStragegy):
                     .set_style(ButtonStyle.PRIMARY if j == position else ButtonStyle.SECONDARY)
                 ).build()
             action_rows.append(action_row)
-            
+
         return action_rows
+
+
+    class ClassicNavigation(NavigationStragegy):
+        """
+        A classic navigation strategy implementation using Discord UI buttons.
+        This class implements a navigation strategy that creates a row of buttons for paginator control.
+        The buttons include navigation controls (first, previous, next, last), a stop button, and
+        optionally a sync button.
+        The navigation controls are arranged as follows (in non-compact mode):
+        ⏮ ◀ ✖ ▶ ⏭
+        In compact mode, first (⏮) and last (⏭) buttons are omitted.
+
+        Parameters
+        ----------
+        paginator : Paginator
+            The paginator instance this navigation strategy is attached to.
+
+        Methods
+        -------
+        build()
+            Constructs and returns the message action rows containing navigation buttons.
+
+        Returns
+        -------
+        List[MessageActionRowBuilder]
+            A list of action rows containing the navigation buttons.
+        """
+        def __init__(self, paginator: "Paginator") -> None:
+            self.paginator = paginator
+
+        def build(self) -> List[MessageActionRowBuilder]:
+            pag = self.paginator
+            page_len = len(pag.pages)
+
+            rows: List[MessageActionRowBuilder] = []
+            action_row = None
+            if not pag.compact:
+                action_row = ButtonBuilder(action_row)\
+                    .set_custom_id("first")\
+                    .set_emoji("⏮")\
+                    .set_disable_condition(lambda p: p == 0)\
+                    .build()
+
+            if page_len > 1:
+                action_row = ButtonBuilder(action_row or MessageActionRowBuilder())\
+                    .set_custom_id("previous")\
+                    .set_emoji("◀")\
+                    .set_disable_condition(lambda p: p == 0)\
+                    .build()
+
+            action_row = ButtonBuilder(action_row)\
+                .set_custom_id("stop")\
+                .set_emoji("✖")\
+                .set_label(f"{pag._position+1}/{page_len}")\
+                .set_style(ButtonStyle.DANGER)\
+                .build()
+
+            if page_len > 1:
+                action_row = ButtonBuilder(action_row)\
+                    .set_custom_id("next")\
+                    .set_emoji("▶")\
+                    .set_disable_condition(lambda p: p == page_len-1)\
+                    .build()
+
+            if not pag.compact:
+                action_row = ButtonBuilder(action_row)\
+                    .set_custom_id("last")\
+                    .set_emoji("⏭")\
+                    .set_disable_condition(lambda p: p == page_len-1)\
+                    .build()
+
+            rows.append(action_row)
+            
+            if pag._with_update_button:
+                if len(action_row._components) >= 5:
+                    rows.append(MessageActionRowBuilder())
+                rows[-1] = ButtonBuilder(rows[-1])\
+                    .set_custom_id("sync")\
+                    .set_emoji("🔁")\
+                    .build()
+
+            return rows
