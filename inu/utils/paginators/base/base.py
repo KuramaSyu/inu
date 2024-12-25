@@ -425,6 +425,8 @@ def wrap_to_event(interaction: PartialInteraction | InteractionCreateEvent, bot:
 TContext = TypeVar("TContext", bound=Union[InuContext, Context])
 PageType = TypeVar("PageType", Embed, str)
 
+
+
 class Paginator(Generic[PageType]):
     def __init__(
         self,
@@ -1445,7 +1447,10 @@ def navigation_row(
 
     return action_row
 
+
+
 PagSelf = TypeVar("PagSelf", bound="StatelessPaginator")
+
 
 
 class StatelessPaginator(Paginator, ABC):
