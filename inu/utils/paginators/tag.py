@@ -1,3 +1,4 @@
+from code import interact
 import traceback
 from typing import *
 import asyncio
@@ -6,7 +7,11 @@ from enum import Enum
 import re
 
 import hikari
-from hikari import CommandInteraction, ComponentInteraction, InteractionCreateEvent, NotFoundError, PartialIntegration, PartialInteraction, events, ResponseType, Embed
+from hikari import (
+    CommandInteraction, ComponentInteraction, InteractionCreateEvent, 
+    NotFoundError, PartialIntegration, PartialInteraction, 
+    events, ResponseType, Embed, Event
+)
 from hikari import ButtonStyle, MessageFlag
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
@@ -17,7 +22,6 @@ from .base import (
     JsonDict,
     CustomID,
     Paginator,
-    Event,
     InteractionListener,
     EventObserver,
     listener,
@@ -141,10 +145,10 @@ class TagHandler(StatelessPaginator):
             disable_components=disable_components,
             disable_paginator_when_one_site=False,
         ) 
-    async def rebuild(self, event: hikari.Event, reject_user: bool = False, **kwargs) -> None:
-        await super().rebuild(event, reject_user=reject_user, **kwargs)
+    async def rebuild(self, interaction: PartialInteraction | InteractionCreateEvent, reject_user: bool = False, **kwargs) -> None:
+        await super().rebuild(interaction, reject_user=reject_user, **kwargs)
 
-    def _interaction_pred(self, interaction: ComponentInteraction) -> Tuple[bool, bool]:
+    def _interaction_pred(self, interaction: PartialInteraction) -> Tuple[bool, bool]:
         """Checks user in tag.owners and message id of the event interaction
         
         Returns:
@@ -153,12 +157,13 @@ class TagHandler(StatelessPaginator):
             - bool: wether or not the message id is the same as the one of the paginator
         """
         i = interaction
+        self.log.debug(f"tag test - testing interaction of type {type(interaction)}")
         if not isinstance(i, ComponentInteraction):
             self.log.debug("False interaction pred")
             return False, False
         return (i.user.id in self.tag.owners, i.message.id == self._message.id)
 
-    def interaction_pred(self, interaction: ComponentInteraction) -> bool:
+    def interaction_pred(self, interaction: PartialInteraction) -> bool:
         return all(self._interaction_pred(interaction))
 
     async def check_user(self) -> bool:
@@ -197,8 +202,10 @@ class TagHandler(StatelessPaginator):
         except Exception:
             self.log.error(traceback.format_exc())
 
-    async def _rebuild(self, interaction: Interaction):
+    async def _rebuild(self, interaction: PartialInteraction | InteractionCreateEvent, **kwargs):
         await self._rebuild_pages()
+        if isinstance(interaction, InteractionCreateEvent):
+            interaction = interaction.interaction
         self.set_context(interaction=interaction)
 
     async def post_start(self, **kwargs):
@@ -206,7 +213,7 @@ class TagHandler(StatelessPaginator):
 
     async def _rebuild_pages(self, update_value: bool = True):
         """
-        updates and sends the pages
+        updates pages
         - `self._pages` with the crumbled tag value (`self.tag` is needed)
         - adds info field to the current position page
         - sets `self._additional_components` to the tag components (link buttons)
@@ -283,19 +290,16 @@ class TagHandler(StatelessPaginator):
             - event: (InteractionCreateEvent) the invoked event; passed from the listener
         """
         TAG_MENU_PREFIX = "tag_options"
-        log.debug(f"Interaction: {event}")
         try:
-            if not isinstance(event.interaction, ComponentInteraction):
-                return
-            if not self.interaction_pred(event):
+            if not self.interaction_pred(event.interaction):
                 return 
             
-            i = event.interaction
+            i = cast(ComponentInteraction, event.interaction)
             try:
                 if not self.custom_id.custom_id.startswith(TAG_MENU_PREFIX):
                     return
-                if event.interaction.values:
-                    custom_id = event.interaction.values[0]
+                if i.values:
+                    custom_id = i.values[0]
                 else:
                     custom_id = self.custom_id.custom_id.removeprefix(f"{TAG_MENU_PREFIX}_")
             except (IndexError, AssertionError):
@@ -303,22 +307,22 @@ class TagHandler(StatelessPaginator):
                 return
                 # set_type has other message, not this one
             self.log.debug(f"Custom ID: {custom_id}")
-            self.set_context(event=event)
+            self.set_context(interaction=i)
             success = True
             if custom_id == "set_name":
-                await self.set_name(event.interaction)
+                await self.set_name(i)
             elif custom_id == "set_value":
-                success = await self.set_value(event.interaction)
+                success = await self.set_value(i)
             elif custom_id == "extend_value":
-                success = await self.extend_value(event.interaction)
+                success = await self.extend_value(i)
             elif custom_id == "change_visibility":
-                await self.change_visibility(event.interaction)
+                await self.change_visibility(i)
             elif custom_id == "change_owner":
-                await self.change_owner(event.interaction)
+                await self.change_owner(i)
             elif custom_id == "finish":
-                await self.finish(event.interaction)
+                await self.finish(i)
             elif custom_id == "remove_tag":
-                await self.delete(event.interaction)
+                await self.delete(i)
             elif custom_id == "add_author_id":
                 await self.change_creators(i, set.add)
             elif custom_id == "add_alias":
@@ -332,7 +336,7 @@ class TagHandler(StatelessPaginator):
             elif custom_id == "remove_guild_id":
                 await self.change_guild_ids(i, set.remove)
             elif custom_id == "ask_type":
-                await self.ask_type(get_context(event))
+                await self.ask_type(get_context(event=event))
                 return
             elif custom_id == "info_visible":
                 await self.change_info_visibility()
@@ -370,8 +374,9 @@ class TagHandler(StatelessPaginator):
             elif custom_id == "resend":
                 # stopping this and restarting a new one
                 try:   
-                    await self.update_page(update_value=True, interaction=i)             
-                    await self._proxy.delete()
+                    await self.update_page(update_value=True, interaction=i)       
+                    if self._proxy:      
+                        await self._proxy.delete()
                 except Exception:
                     log.warning(traceback.format_exc())
                 await self.send(content=self.pages[self._position], update=False)
@@ -413,7 +418,7 @@ class TagHandler(StatelessPaginator):
     async def change_info_visibility(self):
         self.tag.info_visible = not self.tag.info_visible
 
-    async def ask_type(self, ctx: Context):
+    async def ask_type(self, ctx: InuContext):
         menu = (
             MessageActionRowBuilder()
             .add_text_menu(self._serialize_custom_id("tag_options"))
@@ -434,21 +439,22 @@ class TagHandler(StatelessPaginator):
         paginator = TagViewPaginator(self.tag)
         await paginator.start(self.ctx, force_show_name=True)
 
-    async def change_creators(self, interaction: ComponentInteraction, op: Union[set.add, set.remove]):
+    async def change_creators(self, interaction: ComponentInteraction, op: Callable[[set, int], None]):
         """
         Args:
         -----
-            - op (`builtins.function`) the function, where the result of the question will be passed in
+            - op (`builtins.function`) the function (set.add | set.remove), where the result of the question will be passed in
         """
-        user_str, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
+        raise NotImplementedError("User search not implemented vor lightbulb v3")
+        ctx = get_context(interaction)
+        user_str, new_ctx = await ctx.ask_with_modal(
             "Edit Tag",
             "What is the person you want to add?",
-            interaction=interaction,
-            placeholder="something like @user, user#0000 or the ID of the user"
+            placeholder_s="something like @user, user#0000 or the ID of the user"
         )
-        self.set_context(event=event)
+        self.set_context(new_ctx)
         try:
-            raise NotImplementedError("User search not implemented vor lightbulb v3")
+            pass
             #user = await UserConverter(self.ctx).convert(user_str)
         except TypeError:
             return await self.create_message(f"No person like `{user_str}` found.")
@@ -467,14 +473,13 @@ class TagHandler(StatelessPaginator):
         -----
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
-
-        guild_id, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
+        ctx = get_context(interaction)
+        guild_id, new_ctx = await ctx.ask_with_modal(
             "Edit Tag",
             "Enter the guild ID you want to add",
             placeholder_s="something like 1234567890123456789",
-            interaction=interaction,
         )
-        self.set_context(event=event)
+        self.set_context(new_ctx)
         try:
             op(self.tag.guild_ids, int(guild_id))
         except ValueError:
@@ -491,12 +496,12 @@ class TagHandler(StatelessPaginator):
             - op (`builtins.function`) the function, where the result of the question will be passed in
         """
         # I know this function is redundant, but otherwise it would affect the readability
-        alias, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
+        ctx = get_context(interaction)
+        alias, new_ctx = await ctx.ask_with_modal(
             "Edit Tag",
             "What should be the name of the new alias?",
-            interaction=interaction,
         )
-        self.set_context(event=event)
+        self.set_context(new_ctx)
         try:
             op(self.tag.aliases, alias)
         except KeyError:
@@ -518,14 +523,14 @@ class TagHandler(StatelessPaginator):
         await self.tag.update()
 
     async def set_name(self, interaction: ComponentInteraction):
-        new_name, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
+        ctx = get_context(interaction)
+        new_name, new_ctx = await ctx.ask_with_modal(
             "Rename Tag",
             "New name:",
             min_length_s=1,
             max_length_s=256,
-            interaction=interaction,
         )
-        self.set_context(event=event)
+        self.set_context(new_ctx)
         try:
             self.tag.name = new_name
         except RuntimeError as e:
@@ -541,25 +546,24 @@ class TagHandler(StatelessPaginator):
         Returns:
             bool: True if the value was set successfully, False otherwise.
         """
+        ctx = get_context(interaction)
         value_sha256 = hashlib.sha256((self.tag.value[self._position] or "").encode()).hexdigest()
         value = None
         try:
             if append:
-                value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
-                    modal_title=self.tag.name or "Tag",
+                value, new_ctx = await ctx.ask_with_modal(
+                    title=self.tag.name or "Tag",
                     question_s="Add to value:" if append else "Value:",
-                    interaction=interaction,
                 )
             else:
-                value, self.interaction, event = await self.bot.shortcuts.ask_with_modal(
-                    modal_title=self.tag.name or "Tag",
+                value, new_ctx = await ctx.ask_with_modal(
+                    title=self.tag.name or "Tag",
                     question_s="Edit value:",
-                    interaction=interaction,
                     pre_value_s=self.tag.value[self._position] or "",
                 )
         except asyncio.TimeoutError:
             return False
-        self.set_context(event=event)
+        self.set_context(new_ctx)
         if value is None or not value:
             # no new value or value is the same
             return False
@@ -632,6 +636,8 @@ class TagHandler(StatelessPaginator):
         )
 
     async def change_owner(self, interaction: ComponentInteraction):
+        raise NotImplementedError("Needs to be reimplemented with modal")
+        ctx = get_context(interaction)
         embed = (
             Embed(title="Enter the ID of the new owner or ping him/her/it or enter the complete name with #XXXX")
             .set_footer(text=f"timeout after {self.timeout}s")
@@ -668,10 +674,11 @@ class TagHandler(StatelessPaginator):
             await channel.delete_messages(bot_message, event.message)
         self.tag.owner = user
 
-    def build_default_components(self, position) -> List[MessageActionRowBuilder]:
+    def build_default_components(self, position: int | None = None) -> List[MessageActionRowBuilder]:
         rows: List[MessageActionRowBuilder] = []
         navi = super().build_default_component(position)
-        rows.append(navi)
+        if navi:
+            rows.append(navi)
         rows = add_row_when_filled(rows, min_empty_slots=2)
         rows[-1].add_interactive_button(
             ButtonStyle.PRIMARY, 
