@@ -80,7 +80,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
     ) -> ResponseProxy:
         embeds = embeds or [embed] if embed else []
         components = components or ([component] if component else [])
-
+        log.debug(f"respond() with {type(self.response_state).__name__}")
         return await self.response_state.respond(
             embeds=embeds,
             content=content,
@@ -246,11 +246,19 @@ class CommandContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin
     def original_message(self) -> Optional[hikari.Message]:
         return None
 
+    @property
+    def id(self) -> int:
+        return self.interaction.id
+
 
 class ComponentContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin, MessageMixin):  # type: ignore[union-attr]
     def __init__(self, app: Inu, interaction: hikari.ComponentInteraction) -> None:
         super().__init__(app, interaction)
         
+    @property
+    def id(self) -> int:
+        return self.interaction.id
+    
     @property
     def custom_id(self) -> str:
         return self.interaction.custom_id
