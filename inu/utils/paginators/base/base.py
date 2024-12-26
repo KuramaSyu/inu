@@ -40,7 +40,7 @@ import lightbulb
 from lightbulb.context import Context
 
 from . import EventListener, InteractionListener, ButtonListener, EventObserver, InteractionObserver, PaginatorReadyEvent, PaginatorTimeoutEvent
-from core import InuContext, get_context, BotResponseError, getLogger, ResponseProxy, Inu
+from core import InuContext, get_context, BotResponseError, getLogger, ResponseProxy, Inu, Interaction, InuContextBase
 from utils.buttons import add_row_when_filled
 
 
@@ -49,7 +49,7 @@ log = logging.getLogger(__name__)
 log.setLevel(LOGLEVEL)
 
 
-__all__: Final[List[str]] = ["Paginator", "BaseObserver", "BaseListener", "EventObserver", "InteractionListener"]
+__all__: Final[List[str]] = ["Paginator", "StatelessPaginator"]
 _Sendable = Union[Embed, str]
 T = TypeVar("T")
 
@@ -64,6 +64,12 @@ REJECTION_MESSAGES = [
     "_beep beeeeep_ 401 UNAUTHORIZED - "
     "imagine not even having enough permissions to click a button",
     "Never heard of [privacy](https://en.wikipedia.org/wiki/Privacy)?"
+]
+
+FUNNY_MESSAGES = [
+    "Help me, I'm held hostage",
+    "Downloading more RAM",
+    "I would have been faster in Rust",
 ]
 
 
@@ -148,7 +154,7 @@ class CustomID():
             self._raise_none_error("_author_id")
         return self._author_id  #type: ignore
 
-    def is_same_user(self, interaction: hikari.ComponentInteraction):
+    def is_same_user(self, interaction: Interaction):
         """wether or not the interaction user is the prvious paginator user"""
         return interaction.user.id == self.author_id
     
@@ -657,6 +663,7 @@ class Paginator(Generic[PageType]):
     def interaction_pred(self, interaction: PartialInteraction) -> bool:
         """Checks user and message id of the event interaction"""
         i = interaction
+        self.log.debug(f"testing interaction of type {type(interaction)}")
         if not isinstance(interaction, ComponentInteraction):
             self.log.debug("False interaction pred")
             return False
@@ -1033,7 +1040,7 @@ class Paginator(Generic[PageType]):
 
     async def start(
         self, 
-        ctx: TContext,
+        ctx: Context | InuContext,
         **kwargs,
     ) -> hikari.Message:
         """
@@ -1074,12 +1081,12 @@ class Paginator(Generic[PageType]):
             - (hikari.Message) the message, which was used by the paginator
         """
         self._stopped = False
-        if not isinstance(ctx, InuContext):
+        if not isinstance(ctx, InuContextBase):
             self.log.debug("get context")
             self.ctx = get_context(ctx.interaction)
         else:
             self.log.debug("set context form given")
-            self.ctx = ctx
+            self.ctx = cast(InuContext, ctx)
         # TODO: is this of any use?
         # self._ctx._responded = ctx._responded
         log.debug(f"{type(self.ctx)}")
@@ -1302,13 +1309,15 @@ class Paginator(Generic[PageType]):
             return
         elif id.startswith(NUMBER_BUTTON_PREFIX):
             self._position = int(id.replace(NUMBER_BUTTON_PREFIX, ""))
+        log.debug(f"last_position: {last_position}, self._position: {self._position}, id: {id}")
         if last_position != self._position or str(id) == "sync":
+            log.debug(f"updating position")
             await self._update_position()
 
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
         if not self.ctx.is_responded():
-            await self.stop()
+            await self.stop({"content": random.choice(FUNNY_MESSAGES)})
         if self._proxy:
             await self._proxy.delete()
         #await self.ctx.delete_webhook_message(self._message)
@@ -1497,7 +1506,7 @@ class StatelessPaginator(Paginator, ABC):
 
     async def start(
         self,
-        ctx: InuContext,
+        ctx: InuContext | Context,
         **kwargs,
     ) -> hikari.Message:
         """
@@ -1512,10 +1521,14 @@ class StatelessPaginator(Paginator, ABC):
                 the paginator will exit. No event listening will be done!
             -   Subclasses of this class should recreate the embeds here and pass them into `set_pages(pages: List[hikari.Embed | str])`
         """
+        # cast context
+        if not isinstance(ctx, InuContextBase) and ctx is not None:
+            log.debug("rebuild to InuContext")
+            ctx = get_context(ctx.interaction)
         # custom_id provided -> edit old message
         # ctx could have been already set in a overridden subclass
         if not self._ctx:
-            self.set_context(ctx)
+            self.set_context(cast(InuContext, ctx))
         self._author_id = self.ctx.author.id
         self._channel_id = self.ctx.channel_id
         # kwargs passed when next message is created
@@ -1643,10 +1656,12 @@ class StatelessPaginator(Paginator, ABC):
         if isinstance(event, InteractionCreateEvent):
             if self.wrong_button_click(event.interaction) and reject_interaction:
                 # interaction from wrong user
+                log.debug(f"reject interaction")
                 ctx = get_context(event)
                 await ctx.respond(random.choice(REJECTION_MESSAGES), ephemeral=True)
                 return
-            await self.paginate(id=event.interaction.custom_id or None)  # type: ignore
+            log.debug(f"paginate interaction")
+            await self.paginate(id=self.custom_id.custom_id or None)  # type: ignore
             # log.debug(f"notify for interaction")
             # await self.interaction_observer.notify(event.interaction)
         log.debug(f"notify for event {type(event).__name__}")
@@ -1739,7 +1754,7 @@ class StatelessPaginator(Paginator, ABC):
         return random.choice(REJECTION_MESSAGES)
 
     @abstractmethod
-    async def _rebuild(self, **kwargs):
+    async def _rebuild(self, interaction: PartialInteraction | InteractionCreateEvent, **kwargs):
         ...
 
     async def rebuild(self, interaction: PartialInteraction | InteractionCreateEvent, reject_user: bool = True, **kwargs) -> None:
@@ -1780,7 +1795,7 @@ class StatelessPaginator(Paginator, ABC):
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
         if not self.ctx.is_responded():
-            await self.stop()
+            await self.stop({"content": random.choice(FUNNY_MESSAGES)})
         await self.ctx.delete_initial_response()
 
 
