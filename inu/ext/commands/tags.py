@@ -29,7 +29,6 @@ from utils import (
     guild_name_or_id, TagType, crumble, ListParser, Paginator, StatelessPaginator, 
     TagHandler, Tag, TagViewPaginator, add_row_when_filled, TagCustomID, mockup_action_row
 )
-from utils.paginators.base import navigation_row
 from core import (
     Inu, BotResponseError, getLogger, BotResponseError, ComponentContext, 
     get_context, InuContext
@@ -140,9 +139,7 @@ async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
             guild_id=get_guild_or_channel_id(event.interaction),
         )
     pag = TagViewPaginator(tag).set_custom_id(event.interaction.custom_id)
-    await pag.rebuild(
-        event=event,
-    )
+    await pag.rebuild(interaction=event.interaction)
 
 
 
