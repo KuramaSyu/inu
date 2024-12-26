@@ -20,6 +20,7 @@ if TYPE_CHECKING:
 
 # TODO: CreatedState -> DeletedState: Transfer .responses
 
+log = getLogger(__name__)
 
 class BaseResponseState(abc.ABC):
     interaction: CommandInteraction | ComponentInteraction
@@ -46,6 +47,7 @@ class BaseResponseState(abc.ABC):
             """
             Changes the ResponseState of the parent `InuContextBase` to the new state, coping `interaction` and `context`
             """
+            log.debug(f"changing state from {type(self)} to {new_state}")
             state = new_state(
                 self.interaction,
                 self.context,
