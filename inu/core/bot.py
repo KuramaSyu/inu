@@ -380,7 +380,7 @@ class MaybeRest:
     def __init__(self, bot: Inu):
         self.bot = bot
 
-    async def fetch_T(self, cache_method: Callable[[], T], rest_coro: Coroutine[Any, Any, T], t_ids: List[Snowflakeish]) -> T:
+    async def fetch_T(self, cache_method: Callable[[], Optional[T]], rest_coro: Callable[..., Coroutine[Any, Any, T]], t_ids: List[Snowflakeish]) -> T:
         t = cache_method(*t_ids)
         if t:
             return t
