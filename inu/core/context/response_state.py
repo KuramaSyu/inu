@@ -31,7 +31,7 @@ class BaseResponseState(abc.ABC):
 
     def __init__(
         self, 
-        interaction: ComponentInteraction | CommandInteraction, 
+        interaction: ComponentInteraction | CommandInteraction | None, 
         context: 'InuContextBase',
         responses: List[ResponseProxy]
     ) -> None:
@@ -40,6 +40,7 @@ class BaseResponseState(abc.ABC):
         self._responded: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self._last_response: datetime = self.created_at
+        self._invalid_task = asyncio.create_task(self.trigger_transition_when_invalid())
         self.responses = responses
         self.context = context
         self.log = getLogger(__name__, self.__class__.__name__)
@@ -54,6 +55,8 @@ class BaseResponseState(abc.ABC):
             Changes the ResponseState of the parent `InuContextBase` to the new state, coping `interaction` and `context`
             """
             log.debug(f"changing state from {type(self)} to {new_state}")
+            if self._invalid_task is not None:
+                self._invalid_task.cancel()
             state = new_state(
                 self.interaction,
                 self.context,
@@ -155,6 +158,23 @@ class BaseResponseState(abc.ABC):
     async def delete_initial_response(self) -> None:
         await self.interaction.delete_initial_response()
 
+    async def trigger_transition_when_invalid(self):
+        """
+        Triggers a transition to the RestResponseState when the current response becomes invalid.
+
+        This method continuously monitors the validity of the current response. When the response
+        becomes invalid (typically after 15 minutes), it transitions to the RestResponseState.
+
+        The method sleeps until the expected invalidation time to avoid unnecessary CPU usage.
+
+        Returns
+        -------
+        None
+        """
+        while self.is_valid:
+            probably_invalid_in = self.last_response + timedelta(minutes=15) - datetime.now()
+            await asyncio.sleep(probably_invalid_in.total_seconds())
+        self.change_state(RestResponseState)
 
         
         
@@ -463,6 +483,22 @@ class DeletedResponseState(BaseResponseState):
 
 
 class RestResponseState(BaseResponseState):
+    def __init__(
+        self, 
+        interaction: ComponentInteraction | CommandInteraction | None, 
+        context: 'InuContextBase',
+        responses: List[ResponseProxy]
+    ) -> None:
+        self._interaction = interaction
+        self._deferred: bool = False
+        self._responded: bool = False
+        self._response_lock: asyncio.Lock = asyncio.Lock()
+        self._last_response: datetime = self.created_at
+        self._invalid_task = None  # can't get invalid
+        self.responses = responses
+        self.context = context
+        self.log = getLogger(__name__, self.__class__.__name__)
+
     async def respond(
         self,
         embeds: List[Embed] | None = None,
