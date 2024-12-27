@@ -308,56 +308,45 @@ async def no_tag_found_msg(
         await ctx.respond(answer)
 
 
-# @tag_remove.autocomplete("name")
-# @tag_change_name.autocomplete("old_name")
-# @tag_append.autocomplete("name")
-# @tag_info.autocomplete("name")
-# @tag_edit.autocomplete("name")
-# @tag_remove_alias.autocomplete("name")
-# @tag_add_alias.autocomplete("name")
-# @tag_remove_guild.autocomplete("name")
-# @tag_remove_author.autocomplete("name")
-# @tag_add_author.autocomplete("name")
-# @tag_add_guild.autocomplete("name")
-# @tag_remove.autocomplete("name")
-# @tag_get.autocomplete("name")
 async def tag_name_auto_complete(
     ctx: AutocompleteContext
 ) -> None:
     """Autocomplete for tag names"""
-    log.debug(f"Autocompleting tags {ctx.options=}")
-    option = ctx.options[0]
+    log.debug(f"Autocompleting tags")
+    option = ctx.focused
     res = await TagManager.tag_name_auto_complete(option, ctx.interaction)
+    log.debug(f"Autocompleted tags: {res}")
     await ctx.respond(res)
 
 async def guild_auto_complete(
     ctx: AutocompleteContext
-) -> List[str]:
+) -> None:
     """Autocomplete for guild IDs"""
-    ctx.focused.name
-    log.debug(f"Autocompleting guilds {ctx.options=}")
-    value = ctx.options[ctx.focused.name] or ""
-    value = str(value)
-    guilds: List[Dict[str, str | int]] = []
-    for gid, name in bot.cache.get_available_guilds_view().items():
-        guilds.append({'id': gid, 'name': str(name)})
-    if len(guilds) >= 1000:
-        log.warning("Too many guilds to autocomplete - optimising guild list fast..")
-        guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
-    guilds.append({'id': 000000000000000000, 'name': "Global - Everywhere where I am"})
+    try:
+        log.debug(f"Autocompleting guilds")
+        value = str(ctx.get_option(ctx.focused.name))
+        guilds: List[Dict[str, str | int]] = []
+        for gid, name in ctx.client.app.cache.get_available_guilds_view().items():  # type: ignore
+            guilds.append({'id': gid, 'name': str(name)})
+        if len(guilds) >= 1000:
+            log.warning("Too many guilds to autocomplete - optimising guild list fast..")
+            guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
+        guilds.append({'id': 000000000000000000, 'name': "Global - Everywhere where I am"})
 
-    if len(guilds) > 25:
-        if len(value) <= 2:
-            guilds = guilds[:24]
-    if len(value) > 2:
-        guilds_sorted: List[Dict[str, Union[int, str]]] = []
-        for guild in guilds:
-            guild["ratio"] = fuzz.ratio(value, guild["name"])
-            guilds_sorted.append(guild)
-        guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
-        guilds = guilds_sorted[:24]
-    
-    await ctx.respond([f"{guild['id']} | {guild['name']}" for guild in guilds]) 
+        if len(guilds) > 25:
+            if len(value) <= 2:
+                guilds = guilds[:24]
+        if len(value) > 2:
+            guilds_sorted: List[Dict[str, Union[int, str]]] = []
+            for guild in guilds:
+                guild["ratio"] = fuzz.ratio(value, guild["name"])
+                guilds_sorted.append(guild)
+            guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
+            guilds = guilds_sorted[:24]
+        
+        await ctx.respond([f"{guild['id']} | {guild['name']}" for guild in guilds]) 
+    except Exception as e:
+        log.error(f"Error in guild autocomplete: {e}")
 
 
 def guild_autocomplete_get_id(value: str) -> int:
