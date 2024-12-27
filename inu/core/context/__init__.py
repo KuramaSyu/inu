@@ -2,12 +2,12 @@ from .types import *
 from .mixins import (
     AuthorMixin, CustomIDMixin, GuildsAndChannelsMixin, MessageMixin
 )
-from .response_proxy import ResponseProxy, InitialResponseProxy, WebhookProxy
+from .response_proxy import ResponseProxy, InitialResponseProxy, WebhookProxy, RestResponseProxy
 from .base import InuContextBase, UniqueContextInstance, Response
 
 from .response_state import (
     BaseResponseState, CreatedResponseState, DeferredCreateResponseState, 
-    DeletedResponseState, InitialResponseState
+    DeletedResponseState, InitialResponseState, RestResponseState
 )
 from .protocols import InuContext, InuContextProtocol, Interaction
 from .interactions import CommandContext, ComponentContext
