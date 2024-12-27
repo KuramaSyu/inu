@@ -116,6 +116,10 @@ class CheckForTagType:
 async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
     """
     Handler for all tag paginator related interactions
+    
+    Notes:
+    ------
+    Keyword: `stl-tag`
     """
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
@@ -258,19 +262,16 @@ async def show_record(
     BotResponseError:
         when the tag creation raises an RuntimeError
     """
-    if not record:
-        await no_tag_found_msg(ctx, name or "<not given>", ctx.guild_id or ctx.channel_id)
-        return
+    if not (record or tag):
+        return await no_tag_found_msg(ctx, name or "<not given>", ctx.guild_id or ctx.channel_id)
     if not tag:
         try:
             tag = await Tag.from_record(record,  db_checks=False)
         except RuntimeError as e:
             raise BotResponseError(e.args[0], ephemeral=True)
-    pag = TagViewPaginator(
-        tag=tag
-    )
+    pag = TagViewPaginator(tag=tag)
     await tag.used_now()
-    await pag.start(ctx, force_show_name=force_show_name, name=name)
+    await pag.start(ctx, force_show_name=force_show_name, name=tag.name or name or "<not given>")
         
     
 
@@ -380,7 +381,7 @@ async def on_tag_link_interaction(event: hikari.InteractionCreateEvent):
         # inform the user about the mistake
         await ctx.respond(**e.kwargs)
         return
-    await show_record(tag=tag, record={}, ctx=ctx)
+    await show_record(tag=tag, ctx=ctx, record=None)
 
 
 
@@ -562,13 +563,15 @@ async def _tag_add(
                 ctx = maybe_ctx
         except asyncio.TimeoutError:
             pass
-    await ctx.respond(
-        f"Your tag `{name}` has been added to my storage",
-        component=MessageActionRowBuilder().add_interactive_button(
+    component=MessageActionRowBuilder().add_interactive_button(
             ButtonStyle.SECONDARY, 
             tag.link,
             label=tag.name
         )
+    log.debug(f"Send message with component: {component}")
+    await ctx.respond(
+        f"Your tag `{name}` has been added to my storage",
+        component=component
     )
     return name
 
