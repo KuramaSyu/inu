@@ -102,21 +102,27 @@ class LoggingHandler(logging.Logger):
     def trace(self, message: str):
         self.log(5, message)
 
-    def debug(self, message: str, *args, prefix: str = "", **kwargs):
-        self.log(logging.DEBUG, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+    def debug(self, message: str, *args, prefix: str = "", multiline: bool = False, **kwargs):
+        self._pre_log(logging.DEBUG, message, multiline=multiline, prefix=prefix, **kwargs)
 
-    def info(self, message: str, *args, prefix: str = "", **kwargs):
-        self.log(logging.INFO, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+    def info(self, message: str, *args, prefix: str = "", multiline: bool = False, **kwargs):
+        self._pre_log(logging.INFO, message, multiline=multiline, prefix=prefix, **kwargs)
 
-    def warning(self, message: str, *args, prefix: str = "", **kwargs):
-        self.log(logging.WARNING, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+    def warning(self, message: str, *args, prefix: str = "", multiline: bool = False, **kwargs):
+        self._pre_log(logging.WARNING, message, multiline=multiline, prefix=prefix, **kwargs)
 
-    def error(self, message: str, *args, prefix: str = "", **kwargs):
-        self.log(logging.ERROR, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+    def error(self, message: str, *args, prefix: str = "", multiline: bool = False, **kwargs):
+        self._pre_log(logging.ERROR, message, multiline=multiline, prefix=prefix, **kwargs)
 
-    def critical(self, message: str, *args, prefix: str = "", **kwargs):
-        self.log(logging.CRITICAL, f"{self._convert_prefix(prefix)}{message}", *args, **kwargs)
+    def critical(self, message: str, *args, prefix: str = "", multiline: bool = False, **kwargs):
+        self._pre_log(logging.CRITICAL, message, multiline=multiline, prefix=prefix, **kwargs)
 
+    def _pre_log(self, level: int, message: str, prefix: str = "", multiline: bool = False, **kwargs):
+        if multiline:
+            for line in message.splitlines():
+                self.log(level=level, msg=f"{self._convert_prefix(prefix)}{line}")
+        else:
+            self.log(level=level, msg=f"{self._convert_prefix(prefix)}{message}")
     def _convert_prefix(self, prefix: str):
         return f"[{prefix.upper()}] " if prefix else ""
     
