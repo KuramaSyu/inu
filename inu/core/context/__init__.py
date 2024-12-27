@@ -11,5 +11,5 @@ from .response_state import (
 )
 from .protocols import InuContext, InuContextProtocol, Interaction
 from .interactions import CommandContext, ComponentContext
-#from .rest import RESTContext
+from .rest import RestContext
 from .factory import get_context
