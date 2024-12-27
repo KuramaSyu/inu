@@ -216,7 +216,9 @@ class Tag():
                 ),
                 ephemeral=True,
             )
-        return await cls.from_record(records[0], db_checks=False)
+        tag = await cls.from_record(records[0], db_checks=False)
+        log.debug(f"Tag fetched from link: {repr(tag)}")
+        return tag
 
     async def used_now(self):
         """Adds a asyncio task to update the tag last_use column"""
@@ -437,8 +439,24 @@ class Tag():
 
     @property
     def components(self) -> List[MessageActionRowBuilder] | None:
-        """
-        Returns a list of components of the tag.
+        """Returns a list of components of the tag.
+
+        This method generates UI components based on tag link information. If there are 5 or fewer
+        links in the value, it creates buttons. For 6 or more links (up to 24), it creates a dropdown menu.
+
+        Returns
+        -------
+        List[MessageActionRowBuilder] | None
+            A list containing a single action row with either:
+            - Multiple interactive buttons (for 5 or fewer links)
+            - A dropdown menu (for 6-24 links)
+            - None if no tag link information exists
+
+        Notes
+        -----
+        - For button display (<=5 links): Creates secondary style buttons with tag names
+        - For menu display (6-24 links): Creates a dropdown with tag options
+        - Menu is limited to first 24 options if more exist
         """
         if not self.tag_link_infos:
             return None
