@@ -1,4 +1,5 @@
 import asyncio
+from collections import defaultdict
 import datetime
 from email.message import Message
 import importlib
@@ -25,6 +26,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from colorama import Fore, Style
 from matplotlib.colors import cnames
+from numpy import mod
+import tabulate
 
 from .singleton import Singleton
 
@@ -36,7 +39,7 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 T = TypeVar("T")
 
 log = getLogger(__name__)
-ALLOWED_EXTENSIONS = ["basics", "errors", "counter", "tags"]
+ALLOWED_EXTENSIONS = ["basics", "errors", "counter", "tags", "maths"]
 
 class BotResponseError(Exception):
     def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
@@ -196,6 +199,7 @@ class Inu(hikari.GatewayBot):
                     return True
 
         self.scheduler.start()  # TODO: this should go somewhere else
+        modules: Dict[str, bool] = defaultdict(lambda: True)
         for extension in os.listdir(os.path.join(os.getcwd(), folder_path)):
             if (
                 extension == "__init__.py" 
@@ -205,13 +209,16 @@ class Inu(hikari.GatewayBot):
                 continue
             try:
                 trimmed_name = f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}"
+                modules[trimmed_name]
                 if not is_allowed(trimmed_name):
+                    modules[trimmed_name] = False
                     continue
                 importlib.import_module(trimmed_name)
                 await self.client.load_extensions(trimmed_name)
-                self.log.debug(f"loaded plugin: {extension}")
             except Exception:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
+        table = tabulate.tabulate(modules.items(), headers=["Extension", "Loaded"])
+        self.log.info(table, multiline=True, prefix="init")
 
     async def init_db(self):
         await self.db.connect()
