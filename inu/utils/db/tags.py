@@ -1048,7 +1048,34 @@ class TagManager():
         option: hikari.AutocompleteInteractionOption, 
         interaction: hikari.AutocompleteInteraction
     ) -> List[str]:
-        """autocomplete for tag keys"""
+        """Auto-complete tag names based on user input.
+
+        This method provides auto-completion suggestions for tag names in a Discord interaction
+        based on the user's input. The behavior varies depending on input length:
+        - For inputs > 2 chars: Returns similar tag names using fuzzy matching
+        - For inputs of 1-2 chars: Returns tags starting with input (including aliases)
+        - For empty/null input: Returns most recent tags
+
+        Parameters
+        ----------
+        option : hikari.AutocompleteInteractionOption
+            The autocomplete interaction option containing the user's input value
+        interaction : hikari.AutocompleteInteraction
+            The Discord autocomplete interaction object
+
+        Returns
+        -------
+        List[str]
+            A list of up to 24 tag names matching the search criteria.
+            Returns an empty list if an error occurs.
+
+        Notes
+        -----
+        The method uses different search strategies based on input length:
+        - Fuzzy search for 3+ characters
+        - Prefix matching for 1-2 characters 
+        - Recent tags for empty input
+        """
         guild_or_channel = get_guild_or_channel_id(interaction)
         try:
             if option.value and len(str(option.value)) > 2:
