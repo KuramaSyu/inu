@@ -12,8 +12,9 @@ from datetime import timedelta
 
 #from . import Response
 from core import getLogger
-from .response_proxy import InitialResponseProxy, ResponseProxy, WebhookProxy
+from .response_proxy import InitialResponseProxy, ResponseProxy, RestResponseProxy, WebhookProxy
 if TYPE_CHECKING:
+    from . import InuContext
     from .base import InuContextBase
 
 
@@ -23,10 +24,10 @@ if TYPE_CHECKING:
 log = getLogger(__name__)
 
 class BaseResponseState(abc.ABC):
-    interaction: CommandInteraction | ComponentInteraction
+    _interaction: CommandInteraction | ComponentInteraction | None
     responses: List[ResponseProxy]
     context: 'InuContextBase'
-    last_response: datetime
+    _last_response: datetime
 
     def __init__(
         self, 
@@ -34,15 +35,20 @@ class BaseResponseState(abc.ABC):
         context: 'InuContextBase',
         responses: List[ResponseProxy]
     ) -> None:
-        self.interaction = interaction
+        self._interaction = interaction
         self._deferred: bool = False
         self._responded: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
-        self.last_response: datetime = self.created_at
+        self._last_response: datetime = self.created_at
         self.responses = responses
         self.context = context
         self.log = getLogger(__name__, self.__class__.__name__)
-        
+    
+    @property
+    def interaction(self) -> CommandInteraction | ComponentInteraction:
+        assert(isinstance(self._interaction, (CommandInteraction, ComponentInteraction)))
+        return self._interaction
+
     def change_state(self, new_state: Type["BaseResponseState"]):
             """
             Changes the ResponseState of the parent `InuContextBase` to the new state, coping `interaction` and `context`
@@ -54,7 +60,18 @@ class BaseResponseState(abc.ABC):
                 self.responses
             )
             self.context.set_response_state(state)
-            
+    
+    def filter_responses(self, predicate: Callable[[ResponseProxy], bool]) -> List[ResponseProxy]:
+        return [response for response in self.responses if predicate(response)]
+    
+    @property
+    def last_response(self) -> datetime:
+        """
+        returns the maximum datetime out of all interaction responses and the interaction
+        """
+        interaction_responses = self.filter_responses(lambda x: isinstance(x, (WebhookProxy, InitialResponseProxy)))
+        return max(*[i.created_at for i in interaction_responses], self._last_response)
+
     @abc.abstractmethod
     async def respond(
         self,
@@ -137,6 +154,8 @@ class BaseResponseState(abc.ABC):
 
     async def delete_initial_response(self) -> None:
         await self.interaction.delete_initial_response()
+
+
         
         
 class InitialResponseState(BaseResponseState):
@@ -185,7 +204,7 @@ class InitialResponseState(BaseResponseState):
             **kwargs
         )
         self.responses.append(InitialResponseProxy(interaction=self.interaction))
-        self.last_response = datetime.now()
+        # self.last_response = datetime.now()
         self.change_state(CreatedResponseState)
         self._response_lock.release()
         return self.responses[-1]
@@ -209,7 +228,7 @@ class InitialResponseState(BaseResponseState):
             embeds=embeds,
             components=components,
         )
-        self.last_response = datetime.now()
+        # self.last_response = datetime.now()
         self.responses.append(InitialResponseProxy(interaction=self.interaction))
         self.change_state(CreatedResponseState)
         self._response_lock.release()
@@ -227,7 +246,7 @@ class InitialResponseState(BaseResponseState):
             response_type = hikari.ResponseType.DEFERRED_MESSAGE_CREATE
             
         await self.interaction.create_initial_response(response_type)  # type: ignore
-        self.last_response = datetime.now()
+        self._last_response = datetime.now()
         
         # if update:
         #     self.change_state(DeferredUpdateResponseState)
@@ -381,12 +400,6 @@ class DeferredCreateResponseState(BaseResponseState):
     @property
     def is_valid(self) -> bool:
         return (datetime.now() - self.last_response) < timedelta(minutes=15)
-
-
-
-# class DeferredUpdateResponseState(DeferredCreateResponseState):
-#     """currently the same as DeferredCreateResponseState"""
-#     pass
     
 
 
@@ -429,14 +442,96 @@ class DeletedResponseState(BaseResponseState):
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ) -> None:
-        # Implement the method
-        pass
+        await self._response_lock.acquire()
+        if message_id is None:
+            raise RuntimeError("Cannot edit deleted initial response. Consider passing a message_id")
+        _message = await self.interaction.edit_message(
+            message_id,
+            content,
+            embeds=embeds,
+            components=components
+        )
+        self._response_lock.release()
 
     async def defer(self, update: bool = False) -> None:
-        # Implement the method
+        return 
+
+    @property
+    def is_valid(self) -> bool:
+        return (datetime.now() - self.last_response) < timedelta(minutes=15)
+
+
+
+class RestResponseState(BaseResponseState):
+    async def respond(
+        self,
+        embeds: List[Embed] | None = None,
+        content: str | None = None,
+        delete_after: timedelta | None = None,
+        ephemeral: bool = False,
+        components: List[MessageActionRowBuilder] | None = None,
+        flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False,
+    ) -> ResponseProxy:
+        """Edits the initial response
+        
+        Notes:
+        -----
+        flags will be ignored here
+        """
+        # update is ignored here, since deferred message needs to be updated anyways
+        await self._response_lock.acquire()
+        context = cast("InuContext", self.context)
+        message = await self.context._bot.rest.create_message(
+            context.channel_id,
+            content,
+            embeds=embeds or [],
+            components=components or [],
+        )
+        proxy = RestResponseProxy(message=message)
+        self.responses.append(proxy)
+
+        async def delete_after_task(time: timedelta):
+            await asyncio.sleep(time.total_seconds())
+            await message.delete()
+            self.responses.remove(proxy)
+            self.change_state(DeletedResponseState)
+
+        if delete_after:
+            await asyncio.create_task(delete_after_task(delete_after))
+        self._response_lock.release()
+        return self.responses[-1]
+            
+    async def edit(
+        self,
+        embeds: List[Embed] | None = None,
+        content: str | None = None,
+        components: List[MessageActionRowBuilder] | None = None,
+        message_id: Snowflake | None = None,
+        **kwargs: Dict[str, Any]
+    ) -> None:
+        """same as respond -> respond edits initial response"""
+        if not self.responses:
+            await self.respond(
+                embeds=embeds,
+                content=content,
+                components=components
+            )
+            return
+        context = cast("InuContext", self.context)
+        message = await context.bot.rest.edit_message(
+            context.channel_id,
+            (await self.responses[-1].message()).id,
+            content,
+            embeds=embeds,
+            components=components
+        )
+        self.responses.append(RestResponseProxy(message=message))
+
+    async def defer(self, update: bool = False) -> None:
+        """cannot be deferred again"""
         pass
 
     @property
     def is_valid(self) -> bool:
-        # Implement the method
         return True
