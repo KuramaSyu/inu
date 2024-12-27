@@ -1,11 +1,16 @@
 from typing import *
 from abc import ABC, abstractmethod
+from datetime import datetime
 
 from hikari import Message, Embed, ComponentInteraction, CommandInteraction, PartialWebhook, SnowflakeishOr, Snowflakeish
 from hikari.api import Response
 from hikari.impl import MessageActionRowBuilder
 
 class ResponseProxy(ABC):
+    created_at: datetime
+
+    def __init__(self) -> None:
+        self.created_at: datetime = datetime.now()
     @abstractmethod
     async def edit(
         self,
@@ -26,11 +31,41 @@ class ResponseProxy(ABC):
         pass
 
 
+class RestResponseProxy(ResponseProxy):
+    def __init__(self, message: Message) -> None:
+        super().__init__()
+        self._message: Message = message
+
+    async def edit(
+        self,
+        content: str | None = None,
+        embed: Embed | None = None,
+        embeds: List[Embed] | None = None,
+        component: MessageActionRowBuilder | None = None,
+        components: List[MessageActionRowBuilder] | None = None,
+    ) -> Message:
+        embeds = embeds or [embed] if embed else []
+        components = components or [component] if component else []
+        
+        return await self._message.edit(
+            content,
+            embeds=embeds,
+            components=components,
+        )
+
+    async def delete(self) -> None:
+        await self._message.delete()
+
+    async def message(self) -> Message:
+        return self._message
+
+
 class InitialResponseProxy(ResponseProxy):
     def __init__(
         self,
         interaction: ComponentInteraction | CommandInteraction,
     ) -> None:
+        super().__init__()
         self._interaction: ComponentInteraction | CommandInteraction = interaction
     
     async def edit(
@@ -63,6 +98,7 @@ class WebhookProxy(ResponseProxy):
         message: SnowflakeishOr[Message],
         interaction: ComponentInteraction | CommandInteraction,
     ) -> None:
+        super().__init__()
         self._message: SnowflakeishOr[Message] = message
         self._interaction: ComponentInteraction | CommandInteraction = interaction
 
