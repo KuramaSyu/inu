@@ -5,12 +5,13 @@ from datetime import datetime
 from hikari import Message, Embed, ComponentInteraction, CommandInteraction, PartialWebhook, SnowflakeishOr, Snowflakeish
 from hikari.api import Response
 from hikari.impl import MessageActionRowBuilder
+from pytz import utc
 
 class ResponseProxy(ABC):
     created_at: datetime
 
     def __init__(self) -> None:
-        self.created_at: datetime = datetime.now()
+        self.created_at: datetime = datetime.now(utc)
     @abstractmethod
     async def edit(
         self,
