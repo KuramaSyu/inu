@@ -79,7 +79,7 @@ class InuContextBase(ContextEqualTrait):
         self._responded = False
         self._responses: List[Response] = []
         self._response_state: BaseResponseState = InitialResponseState(self.interaction, self, [])  # type: ignore
-        self._bot: Inu = Inu()
+        self._bot: Inu = Inu.instance
     
     def set_response_state(self, new_state: BaseResponseState):
         """Changes the response state to a new state"""
