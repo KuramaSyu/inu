@@ -318,7 +318,7 @@ async def on_math_task_click(event: hikari.InteractionCreateEvent):
         await show_highscores("guild" if ctx.guild_id else "user", ctx)
     elif custom_id == "calculation_task_menu":
         stage = event.interaction.values[0]
-        await start_math_tasks(ctx, stage) # TODO: change to InuContext
+        await start_math_tasks(ctx, stage)
         
 
 
@@ -380,9 +380,10 @@ async def start_math_tasks(ctx: InuContext, stage: str):
         log.error(traceback.format_exc())
     
 
-async def _change_embed_color(msg: ResponseProxy, embed: Embed, in_seconds: int):
+async def _change_embed_color(msg: ResponseProxy, embed: Embed, in_seconds: int | float):
     await asyncio.sleep(in_seconds)
     await msg.edit(embed=embed)
+
 
 async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, timedelta]:
     """
@@ -390,7 +391,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
 
     Parameters:
     -----------
-    - ctx (Context): The context object containing information about the command execution.
+    - ctx (InuContext): The context object containing information about the command execution.
     - c (CalculationBlueprint): The calculation blueprint object.
 
     Returns:
@@ -398,6 +399,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
     - tasks_done (int): The number of tasks finished.
     - total_time (timedelta): The total time taken to finish the tasks.
     """
+    bot = ctx.bot
     if bot is None:
         raise RuntimeError(f"Inu is None") # should never happen
     tasks_done = 0
@@ -405,6 +407,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
     message_ids: List[hikari.Snowflake] = []
     total_time = timedelta(seconds=0)
     current_task_beautiful = ""
+    current_task = ""
 
     while resume_task_creation:
         # new task
@@ -439,7 +442,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
 
         while answer != current_task_result and not time_is_up():
             answer, event = await bot.wait_for_message(
-                timeout=expire_time.timestamp() - time(),
+                timeout=expire_time.timestamp() - time(),  # type:ignore
                 channel_id=ctx.channel_id,
                 user_id=ctx.user.id,
             )
@@ -451,6 +454,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
             message_ids.append(event.message_id)
             log.debug(f"{answer=}, {event.author.username=}, {current_task_result=}")
             # stopped by user
+            assert answer is not None
             answer = answer.replace(",", ".")
             if answer.strip().lower() == "stop!":
                 resume_task_creation = False
@@ -483,7 +487,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
             components=purge_delete_button
         )
     else:
-        embed = hikari.Embed(title=f"{ctx.member.display_name}'s results for {c.display_name}")
+        embed = hikari.Embed(title=f"{ctx.member.display_name}'s results for {c.display_name}")  # type: ignore
         embed.add_field("Tasks solved:", f"```\n{Human.plural_('task', tasks_done)}```")
         time_per_task = 0
         try:
@@ -498,7 +502,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
     async def maybe_clean_up(messages: List[hikari.Snowflake], message_id: int, channel_id: int):
         delete = True
         repeat = True
-        bot = Inu()
+        bot = Inu.instance
         while True:
             try:
                 custom_id, event, _ = await bot.wait_for_interaction(
@@ -508,9 +512,11 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
                 )
             except asyncio.TimeoutError:
                 break
+            assert event is not None
             ctx = get_context(event)
             if custom_id == "math_bulk_delete":
                 delete = False
+                # split messages in 100 message chunks and delete those
                 sub_lists = []
                 for i, m in enumerate(messages):
                     if i % 100 == 0:
@@ -543,11 +549,12 @@ def get_calculation_blueprint(stage_name: str) -> CalculationBlueprint:
     for stage in stages:
         if stage.name == stage_name:
             return stage
+    raise ValueError(f"Stage {stage_name} not found")
 
 
 
-async def show_highscores(from_: str, ctx: Context):
-    bot = Inu()
+async def show_highscores(from_: str, ctx: InuContext):
+    bot = Inu.instance
     stages = await MathScoreManager.fetch_highscores(
         type_=from_,
         guild_id=ctx.guild_id or 0,
@@ -561,7 +568,7 @@ async def show_highscores(from_: str, ctx: Context):
     }
     for i, d in enumerate(stages.items()):
         stage, records = d
-        log.debug(d)
+        log.debug(f"{d}")
         if i % 24 == 0:
             embeds.append(
                 Embed(title=f"🏆 Highscores", color=Colors.random_color())
@@ -574,11 +581,11 @@ async def show_highscores(from_: str, ctx: Context):
             name_short = ""
             if ctx.guild_id:
                 name_short = Human.short_text(
-                    (await bot.mrest.fetch_member(ctx.guild_id, user_id)).display_name, 25, ".." 
+                    (await bot.mrest.fetch_member(ctx.guild_id, user_id)).display_name, 25, ".."  # type: ignore
                 )
             else:
                 name_short = Human.short_text(
-                    (await bot.mrest.fetch_user(user_id)).display_name, 25, ".." 
+                    (await bot.mrest.fetch_user(user_id)).display_name, 25, ".." # type: ignore
                 )
             results.append((i+1, name_short, score, f"{time_per_task.total_seconds():.2f}s"))
 
