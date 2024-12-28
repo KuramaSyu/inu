@@ -1317,7 +1317,7 @@ class Paginator(Generic[PageType]):
     async def delete_presence(self):
         """Deletes this message, and invokation message, if invocation was in a guild"""
         if not self.ctx.is_responded():
-            await self.stop({"content": random.choice(FUNNY_MESSAGES)})
+            await self.stop()  # {"content": random.choice(FUNNY_MESSAGES)}
         if self._proxy:
             await self._proxy.delete()
         #await self.ctx.delete_webhook_message(self._message)
