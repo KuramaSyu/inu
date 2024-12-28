@@ -5,10 +5,12 @@ from datetime import datetime, timedelta
 from xml.etree.ElementPath import prepare_parent
 
 import hikari
-from hikari import COMMAND_RESPONSE_TYPES, Embed, ComponentInteraction, CommandInteraction, InteractionCreateEvent, Message, ResponseType, Snowflake, SnowflakeishOr, WebhookChannelT
+from hikari import COMMAND_RESPONSE_TYPES, Embed, ComponentInteraction, CommandInteraction, InteractionCreateEvent, Message, ResponseType, Snowflake, SnowflakeishOr, WebhookChannelT, UndefinedOr, UNDEFINED, UndefinedNoneOr
 from hikari.api import Response
 from hikari.impl import MessageActionRowBuilder
 from datetime import timedelta
+
+from pytz import utc
 
 #from . import Response
 from core import getLogger
@@ -40,6 +42,7 @@ class BaseResponseState(abc.ABC):
         self._responded: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self._last_response: datetime = self.created_at
+        log.debug(f"{self._last_response=}")
         self._invalid_task = asyncio.create_task(self.trigger_transition_when_invalid())
         self.responses = responses
         self.context = context
@@ -73,16 +76,17 @@ class BaseResponseState(abc.ABC):
         returns the maximum datetime out of all interaction responses and the interaction
         """
         interaction_responses = self.filter_responses(lambda x: isinstance(x, (WebhookProxy, InitialResponseProxy)))
-        return max(*[i.created_at for i in interaction_responses], self._last_response)
+        datetimes = [i.created_at for i in interaction_responses]
+        return max([*datetimes, self._last_response])
 
     @abc.abstractmethod
     async def respond(
         self,
-        embeds: List[hikari.Embed] | None = None,
-        content: str | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        components: List[MessageActionRowBuilder] | None = None,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
     ) -> ResponseProxy:
@@ -102,9 +106,9 @@ class BaseResponseState(abc.ABC):
     
     async def edit_last_response(
         self,
-        embeds: List[hikari.Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        embeds: UndefinedOr[List[hikari.Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
     ) -> hikari.Message:
         if len(self.responses) > 0:
             return await self.interaction.edit_message(
@@ -126,9 +130,9 @@ class BaseResponseState(abc.ABC):
     @abc.abstractmethod
     async def edit(
         self,
-        embeds: List[hikari.Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ):
@@ -172,8 +176,10 @@ class BaseResponseState(abc.ABC):
         None
         """
         while self.is_valid:
-            probably_invalid_in = self.last_response + timedelta(minutes=15) - datetime.now()
+            log.debug(f"sleep because response is valid")
+            probably_invalid_in = self.last_response + timedelta(minutes=15) - datetime.now(utc)
             await asyncio.sleep(probably_invalid_in.total_seconds())
+        log.debug(f"response is invalid, transitioning to RestResponseState; {self.last_response=}, {datetime.now(utc)=}")
         self.change_state(RestResponseState)
 
         
@@ -181,15 +187,16 @@ class BaseResponseState(abc.ABC):
 class InitialResponseState(BaseResponseState):
     @property
     def is_valid(self) -> bool:
-        return (datetime.now() - self.last_response) < timedelta(seconds=3)
-        
+        log.debug(f"{(datetime.now(utc) - self.last_response) < timedelta(seconds=3)} - {self.last_response=}, {datetime.now(utc)=}")
+        return (datetime.now(utc) - self.last_response) < timedelta(seconds=3)
+    
     async def respond(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        components: List[MessageActionRowBuilder] | None = None,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
     ) -> ResponseProxy:
@@ -231,9 +238,9 @@ class InitialResponseState(BaseResponseState):
         
     async def edit(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ) -> None:
@@ -243,6 +250,7 @@ class InitialResponseState(BaseResponseState):
         change state -> CreatedResponseState
         """
         await self._response_lock.acquire()
+        log.debug(f"editing initial response with {embeds=}, {content=}, {components=}")
         await self.interaction.create_initial_response(
             ResponseType.MESSAGE_UPDATE, content,  # type: ignore
             embeds=embeds,
@@ -266,7 +274,7 @@ class InitialResponseState(BaseResponseState):
             response_type = hikari.ResponseType.DEFERRED_MESSAGE_CREATE
             
         await self.interaction.create_initial_response(response_type)  # type: ignore
-        self._last_response = datetime.now()
+        self._last_response = datetime.now(utc)
         
         # if update:
         #     self.change_state(DeferredUpdateResponseState)
@@ -283,11 +291,11 @@ class CreatedResponseState(BaseResponseState):
     """
     async def respond(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        components: List[MessageActionRowBuilder] | None = None,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
     ) -> ResponseProxy:
@@ -314,8 +322,10 @@ class CreatedResponseState(BaseResponseState):
         self.responses.append(WebhookProxy(message, self.interaction))
         
 
-        async def delete_after_task(time: timedelta, interaction: ComponentInteraction | CommandInteraction):
-            await asyncio.sleep(time.total_seconds())
+        async def delete_after_task(time: timedelta | float, interaction: ComponentInteraction | CommandInteraction):
+            if isinstance(time, timedelta):
+                time = time.total_seconds()
+            await asyncio.sleep(time)
             await interaction.delete_message(message)
             self.change_state(DeletedResponseState)
 
@@ -327,9 +337,9 @@ class CreatedResponseState(BaseResponseState):
 
     async def edit(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ) -> None:
@@ -355,18 +365,18 @@ class CreatedResponseState(BaseResponseState):
 
     @property
     def is_valid(self) -> bool:
-        return (datetime.now() - self.last_response) < timedelta(minutes=15)
+        return (datetime.now(utc) - self.last_response) < timedelta(minutes=15)
 
 
 
 class DeferredCreateResponseState(BaseResponseState):
     async def respond(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        components: List[MessageActionRowBuilder] | None = None,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
     ) -> ResponseProxy:
@@ -400,9 +410,9 @@ class DeferredCreateResponseState(BaseResponseState):
 
     async def edit(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ) -> None:
@@ -419,7 +429,7 @@ class DeferredCreateResponseState(BaseResponseState):
 
     @property
     def is_valid(self) -> bool:
-        return (datetime.now() - self.last_response) < timedelta(minutes=15)
+        return (datetime.now(utc) - self.last_response) < timedelta(minutes=15)
     
 
 
@@ -427,11 +437,11 @@ class DeferredCreateResponseState(BaseResponseState):
 class DeletedResponseState(BaseResponseState):
     async def respond(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        components: List[MessageActionRowBuilder] | None = None,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
     ) -> ResponseProxy:
@@ -456,9 +466,9 @@ class DeletedResponseState(BaseResponseState):
 
     async def edit(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ) -> None:
@@ -478,7 +488,7 @@ class DeletedResponseState(BaseResponseState):
 
     @property
     def is_valid(self) -> bool:
-        return (datetime.now() - self.last_response) < timedelta(minutes=15)
+        return (datetime.now(utc) - self.last_response) < timedelta(minutes=15)
 
 
 
@@ -501,11 +511,11 @@ class RestResponseState(BaseResponseState):
 
     async def respond(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        components: List[MessageActionRowBuilder] | None = None,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
     ) -> ResponseProxy:
@@ -537,12 +547,12 @@ class RestResponseState(BaseResponseState):
             await asyncio.create_task(delete_after_task(delete_after))
         self._response_lock.release()
         return self.responses[-1]
-            
+        
     async def edit(
         self,
-        embeds: List[Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         message_id: Snowflake | None = None,
         **kwargs: Dict[str, Any]
     ) -> None:
