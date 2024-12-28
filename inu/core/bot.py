@@ -67,14 +67,20 @@ class BotResponseError(Exception):
 
 
 class Inu(hikari.GatewayBot):
-    instance: Optional["Inu"] = None
+    instance: "Inu" = None
     restart_count: int
     _client: lightbulb.GatewayEnabledClient | None
     
+    def __new__(cls, *args, **kwargs):
+        if cls.instance is None:
+            cls.instance = super().__new__(cls)
+        return cls.instance
+    
     def __init__(self, *args, **kwargs):
-        if self.instance:
-            raise RuntimeError("Inu is a singleton")
-        self.instance = self
+        if getattr(self, "_initialized", False):
+            return  # Prevent reinitialization
+        self._initialized = True
+        
         self.print_banner_()
         logging.setLoggerClass(LoggingHandler)
         self.conf: ConfigProxy = ConfigProxy(
@@ -197,6 +203,7 @@ class Inu(hikari.GatewayBot):
             for allowed in ALLOWED_EXTENSIONS:
                 if allowed in extension:
                     return True
+            return False
 
         self.scheduler.start()  # TODO: this should go somewhere else
         modules: Dict[str, bool] = defaultdict(lambda: True)
@@ -339,7 +346,7 @@ class Inu(hikari.GatewayBot):
         else:
             msg = None
         try:
-            event = await self.app.wait_for(
+            event = await self.wait_for(
                 hikari.MessageCreateEvent,
                 timeout=timeout,
                 predicate=lambda e:(
