@@ -8,8 +8,8 @@ import functools
 import attrs
 import hikari
 from hikari import (
-    CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, ModalInteraction, PartialInteraction, RESTAware, ResponseType, 
-    Snowflake, TextInputStyle, SnowflakeishOr, Embed
+    UNDEFINED, CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, ModalInteraction, PartialInteraction, RESTAware, ResponseType, 
+    Snowflake, TextInputStyle, SnowflakeishOr, Embed, UndefinedOr, UndefinedNoneOr
 )
 from hikari import embeds
 from hikari.impl import MessageActionRowBuilder
@@ -68,17 +68,20 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
     
     async def respond(  # type: ignore[override]
         self, 
-        content: str | None = None,
-        embed: Embed | None = None,
-        embeds: List[hikari.Embed] | None = None,
+        content: UndefinedOr[str] = UNDEFINED,
+        embed: UndefinedNoneOr[Embed] = UNDEFINED,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        component: MessageActionRowBuilder | None = None,
-        components: List[MessageActionRowBuilder] | None = None,   
+        component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False
     ) -> ResponseProxy:
-        embeds = embeds or [embed] if embed else []
+        embeds = embeds or [embed] if embed else UNDEFINED
+        if embed is None and embeds == UNDEFINED:
+            # clear embeds
+            embeds = [] 
         components = components or ([component] if component else [])
         log.debug(f"respond() with {type(self.response_state).__name__}")
         return await self.response_state.respond(
@@ -109,10 +112,10 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
             components=components
         )
     async def edit_last_response(
-        self, 
-        embeds: List[hikari.Embed] | None = None,
-        content: str | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        self,
+        embeds: UndefinedOr[List[hikari.Embed]] = UNDEFINED,
+        content: UndefinedOr[str] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
     ) -> hikari.Message:
         return await self.response_state.edit_last_response(
             embeds=embeds,
