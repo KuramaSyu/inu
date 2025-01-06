@@ -11,10 +11,9 @@ from hikari.interactions.base_interactions import ResponseType
 from hikari.interactions.component_interactions import ComponentInteraction
 from hikari import ButtonStyle
 import lightbulb
-from lightbulb.context import Context
 
 from utils import Colors
-from core import Inu, getLogger
+from core import Inu, getLogger, InuContext, get_context
 from .onu import *
 from .onu import CardColors
 from .onu import CardFunctions
@@ -22,6 +21,8 @@ from .onu import SideEvent
 from .onu import WrongTurnEvent
 
 log = getLogger(__name__)
+
+
 
 class HikariOnu(OnuHandler):
     def __init__(
@@ -155,7 +156,7 @@ class HikariOnu(OnuHandler):
         except Exception:
             return await self._wait_for_interaction()
 
-    async def start(self, bot: Inu, ctx: Context):
+    async def start(self, bot: Inu, ctx: InuContext):
         self.bot = bot
         self.ctx = ctx
         tasks = []
