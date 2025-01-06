@@ -12,7 +12,7 @@ import json
 from typing import *
 
 import hikari
-from hikari import Member
+from hikari import Member, PartialInteraction
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context
@@ -768,7 +768,7 @@ class Connect4Handler(Paginator):
         """called from on_interaction_add - since function is passed into listener this is needed"""
         log.debug(f"interaction receive")
         # predicate
-        if not self.interaction_pred(event):
+        if not self.interaction_pred(event.interaction):
             return
         message = self._message
         log.debug(f"executing on interaction with pag id: {self.count} | msg id: {message.id}")
@@ -840,7 +840,7 @@ class Connect4Handler(Paginator):
             await self.update_embed()
 
 
-    def interaction_pred(self, event: hikari.InteractionCreateEvent):
+    def interaction_pred(self, interaction: PartialInteraction) -> bool:
         """
         predicate for `hikari.ComponentInteraction` 
         when user is one of the 2 players 
@@ -848,9 +848,9 @@ class Connect4Handler(Paginator):
         and custom_id starts with `connect4`
         """
         if (
-            not isinstance(event.interaction, hikari.ComponentInteraction)
-            or not event.interaction.custom_id.startswith("connect4")
-            or not (event.interaction.user.id in [self.game.player1.user.id, self.game.player2.user.id])
+            not isinstance(interaction, hikari.ComponentInteraction)
+            or not interaction.custom_id.startswith("connect4")
+            or not (interaction.user.id in [self.game.player1.user.id, self.game.player2.user.id])
             or not event.interaction.message.id == self._message.id
         ):
             return False
