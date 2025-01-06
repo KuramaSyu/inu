@@ -351,7 +351,10 @@ class BoardFallingRows(Board):
     
 
     def new_treshold(self):
-        """recalculate a random new threshold"""
+        """
+        recalculate a random new threshold, for the next row to be removed. This is, that 
+        players can't predict when the next row will be removed
+        """
         self.current_threshold = random.randint(self.original_threshold*100-4, self.original_threshold*100+4) / 100
         log.debug(f"{self.__class__.__name__} set threshold to {self.current_threshold}")
 
@@ -851,7 +854,7 @@ class Connect4Handler(Paginator):
             not isinstance(interaction, hikari.ComponentInteraction)
             or not interaction.custom_id.startswith("connect4")
             or not (interaction.user.id in [self.game.player1.user.id, self.game.player2.user.id])
-            or not event.interaction.message.id == self._message.id
+            or not interaction.message.id == self._message.id
         ):
             return False
         return True
