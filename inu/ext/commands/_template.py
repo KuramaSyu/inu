@@ -46,8 +46,8 @@ class CommandName(
     default_member_permissions=None,
     hooks=[sliding_window(3, 1, "user")]
 ):
-    optional_string = lightbulb.string("message-link", "Delete until this message", default=None)
-    optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None)
+    optional_string = lightbulb.string("message-link", "Delete until this message", default=None)  # Option 1
+    optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None) # Option 2
 
     @invoke
     async def callback(self, ctx: lightbulb.Context):
