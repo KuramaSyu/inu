@@ -1,10 +1,11 @@
 from os import name
 from re import T
 import traceback
-from typing import *
+from typing import *  # type: ignore
 import aiohttp
+import json
 
-from hikari import Member, Snowflake, User
+from hikari import Member, Snowflake, User, InteractionCreateEvent, ComponentInteraction, ButtonStyle
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import Context, Loader, SlashCommand, invoke, Group
@@ -27,6 +28,45 @@ log = getLogger(__name__)
 loader = lightbulb.Loader()
 bot: Inu = Inu.instance
 onu_sessions = set()
+
+
+@loader.listener(InteractionCreateEvent)
+async def on_connect4_restart(event: InteractionCreateEvent):
+    """Handler to listn for game restarts"""
+    game_modifier = ""
+    if not isinstance(event.interaction, ComponentInteraction):
+        return
+    try:
+        # extract data from custom_id or exit
+        custom_id_json = json.loads(event.interaction.custom_id)
+        custom_id: str = custom_id_json["type"]
+        assert custom_id.startswith("c4") # c4{game_letter}-{rows}x{columns}
+        game_modifier = custom_id[2]
+        rxc: List[str] = custom_id[4:].split("x")
+        rows = int(rxc[0])
+        columns = int(rxc[1])
+        guild_id = custom_id_json["gid"]
+
+        p1 = await bot.mrest.fetch_member(guild_id, custom_id_json["p1"])
+        p2 = await bot.mrest.fetch_member(guild_id, custom_id_json["p2"])
+        assert p1 is not None and p2 is not None
+    except:
+        return
+    handler_class = get_handler_from_letter(game_modifier)
+    handler = handler_class(p1, p2, rows=rows, columns=columns)
+    ctx = get_context(event)
+    await ctx.respond(
+        components=[
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                ButtonStyle.PRIMARY, 
+                "connect4-activated-restart",
+                emoji="🔁"
+            )
+        ],
+        update=True
+    )
+    await handler.start(ctx)
 
 def cast_to_members(p1: User, p2: Optional[User], guild: Snowflake | None) -> Tuple[Member, Optional[Member]]:
     """casts `Tuple[User, Optional[User]]` to `Tuple[Member, Optional[Member]]`"""
@@ -55,7 +95,7 @@ async def start_connect_4(
     await h.start(ctx)
 
 
-con4 = Group(name="Connect4", description="Various Connect 4 games", dm_enabled=False)
+con4 = Group(name="connect4", description="Various Connect 4 games", dm_enabled=False)
 # Connect 4 base command group
 
 @con4.register
@@ -136,66 +176,66 @@ loader.command(con4)
 
 
 
-# @loader.command
-# class OnuGame(
-#     SlashCommand,
-#     name="onu",
-#     description="Starts an ONU game",
-#     dm_enabled=False,
-#     default_member_permissions=None
-# ):
-#     player1 = lightbulb.user("player1", "The first player")
-#     player2 = lightbulb.user("player2", "The second player")
-#     player3 = lightbulb.user("player3", "The third player", default=None)
-#     player4 = lightbulb.user("player4", "The fourth player", default=None)
-#     player5 = lightbulb.user("player5", "The fifth player", default=None)
-#     player6 = lightbulb.user("player6", "The sixth player", default=None)
-#     player7 = lightbulb.user("player7", "The seventh player", default=None)
-#     player8 = lightbulb.user("player8", "The eighth player", default=None)
+@loader.command
+class OnuGame(
+    SlashCommand,
+    name="onu",
+    description="Starts an ONU game",
+    dm_enabled=False,
+    default_member_permissions=None
+):
+    player1 = lightbulb.user("player1", "The first player")
+    player2 = lightbulb.user("player2", "The second player")
+    player3 = lightbulb.user("player3", "The third player", default=None)
+    player4 = lightbulb.user("player4", "The fourth player", default=None)
+    player5 = lightbulb.user("player5", "The fifth player", default=None)
+    player6 = lightbulb.user("player6", "The sixth player", default=None)
+    player7 = lightbulb.user("player7", "The seventh player", default=None)
+    player8 = lightbulb.user("player8", "The eighth player", default=None)
 
-#     @invoke
-#     async def callback(self, _: lightbulb.Context, ctx: InuContext):
-#         players: List[Member] = [ctx.bot.cache.get_member(ctx.guild, v) for k, v in self.__dict__.items() if "player" in k]  # type:ignore
-#         player_map = {p.id: p for p in players if p is not None}
-#         if ctx.author.id not in players:
-#             await ctx.respond("You can't start a game without yourself")
-#             return
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        players: List[Member] = [ctx.bot.cache.get_member(ctx.guild, v) for k, v in self.__dict__.items() if "player" in k]  # type:ignore
+        player_map = {p.id: p for p in players if p is not None}
+        if ctx.author.id not in players:
+            await ctx.respond("You can't start a game without yourself")
+            return
 
-#         for p_id, p in player_map.items():
-#             if p_id in onu_sessions:
-#                 await ctx.respond(f"There is a running game with {p.mention}. Cannot start a new game.")
-#                 return
+        for p_id, p in player_map.items():
+            if p_id in onu_sessions:
+                await ctx.respond(f"There is a running game with {p.mention}. Cannot start a new game.")
+                return
 
-#         for p_id in players:
-#             onu_sessions.add(p_id)
+        for p_id in players:
+            onu_sessions.add(p_id)
 
-#         await ctx.respond(f"Starting Onu game with {Human.list_([p.display_name for p in player_map.values()], with_a_or_an=False)}")
-#         onu = HikariOnu(player_map)  # type:ignore
+        await ctx.respond(f"Starting Onu game with {Human.list_([p.display_name for p in player_map.values()], with_a_or_an=False)}")
+        onu = HikariOnu(player_map)  # type:ignore
 
-#         try:
-#             await onu.start(ctx.bot, ctx)
-#         except Exception:
-#             log.error(traceback.format_exc())
-#         finally:
-#             for p_id in players:
-#                 onu_sessions.remove(p_id)
-
-
-# @loader.command
-# class AkinatorGame(
-#     SlashCommand,
-#     name="akinator",
-#     description="Guess a character with Akinator",
-#     dm_enabled=False,
-# ):
-#     @invoke
-#     async def callback(self, ctx: lightbulb.Context):
-#         aki = AkinatorSI("en")
-#         await aki.start(ctx)
+        try:
+            await onu.start(ctx.bot, ctx)
+        except Exception:
+            log.error(traceback.format_exc())
+        finally:
+            for p_id in players:
+                onu_sessions.remove(p_id)
 
 
-REVERSI_BASE_URL = "http://inuthebot.duckdns.org:8888"
-CREATE_SESSION_ENDPOINT = f"{REVERSI_BASE_URL}/create_session"
+@loader.command
+class AkinatorGame(
+    SlashCommand,
+    name="akinator",
+    description="Guess a character with Akinator",
+    dm_enabled=False,
+):
+    @invoke
+    async def callback(self, ctx: lightbulb.Context):
+        aki = AkinatorSI("en")
+        await aki.start(ctx)
+
+
+# REVERSI_BASE_URL = "http://inuthebot.duckdns.org:8888"
+# CREATE_SESSION_ENDPOINT = f"{REVERSI_BASE_URL}/create_session"
 
 # @loader.command
 # class ReversiGame(lightbulb.SlashCommand):
