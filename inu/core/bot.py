@@ -39,7 +39,7 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 T = TypeVar("T")
 
 log = getLogger(__name__)
-ALLOWED_EXTENSIONS = ["basics", "errors", "counter", "tags", "maths"]
+ALLOWED_EXTENSIONS = ["basics", "errors", "counter", "tags", "maths", "games"]
 
 class BotResponseError(Exception):
     def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
@@ -121,7 +121,7 @@ class Inu(hikari.GatewayBot):
             self.conf.bot.DISCORD_TOKEN,
             *args,
             intents=hikari.Intents.ALL,
-            logs="DEBUG",
+            logs="TRACE",
         )
         self.mrest = MaybeRest(self)
         # self.load("inu/ext/commands/")
