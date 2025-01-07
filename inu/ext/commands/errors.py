@@ -5,14 +5,14 @@ from typing import *
 import traceback
 
 import hikari
-from hikari import Embed
+from hikari import UNDEFINED, Embed
 import lightbulb
 from lightbulb.context import Context
 
 from core import Inu
 from utils.language import Human
 
-from core import getLogger, BotResponseError, Inu, ComponentContext
+from core import getLogger, BotResponseError, Inu, ComponentContext, RestContext
 
 log = getLogger("Error Handler")
 pl = lightbulb.Loader()
@@ -42,13 +42,18 @@ ERROR_JOKES = [
 #     except Exception:
 #         log.critical(traceback.format_exc())
 
-
+bot = Inu.instance
 
 @pl.error_handler()
 async def on_error(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -> bool:
     """
     """
     # Implement BotResponseError
+    log.debug(type(exc.causes))
+    if isinstance(exc.causes[0], BotResponseError):
+        kwargs = exc.causes[0].kwargs
+        content = kwargs.pop("content") or UNDEFINED
+        await bot.rest.create_message(exc.context.channel_id, content, **kwargs)
     for cause in exc.causes:
         log.error(f"{''.join(traceback.format_exception(cause))}")
     return True
