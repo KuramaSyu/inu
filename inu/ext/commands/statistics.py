@@ -4,6 +4,9 @@ from typing import *
 import random
 from io import BytesIO
 import traceback
+import asyncio
+import hikari
+import lightbulb
 
 import aiohttp
 import hikari
@@ -21,6 +24,9 @@ from hikari import (
     TextInputStyle,
     Permissions
 )
+from hikari.impl import MessageActionRowBuilder
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
 from hikari.impl import MessageActionRowBuilder
 from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
 from lightbulb.prefab import sliding_window
@@ -49,7 +55,8 @@ from utils import (
     SettingsManager,
     get_date_format_by_timedelta,
     ts_round,
-    Games
+    Games,
+    YES, NO, YES_NO
 )
 from core import (
     BotResponseError, 
@@ -58,10 +65,50 @@ from core import (
     getLogger,
     get_context
 )
+
+
 log = getLogger(__name__)
-register_matplotlib_converters()
+
 loader = lightbulb.Loader()
 bot: Inu
+register_matplotlib_converters()
+
+
+@loader.command
+class CommandName(
+    SlashCommand,
+    name="name",
+    description="description",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    time = lightbulb.string("time", "The time you want to get stats for - e.g. 30 days, 3 hours", default="14 days")  # Option 1
+    show_all = lightbulb.string(
+        "show-all", 
+        "Shows all apps, not only games (e.g. music, programming)", 
+        choices=YES_NO,
+        default=NO
+    )  # Option 2
+    clean_colors = lightbulb.string(
+        "clean-colors", 
+        "Use distinguishable colors (clear color difference)", 
+        choices=YES_NO,
+        default=NO
+    )  # Option 3
+    apps = lightbulb.string(
+        "apps",
+        "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
+        default=None,
+        autocomplete=True,
+    ) # Option 4
+
+
+    @invoke
+    async def callback(self, ctx: lightbulb.Context):
+        ...
+
+
 
 # mapping from guild to list with top games in it
 top_games_cache = {}
@@ -737,13 +784,12 @@ class GameViews:
         return Path(verts, codes)
 
 
-@current_games.autocomplete("apps")
 async def tag_name_auto_complete(
-    option: hikari.AutocompleteInteractionOption, 
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
+    ctx: lightbulb.AutocompleteContext
+) -> None:
+    interaction = ctx.interaction
     if not isinstance(interaction.guild_id, int):
-        return []
+        await ctx.respond([])
     games = top_games_cache.get(interaction.guild_id, [])
     if not games:
         dicts = await CurrentGamesManager.fetch_top_games(
@@ -753,7 +799,7 @@ async def tag_name_auto_complete(
         )
         games = [list(d.keys())[0] for d in dicts]
         top_games_cache[interaction.guild_id] = games
-    return games
+    await ctx.respond(games)
 
 
 
