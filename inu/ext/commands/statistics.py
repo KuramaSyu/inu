@@ -16,7 +16,8 @@ from pytimeparse.timeparse import timeparse
 import re
 
 from hikari import (
-    Embed, 
+    Embed,
+    Snowflake, 
 )
 from hikari import (
     Embed,
@@ -63,7 +64,8 @@ from core import (
     Inu, 
     Table, 
     getLogger,
-    get_context
+    get_context,
+    InuContext
 )
 
 
@@ -72,42 +74,6 @@ log = getLogger(__name__)
 loader = lightbulb.Loader()
 bot: Inu
 register_matplotlib_converters()
-
-
-@loader.command
-class CommandName(
-    SlashCommand,
-    name="name",
-    description="description",
-    dm_enabled=False,
-    default_member_permissions=None,
-    hooks=[sliding_window(3, 1, "user")]
-):
-    time = lightbulb.string("time", "The time you want to get stats for - e.g. 30 days, 3 hours", default="14 days")  # Option 1
-    show_all = lightbulb.string(
-        "show-all", 
-        "Shows all apps, not only games (e.g. music, programming)", 
-        choices=YES_NO,
-        default=NO
-    )  # Option 2
-    clean_colors = lightbulb.string(
-        "clean-colors", 
-        "Use distinguishable colors (clear color difference)", 
-        choices=YES_NO,
-        default=NO
-    )  # Option 3
-    apps = lightbulb.string(
-        "apps",
-        "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
-        default=None,
-        autocomplete=True,
-    ) # Option 4
-
-
-    @invoke
-    async def callback(self, ctx: lightbulb.Context):
-        ...
-
 
 
 # mapping from guild to list with top games in it
@@ -133,286 +99,313 @@ async def maybe_raise_activity_tracking_disabled(guild_id: int):
             ephemeral=True
         )
 
-@plugin.command
-@lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(10, 1, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
-@lightbulb.option(
-    "time", 
-    "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="9 days"
-)
-@lightbulb.option(
-    "show-all", 
-    "Shows all apps, not only games (e.g. music, programming)", 
-    default="No", 
-    choices=["Yes", "No"]
-)
-@lightbulb.command("week-activity", "Shows the activity of all week days", auto_defer=True)
-@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
-async def week_activity(ctx: Context):
-    
-    await maybe_raise_activity_tracking_disabled(ctx.guild_id)
-    seconds = timeparse(ctx.options.time)
-    if not seconds:
-        return await ctx.respond(
-            f"Well - I've no idea what you mean with `{ctx.options.time}`"
-            f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+
+async def game_autocomplete(ctx: lightbulb.AutocompleteContext) -> None:
+    interaction = ctx.interaction
+    guild_id = interaction.guild_id
+    assert guild_id is not None
+    games = top_games_cache.get(interaction.guild_id, [])
+    if not games:
+        dicts = await CurrentGamesManager.fetch_top_games(
+            guild_id,
+            datetime.now() - timedelta(days=3), 
+            limit=24
         )
-    show_all = ctx.options["show-all"] == "Yes"
-    buffer, _ = await GameViews().build_week_activity_chart(
-        ctx.guild_id, 
-        timedelta(seconds=seconds),
-        remove=[*Games.MUSIC, *Games.PROGRAMMING, *Games.DUPLEX_GAMES] if not show_all else []
-    )
-    await ctx.respond(
-        f"{ctx.get_guild().name}'s daily activity",  # type: ignore
-        attachment=buffer,
-    )
+        games = [list(d.keys())[0] for d in dicts]
+        top_games_cache[interaction.guild_id] = games
+    await ctx.respond(games)
 
 
+@loader.command
+class CurrendGames(
+    SlashCommand,
+    name="current-games",
+    description="Shows, which games are played in your guild",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(60, 5, "user")]
+):
+    time = lightbulb.string(
+        "time", 
+        "The time you want to get stats for - e.g. 30 days, 3 hours", 
+        default="14 days"
+    )  # Option 1
+    show_all = lightbulb.string(
+        "show-all", 
+        "Shows all apps, not only games (e.g. music, programming)", 
+        choices=YES_NO,
+        default=NO
+    )  # Option 2
+    clean_colors = lightbulb.string(
+        "clean-colors", 
+        "Use distinguishable colors (clear color difference)", 
+        choices=YES_NO,
+        default=NO
+    )  # Option 3
+    apps = lightbulb.string(
+        "apps",
+        "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
+        default=None,
+        autocomplete=game_autocomplete,
+    ) # Option 4
+    app_amount = lightbulb.integer(
+        "app-amount",
+        "The amount of apps you want to see",
+        default=6,
+        min_value=1,
+        max_value=24,
+    ) # Option 5
 
-@plugin.command
-@lightbulb.add_checks(lightbulb.checks.guild_only)
-@lightbulb.add_cooldown(60, 5, lightbulb.UserBucket, SlidingWindowCooldownAlgorithm)
-@lightbulb.option(
-    "app-amount",
-    "The amount of apps you want to see",
-    type=int,
-    default=6,
-    min_value=1,
-    max_value=24,
-)
-@lightbulb.option(
-    "apps", 
-    "Which apps? Seperate with commas (e.g. League of Legends, Overwatch)",
-    default=None,
-    required=False,
-    autocomplete=True,
-)
-@lightbulb.option(
-    "clean-colors",
-    "Use distinguishable colors (clear color difference)",
-    default="No",
-    choices=["Yes", "No"],
-)
-@lightbulb.option(
-    "show-all",
-    "Whether you see everyting (not only games). Default is No",
-    default="No",
-    choices=["Yes", "No"],
-)
-@lightbulb.option(
-    "time", 
-    "The time you want to get stats for - e.g. 30 days, 3 hours",
-    default="14 days"
-)
-@lightbulb.command("current-games", "Shows, which games are played in your guild")
-@lightbulb.implements(commands.SlashCommand)
-async def current_games(_ctx: Context):
 
-    options = _ctx.options
-    ctx = get_context(_ctx.event)
-    
-    if ctx.guild_id is None:
-        raise BotResponseError("This command can only be used in a guild", True)
-    
-    try:
-        await ctx.defer()
-    except Exception:
-        log.error(traceback.format_exc())
-    await maybe_raise_activity_tracking_disabled(ctx.guild_id)
-    seconds = timeparse(options.time)
-    if not seconds:
-        raise BotResponseError(
-            (
-            f"Well - I've no idea what you mean with `{options.time}`"
-            f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
-            f"\nShort forms of time are also supported: `d`, `h`, `m`, `s`"
-            f"\nIf you want to see the activity of the last 10 days, just use `10 days` or `10d`"
-            ),
-            ephemeral=True,
-        )
-    # constants
-    app_amount = options["app-amount"]
-    timedelta_ = timedelta(seconds=seconds)
-    show_only_games = options["show-all"] == "No"
-    remove_apps: List[str] = []
-    apps = [app.strip() for app in options.apps.split(",")] if options.apps else None
-    coding_apps = Games.PROGRAMMING
-    music_apps = Games.MUSIC
-    double_games = Games.DUPLEX_GAMES  # these will be removed from games too
-    remove_apps.extend(double_games)
-    if show_only_games:
-        remove_apps.extend([*coding_apps, *music_apps])
-    max_ranking_num: int = 20
-
-    async def build_embeds() -> List[Embed]:
-        embeds: List[hikari.Embed] = []
-        # build embed for current guild
-        guild: hikari.Guild = ctx.get_guild()  # type: ignore
-        activity_records = await CurrentGamesManager.fetch_games(
-            guild.id, 
-            datetime.now() - timedelta_
-        )
-        if activity_records is None:
-            raise BotResponseError(
-                f"No games were played in the last {humanize.naturaldelta(timedelta_)}",
-                ephemeral=True
-            )
-        activity_records.sort(key=lambda g: g['amount'], reverse=True)
+    @invoke
+    async def callback(self, _ctx: lightbulb.Context, ctx: InuContext):
+        if ctx.guild_id is None:
+            raise BotResponseError("This command can only be used in a guild", True)
         
-        # set cache
-        global top_games_cache
-        top_games_cache[guild.id] = [g["game"] for g in activity_records[:24]]
-
-        # get smallest first_occurrence
-        first_occurrence = datetime.now()
-        for record in activity_records:
-            if record['first_occurrence'] < first_occurrence:
-                first_occurrence = record['first_occurrence']
-        timedelta_days = (datetime.now() - first_occurrence).days+1
-        embed = (
-            hikari.Embed(
-                title=f"{guild.name}",
+        try:
+            await ctx.defer()
+        except Exception:
+            log.error(traceback.format_exc())
+        await maybe_raise_activity_tracking_disabled(ctx.guild_id)
+        seconds = timeparse(self.time)
+        if not seconds:
+            raise BotResponseError(
+                (
+                f"Well - I've no idea what you mean with `{self.time}`"
+                f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+                f"\nShort forms of time are also supported: `d`, `h`, `m`, `s`"
+                f"\nIf you want to see the activity of the last 10 days, just use `10 days` or `10d`"
+                ),
+                ephemeral=True,
             )
+        # constants
+        app_amount = self.app_amount
+        timedelta_ = timedelta(seconds=seconds)
+        show_only_games = self.show_all == "No"
+        remove_apps: List[str] = []
+        apps = [app.strip() for app in self.apps.split(",")] if self.apps else None
+        coding_apps = Games.PROGRAMMING
+        music_apps = Games.MUSIC
+        double_games = Games.DUPLEX_GAMES  # these will be removed from games too
+        remove_apps.extend(double_games)
+        if show_only_games:
+            remove_apps.extend([*coding_apps, *music_apps])
+        max_ranking_num: int = 20
 
-        )
-        if timedelta_days > 5:
-            embed.set_footer((
+        async def build_embeds() -> List[Embed]:
+            embeds: List[hikari.Embed] = []
+            # build embed for current guild
+            guild: hikari.Guild = ctx.get_guild()  # type: ignore
+            activity_records = await CurrentGamesManager.fetch_games(
+                guild.id, 
+                datetime.now() - timedelta_
+            )
+            if activity_records is None:
+                raise BotResponseError(
+                    f"No games were played in the last {humanize.naturaldelta(timedelta_)}",
+                    ephemeral=True
+                )
+            activity_records.sort(key=lambda g: g['amount'], reverse=True)
+            
+            # set cache
+            global top_games_cache
+            top_games_cache[guild.id] = [g["game"] for g in activity_records[:24]]
 
-                    f"all records I've taken since {first_occurrence.strftime('%d. %B')} "
-                    f"({Human.plural_('day', timedelta_days, True, 'days')})")
+            # get smallest first_occurrence
+            first_occurrence = datetime.now()
+            for record in activity_records:
+                if record['first_occurrence'] < first_occurrence:
+                    first_occurrence = record['first_occurrence']
+            timedelta_days = (datetime.now() - first_occurrence).days+1
+            embed = (
+                hikari.Embed(
+                    title=f"{guild.name}",
                 )
 
-        field_value = []
-        embeds.append(embed)
-
-        # enuerate all games
-        # filter apps if these where specified
-        if apps:
-            game_records = [g for g in activity_records if g['game'] in apps]
-        else:
-            game_records = [g for g in activity_records if g['game'] not in remove_apps]
-
-        maxcolwidths = [33, 16]
-        tabulate_kwargs = {
-            "headers": ["App", "Time"],
-            "tablefmt": "rounded_outline",
-            "maxcolwidths": maxcolwidths,
-            "maxheadercolwidths": maxcolwidths,
-        }
-        for i, game in enumerate(game_records):
-            if i > 150:
-                break
-            delta = timedelta(minutes=float(game['amount']*10))
-            field_value.append(
-                [
-                    f"{i+1:02d}. {Human.short_text(game['game'], maxcolwidths[0]-4, '..', False)}", 
-                    re.sub(r"[ ]?day[s]?", "d", str(delta))
-                ]
             )
+            if timedelta_days > 5:
+                embed.set_footer((
+                    f"all records I've taken since {first_occurrence.strftime('%d. %B')} "
+                    f"({Human.plural_('day', timedelta_days, True, 'days')})"
+                ))
 
-            if i % 10 == 9 and i:
-                title = f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}"
+            field_value = []
+            embeds.append(embed)
+
+            # enuerate all games
+            # filter apps if these where specified
+            if apps:
+                game_records = [g for g in activity_records if g['game'] in apps]
+            else:
+                game_records = [g for g in activity_records if g['game'] not in remove_apps]
+
+            maxcolwidths = [33, 16]
+            tabulate_kwargs = {
+                "headers": ["App", "Time"],
+                "tablefmt": "rounded_outline",
+                "maxcolwidths": maxcolwidths,
+                "maxheadercolwidths": maxcolwidths,
+            }
+            for i, game in enumerate(game_records):
+                if i > 150:
+                    break
+                delta = timedelta(minutes=float(game['amount']*10))
+                field_value.append(
+                    [
+                        f"{i+1:02d}. {Human.short_text(game['game'], maxcolwidths[0]-4, '..', False)}", 
+                        re.sub(r"[ ]?day[s]?", "d", str(delta))
+                    ]
+                )
+
+                if i % 10 == 9 and i:
+                    title = f"{f'Top {i+1} games' if i <= max_ranking_num else 'Less played games'}"
+                    table = tabulate(field_value, **tabulate_kwargs)
+                    embeds[-1].description = (
+                        
+                        f"{title}\n```{table[:2040]}```"
+                    )
+                    embeds.append(hikari.Embed())
+                    field_value = []
+            
+            # add last remaining games
+            if field_value:
+                title = f"Less played games"
                 table = tabulate(field_value, **tabulate_kwargs)
                 embeds[-1].description = (
-                    
                     f"{title}\n```{table[:2040]}```"
                 )
-                embeds.append(hikari.Embed())
-                field_value = []
-        
-        # add last remaining games
-        if field_value:
-            title = f"Less played games"
-            table = tabulate(field_value, **tabulate_kwargs)
-            embeds[-1].description = (
-                f"{title}\n```{table[:2040]}```"
-            )
-        else:
-            embeds.pop()
-        
-        if len(embeds) == 0:
-            raise BotResponseError("No games where played durring the given period of time", ephemeral=True)
-        
-        # calculate times for music, coding and gaming
-        music_time = timedelta(minutes=int(
-            sum([g["amount"]*10 for g in activity_records if g['game'] in music_apps])
-        ))
-        coding_time = timedelta(minutes=int(
-            sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
-        ))
-        gaming_time = timedelta(minutes=int(
-            sum(int(game['amount']) for game in game_records)*10
-        )) - music_time - coding_time
-        
-        # add total played games/time
-        embeds[0] = (
-            embeds[0]
-            .add_field("Total played games", str(len(game_records)), inline=False)
-            .add_field("Total gaming time", str(gaming_time) , inline=True)
-        )
-
-        # add total coding time
-        if coding_time:
-             embeds[0].add_field(
-                "Total coding time", 
-                str(coding_time),
-                inline=True
+            else:
+                embeds.pop()
+            
+            if len(embeds) == 0:
+                raise BotResponseError("No games where played durring the given period of time", ephemeral=True)
+            
+            # calculate times for music, coding and gaming
+            music_time = timedelta(minutes=int(
+                sum([g["amount"]*10 for g in activity_records if g['game'] in music_apps])
+            ))
+            coding_time = timedelta(minutes=int(
+                sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
+            ))
+            gaming_time = timedelta(minutes=int(
+                sum(int(game['amount']) for game in game_records)*10
+            )) - music_time - coding_time
+            
+            # add total played games/time
+            embeds[0] = (
+                embeds[0]
+                .add_field("Total played games", str(len(game_records)), inline=False)
+                .add_field("Total gaming time", str(gaming_time) , inline=True)
             )
 
-        # add total music time
-        if music_time:
-            embeds[0].add_field(
-                "Total music time", 
-                str(music_time), 
-                inline=True
-            )
+            # add total coding time
+            if coding_time:
+                embeds[0].add_field(
+                    "Total coding time", 
+                    str(coding_time),
+                    inline=True
+                )
 
-        return embeds
-    # prepare apps to fetch
-    custom_time: datetime = datetime.now() - timedelta_
-    # build embeds
-    # if apps where specified, only specified will be showen
-    embeds = await build_embeds()
+            # add total music time
+            if music_time:
+                embeds[0].add_field(
+                    "Total music time", 
+                    str(music_time), 
+                    inline=True
+                )
 
-    # apps are needed, so top games will be fetched
-    if not apps:
-        apps = [
-            list(d.keys())[0]
-            for d in
-            await CurrentGamesManager.fetch_top_games(
-                guild_id=ctx.guild_id, 
-                since=custom_time,
-                limit=app_amount,
-                remove_activities=remove_apps
-            )
-        ]
-        # nothing was played during given time
+            return embeds
+        # prepare apps to fetch
+        custom_time: datetime = datetime.now() - timedelta_
+        # build embeds
+        # if apps where specified, only specified will be showen
+        embeds = await build_embeds()
+
+        # apps are needed, so top games will be fetched
         if not apps:
-            raise BotResponseError(
-                f"No games were played in the last {humanize.naturaldelta(timedelta_)}."
+            apps = [
+                list(d.keys())[0]
+                for d in
+                await CurrentGamesManager.fetch_top_games(
+                    guild_id=ctx.guild_id, 
+                    since=custom_time,
+                    limit=app_amount,
+                    remove_activities=remove_apps
+                )
+            ]
+            # nothing was played during given time
+            if not apps:
+                raise BotResponseError(
+                    f"No games were played in the last {humanize.naturaldelta(timedelta_)}."
+                )
+        # build picture
+        try:
+            picture_buffer, _ = await GameViews().build_activity_graph(
+                ctx.guild_id, 
+                since=timedelta_,
+                activities=apps,
+                distinguishable_colors=options["clean-colors"] == "Yes",
             )
-    # build picture
-    try:
-        picture_buffer, _ = await GameViews().build_activity_graph(
-            ctx.guild_id, 
-            since=timedelta_,
-            activities=apps,
-            distinguishable_colors=options["clean-colors"] == "Yes",
+        except Exception as e:
+            if not options.apps:
+                raise e
+            raise BotResponseError(
+                "Something went wrong. Are you sure, that your game exists?",
+                ephemeral=True,
+            )
+        pag = Paginator(
+            page_s=embeds,
+            first_message_kwargs={"attachment": picture_buffer}
         )
-    except Exception as e:
-        if not options.apps:
-            raise e
-        raise BotResponseError(
-            "Something went wrong. Are you sure, that your game exists?",
-            ephemeral=True,
+        await pag.start(ctx)
+
+
+
+@loader.command
+class WeekActivity(
+    SlashCommand,
+    name="week-activity",
+    description="Shows the activity of all week days",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(5, 1, "user")]
+):
+    time = lightbulb.string(
+        "time",
+        "The time you want to get stats for - e.g. 30 days, 3 hours",
+        default="9 days"
+    )  # Option 1
+    show_all = lightbulb.string(
+        "show-all",
+        "Shows all apps, not only games (e.g. music, programming)",
+        choices=YES_NO,
+        default=NO
+    )  # Option 2
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await ctx.defer()
+        guild_id = ctx.guild_id
+        assert guild_id is not None
+        await maybe_raise_activity_tracking_disabled(guild_id)
+        seconds = timeparse(self.time)
+        if not seconds:
+            return await ctx.respond(
+                f"Well - I've no idea what you mean with `{self.time}`"
+                f"\n\nYou can try something like `5 days 1 hour` or `2 weeks 3 days` or `7000000 seconds`"
+            )
+        show_all = self.show_all == "Yes"
+        buffer, __ = await GameViews().build_week_activity_chart(
+            guild_id, 
+            timedelta(seconds=seconds),
+            remove=[*Games.MUSIC, *Games.PROGRAMMING, *Games.DUPLEX_GAMES] if not show_all else []
         )
-    pag = Paginator(
-        page_s=embeds,
-        first_message_kwargs={"attachment": picture_buffer}
-    )
-    await pag.start(ctx)
+        await ctx.respond(
+            f"{ctx.get_guild().name}'s daily activity",  # type: ignore
+            attachment=buffer,
+        )
+
+
 
 class GameViews:
     """
@@ -422,8 +415,8 @@ class GameViews:
         """
         Highlights the weekends in the graph as bar above the x-axis
         """
-        min_date: datetime = df_summarized['r_timestamp'].min()
-        max_date: datetime = df_summarized['r_timestamp'].max()
+        min_date: pd.Series = df_summarized['r_timestamp'].min()
+        max_date: pd.Series = df_summarized['r_timestamp'].max()
         dates: pd.DatetimeIndex = pd.date_range(start=min_date, end=max_date, freq='D')
         
         for date in dates:
@@ -784,27 +777,4 @@ class GameViews:
         return Path(verts, codes)
 
 
-async def tag_name_auto_complete(
-    ctx: lightbulb.AutocompleteContext
-) -> None:
-    interaction = ctx.interaction
-    if not isinstance(interaction.guild_id, int):
-        await ctx.respond([])
-    games = top_games_cache.get(interaction.guild_id, [])
-    if not games:
-        dicts = await CurrentGamesManager.fetch_top_games(
-            interaction.guild_id, 
-            datetime.now() - timedelta(days=3), 
-            limit=24
-        )
-        games = [list(d.keys())[0] for d in dicts]
-        top_games_cache[interaction.guild_id] = games
-    await ctx.respond(games)
-
-
-
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
 
