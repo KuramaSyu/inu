@@ -4,7 +4,10 @@ from datetime import timedelta
 
 
 import hikari
-from hikari import Message, Snowflake, TextInputStyle
+from hikari import (
+    Message, Snowflake, TextInputStyle, 
+    UndefinedOr, UNDEFINED, Embed, UndefinedNoneOr
+)
 from hikari.impl import MessageActionRowBuilder
 from lightbulb.context import Context
 
@@ -95,6 +98,10 @@ class InuContext(ABC):
     @abstractmethod
     def channel_id(self) -> Snowflake:
         ...
+    
+    @abstractmethod
+    def get_channel(self) -> hikari.GuildChannel | None:
+        ...
         
     @property
     def display_name(self) -> str:
@@ -110,31 +117,59 @@ class InuContext(ABC):
         ...
 
     @abstractmethod
-    async def respond(self, *args, **kwargs) -> "ResponseProxy":
-        """
-        Create a response for this context. The first time this method is called, the initial
-        interaction response will be created by calling
-        :obj:`~hikari.interactions.command_interactions.CommandInteraction.create_initial_response` with the response
-        type set to :obj:`~hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE` if not otherwise
-        specified.
+    async def respond(
+        self, 
+        content: UndefinedOr[str] = UNDEFINED,
+        embed: UndefinedNoneOr[Embed] = UNDEFINED,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        delete_after: timedelta | None = None,
+        ephemeral: bool = False,
+        component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
+        flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: bool = False
+        ) -> "ResponseProxy":
+        """Respond to an interaction or command with a message.
 
-        Subsequent calls will instead create followup responses to the interaction by calling
-        :obj:`~hikari.interactions.command_interactions.CommandInteraction.execute`.
+        Parameters
+        ----------
+        content : UndefinedOr[str], optional
+            The text content of the message
+        embed : UndefinedNoneOr[Embed], optional
+            A single embed to send
+        embeds : UndefinedOr[List[Embed]], optional
+            List of embeds to send
+        delete_after : timedelta | None, optional
+            If set, delete the message after this duration
+        ephemeral : bool, default False
+            Whether the message should be ephemeral (only visible to command user)
+        component : UndefinedNoneOr[MessageActionRowBuilder], optional
+            A single component action row to add
+        components : UndefinedOr[List[MessageActionRowBuilder]], optional
+            List of component action rows to add
+        flags : hikari.MessageFlag, default NONE
+            Message flags to apply
+        update : bool, default False
+            Whether to update the original message instead of sending new one
 
-        Args:
-            update : bool
-                wether or not to update the current interaction message
-            *args (Any): Positional arguments passed to ``CommandInteraction.create_initial_response`` or
-                ``CommandInteraction.execute``.
-            delete_after (Union[:obj:`int`, :obj:`float`, ``None``]): The number of seconds to wait before deleting this response.
-            **kwargs: Keyword arguments passed to ``CommandInteraction.create_initial_response`` or
-                ``CommandInteraction.execute``.
+        Returns
+        -------
+        ResponseProxy
+            Proxy object for the sent message response
 
-        Returns:
-            :obj:`~ResponseProxy`: Proxy wrapping the response of the ``respond`` call.
-
-        .. versionadded:: 2.2.0
-            ``delete_after`` kwarg.
+        Notes
+        -----
+        - Only one of `embed`/`embeds` and `component`/`components` can be used
+        - Ephemeral messages cannot be deleted with delete_after
+        
+        Examples
+        --------
+        Simple text response:
+        >>> await ctx.respond("Hello!")
+        
+        Ephemeral embed:
+        >>> embed = Embed(title="Secret")
+        >>> await ctx.respond(embed=embed, ephemeral=True)
         """
         ...
     @property
