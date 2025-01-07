@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 import hikari
 from hikari.impl import MessageActionRowBuilder
 import aiohttp
+import lightbulb
 
 from core import Inu, getLogger
 from utils import pacman
@@ -129,6 +130,10 @@ def mockup_action_row(
             is_disabled=disabled
         )
     return action_row
+
+YES = lightbulb.Choice("Yes", "Yes")  # value returned
+NO = lightbulb.Choice("No", "No")
+YES_NO = [YES, NO]
 
 
 class ButtonUtils:
