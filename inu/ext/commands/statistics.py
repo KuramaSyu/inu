@@ -46,7 +46,7 @@ from matplotlib.dates import DateFormatter
 import matplotlib.ticker as plticker 
 import humanize
 from tabulate import tabulate
-from numpy import uint8
+from numpy import datetime64, timedelta64, uint8
 
 from utils import (
     Human, 
@@ -342,7 +342,7 @@ class CurrendGames(
         try:
             picture_buffer, _ = await GameViews().build_activity_graph(
                 ctx.guild_id, 
-                since=timedelta_,
+                df_start=timedelta_,
                 activities=apps,
                 distinguishable_colors=options["clean-colors"] == "Yes",
             )
@@ -482,9 +482,9 @@ class GameViews:
 
         X_LABLE_AMOUNT: int = 15  # about
         base = None
-        since: datetime = df.index.min()
+        df_start: datetime = df.index.min()
         until: datetime = df.index.max()
-        df_timedelta: timedelta = until - since
+        df_timedelta: timedelta = until - df_start
 
         if df_timedelta >= timedelta(days=20):
             resample_delta = df_timedelta / 20
