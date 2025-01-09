@@ -48,15 +48,16 @@ class TimezoneManager:
         """
         table = Table("guild_timezones")
         r = await table.select(["guild_or_author_id"], [guild_or_author_id])
+        offset = timedelta(hours=0)
         try:
             offset = r[0]["offset_hours"]
-            td = timedelta(hours=offset)
+            offset = timedelta(hours=offset)
         except IndexError:
-            td = timedelta(hours=0)
+            offset = timedelta(hours=0)
         finally:
             if cls.is_dst():
-                td += timedelta(hours=1)
-            return timezone(td)
+                offset += timedelta(hours=1)
+            return timezone(offset=offset)
 
     @classmethod
     async def set_timezone(cls, guild_or_author_id: int, offset_hours: int):
