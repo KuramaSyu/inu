@@ -141,13 +141,13 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         return
 
     async def ask(
-            self, 
-            title: str, 
-            button_labels: List[str] = ["Yes", "No"], 
-            ephemeral: bool = True, 
-            timeout: int = 120,
-            delete_after_timeout: bool = False,
-            allowed_users: List[hikari.SnowflakeishOr[hikari.User]] | None = None
+        self, 
+        title: str, 
+        button_labels: List[str] = ["Yes", "No"], 
+        ephemeral: bool = True, 
+        timeout: int = 120,
+        delete_after_timeout: bool = False,
+        allowed_users: List[hikari.SnowflakeishOr[hikari.User]] | None = None
     ) -> Tuple[str, "InuContext"] | None:
         """
         ask a question with buttons
@@ -169,6 +169,8 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         --------
         Tuple[str, "InuContext"]
             the selected label and the new context
+        None
+            if the timeout is reached
         """
         prefix = "ask_"
         components: List[MessageActionRowBuilder] = []
