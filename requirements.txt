@@ -1,9 +1,9 @@
 
 hikari-lightbulb==3.0.0a15
 hikari==2.1.0
-hikari-miru==3.3.0
-asyncache==0.1.1
-cachetools==4.2.2
+hikari-miru==4.2.0
+asyncache==0.3.1
+cachetools==5.5.0
 asyncpraw==7.7.1
 mplcyberpunk==0.5.1
 selenium==4.14.0
