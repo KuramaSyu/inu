@@ -93,9 +93,8 @@ class SettingsMenuView(miru.View):
         else:
             return self.__class__.name
 
-    async def start(self, message: hikari.Message) -> None:
-
-        await super().start(message)
+    async def start_view(self, message: hikari.Message) -> None:
+        await client.start_view()
         await message.edit(
             embed=await self.to_embed(),
             components=self.build()
