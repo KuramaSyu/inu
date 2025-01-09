@@ -39,7 +39,7 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 T = TypeVar("T")
 
 log = getLogger(__name__)
-ALLOWED_EXTENSIONS = ["basics", "errors", "counter", "tags", "maths", "games", "statistics"]
+ALLOWED_EXTENSIONS = ["basics", "errors", "counter", "tags", "maths", "games", "statistics", "settings"]
 
 class BotResponseError(Exception):
     def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
