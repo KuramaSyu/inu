@@ -183,7 +183,7 @@ def button(
     custom_id_base: str,
     style: ButtonStyle = ButtonStyle.SECONDARY,
     emoji: Optional[str] = None,
-):
+) -> Callable[[Callable], ButtonListener]:
     """
     A decorator factory to create a Button and also add it to the listener of the paginator.
     
