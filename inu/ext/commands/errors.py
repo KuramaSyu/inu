@@ -53,7 +53,10 @@ async def on_error(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -
     if isinstance(exc.causes[0], BotResponseError):
         kwargs = exc.causes[0].kwargs
         content = kwargs.pop("content") or UNDEFINED
-        await bot.rest.create_message(exc.context.channel_id, content, **kwargs)
+        try:
+            await exc.context.respond(content, **kwargs)
+        except:
+            await bot.rest.create_message(exc.context.channel_id, content, **kwargs)
     for cause in exc.causes:
         log.error(f"{''.join(traceback.format_exception(cause))}")
     return True
