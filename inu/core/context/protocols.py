@@ -257,7 +257,7 @@ class InuContext(ABC):
             delete_after_timeout: bool = False,
             allowed_users: List[hikari.SnowflakeishOr[hikari.User]] | None = None
     ) -> Tuple[str, "InuContext"]:
-        """g
+        """
         ask a question with buttons
 
         Args:
@@ -270,15 +270,15 @@ class InuContext(ABC):
             whether or not the message should be ephemeral
         timeout : int
             the timeout in seconds
-        delete_after_timeout : bool (default: False)
-            wether or not to delete the message after the timeout
-        allowed_users : List[hikari.User] | None
-            the allowed users to interact with the buttons
-        
+        allowed_users : List[hikari.User]
+            the users allowed to interact with the buttons
+
         Returns:
         --------
-        Tuple[str, "InteractionContext"]
+        Tuple[str, "InuContext"]
             the selected label and the new context
+        None
+            if the timeout is reached
         """
 
     async def ask_with_modal(
