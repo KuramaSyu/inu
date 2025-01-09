@@ -11,6 +11,7 @@ from typing import (
 )
 import logging
 from datetime import datetime, timedelta, timezone
+import miru.context
 from typing_extensions import Self
 
 from hikari import (
@@ -35,7 +36,7 @@ from utils import DailyContentChannels, PrefixManager, TimezoneManager, Colors, 
 from utils.db.r_channel_manager import Columns as Col
 from utils.db import BoardManager, SettingsManager
 
-from core import getLogger, Inu
+from core import getLogger, Inu, get_context
 
 log = getLogger(__name__)
 EPHEMERAL = {"flags": hikari.MessageFlag.EPHEMERAL}
@@ -43,7 +44,16 @@ client = miru.Client(Inu.instance)
 ################################################################################
 # Start - View for Settings
 ################################################################################
-
+async def update_activity_logging(guild_id: int, enable: bool) -> hikari.Embed:
+    await SettingsManager.update_activity_tracking(guild_id, enable)
+    embed = hikari.Embed(title="Activity tracking for statistics")
+    if enable:
+        embed.description = "Is now enabled"
+        embed.color = Colors.from_name("green")
+    else:
+        embed.description = "Is now disabled"
+        embed.color = Colors.from_name("red")
+    return embed
 
 class SettingsMenuView(miru.View):
     name: str
@@ -53,11 +63,11 @@ class SettingsMenuView(miru.View):
         old_view: Optional["SettingsMenuView"], 
         timeout: Optional[float] = 14*15, 
         autodefer: bool = True,
-        ctx: lightbulb.Context,
+        ctx: InuContext,
     ) -> None:
         super().__init__(timeout=timeout, autodefer=autodefer)
         self.old_view = old_view
-        self.lightbulb_ctx = ctx
+        self.first_ctx = ctx
 
     @abstractmethod
     async def to_embed(self) -> hikari.Embed:
@@ -82,7 +92,7 @@ class SettingsMenuView(miru.View):
     async def go_back(self, ctx: miru.ViewContext) -> None:
         if self.old_view is not None:
             self.stop()
-            await self.old_view.start(self.message)
+            client.start_view(self.old_view)  # for some reason sync
         else:
             await ctx.respond("You can't go back from here.")
 
@@ -93,12 +103,12 @@ class SettingsMenuView(miru.View):
         else:
             return self.__class__.name
 
-    async def start_view(self, message: hikari.Message) -> None:
-        await client.start_view()
-        await message.edit(
+    async def start_view(self, message: hikari.Message, ctx: miru.ViewContext) -> None:
+        await ctx.edit_response(
             embed=await self.to_embed(),
             components=self.build()
         )
+        client.start_view(self, bind_to=message or None)
 
 
 class PrefixView(SettingsMenuView):
@@ -114,11 +124,8 @@ class PrefixView(SettingsMenuView):
         )
         if new_prefix is None:
             return
-        # self.lightbulb_ctx._options["new_prefix"] = new_prefix
-        # self.lightbulb_ctx._responded = False
-        # self.lightbulb_ctx._interaction = interaction
-        self._responded = False
-        await add.callback(self.lightbulb_ctx)
+        inu_ctx = get_context(interaction)
+        await AddPrefix._callback(inu_ctx, new_prefix=new_prefix)
 
     @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, ctx: miru.ViewContext, button: miru.Button) -> None:
@@ -129,11 +136,8 @@ class PrefixView(SettingsMenuView):
             max_length_s=15,
             input_style_s=hikari.TextInputStyle.SHORT
         )
-        # self.lightbulb_ctx._options["prefix"] = old_prefix
-        # self.lightbulb_ctx._responded = False
-        # self.lightbulb_ctx._interaction = interaction
-        self._responded = False
-        await remove.callback(self.lightbulb_ctx)
+        inu_ctx = get_context(ctx.interaction)
+        await RemovePrefix._callback(inu_ctx, prefix=old_prefix)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -155,11 +159,13 @@ class RedditTopChannelView(SettingsMenuView):
     name = "Top Channels"
     @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def channels(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await add.callback(self.lightbulb_ctx)
+        inu_ctx = get_context(ctx.interaction)
+        await AddTopChannel._callback(inu_ctx)
 
     @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await remove.callback(self.lightbulb_ctx)
+        inu_ctx = get_context(ctx.interaction)
+        await RemoveTopChannel._callback(inu_ctx)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -174,24 +180,33 @@ class LavalinkView(SettingsMenuView):
     
     @miru.button(label="Soundcloud", style=hikari.ButtonStyle.SECONDARY)
     async def soundcloud_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        bot.data.preffered_music_search[ctx.guild_id] = "scsearch"
-        await ctx.edit_response(embed=await self.to_embed(), components=self.build())
+        log.debug(f"Context: {ctx}")
+        guild_id = self.first_ctx.guild_id
+        assert guild_id is not None
+        bot.data.preffered_music_search[guild_id] = "scsearch"
+        log.debug(f"Context: {ctx}")
+        await ctx.respond(embed=await self.to_embed(), components=self.build())
 
     @miru.button(label="YouTube", style=hikari.ButtonStyle.PRIMARY)
     async def youtube_button(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        bot.data.preffered_music_search[ctx.guild_id] = "ytsearch"
-        await ctx.edit_response(embed=await self.to_embed(), components=self.build())
+        guild_id = self.first_ctx.guild_id
+        assert guild_id is not None
+        bot.data.preffered_music_search[guild_id] = "ytsearch"
+        await ctx.respond(embed=await self.to_embed(), components=self.build())
 
     async def to_embed(self):
         source = "" 
-        if bot.data.preffered_music_search.get(self.lightbulb_ctx.guild_id, "ytsearch") == "ytsearch":
+        guild_id = self.first_ctx.guild_id
+        assert guild_id is not None
+        if bot.data.preffered_music_search.get(guild_id, "ytsearch") == "ytsearch":
             source = "YouTube"
-            self.soundcloud_button._style = hikari.ButtonStyle.SECONDARY
-            self.youtube_button._style = hikari.ButtonStyle.PRIMARY
+            self.soundcloud_button._style = hikari.ButtonStyle.SECONDARY  # type: ignore
+            self.soundcloud_button._style = hikari.ButtonStyle.SECONDARY  # type: ignore
+            self.youtube_button._style = hikari.ButtonStyle.PRIMARY   # type: ignore
         else:
             source = "Soundcloud"
-            self.soundcloud_button._style = hikari.ButtonStyle.PRIMARY
-            self.youtube_button._style = hikari.ButtonStyle.SECONDARY
+            self.soundcloud_button._style = hikari.ButtonStyle.PRIMARY  # type: ignore
+            self.youtube_button._style = hikari.ButtonStyle.SECONDARY # type: ignore
         embed = hikari.Embed(
             title=self.total_name, 
             description=f"The currently preferred source for music: **{source}**"
@@ -203,11 +218,13 @@ class RedditChannelView(SettingsMenuView):
     name = "Channels"
     @miru.button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def channels(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await add.callback(self.lightbulb_ctx)
+        inu_ctx = get_context(ctx.interaction)
+        await AddChannel._callback(inu_ctx)
 
     @miru.button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await remove.callback(self.lightbulb_ctx)
+        inu_ctx = get_context(ctx.interaction)
+        await RemoveChannel._callback(inu_ctx)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -221,11 +238,12 @@ class RedditView(SettingsMenuView):
     name = "Reddit"
     @miru.button(label="manage channels", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def channels(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await timez_set.callback(self.lightbulb_ctx)
+        await SetTimezone._callback(get_context(ctx.interaction))
+        # await timez_set.callback(self.lightbulb_ctx)
 
     @miru.button(label="manage top channels", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def prefix_remove(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await RedditTopChannelView(old_view=self, ctx=self.lightbulb_ctx).start(self.message)
+        await RedditTopChannelView(old_view=self, ctx=self.first_ctx).start_view(self.message)
 
     async def to_embed(self):
         embed = hikari.Embed(
@@ -241,10 +259,11 @@ class TimezoneView(SettingsMenuView):
     name = "Timezone"
     @miru.button(label="set", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def set_timezone(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await set_timezone(ctx)
+        inu_ctx = get_context(ctx.interaction)
+        await SetTimezone._callback(inu_ctx)
 
     async def to_embed(self):
-        t_zone = await TimezoneManager.fetch_timezone(self.lightbulb_ctx.guild_id)
+        t_zone = await TimezoneManager.fetch_timezone(self.first_ctx.guild_id)
         now = datetime.now(t_zone)
         embed = hikari.Embed(
             title=self.total_name,
@@ -271,7 +290,7 @@ class ActivityLoggingView(SettingsMenuView):
                 "Here you can enable or disable activity logging\n"
                 "So if you want to use commands like `/current-games` or `/week-activity` "
                 "than you need to enable it. WHEN **ENABLED** ALL THIS GUILDS **ACTIVITIES WILL BE TRACKED**! (but anonymously)\n\n"
-                f"Currently: {'ENABLED' if await SettingsManager.fetch_activity_tracking(self.lightbulb_ctx.guild_id) else 'DISABLED'}"
+                f"Currently: {'ENABLED' if await SettingsManager.fetch_activity_tracking(self.first_ctx.guild_id) else 'DISABLED'}"
             )
         )
         return embed
@@ -297,7 +316,7 @@ class AutorolesView(SettingsMenuView):
                 "Here you can enable or disable activity logging\n"
                 "So if you want to use commands like `/current-games` or `/week-activity` "
                 "than you need to enable it. WHEN **ENABLED** ALL THIS GUILDS **ACTIVITIES WILL BE TRACKED**! (but anonymously)\n\n"
-                f"Currently: {'ENABLED' if await SettingsManager.fetch_activity_tracking(self.lightbulb_ctx.guild_id) else 'DISABLED'}"
+                f"Currently: {'ENABLED' if await SettingsManager.fetch_activity_tracking(self.first_ctx.guild_id) else 'DISABLED'}"
             )
         )
         return embed
@@ -309,23 +328,25 @@ class MainView(SettingsMenuView):
     name = "Settings"
     @miru.button(label="Prefixes", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def prefixes(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await (PrefixView(old_view=self, ctx=self.lightbulb_ctx)).start(self._message)
+        await (PrefixView(old_view=self, ctx=self.first_ctx)).start_view(self._message)
         
     @miru.button(label="Reddit", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
     async def reddit_channels(self, ctx: miru.ViewContext, button: miru.Button) -> None:
-        await RedditView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
+        await RedditView(old_view=self, ctx=self.first_ctx).start_view(self._message)
 
     @miru.button(label="Music", style=hikari.ButtonStyle.PRIMARY, emoji="🎵")
     async def lavalink_button(self, ctx: miru.ViewContext, button: miru.Button):
-        await LavalinkView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
+        ##await ctx.respond("go to Lavalink")
+        #client.start_view(LavalinkView(old_view=self, ctx=self.first_ctx))
+        await LavalinkView(old_view=self, ctx=self.first_ctx).start_view(self._message, ctx)
 
     @miru.button(label="Timezone", emoji=chr(9986), style=hikari.ButtonStyle.PRIMARY)
     async def timezone_button(self, ctx: miru.ViewContext, button: miru.Button):
-        await TimezoneView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
+        await TimezoneView(old_view=self, ctx=self.first_ctx).start_view(self._message)
 
     @miru.button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY, emoji="🎮")
     async def activity_logging_button(self, ctx: miru.ViewContext, button: miru.Button):
-        await ActivityLoggingView(old_view=self, ctx=self.lightbulb_ctx).start(self._message)
+        await ActivityLoggingView(old_view=self, ctx=self.first_ctx).start_view(self._message)
 
 
 
@@ -366,22 +387,16 @@ class ActivityTracking(
     hooks=[sliding_window(3, 1, "user")]
 ):
     enable = lightbulb.string("enable", "Whether to enable or disable activity logging", choices=YES_NO)
+    
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx, enable=self.enable)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext, *, enable: str):
         assert ctx.guild_id is not None
-        embed = await update_activity_logging(ctx.guild_id, self.enable == "Yes")
+        embed = await update_activity_logging(ctx.guild_id, enable == "Yes")
         await ctx.respond(embed=embed)
-
-async def update_activity_logging(guild_id: int, enable: bool) -> hikari.Embed:
-    await SettingsManager.update_activity_tracking(guild_id, enable)
-    embed = hikari.Embed(title="Activity tracking for statistics")
-    if enable:
-        embed.description = "Is now enabled"
-        embed.color = Colors.from_name("green")
-    else:
-        embed.description = "Is now disabled"
-        embed.color = Colors.from_name("red")
-    return embed
 
 @settings_group.register
 class SettingsMenu(
@@ -394,12 +409,14 @@ class SettingsMenu(
 ):
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx)
+        
+    async def _callback(self, ctx: InuContext):
         main_view = MainView(old_view=None, ctx=ctx)
         message = await ctx.respond("settings")
-        await main_view.start(await message.message())
+        await main_view.start_view(await message.message())
 
-daily_pictures = Group("daily_pictures", "Settings to the daily pictures I send. By default I don't send pics", dm_enabled=False)
-#settings_group.register(daily_pictures)
+daily_pictures = settings_group.subgroup("daily-pictures", "Commands for daily pictures")
 
 @daily_pictures.register
 class AddChannel(
@@ -410,6 +427,10 @@ class AddChannel(
 ):
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext):
         if not ctx.guild_id:
             return
         channel_id = ctx.channel_id
@@ -429,6 +450,10 @@ class RemoveChannel(
 ):
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext):
         if not ctx.guild_id:
             return
         channel_id = ctx.channel_id
@@ -447,6 +472,10 @@ class AddTopChannel(
 ):
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext):
         if not ctx.guild_id:
             return
         channel_id = ctx.channel_id
@@ -467,6 +496,10 @@ class RemoveTopChannel(
 ):
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext):
         if not ctx.guild_id:
             return
         channel_id = ctx.channel_id
@@ -489,12 +522,15 @@ class AddPrefix(
     new_prefix = lightbulb.string("new-prefix", "The prefix you want to add | \"<empty>\" for no prefix")
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
-        prefix = self.new_prefix
-        if prefix is None:
+        await self._callback(ctx, new_prefix=self.new_prefix)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext, *, new_prefix: Optional[str]):
+        if new_prefix is None:
             raise BotResponseError("Your prefix can't be None", ephemeral=True)
-        if prefix == "<empty>":
-            prefix = ""
-        prefixes = await PrefixManager.add_prefix(ctx.guild_id, prefix)
+        if new_prefix == "<empty>":
+            new_prefix = ""
+        prefixes = await PrefixManager.add_prefix(ctx.guild_id, new_prefix)
         await ctx.respond(f"""I added it. For this guild, the prefixes are now: {', '.join([f'`{p or "<empty>"}`' for p in prefixes])}""")
 
 @prefix_group.register
@@ -505,11 +541,16 @@ class RemovePrefix(
     dm_enabled=False
 ):
     prefix = lightbulb.string("prefix", "The prefix you want to remove | \"<empty>\" for no prefix")
+    
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
-        if self.prefix == "<empty>":
+        await self._callback(ctx, prefix=self.prefix)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext, *, prefix: str):
+        if prefix == "<empty>":
             prefix = ""
-        elif self.prefix == bot._default_prefix:
+        elif prefix == bot._default_prefix:
             return await ctx.respond(f"I won't do that xD")
         prefixes = await PrefixManager.remove_prefix(ctx.guild_id, prefix)
         await ctx.respond(f"""I removed it. For this guild, the prefixes are now: {', '.join([f'`{p or "<empty>"}`' for p in prefixes])}""")
@@ -526,6 +567,10 @@ class SetTimezone(
 ):
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext):
         await set_timezone(ctx)
 
 settings_board_group = Group("board", "group for board commands", dm_enabled=False)
@@ -539,16 +584,21 @@ class CreateBoard(
     dm_enabled=False
 ):
     emoji = lightbulb.string("emoji", "messages with this emoji will be sent here", autocomplete=board_emoji_autocomplete)
+    
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx, emoji=self.emoji)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext, *, emoji: str):
         await BoardManager.add_board(
             guild_id=ctx.guild_id,
             channel_id=ctx.channel_id,
-            emoji=self.emoji,
+            emoji=emoji,
         )
         await ctx.respond(
-            f"{ctx.get_channel().name} is now a {self.emoji}-Board.\n"
-            f"Means all messages with a {self.emoji} reaction will be sent in here."
+            f"{ctx.get_channel().name} is now a {emoji}-Board.\n"
+            f"Means all messages with a {emoji} reaction will be sent in here."
         )
 
 @settings_board_group.register
@@ -559,15 +609,20 @@ class RemoveBoard(
     dm_enabled=False
 ):
     emoji = lightbulb.string("emoji", "the emoji which the board have", autocomplete=board_emoji_autocomplete)
+    
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
+        await self._callback(ctx, emoji=self.emoji)
+        
+    @staticmethod
+    async def _callback(ctx: InuContext, *, emoji: str):
         await BoardManager.remove_board(
             guild_id=ctx.guild_id,
-            emoji=self.emoji,
+            emoji=emoji,
         )
         await ctx.respond(
-            f"{ctx.get_channel().name} is not a {self.emoji}-Board anymore.\n"
-            f"Means all messages with a {self.emoji} will not be sent here any longer."
+            f"{ctx.get_channel().name} is not a {emoji}-Board anymore.\n"
+            f"Means all messages with a {emoji} will not be sent here any longer."
         )
 
 async def set_timezone(ctx: InuContext, kwargs: Dict[str, Any] = {"flags": hikari.MessageFlag.EPHEMERAL}):
