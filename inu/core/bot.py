@@ -103,6 +103,7 @@ class Inu(hikari.GatewayBot):
         self.id_creator = IDCreator()
         self._lavalink: Optional[lavalink_rs.LavalinkClient] = None
         self._client = None
+        self.data = Data()
         
 
         
@@ -366,7 +367,7 @@ class Data:
 
     def __init__(self) -> None:
         self.lavalink: LavalinkClient = None  # type: ignore
-        self.preffered_music_search: Mapping[int, str] = {}
+        self.preffered_music_search: Dict[int, str] = {}
 
 class Configuration():
     """Wrapper for the config file"""
