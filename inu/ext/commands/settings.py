@@ -32,7 +32,7 @@ from lightbulb import Context, Group, commands
 import miru
 
 from core import Inu, Table, BotResponseError, InuContext
-from utils import DailyContentChannels, PrefixManager, TimezoneManager, Colors, YES_NO
+from utils import DailyContentChannels, PrefixManager, TimezoneManager, Colors, YES_NO, Paginator, button
 from utils.db.r_channel_manager import Columns as Col
 from utils.db import BoardManager, SettingsManager
 
@@ -357,6 +357,29 @@ class MainView(SettingsMenuView):
         )
         return embed
 
+class SettingsMenuPag(Paginator[Embed]):
+    name = "Settings"
+    @button(label="Prefixes", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+    async def prefixes(self, ctx: InuContext, _) -> None:
+        await ctx.respond("Prefixes")
+        
+    @button(label="Reddit", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+    async def reddit_channels(self, ctx: InuContext, _) -> None:
+        await ctx.respond("Reddit")
+
+    @button(label="Music", style=hikari.ButtonStyle.PRIMARY, emoji="🎵")
+    async def lavalink_button(self, ctx: miru.ViewContext, button: miru.Button):
+        ##await ctx.respond("go to Lavalink")
+        #client.start_view(LavalinkView(old_view=self, ctx=self.first_ctx))
+        await ctx.respond("Music")
+
+    @button(label="Timezone", emoji=chr(9986), style=hikari.ButtonStyle.PRIMARY)
+    async def timezone_button(self, ctx: miru.ViewContext, button: miru.Button):
+        await ctx.respond("Timezone")
+
+    @button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY, emoji="🎮")
+    async def activity_logging_button(self, ctx: miru.ViewContext, button: miru.Button):
+        await ctx.respond("Activity logging")
 ################################################################################
 # End - View for Settings
 ################################################################################
@@ -412,9 +435,11 @@ class SettingsMenu(
         await self._callback(ctx)
         
     async def _callback(self, ctx: InuContext):
-        main_view = MainView(old_view=None, ctx=ctx)
-        message = await ctx.respond("settings")
-        await main_view.start_view(await message.message())
+        #main_view = MainView(old_view=None, ctx=ctx)
+        #message = await ctx.respond("settings")
+        #await main_view.start_view(await message.message())
+        pag = SettingsMenuPag([Embed(title="Settings")], disable_paginator_when_one_site=False)
+        await pag.start(ctx)
 
 daily_pictures = settings_group.subgroup("daily-pictures", "Commands for daily pictures")
 
