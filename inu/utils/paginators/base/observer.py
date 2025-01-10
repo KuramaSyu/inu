@@ -3,6 +3,7 @@ from abc import ABCMeta, abstractmethod
 import asyncio
 
 import hikari
+from hikari.impl import MessageActionRowBuilder
 from hikari import (
     ComponentInteraction,
     ButtonStyle,
@@ -14,7 +15,7 @@ from hikari import (
 from hikari.impl import InteractiveButtonBuilder
 
 from core import Inu, getLogger, InuContext, get_context
-
+from utils import add_row_when_filled, is_row_filled
 
 if TYPE_CHECKING:
     from .base import Paginator
@@ -130,6 +131,7 @@ class ButtonListener(BaseListener):
         custom_id_base: str,
         style: ButtonStyle = ButtonStyle.SECONDARY,
         emoji: Optional[str] = None,
+        row: Optional[int] = None,
         startswith: Optional[str] = None,
     ):
         self.event = str(hikari.ComponentInteraction)
@@ -141,22 +143,34 @@ class ButtonListener(BaseListener):
         self._button_style: ButtonStyle = style
         self._custom_id_base = custom_id_base
         self._check: Callable[[ComponentInteraction], bool] = lambda i: i.custom_id.startswith(self._custom_id_base) 
+        self._row = row
         
 
     def use_check_startswith(self, startswith: str) -> "ButtonListener":
         self._check = lambda x: x.custom_id.startswith(startswith)
         return self
     
-    def button_args(
-        self, 
-        paginator: "Paginator", 
-    ) -> InteractiveButtonBuilder: 
+    def interactive_button_builder(self) -> InteractiveButtonBuilder: 
         return InteractiveButtonBuilder(
             style=self._button_style,
             custom_id=self._custom_id_base,
             emoji=self._emoji or UNDEFINED,
             label=self._label,
         )
+
+    def add_to_row(
+        self,
+        row: List[MessageActionRowBuilder]
+    ):  
+        while self._row and len(row) < self._row:
+            row = add_row_when_filled(row)
+
+        for i, r in enumerate(row):
+            if (not self._row or i == self._row) and not is_row_filled(r):
+                # add to desired row
+                r.add_component(self.interactive_button_builder())
+                return
+        row[-1].add_component(self.interactive_button_builder())
     
     @property
     def callback(self) -> Callable[["Paginator", InuContext, ComponentInteraction], Any]:
@@ -180,9 +194,10 @@ class ButtonListener(BaseListener):
 
 def button(
     label: str,
-    custom_id_base: str,
+    custom_id_base: Optional[str] = None,
     style: ButtonStyle = ButtonStyle.SECONDARY,
     emoji: Optional[str] = None,
+    row: Optional[int] = None,
 ) -> Callable[[Callable], ButtonListener]:
     """
     A decorator factory to create a Button and also add it to the listener of the paginator.
@@ -201,15 +216,18 @@ def button(
     custom_id_base (str): how the custom_id starts. This will also be used to create the component
     style (Buttonstyle) default=ButtonStyle.SECONDARY: the style of the button
     emoji (Optional[str]) default=None: the emoji of the button
+    row (Optional[int]) default=None: the row of the button, defaults to the first possible row
     """
-    
+    if not custom_id_base:
+        custom_id_base = label.lower()
     def decorator(func: Callable):
         observer = ButtonListener(
             callback=func,
             label=label,
             custom_id_base=custom_id_base,
             style=style,
-            emoji=emoji
+            emoji=emoji,
+            row=row,
         )
         return observer
         # set label
