@@ -1,3 +1,4 @@
+from operator import is_
 from typing import *
 from abc import ABCMeta, abstractmethod
 import asyncio
@@ -49,11 +50,11 @@ class BaseObserver(Generic[TListener, TEventOrInteraction], metaclass=ABCMeta):
         raise NotImplementedError
 
     @abstractmethod
-    def subscribe(self, listener: TListener, event: TEventOrInteraction):
+    def subscribe(self, listener: TListener, event: Type[TEventOrInteraction]):
         pass
     
     @abstractmethod
-    def unsubscribe(self, listener: TListener, event: TEventOrInteraction):
+    def unsubscribe(self, listener: TListener, event: Type[TEventOrInteraction]):
         pass
 
     @abstractmethod
@@ -61,37 +62,49 @@ class BaseObserver(Generic[TListener, TEventOrInteraction], metaclass=ABCMeta):
         pass
 
 
-class InteractionObserver(BaseObserver["InteractionListener", InteractionCreateEvent]):
+class InteractionObserver(BaseObserver["InteractionListener", InteractionCreateEvent | ComponentInteraction]):
     """An Observer which receives hikari.PartialInteraction and notifies its listeners"""
     def __init__(self, pag):
         self._pag = pag
-        self._listeners: Dict[str, List[InteractionListener]] = {}
+        self._listeners: Dict[Type[Any], List["InteractionListener | ButtonListener"]] = {}
 
     @property
     def listeners(self):
         return self._listeners
 
-    def subscribe(self, listener: "InteractionListener", event: InteractionCreateEvent):
-        log.debug(f"subscribed interaction listener to {str(type(event))}")
-        if str(type(event)) not in self._listeners.keys():
-            self._listeners[str(event)] = []
-        self._listeners[str(event)].append(listener)
+    def subscribe(self, listener: "InteractionListener | ButtonListener", event: Type[InteractionCreateEvent | ComponentInteraction]):
+        log.debug(f"subscribed interaction listener to {event}")
+        if not event in self._listeners.keys():
+            self._listeners[event] = []
+        self._listeners[event].append(listener)
     
-    def unsubscribe(self, listener: "InteractionListener", event: InteractionCreateEvent):
-        if str(type(event)) not in self._listeners.keys():
+    def unsubscribe(self, listener: "InteractionListener | ButtonListener", event: Type[InteractionCreateEvent | ComponentInteraction]):
+        if event not in self._listeners.keys():
             return
-        self._listeners[str(event)].remove(listener)
+        self._listeners[event].remove(listener)
 
-    async def notify(self, event: InteractionCreateEvent):
-        if str(type(event)) not in self._listeners.keys():
+    async def notify(self, event: InteractionCreateEvent | ComponentInteraction):
+        if isinstance(event, ComponentInteraction):
+            raise RuntimeError("notify should not be called with ComponentInteraction")
+        log.debug(f"notify with {type(event)}; keys: {self._listeners.keys()}")
+        if type(event) not in self._listeners.keys() and type(event.interaction) not in self._listeners.keys():
             return
-        for listener in self._listeners[str(type(event))]:
-            asyncio.create_task(listener.on_event(event.interaction))
+        for type_, listeners in self._listeners.items():
+            if not (type_ == type(event) or type_ == type(event.interaction)):
+                continue
+            for listener in listeners:
+                # dispatch event to listeners
+                if isinstance(listener, ButtonListener) and isinstance(event.interaction, ComponentInteraction):
+                    # dispatch to @button
+                    asyncio.create_task(listener.on_event(event.interaction))
+                elif isinstance(listener, InteractionListener) and isinstance(event.interaction, PartialInteraction):
+                    # dispatch to @listener
+                    asyncio.create_task(listener.on_event(event.interaction))
 
 
 class EventListener(BaseListener):
     """A Listener used to trigger hikari events"""
-    def __init__(self, callback: Callable[["Paginator", Event], Any], event: str):
+    def __init__(self, callback: Callable[["Paginator", Event], Any], event: Type[Event]):
         self._callback = callback
         self.event = event
         self.name: Optional[str] = None
@@ -107,7 +120,7 @@ class EventListener(BaseListener):
 
 class InteractionListener(BaseListener[PartialInteraction]):
     """A Listener used to trigger hikari interactions"""
-    def __init__(self, callback: Callable[["Paginator", PartialInteraction], Any], event: str):
+    def __init__(self, callback: Callable[["Paginator", PartialInteraction], Any], event: Type[Event]):
         self._callback = callback
         self.event = event
         self.name: Optional[str] = None
@@ -134,16 +147,16 @@ class ButtonListener(BaseListener):
         row: Optional[int] = None,
         startswith: Optional[str] = None,
     ):
-        self.event = str(hikari.ComponentInteraction)
+        self.event = hikari.ComponentInteraction
         self._callback = callback
         self.name: Optional[str] = None
         self.paginator: Paginator
         self._label = label
         self._emoji: Optional[str] = emoji
         self._button_style: ButtonStyle = style
-        self._custom_id_base = custom_id_base
+        self._custom_id_base = custom_id_base.replace(" ", "_")
         self._check: Callable[[ComponentInteraction], bool] = lambda i: i.custom_id.startswith(self._custom_id_base) 
-        self._row = row
+        self._desired_row = row
         
 
     def use_check_startswith(self, startswith: str) -> "ButtonListener":
@@ -160,17 +173,21 @@ class ButtonListener(BaseListener):
 
     def add_to_row(
         self,
-        row: List[MessageActionRowBuilder]
+        rows: List[MessageActionRowBuilder]
     ):  
-        while self._row and len(row) < self._row:
-            row = add_row_when_filled(row)
+        while self._desired_row and len(rows) < self._desired_row:
+            # add empty rows, to put button in desired row
+            rows = add_row_when_filled(rows)
 
-        for i, r in enumerate(row):
-            if (not self._row or i == self._row) and not is_row_filled(r):
+        for i, r in enumerate(rows):
+            if (not self._desired_row or i == self._desired_row) and not is_row_filled(r):
                 # add to desired row
                 r.add_component(self.interactive_button_builder())
                 return
-        row[-1].add_component(self.interactive_button_builder())
+            
+        if not rows or is_row_filled(rows[-1]):
+            rows.append(MessageActionRowBuilder())
+        rows[-1].add_component(self.interactive_button_builder())
     
     @property
     def callback(self) -> Callable[["Paginator", InuContext, ComponentInteraction], Any]:
@@ -242,26 +259,26 @@ class EventObserver(BaseObserver[EventListener, Event]):
     """An Observer which receives events from a Paginator and notifies its listeners about it"""
     def __init__(self, pag):
         self._pag = pag
-        self._listeners: Dict[str, List[EventListener]] = {}
+        self._listeners: Dict[Type[Event], List[EventListener]] = {}
 
     @property
     def listeners(self):
         return self._listeners
 
-    def subscribe(self, listener: EventListener, event: Event):
+    def subscribe(self, listener: EventListener, event: Type[Event]):
         if event not in self._listeners.keys():
-            self._listeners[str(event)] = []
-        self._listeners[str(event)].append(listener)
+            self._listeners[event] = []
+        self._listeners[event].append(listener)
     
-    def unsubscribe(self, listener: EventListener, event: Event):
+    def unsubscribe(self, listener: EventListener, event: Type[Event]):
         if event not in self._listeners.keys():
             return
-        self._listeners[str(event)].remove(listener)
+        self._listeners[event].remove(listener)
 
     async def notify(self, event: Event):
-        if str(type(event)) not in self._listeners.keys():
+        if type(event) not in self._listeners.keys():
             return
-        for listener in self._listeners[str(type(event))]:
+        for listener in self._listeners[type(event)]:
             log.debug(f"observer pag: {self._pag.count} | notify listener with id {listener.paginator.count} | {listener.paginator._message.id if listener.paginator._message else None} | {listener.paginator}")
             asyncio.create_task(listener.on_event(event)) 
 
@@ -269,5 +286,5 @@ def listener(event: Any):
     """A decorator to add listeners to a paginator"""
     def decorator(func: Callable):
         log.debug("listener registered")
-        return EventListener(callback=func, event=str(event))
+        return EventListener(callback=func, event=event)
     return decorator
