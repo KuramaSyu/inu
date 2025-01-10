@@ -596,9 +596,11 @@ class Paginator(Generic[PageType]):
                 copy_obj.paginator = self
                 self.interaction_observer.subscribe(copy_obj, copy_obj.event)
             if isinstance(obj, ButtonListener):
+                pass
+                # this is now done in @components
                 # maybe rebuild them in pagination loop?
-                self._additional_components = add_row_when_filled(self._additional_components)
-                self._additional_components[-1].add_component(obj.button_args(self))
+                # self._additional_components = add_row_when_filled(self._additional_components)
+                # self._additional_components[-1].add_component(obj.button_args(self))
     @staticmethod
     def raise_or_return(attr: Any, attr_name: str):
         """raises if <`attr`> is None. Returnes otherwise"""
@@ -645,21 +647,63 @@ class Paginator(Generic[PageType]):
 
     @property
     def components(self) -> List[MessageActionRowBuilder]:
+        """Get the message components for the paginator.
+
+        This method assembles and returns a list of message components (buttons, selects, etc.)
+        based on configured settings and factories.
+
+        Returns
+        -------
+        List[MessageActionRowBuilder]
+            A list of message components to be displayed with the paginated message
+
+        Raises
+        ------
+        ValueError
+            If components_factory is used (deprecated)
+        RuntimeError
+            If no components source is specified - needs either:
+            - components_factory
+            - _components
+            - build_default_components method
+
+        Notes
+        -----
+        Components are assembled from the following sources in order:
+        1. Custom components_factory (if specified, but deprecated)
+        2. Pre-configured _components
+        3. build_default_components method if it exists
+        4. Button listener components are always added last
+
+        Components can be disabled entirely by setting _disable_components=True
+        """
+        components = []
         if self._disable_components:
             return []
         if self._components_factory is not None:
-            return self._components_factory(self._position)
+            raise ValueError("component factory is deprecated")
+            components = self._components_factory(self._position)
         elif self._components is not None:
-            return self._components
+            components = [*components, *self._components]
         elif hasattr(self, "build_default_components"):
-            return getattr(self, "build_default_components")(self._position)
+            components = [*components, *getattr(self, "build_default_components")(self._position)]
         else:
             raise RuntimeError((
                 "Nothing specified for `components`. "
                 "Consider passing in a components_factory or set"
                 "a value for `instance`._components"
             ))
+        button_listener_components = self.get_button_components()
+        return [*components, *button_listener_components]
 
+    def get_button_components(self) -> List[MessageActionRowBuilder]:
+        """Makes the buttons for the @button listeners"""
+        row: List[MessageActionRowBuilder] = []
+        for button in self.interaction_observer.listeners:
+            if isinstance(button, ButtonListener):
+                button.add_to_row(self._additional_components)
+        return row
+     
     def interaction_pred(self, interaction: PartialInteraction) -> bool:
         """Checks user and message id of the event interaction"""
         i = interaction
