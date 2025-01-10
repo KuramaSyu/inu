@@ -368,17 +368,17 @@ class SettingsMenuPag(Paginator[Embed]):
         await ctx.respond("Reddit")
 
     @button(label="Music", style=hikari.ButtonStyle.PRIMARY, emoji="🎵")
-    async def lavalink_button(self, ctx: miru.ViewContext, button: miru.Button):
+    async def lavalink_button(self, ctx: InuContext, button: miru.Button):
         ##await ctx.respond("go to Lavalink")
         #client.start_view(LavalinkView(old_view=self, ctx=self.first_ctx))
         await ctx.respond("Music")
 
     @button(label="Timezone", emoji=chr(9986), style=hikari.ButtonStyle.PRIMARY)
-    async def timezone_button(self, ctx: miru.ViewContext, button: miru.Button):
+    async def timezone_button(self, ctx: InuContext, button: miru.Button):
         await ctx.respond("Timezone")
 
     @button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY, emoji="🎮")
-    async def activity_logging_button(self, ctx: miru.ViewContext, button: miru.Button):
+    async def activity_logging_button(self, ctx: InuContext, button: miru.Button):
         await ctx.respond("Activity logging")
 ################################################################################
 # End - View for Settings
