@@ -5,16 +5,18 @@ from datetime import timedelta, datetime
 
 import asyncio
 import hikari
-from hikari import Message, MessageCreateEvent, Snowflake, SnowflakeishOr, Embed
+from hikari import Message, MessageCreateEvent, MessageUpdateEvent, Snowflake, SnowflakeishOr, Embed, UndefinedNoneOr, UndefinedOr, UNDEFINED, Resourceish
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import Context
+
 
 from . import (
     InuContextProtocol, InuContext, InuContextBase, 
     UniqueContextInstance, ComponentContext, GuildsAndChannelsMixin, AuthorMixin,
     Response, ResponseProxy, 
 )
+from .response_state import RestResponseState
 
 from .._logging import getLogger
 from ..bot import Inu
@@ -30,8 +32,17 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         self.update: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self._app = app
-        super().__init__()
+        self._update = False
+        self._defered = False
+        self._responded = False
+        self._responses: List[Response] = []
+        self._bot: Inu = Inu.instance
+        self._response_state = RestResponseState(None, self, [], message)
     
+    @property
+    def interaction(self) -> None:
+        return None
+
     @property
     def message(self) -> Message:
         return self._message
@@ -51,27 +62,31 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         return self._responses
     
     @property
-    def last_response(self) -> Response | None:  # type: ignore[override]
-        return self._responses[-1] if self._responses else None
+    def last_response(self) -> Optional[ResponseProxy]:  # type: ignore[override]
+        return self.response_state.responses[-1] if self.response_state.responses else None
     
     @property
-    def first_response(self) -> Response | None:
-        return self._responses[0] if self._responses else None
+    def first_response(self) -> Optional[ResponseProxy]:
+        return self.response_state.responses[0] if self.response_state.responses else None
     
     async def respond(  # type: ignore[override]
         self, 
-        content: str | None = None,
-        embed: Embed | None = None,
-        embeds: List[hikari.Embed] | None = None,
+        content: UndefinedOr[str] = UNDEFINED,
+        embed: UndefinedNoneOr[Embed] = UNDEFINED,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         delete_after: timedelta | None = None,
         ephemeral: bool = False,
-        component: MessageActionRowBuilder | None = None,
-        components: List[MessageActionRowBuilder] | None = None,   
+        component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False
+        update: bool = False,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> ResponseProxy:
         embeds = embeds or [embed] if embed else []
         components = components or ([component] if component else [])
+        if not attachment in [UNDEFINED, None] and not attachments:
+            attachments = [attachment]  # type: ignore
         log.debug(f"respond() with {type(self.response_state).__name__}")
         return await self.response_state.respond(
             embeds=embeds,
@@ -80,7 +95,8 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
             ephemeral=ephemeral,
             components=components,
             flags=flags,
-            update=update
+            update=update,
+            attachments=attachments
         )
     
     async def delete_initial_response(self):
@@ -116,7 +132,7 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         await self.response_state.defer(update=update)
         
     @classmethod
-    def from_event(cls, interaction: MessageCreateEvent) -> "RestContext":
+    def from_event(cls, interaction: MessageCreateEvent | MessageUpdateEvent) -> "RestContext":
         return cls(interaction.app, interaction.message)  # type:ignore
 
     @classmethod
@@ -188,3 +204,44 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
             **kwargs
     ) -> Tuple[str | List[str], "RestContext"] | Tuple[None, None]:
         raise NotImplementedError(f"`ask_with_modal` does not work with {self.__class__.__name__}")
+
+    @property
+    def channel_id(self) -> Snowflake:
+        return self._message.channel_id
+
+    @property
+    def guild_id(self) -> Snowflake | None:
+        self._message.guild_id
+
+    def get_channel(self) -> hikari.GuildChannel | None:
+        return self.app.cache.get_guild_channel(self._message.channel_id)
+
+    def get_guild(self) -> hikari.Guild | None:
+        if guild_id := self.guild_id:
+            return self.app.cache.get_guild(guild_id)
+        return None
+
+    @property
+    def author_id(self) -> Snowflake:
+        return self._message.author.id
+
+    @property
+    def author(self) -> hikari.User:
+        return self._message.author
+
+    @property
+    def user(self) -> hikari.User:
+        return self._message.author
+
+    @property
+    def member(self) -> hikari.Member | None:
+        if guild_id := getattr(self.interaction, 'guild_id', None):
+            return self.app.cache.get_member(guild_id, self.author_id)
+        return None
+    
+    async def message(self) -> hikari.Message:
+        return self._message
+    
+    @property
+    def message_id(self) -> Snowflake:
+        return self._message.id
