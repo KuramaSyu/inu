@@ -342,12 +342,12 @@ class CurrendGames(
         try:
             picture_buffer, _ = await GameViews().build_activity_graph(
                 ctx.guild_id, 
-                df_start=timedelta_,
+                since=timedelta_,
                 activities=apps,
-                distinguishable_colors=options["clean-colors"] == "Yes",
+                distinguishable_colors=self.clean_colors == "Yes",
             )
         except Exception as e:
-            if not options.apps:
+            if not self.app_amount:
                 raise e
             raise BotResponseError(
                 "Something went wrong. Are you sure, that your game exists?",
