@@ -510,8 +510,11 @@ class RestResponseState(BaseResponseState):
         self, 
         interaction: ComponentInteraction | CommandInteraction | None, 
         context: 'InuContextBase',
-        responses: List[ResponseProxy]
+        responses: List[ResponseProxy],
+        message: Optional[Message] = None
     ) -> None:
+        assert message is not None
+        self._message = message
         self._interaction = interaction
         self._deferred: bool = False
         self._responded: bool = False
@@ -542,6 +545,7 @@ class RestResponseState(BaseResponseState):
         # update is ignored here, since deferred message needs to be updated anyways
         await self._response_lock.acquire()
         context = cast("InuContext", self.context)
+        log.debug(f"make response with {embeds=}, {content=}, {components=} {embeds=} {attachments=}" )
         message = await self.context._bot.rest.create_message(
             context.channel_id,
             content,
@@ -592,6 +596,10 @@ class RestResponseState(BaseResponseState):
     async def defer(self, update: bool = False) -> None:
         """cannot be deferred again"""
         pass
+
+    @property
+    def created_at(self) -> datetime:
+        return self._message.created_at
 
     @property
     def is_valid(self) -> bool:
