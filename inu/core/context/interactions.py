@@ -76,7 +76,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False
+        update: bool = False,
     ) -> ResponseProxy:
         embeds = embeds or [embed] if embed else UNDEFINED
         if embed is None and embeds == UNDEFINED:
@@ -91,7 +91,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
             ephemeral=ephemeral,
             components=components,
             flags=flags,
-            update=update
+            update=update,
         )
     
     async def delete_initial_response(self):
@@ -177,13 +177,13 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         for i, label in enumerate(button_labels):
             if i % 5 == 0:
                 components.append(MessageActionRowBuilder())
-            components[0].add_interactive_button(
+            components[-1].add_interactive_button(
                 hikari.ButtonStyle.SECONDARY,
                 f"{prefix}{label}",
                 label=label
             )
+        log.debug(f"components: {components}")
         proxy = await self.respond(title, components=components, ephemeral=ephemeral)
-        self._responses.append(proxy)
         selected_label, event, interaction = await self.app.wait_for_interaction(
             custom_ids=[f"{prefix}{l}" for l in button_labels],
             user_ids=allowed_users or self.author.id,
