@@ -181,7 +181,7 @@ class ButtonListener(BaseListener):
 
         for i, r in enumerate(rows):
             if (not self._desired_row or i == self._desired_row) and not is_row_filled(r):
-                # add to desired row
+                # add to desired row or next possible row
                 r.add_component(self.interactive_button_builder())
                 return
             
