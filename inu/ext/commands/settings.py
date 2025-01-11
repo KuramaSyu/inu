@@ -359,6 +359,11 @@ class MainView(SettingsMenuView):
 
 class SettingsMenuPag(Paginator[Embed]):
     name = "Settings"
+    
+    def __init__(self, pages: List[Embed], disable_paginator_when_one_site: bool = True):
+        super().__init__(pages, disable_paginator_when_one_site=disable_paginator_when_one_site)
+        self.old_view: Optional[Paginator] = None
+        
     @button(label="Prefixes", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def prefixes(self, ctx: InuContext, _) -> None:
         await ctx.respond("Prefixes")
@@ -380,6 +385,33 @@ class SettingsMenuPag(Paginator[Embed]):
     @button(label="Activity logging", style=hikari.ButtonStyle.PRIMARY, emoji="🎮")
     async def activity_logging_button(self, ctx: InuContext, button: miru.Button):
         await ctx.respond("Activity logging")
+
+    @abstractmethod
+    async def to_embed(self) -> hikari.Embed:
+        raise NotImplementedError()
+
+    @button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER, row=2)
+    async def back_button(self, ctx: InuContext, _):
+        await self.go_back(ctx)
+        
+
+    async def go_back(self, ctx: InuContext) -> None:
+        if self.old_view is not None:
+            await self.stop()
+            await self.old_view.start(ctx)
+        else:
+            await ctx.respond("You can't go back from here.")
+
+    @property
+    def total_name(self) -> str:
+        if self.old_view is not None:
+            if hasattr(self.old_view, "total_name"):
+                return f"{self.old_view.total_name} > {self.__class__.name}"  # type: ignore
+            else:
+                return self.__class__.name
+        else:
+            return self.__class__.name
+
 ################################################################################
 # End - View for Settings
 ################################################################################
