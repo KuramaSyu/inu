@@ -41,7 +41,6 @@ from core import getLogger, Inu, get_context
 
 log = getLogger(__name__)
 EPHEMERAL = {"flags": hikari.MessageFlag.EPHEMERAL}
-client = miru.Client(Inu.instance)
 ################################################################################
 # Start - View for Settings
 ################################################################################
@@ -79,7 +78,9 @@ class SettingsMenuView(Paginator[Embed]):
         if self.old_view is not None:
             self._stopped = True
             await ctx.defer(update=True)
-            await self.old_view.start(ctx)
+            # recreate class because old view was stopped
+            pag = self.old_view.__class__(self.old_view.old_view, self.guild_id)
+            await pag.start(ctx)
         else:
             await ctx.respond("You can't go back from here.")
 
@@ -93,8 +94,11 @@ class SettingsMenuView(Paginator[Embed]):
         else:
             return self.__class__.name
     
-    async def start(self, ctx: InuContext | Context, **kwargs) -> hikari.Message:
+    async def start(self, ctx: InuContext, **kwargs) -> hikari.Message:  # type: ignore
         log.debug(f"get embed")
+        if self.old_view is not None:
+            # to assure, that new view uses the same message
+            await ctx.defer(update=True)
         self._pages = [await self.to_embed()]
         log.debug(f"start paginator")
         return await super().start(ctx, **kwargs)
@@ -146,29 +150,29 @@ class PrefixView(SettingsMenuView):
         )
         return embed
 
-class RedditTopChannelView(SettingsMenuView):
-    name = "Top Channels"
+# class RedditTopChannelView(SettingsMenuView):
+#     name = "Top Channels"
 
-    @button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER)
-    async def back_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        await self.go_back(ctx)
+#     @button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER)
+#     async def back_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         await self.go_back(ctx)
 
-    @button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
-    async def channels(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        inu_ctx = get_context(ctx.interaction)
-        await AddTopChannel._callback(inu_ctx)
+#     @button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+#     async def channels(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         inu_ctx = get_context(ctx.interaction)
+#         await AddTopChannel._callback(inu_ctx)
 
-    @button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
-    async def prefix_remove(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        inu_ctx = get_context(ctx.interaction)
-        await RemoveTopChannel._callback(inu_ctx)
+#     @button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+#     async def prefix_remove(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         inu_ctx = get_context(ctx.interaction)
+#         await RemoveTopChannel._callback(inu_ctx)
 
-    async def to_embed(self):
-        embed = hikari.Embed(
-            title=self.total_name, 
-            description="Here u should see the channels which are selected as top channels."
-        )
-        return embed
+#     async def to_embed(self):
+#         embed = hikari.Embed(
+#             title=self.total_name, 
+#             description="Here u should see the channels which are selected as top channels."
+#         )
+#         return embed
 
 class LavalinkView(SettingsMenuView):
     name = "Music"
@@ -184,14 +188,14 @@ class LavalinkView(SettingsMenuView):
         assert guild_id is not None
         bot.data.preffered_music_search[guild_id] = "scsearch"
         log.debug(f"Context: {ctx}")
-        await ctx.respond(embed=await self.to_embed(), components=self.components)
+        await ctx.respond(embed=await self.to_embed(), components=self.components, update=True)
 
     @button(label="YouTube", style=hikari.ButtonStyle.PRIMARY)
     async def youtube_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
         guild_id = ctx.guild_id
         assert guild_id is not None
         bot.data.preffered_music_search[guild_id] = "ytsearch"
-        await ctx.respond(embed=await self.to_embed(), components=self.components)
+        await ctx.respond(embed=await self.to_embed(), components=self.components, update=True)
 
     async def to_embed(self):
         source = "" 
@@ -212,53 +216,53 @@ class LavalinkView(SettingsMenuView):
         )
         return embed
 
-class RedditChannelView(SettingsMenuView):
-    name = "Channels"
-    @button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER)
-    async def back_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        await self.go_back(ctx)
+# class RedditChannelView(SettingsMenuView):
+#     name = "Channels"
+#     @button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER)
+#     async def back_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         await self.go_back(ctx)
 
-    @button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
-    async def channels(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        inu_ctx = get_context(ctx.interaction)
-        await AddChannel._callback(inu_ctx)
+#     @button(label="add", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+#     async def channels(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         inu_ctx = get_context(ctx.interaction)
+#         await AddChannel._callback(inu_ctx)
 
-    @button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
-    async def prefix_remove(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        inu_ctx = get_context(ctx.interaction)
-        await RemoveChannel._callback(inu_ctx)
+#     @button(label="remove", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+#     async def prefix_remove(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         inu_ctx = get_context(ctx.interaction)
+#         await RemoveChannel._callback(inu_ctx)
 
-    async def to_embed(self):
-        embed = hikari.Embed(
-            title=self.total_name, 
-            description="Here u should see the channels that are used to post content from reddit."
-        )
-        return embed
+#     async def to_embed(self):
+#         embed = hikari.Embed(
+#             title=self.total_name, 
+#             description="Here u should see the channels that are used to post content from reddit."
+#         )
+#         return embed
 
-class RedditView(SettingsMenuView):
-    name = "Reddit"
+# class RedditView(SettingsMenuView):
+#     name = "Reddit"
 
-    @button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER, row=0)
-    async def back_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        await self.go_back(ctx)
+#     @button(emoji="◀", label="back", style=hikari.ButtonStyle.DANGER, row=0)
+#     async def back_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         await self.go_back(ctx)
 
-    @button(label="manage channels", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
-    async def channels(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        await SetTimezone._callback(get_context(ctx.interaction))
+#     @button(label="manage channels", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
+#     async def channels(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         await SetTimezone._callback(get_context(ctx.interaction))
 
-    @button(label="manage top channels", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
-    async def prefix_remove(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        await RedditTopChannelView(old_view=self, guild_id=self.guild_id).start(ctx)
+#     @button(label="manage top channels", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
+#     async def prefix_remove(self, ctx: InuContext, _: ComponentInteraction) -> None:
+#         await RedditTopChannelView(old_view=self, guild_id=self.guild_id).start(ctx)
 
-    async def to_embed(self):
-        embed = hikari.Embed(
-            title=self.total_name, 
-            description=(
-                "Manage the channels that the bot will post content from Reddit to.\n" 
-                "Here u should see the channels that the bot is currently posting to."
-            )
-        )
-        return embed
+#     async def to_embed(self):
+#         embed = hikari.Embed(
+#             title=self.total_name, 
+#             description=(
+#                 "Manage the channels that the bot will post content from Reddit to.\n" 
+#                 "Here u should see the channels that the bot is currently posting to."
+#             )
+#         )
+#         return embed
 
 class TimezoneView(SettingsMenuView):
     name = "Timezone"
@@ -347,11 +351,8 @@ class MainView(SettingsMenuView):
     @button(label="Prefixes", emoji=chr(129704), style=hikari.ButtonStyle.PRIMARY)
     async def prefixes(self, ctx: InuContext, _: ComponentInteraction) -> None:
         await PrefixView(old_view=self, guild_id=self.guild_id).start(ctx)
-        
-    @button(label="Reddit", emoji=chr(128220), style=hikari.ButtonStyle.PRIMARY)
-    async def reddit_channels(self, ctx: InuContext, _: ComponentInteraction) -> None:
-        await RedditView(old_view=self, guild_id=self.guild_id).start(ctx)
 
+    # TODO: this needs to be rewritten, that second arg is button to change Style if want
     @button(label="Music", style=hikari.ButtonStyle.PRIMARY, emoji="🎵")
     async def lavalink_button(self, ctx: InuContext, _: ComponentInteraction) -> None:
         await LavalinkView(old_view=self, guild_id=self.guild_id).start(ctx)
