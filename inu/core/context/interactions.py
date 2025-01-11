@@ -8,7 +8,7 @@ import functools
 import attrs
 import hikari
 from hikari import (
-    UNDEFINED, CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, ModalInteraction, PartialInteraction, RESTAware, ResponseType, 
+    UNDEFINED, CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, ModalInteraction, PartialInteraction, RESTAware, Resourceish, ResponseType, 
     Snowflake, TextInputStyle, SnowflakeishOr, Embed, UndefinedOr, UndefinedNoneOr
 )
 from hikari import embeds
@@ -16,7 +16,7 @@ from hikari.impl import MessageActionRowBuilder
 
 from .._logging import getLogger
 import lightbulb
-from lightbulb import Context
+from lightbulb import Context, attachment
 from hikari import CommandInteractionOption
 
 from ..bot import Inu
@@ -77,11 +77,15 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> ResponseProxy:
         embeds = embeds or [embed] if embed else UNDEFINED
         if embed is None and embeds == UNDEFINED:
             # clear embeds
             embeds = [] 
+        if attachment not in [None, UNDEFINED] and attachments is UNDEFINED:
+            attachments = [attachment]  # type: ignore
         components = components or ([component] if component else [])
         log.debug(f"respond() with {type(self.response_state).__name__}")
         return await self.response_state.respond(
@@ -92,6 +96,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
             components=components,
             flags=flags,
             update=update,
+            attachments=attachments
         )
     
     async def delete_initial_response(self):
