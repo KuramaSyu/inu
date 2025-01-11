@@ -84,7 +84,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         if embed is None and embeds == UNDEFINED:
             # clear embeds
             embeds = [] 
-        if attachment not in [None, UNDEFINED] and attachments is UNDEFINED:
+        if not attachment in [None, UNDEFINED] and attachments is UNDEFINED:
             attachments = [attachment]  # type: ignore
         components = components or ([component] if component else [])
         log.debug(f"respond() with {type(self.response_state).__name__}")
@@ -191,16 +191,17 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         proxy = await self.respond(title, components=components, ephemeral=ephemeral)
         selected_label, event, interaction = await self.app.wait_for_interaction(
             custom_ids=[f"{prefix}{l}" for l in button_labels],
-            user_ids=allowed_users or self.author.id,
+            user_ids=allowed_users or self.author.id,  # type:ignore
             message_id=(await proxy.message()).id,
             timeout=timeout
         )
         if not all([selected_label, event, interaction]):
-            return None, None
+            return None
         if delete_after_timeout:
             await proxy.delete()
+        assert event is not None
         new_ctx = ComponentContext.from_event(event)
-        return selected_label.replace(prefix, "", 1), new_ctx
+        return selected_label.replace(prefix, "", 1), new_ctx  # type: ignore
     
     async def auto_defer(self) -> None:
         return await self.defer()
