@@ -266,6 +266,7 @@ class EventObserver(BaseObserver[EventListener, Event]):
         return self._listeners
 
     def subscribe(self, listener: EventListener, event: Type[Event]):
+        log.debug(f"EventListener | subscribed listener to {event}")
         if event not in self._listeners.keys():
             self._listeners[event] = []
         self._listeners[event].append(listener)
@@ -276,13 +277,14 @@ class EventObserver(BaseObserver[EventListener, Event]):
         self._listeners[event].remove(listener)
 
     async def notify(self, event: Event):
+        log.debug(f"notify with {type(event)}; keys: {self._listeners.keys()}")
         if type(event) not in self._listeners.keys():
             return
         for listener in self._listeners[type(event)]:
             log.debug(f"observer pag: {self._pag.count} | notify listener with id {listener.paginator.count} | {listener.paginator._message.id if listener.paginator._message else None} | {listener.paginator}")
             asyncio.create_task(listener.on_event(event)) 
 
-def listener(event: Any):
+def listener(event: Any) -> Callable[[Callable], EventListener]:
     """A decorator to add listeners to a paginator"""
     def decorator(func: Callable):
         log.debug("listener registered")
