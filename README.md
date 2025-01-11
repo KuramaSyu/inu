@@ -13,6 +13,38 @@ cp template-config.yaml config.yaml
 docker compose up --build
 ```
 
+# Todo
+Command | Importance | finished
+--------|------------|----------
+game | 6/10 | x
+errors | 10/10 | x
+statistics | 9/10 | 
+settings | 8/10 |
+basics | 6/10 | x
+maths | 3/10 | x
+tags | 10/10 | x
+counter | 3/10 | x
+tmdb | 7/10 | 
+message | 7/10 |
+w2g | 6/10 |
+xkcd | 4/10 |
+autoroles | 2/10 |
+code | 1/10 |
+qrcode | / |
+reddit | / |
+anime | 9/10 |
+vocable | 3/10 |
+random | 8/10 |
+voice | 8/10 |
+stats | 9/10 |
+reminders | 7/10 |
+github | 1/10 |
+dictionary | 2/10 |
+polls | 1/10 |
+stopwatch | 3/10 |
+rtfm | 3/10 |
+owner | 5/10 |
+
 # Commands
 
 command | sub command | description
