@@ -1070,7 +1070,13 @@ class Paginator(Generic[PageType]):
             kwargs["embed"] = embed
         await self.ctx.respond(update=False, **kwargs)
 
-
+    def silent_stop(self):
+        """
+        stops the paginator without sending a message
+        """
+        self._stopped = True
+        self._stop.set()
+    
     async def stop(self, kwargs: Dict[str, Any] | None = None):
         """
         updates the message and removes all components
@@ -1084,6 +1090,7 @@ class Paginator(Generic[PageType]):
             return
         # to prevent from calling again
         self._stopped = True
+        self._stop.set()
         self.log.debug("stopping navigator")
         with suppress(NotFoundError, hikari.ForbiddenError):
             kwargs = kwargs or {}
