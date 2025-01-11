@@ -8,6 +8,7 @@ from copy import copy
 import hikari
 from hikari import ButtonStyle, ComponentInteraction, Embed
 from hikari.impl import MessageActionRowBuilder, InteractiveButtonBuilder
+from lightbulb import Context
 from tmdb import route
 from tabulate import tabulate
 from fuzzywuzzy import fuzz
@@ -126,10 +127,11 @@ class ShowPaginator(Paginator):
 
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
-        if not self.interaction_pred(event):
+        if not self.interaction_pred(event.interaction):
             return
         i = event.interaction
-        if i.custom_id == "tv_show_seasons":
+        custom_id = i.custom_id  # type: ignore
+        if custom_id == "tv_show_seasons":
             pag = ShowSeasonPaginator(
                 page_s=["none"], 
                 timeout=4*60, 
@@ -262,10 +264,11 @@ class ShowSeasonPaginator(Paginator):
 
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
-        if not self.interaction_pred(event):
+        if not self.interaction_pred(event.interaction):
             return
         i = event.interaction
-        if i.custom_id == "season_episodes_full_ranking":
+        custom_id = i.custom_id  # type: ignore
+        if custom_id == "season_episodes_full_ranking":
             return await (SeasonEpisodeRankingPaginator([""])).start(
                 get_context(event), 
                 self._detail_cache[self._position]
@@ -300,7 +303,7 @@ class ShowSeasonPaginator(Paginator):
 
 
 
-    async def start(self, ctx: InuContext, tv_show_id: int, season_response: List[Dict[str, Any]], **kwargs):
+    async def start(self, ctx: InuContext | Context, tv_show_id: int, season_response: List[Dict[str, Any]], **kwargs):
         """
         Args:
         `ctx : InuContext`
@@ -339,8 +342,9 @@ class ShowSeasonPaginator(Paginator):
             self._detail_cache[self._position] = details
             await show_route.session.close()
         except IndexError:
-            return await self.ctx.respond("Seems like there is no season preview for this TV show", ephemeral=True)
-            
+            await self.ctx.respond("Seems like there is no season preview for this TV show", ephemeral=True)
+            return 
+               
         embed = Embed(description="")
         def add_key_to_field(name: str, key: str, inline=True, default=None):
             if (value := details.get(key, "None")):
