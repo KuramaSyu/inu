@@ -5,7 +5,11 @@ from datetime import datetime, timedelta
 from xml.etree.ElementPath import prepare_parent
 
 import hikari
-from hikari import COMMAND_RESPONSE_TYPES, Embed, ComponentInteraction, CommandInteraction, InteractionCreateEvent, Message, ResponseType, Snowflake, SnowflakeishOr, WebhookChannelT, UndefinedOr, UNDEFINED, UndefinedNoneOr
+from hikari import (COMMAND_RESPONSE_TYPES, Embed, ComponentInteraction, 
+    CommandInteraction, InteractionCreateEvent, Message, ResponseType, 
+    Snowflake, SnowflakeishOr, WebhookChannelT, UndefinedOr, UNDEFINED, 
+    UndefinedNoneOr, Resourceish
+)
 from hikari.api import Response
 from hikari.impl import MessageActionRowBuilder
 from datetime import timedelta
@@ -89,6 +93,7 @@ class BaseResponseState(abc.ABC):
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         ...
     
@@ -200,6 +205,7 @@ class InitialResponseState(BaseResponseState):
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         await self._response_lock.acquire()
         
@@ -212,6 +218,7 @@ class InitialResponseState(BaseResponseState):
             'components': components,
             'flags': flags,
             'delete_after': delete_after,
+            'attachments': attachments,  # added argument
         }
         kwargs["flags"] = hikari.MessageFlag.NONE
         if ephemeral:
@@ -299,6 +306,7 @@ class CreatedResponseState(BaseResponseState):
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         await self._response_lock.acquire()
 
@@ -317,7 +325,8 @@ class CreatedResponseState(BaseResponseState):
             content,
             embeds=embeds or [],
             components=components or [],
-            flags=flags
+            flags=flags,
+            attachments=attachments,  # added argument
         )
         self.responses.append(WebhookProxy(message, self.interaction))
         
@@ -379,6 +388,7 @@ class DeferredCreateResponseState(BaseResponseState):
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         """Edits the initial response
         
@@ -393,6 +403,7 @@ class DeferredCreateResponseState(BaseResponseState):
             content,
             embeds=embeds,
             components=components,
+            attachments=attachments,  # added argument
         )
         self.responses.append(InitialResponseProxy(interaction=self.interaction))
 
@@ -444,6 +455,7 @@ class DeletedResponseState(BaseResponseState):
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         """
         Creates a Followup message
@@ -455,6 +467,7 @@ class DeletedResponseState(BaseResponseState):
             kwargs['embeds'] = embeds
         if components:
             kwargs['components'] = components
+        kwargs['attachments'] = attachments  # added argument
 
         if update:
             await self.edit_last_response(**kwargs)
@@ -518,6 +531,7 @@ class RestResponseState(BaseResponseState):
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
         update: bool = False,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         """Edits the initial response
         
@@ -533,6 +547,7 @@ class RestResponseState(BaseResponseState):
             content,
             embeds=embeds or [],
             components=components or [],
+            attachments=attachments,  # added argument
         )
         proxy = RestResponseProxy(message=message)
         self.responses.append(proxy)
