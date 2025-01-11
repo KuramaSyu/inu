@@ -187,8 +187,9 @@ class BaseResponseState(abc.ABC):
 class InitialResponseState(BaseResponseState):
     @property
     def is_valid(self) -> bool:
-        log.debug(f"{(datetime.now(utc) - self.last_response) < timedelta(seconds=3)} - {self.last_response=}, {datetime.now(utc)=}")
-        return (datetime.now(utc) - self.last_response) < timedelta(seconds=3)
+        log.debug(f"{(datetime.now(utc) - self.last_response) < timedelta(seconds=60)} - {self.last_response=}, {datetime.now(utc)=}")
+        return (datetime.now(utc) - self.last_response) < timedelta(seconds=60) 
+        # theoretically 3sec, but often timeserver is too inaccurate
     
     async def respond(
         self,
@@ -222,7 +223,7 @@ class InitialResponseState(BaseResponseState):
             await self.edit(**kwargs)
             return self.responses[-1]
         
-        self.log.debug(f"creating initial response with args: {kwargs=}")
+        self.log.trace(f"creating initial response with args: {kwargs=}")
 
         
         kwargs.pop('delete_after')
@@ -303,7 +304,6 @@ class CreatedResponseState(BaseResponseState):
 
         if update:
             # call edit_last_response instead
-            self.log.debug("updating last response")
             await self.edit_last_response(
                 embeds=embeds,
                 content=content,
