@@ -5,7 +5,7 @@ from datetime import timedelta
 
 import hikari
 from hikari import (
-    Message, Snowflake, TextInputStyle, 
+    Message, Resourceish, Snowflake, TextInputStyle, 
     UndefinedOr, UNDEFINED, Embed, UndefinedNoneOr
 )
 from hikari.impl import MessageActionRowBuilder
@@ -127,7 +127,9 @@ class InuContext(ABC):
         component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False
+        update: bool = False,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         ) -> "ResponseProxy":
         """Respond to an interaction or command with a message.
 
