@@ -24,10 +24,12 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 
 class InuContext(ABC):
+    @classmethod
     @abstractmethod
     def from_context(cls, ctx: Context) -> T:
         ...
 
+    @classmethod
     @abstractmethod
     def from_event(cls, interaction: Interaction) -> T:
         ...
