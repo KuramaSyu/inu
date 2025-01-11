@@ -48,8 +48,9 @@ class CommandName(
 ):
     optional_string = lightbulb.string("message-link", "Delete until this message", default=None)  # Option 1
     optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None) # Option 2
+    # when ctx.options.<optional_string> is used, replace it self.<optional_string>
 
     @invoke
-    async def callback(self, ctx: lightbulb.Context):
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
         ...
 
