@@ -582,6 +582,7 @@ class Paginator(Generic[PageType]):
             # iterate paginator dict and check if EventListener or ButtonListener
             # created by decorators are found
             if isinstance(obj, EventListener):
+                # subscribe @listener listeners
                 obj = getattr(self, name)
                 copy_obj = deepcopy(obj)  
                 # why deepcopy?: the `obj` seems to be, no matter if pag is a new instance, always the same obj.
@@ -1338,7 +1339,6 @@ class Paginator(Generic[PageType]):
             if self.interaction_pred(event.interaction):
                 # paginate if paginator predicate is True
                 await self.paginate(id=event.interaction.custom_id or None)  # type: ignore
-                
         await self.observer.notify(event)
         if isinstance(event, InteractionCreateEvent):
             await self.interaction_observer.notify(event)
