@@ -369,6 +369,11 @@ class InuContext(ABC):
         """Whether or not the interaction needs a response. Need is definded, that otherwise an error would be raised"""
         ...
 
+    @property
+    def display_name(self) -> str:
+        """returns the display name, if user is a member, otherwise the username"""
+        ...
+    
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
         ...

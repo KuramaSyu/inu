@@ -38,6 +38,13 @@ class AuthorMixin:
         if guild_id := getattr(self.interaction, 'guild_id', None):
             return self.app.cache.get_member(guild_id, self.author_id)
         return None
+    
+    @property
+    def display_name(self) -> str:
+        """returns the display name, if user is a member, otherwise the username"""
+        if member := self.member:
+            return member.display_name
+        return self.author.username
 
 class GuildsAndChannelsMixin:
     @property
