@@ -1,5 +1,6 @@
 import asyncio
 import abc
+from contextlib import suppress
 from typing import *
 from datetime import datetime, timedelta
 from xml.etree.ElementPath import prepare_parent
@@ -99,15 +100,34 @@ class BaseResponseState(abc.ABC):
     
     async def execute(
         self,
-        content: str,
-        embeds: List[hikari.Embed] | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        content: UndefinedOr[str] = UNDEFINED,
+        embed: UndefinedNoneOr[Embed] = UNDEFINED,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        delete_after: timedelta | None = None,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> hikari.Message:
-        return await self.interaction.execute(
+        # Handle single embed case
+        if embed is not UNDEFINED and embeds is UNDEFINED:
+            embeds = [embed] if embed else []
+        
+        # Execute the message
+        message = await self.interaction.execute(
             content,
             embeds=embeds or [],
-            components=components or []
+            components=components or [],
+            attachments=attachments or [],
         )
+
+        # Create proxy and add to responses
+        proxy = WebhookProxy(message, self.interaction)
+        self.responses.append(proxy)
+
+        # Handle delete_after if specified
+        if delete_after is not None:
+            asyncio.create_task(proxy.delete_after(delete_after))
+
+        return message
     
     async def edit_last_response(
         self,
