@@ -24,24 +24,24 @@ basics | 6/10 | x
 maths | 3/10 | x
 tags | 10/10 | x
 counter | 3/10 | x
-tmdb | 7/10 | 
-message | 7/10 |
-w2g | 6/10 |
+tmdb | 7/10 | x
+message | 7/10 | x
+w2g | 6/10 | x
 xkcd | 4/10 |
 autoroles | 2/10 |
 code | 1/10 |
 qrcode | / |
 reddit | / |
-anime | 9/10 |
+anime | 9/10 | x
 vocable | 3/10 |
-random | 8/10 |
+random | 8/10 | x
 voice | 8/10 |
 stats | 9/10 |
 reminders | 7/10 |
 github | 1/10 |
 dictionary | 2/10 |
 polls | 1/10 |
-stopwatch | 3/10 |
+stopwatch | 3/10 | x
 rtfm | 3/10 |
 owner | 5/10 |
 
