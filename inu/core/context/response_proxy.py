@@ -1,8 +1,10 @@
 from typing import *
 from abc import ABC, abstractmethod
-from datetime import datetime
+from datetime import datetime, timedelta
+import asyncio
+from contextlib import suppress
 
-from hikari import Message, Embed, ComponentInteraction, CommandInteraction, PartialWebhook, SnowflakeishOr, Snowflakeish
+from hikari import Message, Embed, ComponentInteraction, CommandInteraction, PartialWebhook, SnowflakeishOr, Snowflakeish, NotFoundError
 from hikari.api import Response
 from hikari.impl import MessageActionRowBuilder
 from pytz import utc
@@ -30,6 +32,12 @@ class ResponseProxy(ABC):
     @abstractmethod
     async def message(self) -> Message:
         pass
+
+    async def delete_after(self, delay: timedelta) -> None:
+        """Schedule message deletion after specified delay"""
+        await asyncio.sleep(delay.total_seconds())
+        with suppress(NotFoundError):
+            await self.delete()
 
 
 class RestResponseProxy(ResponseProxy):
