@@ -95,7 +95,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         if not component in [None, UNDEFINED] and components is UNDEFINED:
             components = [component]  # type: ignore
             
-        log.debug(f"respond() with {type(self.response_state).__name__}")
+        log.debug(f"respond() with {type(self.response_state).__name__} and {update = }")
         return await self.response_state.respond(
             embeds=embeds,
             content=content,
