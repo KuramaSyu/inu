@@ -28,7 +28,6 @@ import hikari
 from hikari import ComponentInteraction, Embed
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
-from lightbulb.commands import OptionModifier as OM
 from lightbulb.context import Context
 import lavalink_rs
 from lavalink_rs.model.search import SearchEngines
