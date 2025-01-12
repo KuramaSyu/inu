@@ -345,7 +345,34 @@ class MusicPlayer:
             query = SearchEngines.soundcloud(query)
         return query
 
-    async def play(self, query: str) -> bool:
+    async def play(self, query: str) -> None:
+        """
+        Plays a track or playlist based on the provided query.
+
+        Parameters
+        ----------
+        query : str
+            The search query or URL for the track or playlist to play.
+
+        Returns
+        -------
+        None
+
+        Raises
+        ------
+        BotResponseError
+            If there is an error processing the query.
+        TimeoutError
+            If no track is selected from the search results.
+
+        Notes
+        -----
+        - If no query is provided, it will attempt to play the next track in the queue.
+        - If a track is already playing, it will notify the user.
+        - If the queue is empty, it will notify the user.
+        - Supports loading a single track, a search result, or a playlist.
+        - Adds track or playlist information to the queue and updates the music history.
+        """
         log.debug(f"play: {query = }")
         voice, has_joined = await self._connect()
         log.debug(f"{voice = }; {has_joined = }")
