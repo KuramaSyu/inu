@@ -40,12 +40,18 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         self._response_state = RestResponseState(None, self, [], message)
     
     @property
+    def needs_response(self) -> bool:
+        """RestContext theorethically never needs a response"""
+        return False
+
+    @property
     def interaction(self) -> None:
         return None
 
     @property
     def message(self) -> Message:
         return self._message
+
     @property
     def original_message(self) -> hikari.Message:
         return self._message
