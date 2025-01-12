@@ -808,6 +808,7 @@ class QueueMessage:
         if force_resend:
             edit_history = False
         else:
+            assert self.message_id is not None
             edit_history = await is_in_history(self.player.ctx.channel_id, self.message_id)
         
         # edit history message
@@ -816,7 +817,7 @@ class QueueMessage:
             log.debug(f"edit history: ")
             if ctx.needs_response or self._message:
                 try:
-                    log.debug(f"ctx respond edit history; {self._message.id = } == {ctx.message_id = }")
+                    log.debug(f"ctx respond edit history; {self.message_id = } == {ctx.message_id = }")
                     await ctx.respond(embeds=[embed], components=components, update=self.message_id or True)
                 except Exception:
                     log.debug(f"failed to ctx respond edit history")
@@ -825,9 +826,10 @@ class QueueMessage:
                 failed = False
                 try:
                     log.debug(f"edit message with rest")
+                    assert self.message_id is not None
                     await self.bot.rest.edit_message(
                         self.player.ctx.channel_id, 
-                        self._message_id, embeds=[embed], components=components
+                        self.message_id, embeds=[embed], components=components
                     )
                 except:
                     log.debug(f"failed to edit message with rest")
@@ -847,6 +849,7 @@ class QueueMessage:
         #         self._message = None
 
         # send new message
+        
         if self.message_id:
             # delete old message
             log.debug(f"delete old message first: {self.message_id}; {failed = }")
