@@ -80,6 +80,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> ResponseProxy:
+        update = update or self.update
         embeds = embeds or [embed] if embed else UNDEFINED
         if embed is None and embeds == UNDEFINED:
             # clear embeds
