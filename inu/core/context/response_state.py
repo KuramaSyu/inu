@@ -106,7 +106,7 @@ class BaseResponseState(abc.ABC):
         ephemeral: bool = False,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         ...
@@ -174,7 +174,9 @@ class BaseResponseState(abc.ABC):
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
-        message_id: Snowflake | None = None,
+        message_id: SnowflakeishOr[Message] | bool | None = None,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         **kwargs: Dict[str, Any]
     ):
         """Edits per default the first response or makes the initial response if it hasn't been made yet.
@@ -244,7 +246,7 @@ class InitialResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         await self._response_lock.acquire()
@@ -289,7 +291,7 @@ class InitialResponseState(BaseResponseState):
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
-        message_id: Snowflake | None = None,
+        message_id: SnowflakeishOr[Message] | bool | None = None,
         attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         **kwargs: Dict[str, Any]
@@ -354,7 +356,7 @@ class CreatedResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         await self._response_lock.acquire()
@@ -399,7 +401,9 @@ class CreatedResponseState(BaseResponseState):
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
-        message_id: Snowflake | None = None,
+        message_id: SnowflakeishOr[Message] | bool | None = None,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         **kwargs: Dict[str, Any]
     ) -> None:
         await self._response_lock.acquire()
@@ -407,14 +411,18 @@ class CreatedResponseState(BaseResponseState):
             _message = await self.interaction.edit_initial_response(
                 content,
                 embeds=embeds,
-                components=components
+                components=components,
+                attachment=attachment,
+                attachments=attachments
             )
         else:
             _message = await self.interaction.edit_message(
                 message_id,
                 content,
                 embeds=embeds,
-                components=components
+                components=components,
+                attachment=attachment,
+                attachments=attachments
             )
         self._response_lock.release()
 
@@ -441,7 +449,7 @@ class DeferredCreateResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         """Edits the initial response
@@ -478,14 +486,19 @@ class DeferredCreateResponseState(BaseResponseState):
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
-        message_id: Snowflake | None = None,
+        message_id: SnowflakeishOr[Message] | bool | None = None,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         **kwargs: Dict[str, Any]
     ) -> None:
         """same as respond -> respond edits initial response"""
+        if not attachment in [UNDEFINED, None] and not attachments:
+            attachments = [attachment]  # type: ignore
         await self.respond(
             embeds=embeds,
             content=content,
-            components=components
+            components=components,
+            attachments=attachments,
         )
 
     async def defer(self, update: bool = False) -> None:
@@ -512,7 +525,7 @@ class DeletedResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         """
@@ -540,7 +553,9 @@ class DeletedResponseState(BaseResponseState):
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
-        message_id: Snowflake | None = None,
+        message_id: SnowflakeishOr[Message] | bool | None = None,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         **kwargs: Dict[str, Any]
     ) -> None:
         await self._response_lock.acquire()
@@ -550,7 +565,9 @@ class DeletedResponseState(BaseResponseState):
             message_id,
             content,
             embeds=embeds,
-            components=components
+            components=components,
+            attachment=attachment,
+            attachments=attachments
         )
         self._response_lock.release()
 
@@ -596,7 +613,7 @@ class RestResponseState(BaseResponseState):
         ephemeral: bool = False,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> ResponseProxy:
         """Edits the initial response
@@ -607,6 +624,14 @@ class RestResponseState(BaseResponseState):
         """
         # update is ignored here, since deferred message needs to be updated anyways
         await self._response_lock.acquire()
+        if update != False:
+            await self.edit(
+                embeds=embeds,
+                content=content,
+                components=components,
+                attachments=attachments,
+                message_id=update
+            )
         context = cast("InuContext", self.context)
         log.debug(f"make response with {embeds=}, {content=}, {components=} {embeds=} {attachments=}" )
         message = await self.context._bot.rest.create_message(
@@ -635,24 +660,33 @@ class RestResponseState(BaseResponseState):
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
-        message_id: Snowflake | None = None,
+        message_id: SnowflakeishOr[Message] | bool | None = None,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         **kwargs: Dict[str, Any]
     ) -> None:
         """same as respond -> respond edits initial response"""
-        if not self.responses:
-            await self.respond(
-                embeds=embeds,
-                content=content,
-                components=components
-            )
+        if isinstance(message_id, bool):
+            message_id = None
+        
+        message_extras = {
+            'embeds': embeds,
+            'components': components,
+            'attachment': attachment,
+            'attachments': attachments
+        }
+        if not self.responses and not message_id:
+            # make normal response when update is not possible
+            await self.respond(content=content,**message_extras)
             return
+        # edit given message or last response
         context = cast("InuContext", self.context)
+        given_or_last = message_id or (await self.responses[-1].message()).id
         message = await context.bot.rest.edit_message(
             context.channel_id,
-            (await self.responses[-1].message()).id,
+            given_or_last,
             content,
-            embeds=embeds,
-            components=components
+            **message_extras
         )
         self.responses.append(RestResponseProxy(message=message))
 
