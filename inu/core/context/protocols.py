@@ -24,6 +24,8 @@ T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 
 class InuContext(ABC):
+    update: bool
+
     @classmethod
     @abstractmethod
     def from_context(cls, ctx: Context) -> T:
