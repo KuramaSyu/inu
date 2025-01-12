@@ -363,6 +363,11 @@ class InuContext(ABC):
     def response_state(self) -> "BaseResponseState":
         ...
 
+    @property
+    @abstractmethod
+    def needs_response(self) -> bool:
+        """Whether or not the interaction needs a response. Need is definded, that otherwise an error would be raised"""
+        ...
 
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:

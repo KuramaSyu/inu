@@ -24,7 +24,7 @@ from . import (
     InuContextProtocol, UniqueContextInstance, Response, 
     BaseResponseState, InitialResponseState, TInteraction,
     GuildsAndChannelsMixin, AuthorMixin, CustomIDMixin,
-    MessageMixin, T_STR_LIST, ResponseProxy
+    MessageMixin, T_STR_LIST, ResponseProxy, DeferredCreateResponseState
 )
 from .base import InuContextBase, InuContext
 
@@ -42,6 +42,10 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self._app = app
         super().__init__()
+    
+    @property
+    def needs_response(self) -> bool:
+        return isinstance(self.response_state, (InitialResponseState, DeferredCreateResponseState))
     
     @property
     def original_message(self) -> hikari.Message:
@@ -81,13 +85,16 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> ResponseProxy:
         update = update or self.update
-        embeds = embeds or [embed] if embed else UNDEFINED
-        if embed is None and embeds == UNDEFINED:
-            # clear embeds
-            embeds = [] 
+        
+        # mappings from single item to list
+        # TODO: this does not handle, if single item and list are both provided
+        if not embed in [None, UNDEFINED] and embeds == UNDEFINED:
+            embeds = [embed]  # type: ignore
         if not attachment in [None, UNDEFINED] and attachments is UNDEFINED:
             attachments = [attachment]  # type: ignore
-        components = components or ([component] if component else [])
+        if not component in [None, UNDEFINED] and components is UNDEFINED:
+            components = [component]  # type: ignore
+            
         log.debug(f"respond() with {type(self.response_state).__name__}")
         return await self.response_state.respond(
             embeds=embeds,
