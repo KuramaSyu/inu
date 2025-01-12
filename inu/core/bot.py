@@ -42,7 +42,7 @@ log = getLogger(__name__)
 ALLOWED_EXTENSIONS = [
     "basics", "errors", "counter", "tags", "maths", "games", 
     "statistics", "settings", "anime", "w2g", "tmdb", 
-    "message", "stopwatch", "random", "music_basic",]
+    "message", "stopwatch", "random", "music_basic", "music_adv",]
 
 class BotResponseError(Exception):
     def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
