@@ -5,7 +5,7 @@ from datetime import timedelta
 
 import hikari
 from hikari import (
-    Message, Resourceish, Snowflake, TextInputStyle, 
+    Message, Resourceish, Snowflake, SnowflakeishOr, TextInputStyle, 
     UndefinedOr, UNDEFINED, Embed, UndefinedNoneOr
 )
 from hikari.impl import MessageActionRowBuilder
@@ -40,23 +40,6 @@ class InuContext(ABC):
     @abstractmethod
     def original_message(self) -> Optional[hikari.Message]:
         ...
-
-    # @property
-    # @abstractmethod
-    # def is_responded(self) -> bool:
-    #     "Whether or not the interaction has been responded to"
-
-    # @property
-    # @abstractmethod
-    # def is_deferred(self) -> bool:
-    #     "Whether or not the interaction has been deferred"
-    #     return False
-
-    # @property
-    # @abstractmethod
-    # def needs_response(self) -> bool:
-    #     "Whether or not the interaction needs a response because is was deferred"
-    #     return False
 
     @property
     @abstractmethod
@@ -106,15 +89,6 @@ class InuContext(ABC):
     @abstractmethod
     def get_channel(self) -> hikari.GuildChannel | None:
         ...
-        
-    @property
-    def display_name(self) -> str:
-        """
-        returns member.display_name or user.username
-        """
-        if self.member:
-            return self.member.display_name
-        return self.author.username
 
     @abstractmethod
     async def execute(self, *args, delete_after: timedelta | int | None = None, **kwargs) -> Message:
@@ -131,7 +105,7 @@ class InuContext(ABC):
         component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         ) -> "ResponseProxy":
