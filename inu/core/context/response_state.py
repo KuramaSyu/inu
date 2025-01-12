@@ -408,6 +408,7 @@ class DeferredCreateResponseState(BaseResponseState):
         # update is ignored here, since deferred message needs to be updated anyways
         await self._response_lock.acquire()
         self.log.debug("updating (ignoring update) deferred initial response")
+        self.log.debug(f"responding with {embeds=}, {content=}, {components=}, {attachments=}")
         message = await self.interaction.edit_initial_response(
             content,
             embeds=embeds,
@@ -425,8 +426,6 @@ class DeferredCreateResponseState(BaseResponseState):
             await asyncio.create_task(delete_after_task(delete_after, self.interaction))
         self._response_lock.release()
         return self.responses[-1]
-            
-        
 
     async def edit(
         self,
