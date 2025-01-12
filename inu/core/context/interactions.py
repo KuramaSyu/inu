@@ -8,7 +8,7 @@ import functools
 import attrs
 import hikari
 from hikari import (
-    UNDEFINED, CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, ModalInteraction, PartialInteraction, RESTAware, Resourceish, ResponseType, 
+    UNDEFINED, CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, Message, ModalInteraction, PartialInteraction, RESTAware, Resourceish, ResponseType, 
     Snowflake, TextInputStyle, SnowflakeishOr, Embed, UndefinedOr, UndefinedNoneOr
 )
 from hikari import embeds
@@ -80,7 +80,7 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> ResponseProxy:
@@ -114,11 +114,23 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
         await self.response_state.delete_webhook_message(message)
     
     async def execute(
-        self,
-        content: str,
-        embeds: List[Embed] | None = None,
-        components: List[MessageActionRowBuilder] | None = None,
+        self, 
+        content: UndefinedOr[str] = UNDEFINED,
+        embed: UndefinedNoneOr[Embed] = UNDEFINED,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        delete_after: timedelta | None = None,
+        component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> hikari.Message:
+        if not embed in [None, UNDEFINED] and embeds == UNDEFINED:
+            embeds = [embed]  # type: ignore
+        if not attachment in [None, UNDEFINED] and attachments is UNDEFINED:
+            attachments = [attachment]  # type: ignore
+        if not component in [None, UNDEFINED] and components is UNDEFINED:
+            components = [component]  # type: ignore
+            
         return await self.response_state.execute(
             content=content,
             embeds=embeds,
