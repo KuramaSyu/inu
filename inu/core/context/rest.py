@@ -85,7 +85,7 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
         flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
-        update: bool = False,
+        update: SnowflakeishOr[Message] | bool = False,
         attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
         attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
     ) -> ResponseProxy:
@@ -93,7 +93,7 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         components = components or ([component] if component else [])
         if not attachment in [UNDEFINED, None] and not attachments:
             attachments = [attachment]  # type: ignore
-        log.debug(f"respond() with {type(self.response_state).__name__}")
+        log.debug(f"respond() with {type(self.response_state).__name__} and {update=}")
         return await self.response_state.respond(
             embeds=embeds,
             content=content,
