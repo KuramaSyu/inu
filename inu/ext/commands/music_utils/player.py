@@ -474,7 +474,7 @@ class MusicPlayer:
             .set_min_values(1)
             .set_max_values(1)
             .set_placeholder("Choose a song")
-        )
+        ) # type: ignore
         
         # add songs to menu with index as ID
         for i, track in enumerate(tracks):
@@ -700,18 +700,10 @@ class QueueMessage:
         numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
 
         upcomping_song_fields: List[hikari.EmbedField] = []
-        first_field: hikari.EmbedField = hikari.EmbedField(
-            name=" ", 
-            value=" ", 
-            inline=True
-        )
-        second_field: hikari.EmbedField = hikari.EmbedField(
-            name=" ", 
-            value=" ", 
-            inline=True
-        )
+        
         pre_titles_total_delta = timedelta()
-
+        if title := await self.player.fetch_current_track():
+            pre_titles_total_delta = timedelta(milliseconds=title.info.length)
         # create upcoming song fields
         # pre_titles_total_delta += timedelta(milliseconds=36_000_000)  # 10 hours
         log.debug(f"create upcoming song fields")
@@ -825,7 +817,7 @@ class QueueMessage:
             if ctx.needs_response or self._message:
                 try:
                     log.debug(f"ctx respond edit history; {self._message.id = } == {ctx.message_id = }")
-                    await ctx.respond(embeds=[embed], components=components, update=self._message.id or True)
+                    await ctx.respond(embeds=[embed], components=components, update=self.message_id or True)
                 except Exception:
                     log.debug(f"failed to ctx respond edit history")
                     failed = True
@@ -858,13 +850,19 @@ class QueueMessage:
         if self.message_id:
             # delete old message
             log.debug(f"delete old message first: {self.message_id}; {failed = }")
-            task = asyncio.create_task(
-                self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
-            )
+            task = asyncio.create_task(self._delete_old_message())
         log.debug(f"create music message with ctx respond")
         proxy = await ctx.respond(embeds=[embed], components=components, update=False)
         message_id = (await proxy.message()).id
         self._message = MessageData(id=message_id, proxy=proxy)
+    
+    async def _delete_old_message(self) -> None:
+        if self.message_id:
+            try:
+                await self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
+            except:
+                pass
+        self._message = None
     
         
         
