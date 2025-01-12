@@ -114,19 +114,22 @@ class BaseResponseState(abc.ABC):
         embeds: UndefinedOr[List[hikari.Embed]] = UNDEFINED,
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,  # added argument
     ) -> hikari.Message:
         if len(self.responses) > 0:
             return await self.interaction.edit_message(
                 await self.responses[-1].message(),
                 embeds=embeds,
                 content=content,
-                components=components
+                components=components,
+                attachments=attachments,  # added argument
             )
         else:
             return await self.interaction.edit_initial_response(
                 content=content,
                 embeds=embeds,
-                components=components
+                components=components,
+                attachments=attachments,  # added argument
             )
 
     async def delete_webhook_message(self, message: SnowflakeishOr[Message]) -> None:
@@ -250,6 +253,8 @@ class InitialResponseState(BaseResponseState):
         content: UndefinedOr[str] = UNDEFINED,
         components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,
         message_id: Snowflake | None = None,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
         **kwargs: Dict[str, Any]
     ) -> None:
         """
@@ -258,11 +263,14 @@ class InitialResponseState(BaseResponseState):
         change state -> CreatedResponseState
         """
         await self._response_lock.acquire()
+        if not attachment in [UNDEFINED, None] and not attachments:
+            attachments = [attachment]  # type: ignore
         log.debug(f"editing initial response with {embeds=}, {content=}, {components=}")
         await self.interaction.create_initial_response(
             ResponseType.MESSAGE_UPDATE, content,  # type: ignore
             embeds=embeds,
             components=components,
+            attachments=attachments
         )
         # self.last_response = datetime.now()
         self.responses.append(InitialResponseProxy(interaction=self.interaction))
@@ -315,7 +323,8 @@ class CreatedResponseState(BaseResponseState):
             await self.edit_last_response(
                 embeds=embeds,
                 content=content,
-                components=components
+                components=components,
+                attachments=attachments
             )
             self._response_lock.release()
             return self.responses[-1]
