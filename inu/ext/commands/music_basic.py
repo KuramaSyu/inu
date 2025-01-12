@@ -1,5 +1,6 @@
 import os
 import logging
+import traceback
 from typing import *
 
 import asyncio
@@ -115,7 +116,10 @@ class Events(lavalink_rs.EventHandler):
             log.debug(f"message locked - dont send")
             return
         log.debug(f"message not locked - send")
-        await player.send_queue()
+        try:
+            await player.send_queue()
+        except Exception as e:
+            log.error(f"Error sending queue: {traceback.format_exc()}")
 
 
 
