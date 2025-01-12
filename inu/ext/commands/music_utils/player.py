@@ -468,7 +468,7 @@ class MusicPlayer:
             return None
         
         # set new context and return
-        ctx = get_context(event)
+        ctx = get_context(event.interaction)
         await ctx.defer(update=True)
         self.set_context(ctx)
         return tracks[int(value_or_custom_id)]
