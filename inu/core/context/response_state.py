@@ -444,6 +444,7 @@ class DeferredCreateResponseState(BaseResponseState):
 
         if delete_after:
             await asyncio.create_task(delete_after_task(delete_after, self.interaction))
+        self.change_state(CreatedResponseState)
         self._response_lock.release()
         return self.responses[-1]
 
