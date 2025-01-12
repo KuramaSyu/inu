@@ -7,7 +7,7 @@ from contextlib import suppress
 
 import hikari
 from hikari.api import VoiceConnection
-from hikari import Embed
+from hikari import Embed, Snowflake
 from hikari.impl import MessageActionRowBuilder
 from lavalink_rs import PlayerContext, TrackInQueue
 import lightbulb
@@ -17,7 +17,7 @@ from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
 
 from utils.shortcuts import display_name_or_id
-from core import BotResponseError
+from core import BotResponseError, ResponseProxy
 
 
 from . import (
@@ -27,13 +27,13 @@ from . import (
 )
 from ..tags import get_tag
 from utils import Human, MusicHistoryHandler
-from core import Inu, get_context, InuContext, getLogger
+from core import Inu, get_context, InuContext, getLogger, InuContextBase
 
 log = getLogger(__name__)
 
 class MusicPlayerManager:
     _instances: Dict[int, "MusicPlayer"] = {}
-    _bot: lightbulb.BotApp
+    _bot: Inu
     _ctx: InuContext
 
     @classmethod
@@ -48,7 +48,8 @@ class MusicPlayerManager:
         guild_id = None
         ctx = None
 
-        if isinstance(ctx_or_guild_id, InuContext):
+        if isinstance(ctx_or_guild_id, InuContextBase):
+            ctx_or_guild_id = cast(InuContext, ctx_or_guild_id)
             guild_id = ctx_or_guild_id.guild_id
             ctx = ctx_or_guild_id
         else:
@@ -68,19 +69,28 @@ class MusicPlayerManager:
         return player
 
     @classmethod
-    def set_bot(cls, bot: lightbulb.BotApp) -> None:
+    def set_bot(cls, bot: Inu) -> None:
         cls._bot = bot
 
 
     
 
 class MusicPlayer:
-    def __init__(self, bot: lightbulb.BotApp, guild_id: int) -> None:
+    def __init__(self, bot: Inu, guild_id: Snowflake) -> None:
         self.bot: Inu = bot
         self._guild_id = guild_id
         self._ctx: InuContext | None = None
         self._queue: QueueMessage = QueueMessage(self)
         self.response_lock = ResponseLock(timedelta(seconds=6))
+        self._join_channel: hikari.PartialChannel | None = None
+        
+    def with_join_channel(self, channel: hikari.PartialChannel) -> "MusicPlayer":
+        """
+        Sets the channel for /join
+        """
+        self._join_channel = channel
+        return self
+        
 
     def _get_voice(self) -> LavalinkVoice | None:
         """
@@ -112,8 +122,14 @@ class MusicPlayer:
         return self._ctx
     
     @property
-    def guild_id(self) -> int:
+    def guild_id(self) -> Snowflake:
         return self._guild_id
+    
+    @property
+    def ctx_avatar_url(self) -> str:
+        url = self.ctx.author.avatar_url or self.bot.me.avatar_url
+        assert isinstance(url, str)
+        return url
     
     async def is_paused(self) -> bool:
         """
@@ -130,16 +146,14 @@ class MusicPlayer:
     def set_context(self, ctx: InuContext) -> None:
         self._ctx = ctx
 
-    async def _join(self) -> Optional[int]:
+    async def _join(self, channel: Optional[hikari.PartialChannel] = None) -> Optional[int]:
         if not self.guild_id:
             return None
 
         channel_id = None
 
-        for i in self.ctx.options.items():
-            if i[0] == "channel" and i[1]:
-                channel_id = i[1].id
-                break
+        if channel:
+            channel_id = channel.id
 
         if not channel_id:
             voice_state = self.bot.cache.get_voice_state(self.guild_id, self.ctx.author.id)
@@ -153,7 +167,7 @@ class MusicPlayer:
 
         if not voice:
             await LavalinkVoice.connect(
-                self.guild_id,
+                Snowflake(self.guild_id),
                 channel_id,
                 self.bot,
                 self.bot.lavalink,
@@ -163,7 +177,7 @@ class MusicPlayer:
             assert isinstance(voice, LavalinkVoice)
 
             await LavalinkVoice.connect(
-                self.guild_id,
+                Snowflake(self.guild_id),
                 channel_id,
                 self.bot,
                 self.bot.lavalink,
@@ -178,7 +192,7 @@ class MusicPlayer:
         if not suppress_info:
             self._queue.add_footer_info(
                 f"⏸️ Music paused by {self.ctx.author.username}", 
-                self.ctx.author.avatar_url
+                self.ctx.author.avatar_url  # type: ignore
             )
         await self._set_pause(True)
         
@@ -186,7 +200,7 @@ class MusicPlayer:
         """Resumes the player and adds a footer info"""
         self._queue.add_footer_info(
             f"▶️ Music resumed by {self.ctx.author.username}", 
-            self.ctx.author.avatar_url
+            self.ctx.author.avatar_url  # type: ignore
         )
         await self._set_pause(False)
 
@@ -229,12 +243,12 @@ class MusicPlayer:
         if amount > 1:
             self._queue.add_footer_info(
                 f"🎵 Skipped {Human.plural_('song', amount, True)}", 
-                self.ctx.author.avatar_url
+                self.ctx.author.avatar_url  # type: ignore
             )
         else:
             self._queue.add_footer_info(
-                f"🎵 Skipped {player.track.info.author} - {player.track.info.title}", 
-                self.ctx.author.avatar_url
+                f"🎵 Skipped {player.track.info.author} - {player.track.info.title}",   
+                self.ctx.author.avatar_url  # type: ignore
             )
 
         if not player.track:
@@ -328,15 +342,15 @@ class MusicPlayer:
             return tag["tag_value"][0]
 
         if not query.startswith("http"):
-            query = SearchEngines.youtube(query)
+            query = SearchEngines.soundcloud(query)
         return query
 
-    async def play(self, query: str) -> None:
+    async def play(self, query: str) -> bool:
         log.debug(f"play: {query = }")
         voice, has_joined = await self._connect()
         log.debug(f"{voice = }; {has_joined = }")
         if not has_joined:
-            return
+            return False
         player_ctx = voice.player  # type: ignore
         ctx = self.ctx
         user_data: TrackUserData = self._make_user_data(ctx)
@@ -353,29 +367,29 @@ class MusicPlayer:
                 else:
                     await ctx.respond("The queue is empty")
 
-            return None
+            return True
 
         # process query
         try:
             query = await self._process_query(query, user_data)
         except BotResponseError as e:
             await self.ctx.respond(**e.context_kwargs)
-            return
+            return False
 
         try:
-            tracks: Track = await ctx.bot.lavalink.load_tracks(ctx.guild_id, query)
+            tracks: Track = await ctx.bot.lavalink.load_tracks(self.guild_id, query)
             loaded_tracks = tracks.data
 
         except Exception as e:
             log.error(traceback.format_exc())
             await ctx.respond("Error")
-            return None
+            return False
 
         if tracks.load_type == TrackLoadType.Track:
             assert isinstance(loaded_tracks, TrackData)
             loaded_tracks.user_data = user_data
             player_ctx.queue(loaded_tracks)
-            self._queue.add_footer_info(make_track_message(loaded_tracks), ctx.author.avatar_url)
+            self._queue.add_footer_info(make_track_message(loaded_tracks), self.ctx_avatar_url)
 
         elif tracks.load_type == TrackLoadType.Search:
             assert isinstance(loaded_tracks, list)
@@ -384,7 +398,7 @@ class MusicPlayer:
                 raise TimeoutError("No track selected")
             track.user_data = user_data
             self.add_to_queue(track, player_ctx)
-            self._queue.add_footer_info(make_track_message(track), ctx.author.avatar_url)
+            self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
 
         elif tracks.load_type == TrackLoadType.Playlist:
             assert isinstance(loaded_tracks, PlaylistData)
@@ -392,7 +406,7 @@ class MusicPlayer:
                 track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
                 track.user_data = user_data
                 self.add_to_queue(track, player_ctx)
-                self._queue.add_footer_info(make_track_message(track), ctx.author.avatar_url)
+                self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
             else:
                 log.debug(f"load playlist without selected track")
                 tracks = loaded_tracks.tracks
@@ -403,18 +417,18 @@ class MusicPlayer:
                 queue.append(tracks)
                 self._queue.add_footer_info(
                     f"🎵 Added playlist to queue: `{loaded_tracks.info.name}`", 
-                    ctx.author.avatar_url
+                    self.ctx_avatar_url
                 )
                 # query should be the playlist URL
-                await MusicHistoryHandler.add(ctx.guild_id, loaded_tracks.info.name, query)
+                await MusicHistoryHandler.add(self.guild_id, loaded_tracks.info.name, query)
 
         # Error or no search results
         else:
             await ctx.respond("No songs found")
-            return None
+            return False
 
         if has_joined:
-            return None
+            return True
 
         player_data = await player_ctx.get_player()
         queue = player_ctx.get_queue()
@@ -422,6 +436,7 @@ class MusicPlayer:
         if player_data:
             if not player_data.track and await queue.get_track(0):
                 player_ctx.skip()
+        return True
 
     async def _choose_track(self, tracks: List[TrackData]) -> TrackData | None:
         id_ = self.bot.id_creator.create_id()
@@ -576,7 +591,7 @@ class MusicPlayer:
 @dataclass
 class MessageData:
     id: int
-    proxy: lightbulb.ResponseProxy
+    proxy: ResponseProxy
 
 
 @dataclass
@@ -779,7 +794,7 @@ class QueueMessage:
         # edit history message
         failed = False
         if edit_history:
-            log.debug(f"edit history: {ctx.needs_response = }; ")
+            log.debug(f"edit history: ")
             if ctx.needs_response or self._message:
                 try:
                     log.debug(f"ctx respond edit history; {self._message.id = } == {ctx.message_id = }")
@@ -802,14 +817,15 @@ class QueueMessage:
         if edit_history and not failed:
             return
         
-        if ctx.needs_response:
-            log.debug(f"make init resp and delete")
-            # respond and delete since id is not in history
-            proxy = await ctx.respond(components=components)
-            proxy_id = (await proxy.message()).id
-            await proxy.delete()
-            if proxy_id == self.message_id:
-                self._message = None
+        # what is the purpose of this?
+        # if ctx.needs_response:
+        #     log.debug(f"make init resp and delete")
+        #     # respond and delete since id is not in history
+        #     proxy = await ctx.respond(components=components)
+        #     proxy_id = (await proxy.message()).id
+        #     await proxy.delete()
+        #     if proxy_id == self.message_id:
+        #         self._message = None
 
         # send new message
         if self.message_id:
