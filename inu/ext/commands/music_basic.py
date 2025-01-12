@@ -117,6 +117,8 @@ class Events(lavalink_rs.EventHandler):
         log.debug(f"message not locked - send")
         await player.send_queue()
 
+
+
 @loader.listener(hikari.ShardReadyEvent)
 async def start_lavalink(event: hikari.ShardReadyEvent) -> None:
     """Event that triggers when the hikari gateway is ready."""
@@ -145,7 +147,28 @@ async def start_lavalink(event: hikari.ShardReadyEvent) -> None:
     bot.lavalink = lavalink_client
     log.info("Lavalink client started", prefix="init")
 
+
+
 async def _join(ctx: InuContext, channel: Optional[hikari.PartialChannel]) -> Optional[hikari.Snowflake]:
+    """Joins a voice channel. 
+    
+    Args:
+    -----
+    ctx: InuContext
+        The context of the command.
+    channel: Optional[hikari.PartialChannel]
+        The channel to join. If None, the channel of the author is used.
+        
+    Returns:
+    --------
+    Optional[hikari.Snowflake]
+        The channel id of the channel joined.
+        
+    Notes:
+    ------
+    - If the bot is already connected to a voice channel, it will disconnect and reconnect to the new channel.
+    - If channel is None, the bot's channel is used.
+    """
     if not ctx.guild_id:
         return None
 
@@ -186,6 +209,8 @@ async def _join(ctx: InuContext, channel: Optional[hikari.PartialChannel]) -> Op
 
     return channel_id
 
+
+
 @loader.command
 class JoinCommand(
     lightbulb.SlashCommand,
@@ -211,6 +236,7 @@ class JoinCommand(
                 "Please, join a voice channel, or specify a specific channel to join in"
             )
 
+
 @loader.command
 class LeaveCommand(
     lightbulb.SlashCommand,
@@ -229,11 +255,10 @@ class LeaveCommand(
 
 @loader.command
 class PlayCommand(
-    lightbulb.SlashCommand,
+    SlashCommand,
     name="play",
     description="Searches the query on Soundcloud",
     dm_enabled=False,
-    default_member_permissions=None,
 ):
     query = lightbulb.string(
         "query",
@@ -250,13 +275,16 @@ class PlayCommand(
         was_playing = not (await player.is_paused())
         log.debug(f"{was_playing = }")
         try:
-            await player.play(self.query)
+            successfull_play = await player.play(self.query)
+            if not successfull_play:
+                return
         except TimeoutError:
             # triggered, when no song was selected
             return
         
         await asyncio.sleep(0.15)  # without this, it does not start playing
         await player.send_queue(True)
+
 
 @loader.command
 class SkipCommand(
