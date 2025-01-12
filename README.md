@@ -18,8 +18,8 @@ Command | Importance | finished
 --------|------------|----------
 game | 6/10 | x
 errors | 10/10 | x
-statistics | 9/10 | 
-settings | 8/10 |
+statistics | 9/10 | x
+settings | 8/10 | x
 basics | 6/10 | x
 maths | 3/10 | x
 tags | 10/10 | x
