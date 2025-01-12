@@ -233,7 +233,7 @@ async def on_list_interaction(event: hikari.InteractionCreateEvent):
         await ctx.respond("Resending...", update=True)
         await ctx.delete_initial_response()
     else:
-        ctx.update = True
+        ctx.enforce_update(True)
     try:
         await ListCommand._callback(
             ctx, None,
@@ -353,7 +353,7 @@ async def on_dice_interaction(event: hikari.InteractionCreateEvent):
         return
     eyes = event.interaction.custom_id.split("-")[-1]
     ctx = get_context(event)
-    ctx.update = True
+    ctx.enforce_update(True)
     if "dice-roll" in event.interaction.custom_id :
         await DiceCommand._callback(ctx, int(eyes))
     elif "dice-delete" in event.interaction.custom_id:

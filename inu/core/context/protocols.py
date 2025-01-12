@@ -252,7 +252,11 @@ class InuContext(ABC):
         after : int
             wait <after> seconds, until deleting
         """
-
+    @abstractmethod
+    def enforce_update(self, value: bool):
+        """Whether to enforce updating the message with respond()"""
+        ...
+        
     @abstractmethod
     async def ask(
             self, 

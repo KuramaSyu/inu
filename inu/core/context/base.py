@@ -67,14 +67,14 @@ class InuContextBase(ContextEqualTrait):
     """
     _responses: List[Response] = []
     _options: Dict[str, Any] = {}
-    _update: bool
+    update: bool
     _defered: bool
     _responded: bool
     _response_state: BaseResponseState
     _bot: Inu
     
     def __init__(self) -> None:
-        self._update = False
+        self.update = False
         self._defered = False
         self._responded = False
         self._responses: List[Response] = []
@@ -119,9 +119,9 @@ class InuContextBase(ContextEqualTrait):
     def __hash__(self) -> int:
         return self.id
     
-    def set_update(self, value: bool):
-        """Whether to update the message or not when responding as default"""
-        self._update = value
+    def enforce_update(self, value: bool):
+        """Whether to enforce updating the message with respond()"""
+        self.update = value
 
     @property
     def last_response(self) -> Optional[Response]:

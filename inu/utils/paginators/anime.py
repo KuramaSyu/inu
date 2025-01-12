@@ -944,7 +944,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         # this starts the sub-anime paginator; this paginator needs to be updated first
         if self._position != len(self._pages) - 1:
             if not self._anime_corner_task.done():
-                self.ctx._update = True
+                self.ctx.enforce_update(True)
                 await self.ctx.defer(update=True)
                 await self._anime_corner_task
             if self._pages[self._position].title == self.default_embed.title:

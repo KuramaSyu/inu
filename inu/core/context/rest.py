@@ -32,7 +32,7 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         self.update: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self._app = app
-        self._update = False
+        self.update = False
         self._defered = False
         self._responded = False
         self._responses: List[Response] = []
