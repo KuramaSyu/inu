@@ -346,7 +346,7 @@ class CreatedResponseState(BaseResponseState):
     """
     @property
     def invalid_at(self) -> datetime:
-        return self.created_at + timedelta(minutes=14)
+        return self.created_at + timedelta(minutes=1)  # TEMP TO 1 MIN!
     
     async def respond(
         self,
@@ -622,9 +622,11 @@ class RestResponseState(BaseResponseState):
         -----
         flags will be ignored here
         """
-        # update is ignored here, since deferred message needs to be updated anyways
         await self._response_lock.acquire()
+        
         if update != False:
+            log.debug(f"redirect from respond to edit")
+            # call edit instead
             await self.edit(
                 embeds=embeds,
                 content=content,
@@ -632,6 +634,9 @@ class RestResponseState(BaseResponseState):
                 attachments=attachments,
                 message_id=update
             )
+            self._response_lock.release()
+            return self.responses[-1]
+
         context = cast("InuContext", self.context)
         log.debug(f"make response with {embeds=}, {content=}, {components=} {embeds=} {attachments=}" )
         message = await self.context._bot.rest.create_message(
@@ -675,13 +680,15 @@ class RestResponseState(BaseResponseState):
             'attachment': attachment,
             'attachments': attachments
         }
-        if not self.responses and not message_id:
+        if not (self.responses or message_id):
             # make normal response when update is not possible
-            await self.respond(content=content,**message_extras)
+            log.debug(f"redirect from edit to response")
+            await self.respond(content=content, **message_extras)
             return
         # edit given message or last response
         context = cast("InuContext", self.context)
         given_or_last = message_id or (await self.responses[-1].message()).id
+        log.debug(f"editing message {given_or_last}")
         message = await context.bot.rest.edit_message(
             context.channel_id,
             given_or_last,
