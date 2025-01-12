@@ -1,6 +1,7 @@
 import asyncio
 import abc
 from contextlib import suppress
+import traceback
 from typing import *
 from datetime import datetime, timedelta
 from xml.etree.ElementPath import prepare_parent
@@ -52,6 +53,15 @@ class BaseResponseState(abc.ABC):
         self.responses = responses
         self.context = context
         self.log = getLogger(__name__, self.__class__.__name__)
+
+    @property
+    @abc.abstractmethod
+    def invalid_at(self) -> datetime:
+        ...
+    
+    @property
+    def invalid_at_relative(self) -> timedelta:
+        return self.invalid_at - datetime.now(utc)
     
     @property
     def interaction(self) -> CommandInteraction | ComponentInteraction:
@@ -62,15 +72,18 @@ class BaseResponseState(abc.ABC):
             """
             Changes the ResponseState of the parent `InuContextBase` to the new state, coping `interaction` and `context`
             """
-            log.debug(f"changing state from {type(self)} to {new_state}")
-            if self._invalid_task is not None:
-                self._invalid_task.cancel()
-            state = new_state(
-                self.interaction,
-                self.context,
-                self.responses
-            )
-            self.context.set_response_state(state)
+            try:
+                log.debug(f"changing state from {type(self).__name__} to {new_state.__name__}")
+                if self._invalid_task is not None:
+                    self._invalid_task.cancel()
+                state = new_state(
+                    self.interaction,
+                    self.context,
+                    self.responses
+                )
+                self.context.set_response_state(state)
+            except Exception as e:
+                log.error(f"Error changing state: {traceback.format_exc()}")
     
     def filter_responses(self, predicate: Callable[[ResponseProxy], bool]) -> List[ResponseProxy]:
         return [response for response in self.responses if predicate(response)]
@@ -203,16 +216,20 @@ class BaseResponseState(abc.ABC):
         -------
         None
         """
-        while self.is_valid:
-            log.debug(f"sleep because response is valid")
-            probably_invalid_in = self.last_response + timedelta(minutes=15) - datetime.now(utc)
+        while self.is_valid and self.invalid_at_relative > timedelta(seconds=0):
+            probably_invalid_in = self.invalid_at_relative + timedelta(seconds=1)
+            log.debug(f"sleep until {self.invalid_at} when response invalidates (in {probably_invalid_in})")
             await asyncio.sleep(probably_invalid_in.total_seconds())
         log.debug(f"response is invalid, transitioning to RestResponseState; {self.last_response=}, {datetime.now(utc)=}")
+        self._invalid_task = None
         self.change_state(RestResponseState)
-
-        
         
 class InitialResponseState(BaseResponseState):
+
+    @property
+    def invalid_at(self) -> datetime:
+        return self.created_at + timedelta(minutes=1)
+    
     @property
     def is_valid(self) -> bool:
         log.debug(f"{(datetime.now(utc) - self.last_response) < timedelta(seconds=60)} - {self.last_response=}, {datetime.now(utc)=}")
@@ -325,6 +342,10 @@ class CreatedResponseState(BaseResponseState):
     """
     State when the initial response has been created
     """
+    @property
+    def invalid_at(self) -> datetime:
+        return self.created_at + timedelta(minutes=14)
+    
     async def respond(
         self,
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
@@ -403,11 +424,15 @@ class CreatedResponseState(BaseResponseState):
 
     @property
     def is_valid(self) -> bool:
-        return (datetime.now(utc) - self.last_response) < timedelta(minutes=15)
+        return (datetime.now(utc) - self.created_at) < timedelta(minutes=15)
 
 
 
 class DeferredCreateResponseState(BaseResponseState):
+    @property
+    def invalid_at(self) -> datetime:
+        return self.created_at + timedelta(minutes=14)
+    
     async def respond(
         self,
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
@@ -475,6 +500,10 @@ class DeferredCreateResponseState(BaseResponseState):
 
 
 class DeletedResponseState(BaseResponseState):
+    @property
+    def invalid_at(self) -> datetime:
+        return self.created_at + timedelta(minutes=14)
+    
     async def respond(
         self,
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
@@ -542,18 +571,23 @@ class RestResponseState(BaseResponseState):
         responses: List[ResponseProxy],
         message: Optional[Message] = None
     ) -> None:
-        assert message is not None
         self._message = message
+        self._instanciated_at = datetime.now(utc)
         self._interaction = interaction
         self._deferred: bool = False
         self._responded: bool = False
         self._response_lock: asyncio.Lock = asyncio.Lock()
         self._last_response: datetime = self.created_at
+        
         self._invalid_task = None  # can't get invalid
         self.responses = responses
         self.context = context
         self.log = getLogger(__name__, self.__class__.__name__)
 
+    @property
+    def invalid_at(self) -> datetime:
+        return self.created_at + timedelta(days=999)
+    
     async def respond(
         self,
         embeds: UndefinedOr[List[Embed]] = UNDEFINED,
@@ -628,8 +662,14 @@ class RestResponseState(BaseResponseState):
 
     @property
     def created_at(self) -> datetime:
-        return self._message.created_at
+        if self._message is not None:
+            return self._message.created_at
+        return self._instanciated_at
 
     @property
     def is_valid(self) -> bool:
         return True
+    
+    async def trigger_transition_when_invalid(self):
+        # does not exist in RestResponseState
+        pass
