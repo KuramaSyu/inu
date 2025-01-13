@@ -1,3 +1,4 @@
+from email import message
 from typing import *
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -15,6 +16,7 @@ from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo
 from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
+from tabulate import tabulate
 
 from utils.shortcuts import display_name_or_id
 from .query_strategies import *
@@ -314,7 +316,7 @@ class MusicPlayer:
         return voice_player.track  # type: ignore
     
 
-    async def _process_query(self, query: str, user_data: TrackUserData) -> str:
+    async def _process_query(self, query: str) -> List[str]:
         """
         Process the query (one line) and return the modified query.
 
@@ -340,14 +342,25 @@ class MusicPlayer:
         - Changes MEDIA TAGS and HISTORY PREFIXES to the actual URL or name.
         - is for one line queries
         """
+        if len(query.splitlines()) > 1:
+            results = []
+            for line in query.splitlines():
+                results.extend(await self._process_query(line))
+            return results
+
         for strategy in QUERY_STRATEGIES:
             if not strategy.matches_query(query):
                 continue
-            log.debug(f"process query with {type(strategy).__name__}")
-            return await strategy.process_query(self.ctx, query, self.guild_id)
+            result = await strategy.process_query(self.ctx, query, self.guild_id)
+            log.trace(f"process {query} with {type(strategy).__name__} -> {result}; {len(result.splitlines())}")
+            if len(result.splitlines()) > 1:
+                # return each line as a separate query
+                return [line for q in await self._process_query(result) for line in q.splitlines()]
+            else:
+                return [result]
         raise BotResponseError(f"No QueryStrategy for: {query}")
 
-    async def play(self, query: str) -> bool:
+    async def play(self, query: str, position: int | None = None) -> bool:
         """
         Plays a track or playlist based on the provided query.
 
@@ -378,90 +391,31 @@ class MusicPlayer:
         """
         log.debug(f"play: {query = }")
         voice, has_joined = await self._connect()
-        log.debug(f"{voice = }; {has_joined = }")
         if not has_joined:
             return False
         player_ctx = voice.player  # type: ignore
-        ctx = self.ctx
-        user_data: TrackUserData = self._make_user_data(ctx)
-
-        # if not query:
-        #     player = await player_ctx.get_player()
-        #     queue = player_ctx.get_queue()
-
-        #     if not player.track and await queue.get_count() > 0:
-        #         player_ctx.skip()
-        #     else:
-        #         if player.track:
-        #             await ctx.respond("A song is already playing")
-        #         else:
-        #             await ctx.respond("The queue is empty")
-
-        #     return True
-
-        # process query
-        try:
-            for line in query.splitlines():
-                try:
-                    query = await self._process_query(line, user_data)
-                except BotResponseError as e:
-                    await self.ctx.respond(**e.context_kwargs)
-        except BotResponseError as e:
-            await self.ctx.respond(**e.context_kwargs)
-            return False
-
-        # search for tracks with the query
-        try:
-            tracks: Track = await ctx.bot.lavalink.load_tracks(self.guild_id, query)
-            loaded_tracks = tracks.data
-
-        except Exception as e:
-            log.error(traceback.format_exc())
-            await ctx.respond("Error")
-            return False
-
-        if tracks.load_type == TrackLoadType.Track:
-            assert isinstance(loaded_tracks, TrackData)
-            loaded_tracks.user_data = user_data
-            player_ctx.queue(loaded_tracks)
-            self._queue.add_footer_info(make_track_message(loaded_tracks), self.ctx_avatar_url)
-
-        elif tracks.load_type == TrackLoadType.Search:
-            assert isinstance(loaded_tracks, list)
-            track = await self._choose_track(loaded_tracks)
-            if not track:
-                raise TimeoutError("No track selected")
-            track.user_data = user_data
-            self.add_to_queue(track, player_ctx)
-            self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
-
-        elif tracks.load_type == TrackLoadType.Playlist:
-            assert isinstance(loaded_tracks, PlaylistData)
-            if loaded_tracks.info.selected_track:
-                track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
-                track.user_data = user_data
-                self.add_to_queue(track, player_ctx)
-                self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
-            else:
-                log.debug(f"load playlist without selected track")
-                tracks = loaded_tracks.tracks
-                for i in tracks:
-                    i.user_data = user_data
-
-                queue = player_ctx.get_queue()
-                queue.append(tracks)
-                self._queue.add_footer_info(
-                    f"🎵 Added playlist to queue: `{loaded_tracks.info.name}`", 
-                    self.ctx_avatar_url
-                )
-                # query should be the playlist URL
-                await MusicHistoryHandler.add(self.guild_id, loaded_tracks.info.name, query)
-
-        # Error or no search results
-        else:
-            await ctx.respond("No songs found")
-            return False
-
+        
+        # process query and add track(s) line by line
+        lines = await self._process_query(query)
+        silent = len(lines) > 1
+        proxy = None
+        progress: List[Tuple[int, str]] = []
+        for i, query in enumerate(lines):
+            try:
+                message, was_successfull = await self._add_track(player_ctx, query, silent)
+                progress.append((i+1, str(message)[:50]))
+                proxy = await self._communicate_parsing_progress(progress, proxy, silent)
+            except BotResponseError as e:
+                await self.ctx.respond(**e.context_kwargs)
+            except TimeoutError:
+                return False
+            
+        if len(lines) > 1:
+            # when multiple tracks are added, the listener will trigger,
+            # when first track is added. Hence we need to resend the queue
+            # to show all the tracks instead of the first one.
+            await self.send_queue()
+            
         if has_joined:
             return True
 
@@ -473,7 +427,48 @@ class MusicPlayer:
                 player_ctx.skip()
         return True
 
-    async def _choose_track(self, tracks: List[TrackData]) -> TrackData | None:
+    async def _communicate_parsing_progress(self, progress: List[Tuple[int, str]], proxy: None | ResponseProxy, silent: bool) -> None | ResponseProxy:
+        """
+        silent means in this case, that this message will be send und updated. Not silent means that this will be done 
+        in another part of the code, hence here it will be ignored.
+        """
+        if not silent:
+            return None
+        table = tabulate(progress, headers=["Line", "Title"], tablefmt="rounded_outline")
+        if not proxy:
+            proxy = await self.ctx.respond(f"Searching Tracks...\n```{table}```")
+        else:
+            await proxy.edit(f"Searching Tracks...\n```{table}```")
+        return proxy
+    
+    async def _choose_track(self, tracks: List[TrackData], silent: bool) -> TrackData | None:
+        """
+        Creates a selection menu for the user to choose a track from a list of tracks.
+        
+        Parameters
+        ----------
+        tracks : List[TrackData]
+            List of track data objects to choose from
+        silent : bool
+            Don't ask the user, just return the first track
+            
+        Returns
+        -------
+        TrackData or None
+            The selected track if user makes a selection, None if user cancels or timeout occurs
+            
+        Notes
+        -----
+        Creates an interactive message with:
+        - A dropdown menu listing up to 25 tracks
+        - A cancel button
+        - 60 second timeout for user interaction
+        - Updates context after selection
+        The tracks are displayed in format: "<index> | <title> (<author>)"
+        """
+        if silent:
+            return tracks[0]
+
         id_ = self.bot.id_creator.create_id()
         # create component
         menu: hikari.impl.TextSelectMenuBuilder = (
@@ -517,18 +512,119 @@ class MusicPlayer:
             return None
         
         # set new context and return
+        assert event is not None
+        assert isinstance(event.interaction, hikari.ComponentInteraction)
+        assert isinstance(value_or_custom_id, str)
+        
         ctx = get_context(event.interaction)
         await ctx.defer(update=True)
         self.set_context(ctx)
+
         return tracks[int(value_or_custom_id)]
-        
+    
+    
+    async def _add_track(self, player_ctx: PlayerContext, query: str, silent: bool, position: int | None = None) -> Tuple[Optional[str], bool]:
+        """Add a track or playlist to the queue based on the query.
+
+        Parameters
+        ----------
+        player_ctx : PlayerContext
+            The player context managing the queue
+        query : str
+            The search query or URL to load tracks from
+        silent : bool
+            Whether or not to supress responses to the user (e.g. track selection)
+
+        Returns
+        -------
+        Optional[str]
+            The title of the track/playlist or the error message
+        bool
+            True if track(s) were successfully added, False if there was an error
+
+        Notes
+        -----
+        This method handles three types of track loading:
+
+        1. Single Track: Directly adds the track to queue
+        2. Search Results: Shows selection menu and adds chosen track
+        3. Playlist: Adds all tracks from playlist to queue
+
+        For playlists with a selected track, only that track is added.
+        Otherwise all tracks in the playlist are added.
+
+        Raises
+        ------
+        TimeoutError
+            If no track is selected from search results
+        """
+        # search for tracks with the query
+        ctx = self.ctx
+        user_data: TrackUserData = self._make_user_data(ctx)
+        track_title: str | None = None
+        try:
+            tracks: Track = await ctx.bot.lavalink.load_tracks(self.guild_id, query)
+            loaded_tracks = tracks.data
+        except Exception as e:
+            log.error(traceback.format_exc())
+            if not silent:
+                await ctx.respond("Error")
+            return "Interal Error", False
+
+        if tracks.load_type == TrackLoadType.Track:
+            assert isinstance(loaded_tracks, TrackData)
+            loaded_tracks.user_data = user_data  # type: ignore
+            self.add_to_queue(loaded_tracks, player_ctx, position=position)  # adds the track
+            self._queue.add_footer_info(make_track_message(loaded_tracks), self.ctx_avatar_url)
+            track_title = loaded_tracks.info.title
+            
+        elif tracks.load_type == TrackLoadType.Search:
+            assert isinstance(loaded_tracks, list)
+            track = await self._choose_track(loaded_tracks, silent)
+            if not track:
+                raise TimeoutError("No track selected")
+            track.user_data = user_data  # type: ignore
+            self.add_to_queue(track, player_ctx, position=position)
+            self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
+            track_title = track.info.title
+
+        elif tracks.load_type == TrackLoadType.Playlist:
+            assert isinstance(loaded_tracks, PlaylistData)
+            if loaded_tracks.info.selected_track:
+                track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
+                track.user_data = user_data  # type: ignore
+                self.add_to_queue(track, player_ctx, position=position)
+                self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
+                track_title = track.info.title
+            else:
+                log.debug(f"load playlist without selected track")
+                tracks = loaded_tracks.tracks
+                for i in tracks:
+                    i.user_data = user_data
+
+                queue = player_ctx.get_queue()
+                queue.append(tracks)
+                self._queue.add_footer_info(
+                    f"🎵 Added playlist to queue: `{loaded_tracks.info.name}`", 
+                    self.ctx_avatar_url
+                )
+                # query should be the playlist URL
+                await MusicHistoryHandler.add(self.guild_id, loaded_tracks.info.name, query)
+                track_title = loaded_tracks.info.name
+
+        # Error or no search results
+        else:
+            if not silent:
+                await ctx.respond("No tracks found")
+            return "Not Found", False
+        return track_title, True
         
     def add_to_queue(
 
         self, 
         track: TrackInQueue | TrackData, 
         player_ctx: PlayerContext, 
-        position: int = 0
+        position: int | None = None
     ):
         """
         Adds a track to the player's queue at the specified position.
@@ -542,7 +638,7 @@ class MusicPlayer:
         Returns:
         None
         """
-        if position == 0:
+        if not position:
             player_ctx.queue(track)
         else:
             queue = player_ctx.get_queue()
