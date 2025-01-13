@@ -17,6 +17,7 @@ from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
 
 from utils.shortcuts import display_name_or_id
+from .query_strategies import *
 from core import BotResponseError, ResponseProxy
 
 
@@ -315,37 +316,38 @@ class MusicPlayer:
 
     async def _process_query(self, query: str, user_data: TrackUserData) -> str:
         """
-        Checks the query and returns the query.
-        Changes MEDIA TAGS and HISTORY PREFIXES to the actual url or name.
-        Adds scsearch: if the query is not a url
+        Process the query (one line) and return the modified query.
+
+        Parameters
+        ----------
+        query : str
+            The search query or URL for the track or playlist.
+        user_data : TrackUserData
+            The user data associated with the track.
+
+        Returns
+        -------
+        str
+            The processed query.
+
+        Raises
+        ------
+        BotResponseError
+            If no query strategy matches the query.
+
+        Notes
+        -----
+        - Changes MEDIA TAGS and HISTORY PREFIXES to the actual URL or name.
+        - is for one line queries
         """
-        if not query:
-            return query
-        elif query.startswith(HISTORY_PREFIX):
-            # -> history -> get url from history
-            # only edits the query
-            query = query.replace(HISTORY_PREFIX, "")
-            history = await MusicHistoryHandler.cached_get(self.guild_id)
-            if (alt_query:=[t["url"] for t in history if query in t["title"]]):
-                return alt_query[0]
-            else:
-                raise BotResponseError(f"Couldn't find the title `{query}` in the history")
+        for strategy in QUERY_STRATEGIES:
+            if not strategy.matches_query(query):
+                continue
+            log.debug(f"process query with {type(strategy).__name__}")
+            return await strategy.process_query(self.ctx, query, self.guild_id)
+        raise BotResponseError(f"No QueryStrategy for: {query}")
 
-        elif query.startswith(MEDIA_TAG_PREFIX):
-            # -> media tag -> get url from tag
-            # only edits the query
-            query = query.replace(MEDIA_TAG_PREFIX, "")
-            tag = await get_tag(self.ctx, query)  # type: ignore
-            if not tag:
-                raise BotResponseError(f"Couldn't find the tag `{query}`")
-            # self._queue.add_footer_info(f"🎵 {tag['tag_key']} added by {self.ctx.author.username}", self.ctx.author.avatar_url)
-            return tag["tag_value"][0]
-
-        if not query.startswith("http"):
-            query = SearchEngines.soundcloud(query)
-        return query
-
-    async def play(self, query: str) -> None:
+    async def play(self, query: str) -> bool:
         """
         Plays a track or playlist based on the provided query.
 
@@ -356,7 +358,8 @@ class MusicPlayer:
 
         Returns
         -------
-        None
+        _ : bool
+            Whether the track was successfully added to the queue.
 
         Raises
         ------
@@ -382,27 +385,32 @@ class MusicPlayer:
         ctx = self.ctx
         user_data: TrackUserData = self._make_user_data(ctx)
 
-        if not query:
-            player = await player_ctx.get_player()
-            queue = player_ctx.get_queue()
+        # if not query:
+        #     player = await player_ctx.get_player()
+        #     queue = player_ctx.get_queue()
 
-            if not player.track and await queue.get_count() > 0:
-                player_ctx.skip()
-            else:
-                if player.track:
-                    await ctx.respond("A song is already playing")
-                else:
-                    await ctx.respond("The queue is empty")
+        #     if not player.track and await queue.get_count() > 0:
+        #         player_ctx.skip()
+        #     else:
+        #         if player.track:
+        #             await ctx.respond("A song is already playing")
+        #         else:
+        #             await ctx.respond("The queue is empty")
 
-            return True
+        #     return True
 
         # process query
         try:
-            query = await self._process_query(query, user_data)
+            for line in query.splitlines():
+                try:
+                    query = await self._process_query(line, user_data)
+                except BotResponseError as e:
+                    await self.ctx.respond(**e.context_kwargs)
         except BotResponseError as e:
             await self.ctx.respond(**e.context_kwargs)
             return False
 
+        # search for tracks with the query
         try:
             tracks: Track = await ctx.bot.lavalink.load_tracks(self.guild_id, query)
             loaded_tracks = tracks.data
@@ -475,26 +483,25 @@ class MusicPlayer:
             .set_max_values(1)
             .set_placeholder("Choose a song")
         ) # type: ignore
-        
+
+        stop_button = (
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                f"stop_query_menu-{id_}", 
+                label="I don't find it ¯\_(ツ)_/¯",
+                emoji="🗑️"
+            )
+        )
         # add songs to menu with index as ID
         for i, track in enumerate(tracks):
             if i >= 25:
                 break
             query_display = f"{i+1} | {track.info.title} ({track.info.author})"[:100]
             menu.add_option(query_display, str(i))
-            stop_button = (
-                MessageActionRowBuilder()
-                .add_interactive_button(
-                    hikari.ButtonStyle.SECONDARY, 
-                    f"stop_query_menu-{id_}", 
-                    label="I don't find it ¯\_(ツ)_/¯",
-                    emoji="🗑️"
-                )
-            )
         
         # ask the user
-        menu = menu.parent
-        proxy = await self.ctx.respond(components=[menu, stop_button])
+        proxy = await self.ctx.respond(components=[menu.parent, stop_button])
         menu_msg = await proxy.message()
         
         # wait for interaction

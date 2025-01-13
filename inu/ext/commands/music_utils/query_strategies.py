@@ -1,10 +1,11 @@
 from abc import abstractmethod, ABC
+from typing import *
 
 from hikari import Snowflakeish
 from core import InuContext
-from lavalink_rs.model.search import SearchEngines
-from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo
-from lavalink_rs.model.player import Player
+from lavalink_rs.model.search import SearchEngines  # type: ignore
+from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo  # type: ignore
+from lavalink_rs.model.player import Player  # type: ignore
 
 from core import BotResponseError
 from utils import Human, MusicHistoryHandler
@@ -13,7 +14,25 @@ from .constants import HISTORY_PREFIX, MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, URL
 from ..tags import get_tag
 
 
-class QueryStrategy(ABC):
+__all__: Final[List[str]] = [
+    "QueryStrategy", "SearchQueryStrategy", "UrlQueryStrategy", 
+    "MarkdownUrlQueryStrategy", "TagQueryStrategy", "HistoryQueryStrategy", 
+    "QUERY_STRATEGIES"
+]
+
+def get_preferred_search(ctx: InuContext, guild_id: Snowflakeish) -> Callable[[str], str]:
+    DEFAULT = "soundcloud"
+    search = ctx.bot.data.preffered_music_search.get(guild_id, DEFAULT)
+    match search:
+        case "soundcloud":
+            return SearchEngines.soundcloud
+        case "youtube":
+            return SearchEngines.youtube
+        case _:
+            return SearchEngines.soundcloud
+
+
+class QueryStrategyABC(ABC):
     @abstractmethod
     async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
         ...
@@ -25,9 +44,9 @@ class QueryStrategy(ABC):
 
 
    
-class SearchQueryStrategy(QueryStrategy):
+class SearchQueryStrategy(QueryStrategyABC):
     async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
-        return SearchEngines.soundcloud(query)
+        return get_preferred_search(ctx, guild_id)(query)
     
     def matches_query(self, query: str) -> bool:
         # Default strategy for plain text searches
@@ -35,20 +54,23 @@ class SearchQueryStrategy(QueryStrategy):
 
 
   
-class UrlQueryStrategy(QueryStrategy):
+class UrlQueryStrategy(QueryStrategyABC):
     async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
-        return query
+        if (match := URL_REGEX.match(query)):
+            return match.group(0)
+        else:
+            raise BotResponseError("Invalid url")
     
     def matches_query(self, query: str) -> bool:
-        return query.startswith(('http://', 'https://', 'www.'))
+        return query.startswith(('http://', 'https://', 'www.')) or bool(URL_REGEX.match(query))
 
 
 
-class MarkdownUrlQueryStrategy(QueryStrategy):
+class MarkdownUrlQueryStrategy(QueryStrategyABC):
     async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
         """Get url from markdown url; can raise Botresponseerror"""
         if (match:=MARKDOWN_URL_REGEX.match(query)):
-            return match.group(2)
+            return match.group(1)
         else:
             raise BotResponseError("Invalid markdown url")
     
@@ -57,7 +79,7 @@ class MarkdownUrlQueryStrategy(QueryStrategy):
 
 
   
-class TagQueryStrategy(QueryStrategy):
+class TagQueryStrategy(QueryStrategyABC):
     async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
         """Get url from tag; can raise Botresponseerror"""
         query = query.replace(MEDIA_TAG_PREFIX, "")
@@ -71,7 +93,7 @@ class TagQueryStrategy(QueryStrategy):
 
 
 
-class HistoryQueryStrategy(QueryStrategy):
+class HistoryQueryStrategy(QueryStrategyABC):
     async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
         """
         get url from history
@@ -87,3 +109,13 @@ class HistoryQueryStrategy(QueryStrategy):
     
     def matches_query(self, query: str) -> bool:
         return query.startswith(HISTORY_PREFIX)
+
+
+# from most unique to least unique
+QUERY_STRATEGIES: List[QueryStrategyABC] = [
+    TagQueryStrategy(),
+    HistoryQueryStrategy(),
+    MarkdownUrlQueryStrategy(),
+    UrlQueryStrategy(),
+    SearchQueryStrategy(),
+]
