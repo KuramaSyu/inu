@@ -823,6 +823,7 @@ class QueueMessage:
                     log.debug(f"failed to ctx respond edit history")
                     failed = True
             if failed:
+                # this should never occur; maybe remove this branch
                 failed = False
                 try:
                     log.debug(f"edit message with rest")
@@ -837,23 +838,22 @@ class QueueMessage:
         
         if edit_history and not failed:
             return
-        
-        # what is the purpose of this?
-        # if ctx.needs_response:
-        #     log.debug(f"make init resp and delete")
-        #     # respond and delete since id is not in history
-        #     proxy = await ctx.respond(components=components)
-        #     proxy_id = (await proxy.message()).id
-        #     await proxy.delete()
-        #     if proxy_id == self.message_id:
-        #         self._message = None
 
-        # send new message
-        
+        # delete old message
         if self.message_id:
             # delete old message
-            log.debug(f"delete old message first: {self.message_id}; {failed = }")
-            task = asyncio.create_task(self._delete_old_message())
+            if ctx.needs_response and ctx.message_id == self.message_id:
+                # Case: button was pressed on older then last 4 messages
+                # -> make deferred response -> delete this response -> resend
+                log.debug(f"Make deferred response to delete it {self.message_id = }")
+                proxy = await ctx.respond(components=components)
+                await proxy.delete()
+                self._message = None
+            else:
+                # Case: normal message
+                log.debug(f"delete old message {self.message_id = }")
+                task = asyncio.create_task(self._delete_old_message())
+        # send new message
         log.debug(f"create music message with ctx respond")
         proxy = await ctx.respond(embeds=[embed], components=components, update=False)
         message_id = (await proxy.message()).id
@@ -876,10 +876,10 @@ async def is_in_history(channel_id: int, message_id: int, amount: int = 3) -> bo
     """
     async for m in MusicPlayerManager._bot.rest.fetch_messages(channel_id):
         amount -= 1
-        if amount <= 0:
-            break
         if m.id == message_id:
             return True
+        if amount < 0:
+            break
     return False
 
 def make_track_message(track: TrackData) -> str:
