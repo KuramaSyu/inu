@@ -1,24 +1,28 @@
 from abc import abstractmethod, ABC
+from math import log
 from typing import *
 
 from hikari import Snowflakeish
+from matplotlib.pylab import f
 from core import InuContext
 from lavalink_rs.model.search import SearchEngines  # type: ignore
 from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo  # type: ignore
 from lavalink_rs.model.player import Player  # type: ignore
 
-from core import BotResponseError
-from utils import Human, MusicHistoryHandler
+from core import BotResponseError, getLogger
+from utils import Human, MusicHistoryHandler, Tag
 from .constants import HISTORY_PREFIX, MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, URL_REGEX
 
 from ..tags import get_tag
 
 
 __all__: Final[List[str]] = [
-    "QueryStrategy", "SearchQueryStrategy", "UrlQueryStrategy", 
+    "QueryStrategyABC", "SearchQueryStrategy", "UrlQueryStrategy", 
     "MarkdownUrlQueryStrategy", "TagQueryStrategy", "HistoryQueryStrategy", 
     "QUERY_STRATEGIES"
 ]
+
+log = getLogger(__name__)
 
 def get_preferred_search(ctx: InuContext, guild_id: Snowflakeish) -> Callable[[str], str]:
     DEFAULT = "soundcloud"
@@ -86,7 +90,10 @@ class TagQueryStrategy(QueryStrategyABC):
         tag = await get_tag(ctx, query)
         if not tag:
             raise BotResponseError(f"Couldn't find the tag `{query}`")
-        return tag["tag_value"][0]
+        tag = await Tag.from_record(tag)
+        if not tag:
+            raise BotResponseError(f"Couldn't find the tag `{query}`")
+        return tag.value[0]  # type: ignore
     
     def matches_query(self, query: str) -> bool:
         return query.startswith(MEDIA_TAG_PREFIX)
