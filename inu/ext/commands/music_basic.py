@@ -40,48 +40,53 @@ async def query_auto_complete(ctx: AutocompleteContext) -> None:
     -------
     None
     """
-    query = str(ctx.focused.value) or ""
-    records = [
-        {"title": record["title"], "prefix": HISTORY_PREFIX} 
-        for record in await MusicHistoryHandler.cached_get(interaction.guild_id)  # type: ignore
-    ]
-    if not query:
-        records = records[:23]
-    else:
-        if len(str(query)) > 1:
-            tag_records = await TagManager.cached_find_similar(query, ctx.interaction.guild_id, tag_type=TagType.MEDIA)
-            # add tags
-            records.extend([
-                {"title": d["tag_key"], "prefix": MEDIA_TAG_PREFIX} for d in tag_records
-            ])
-        new_records = []
-
-        for r in records:
-            r = dict(r)
-            if query:
-                r["ratio"] = fuzz.partial_token_sort_ratio(query, r["title"])
-            if not r in new_records:
-                new_records.append(r)
-        records = new_records
-        
-        # prefer top 2 media tags
-        tag_records = [ 
-            r for r in records 
-            if r["prefix"] == MEDIA_TAG_PREFIX
-            and r["ratio"] > 65
+    try:
+        assert ctx.interaction.guild_id
+        query = str(ctx.focused.value) or ""
+        records = [
+            {"title": record["title"], "prefix": HISTORY_PREFIX} 
+            for record in await MusicHistoryHandler.cached_get(ctx.interaction.guild_id)
         ]
-        tag_records.sort(key=lambda r: r["ratio"], reverse=True)
+        if not query:
+            records = records[:23]
+        else:
+            if len(str(query)) > 1:
+                tag_records = await TagManager.cached_find_similar(query, ctx.interaction.guild_id, tag_type=TagType.MEDIA)
+                # add tags
+                records.extend([
+                    {"title": d["tag_key"], "prefix": MEDIA_TAG_PREFIX} for d in tag_records
+                ])
+            new_records = []
 
-        for r in tag_records[:2]:
-            r["ratio"] += 40
+            for r in records:
+                r = dict(r)
+                if query:
+                    r["ratio"] = fuzz.partial_token_sort_ratio(query, r["title"])
+                if not r in new_records:
+                    new_records.append(r)
+            records = new_records
+            
+            # prefer top 2 media tags
+            tag_records = [ 
+                r for r in records 
+                if r["prefix"] == MEDIA_TAG_PREFIX
+                and r["ratio"] > 65
+            ]
+            tag_records.sort(key=lambda r: r["ratio"], reverse=True)
 
-        records.sort(key=lambda r: r["ratio"], reverse=True)
+            for r in tag_records[:2]:
+                r["ratio"] += 40
 
-    # add prefixes
-    converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"] for r in records]
-    if len(str(query)) > 3:
-        converted_records.insert(0, str(query))
-    await ctx.respond([r[:100] for r in converted_records[:23]]) 
+            records.sort(key=lambda r: r["ratio"], reverse=True)
+
+        # add prefixes
+        converted_records = [r.get("prefix", HISTORY_PREFIX) + r["title"] for r in records]
+        if len(str(query)) > 3:
+            converted_records.insert(0, str(query))
+        await ctx.respond([r[:100] for r in converted_records[:23]]) 
+    except Exception as e:
+        log.error(f"Error in query_auto_complete: {traceback.format_exc()}")
+        raise e
 
 
 
@@ -268,12 +273,20 @@ class PlayCommand(
         "query",
         "The spotify search query, or any URL",
         autocomplete=query_auto_complete,
+        default=None,
     )
 
     @lightbulb.invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
         if not ctx.guild_id:
             return None
+        if not self.query:
+            self.query, new_ctx = await ctx.ask_with_modal(
+                "Search a title", "What do you search for?", 
+                placeholder_s="Title / URL / Playlist\nTitle2 / URL2 / Playlist2\n..."
+            )
+            ctx = new_ctx or ctx
+        assert self.query
         await ctx.defer()
         player = MusicPlayerManager.get_player(ctx)
         was_playing = not (await player.is_paused())
@@ -290,6 +303,49 @@ class PlayCommand(
         await player.send_queue(True)
 
 
+play_at_group = lightbulb.Group("play-at-position", "Play a song at a specific position", dm_enabled=False)
+
+@play_at_group.register
+class PlayAtPositionCommand(
+    SlashCommand,
+    name="now",
+    description="Searches the query on Soundcloud",
+    dm_enabled=False,
+):
+    query = lightbulb.string(
+        "query",
+        "The spotify search query, or any URL",
+        autocomplete=query_auto_complete,
+        default=None,
+    )
+
+    @lightbulb.invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        if not ctx.guild_id:
+            return None
+        if not self.query:
+            self.query, new_ctx = await ctx.ask_with_modal(
+                "Search a title", "What do you search for?", 
+                placeholder_s="Title / URL / Playlist\nTitle2 / URL2 / Playlist2\n..."
+            )
+            ctx = new_ctx or ctx
+        assert self.query
+        await ctx.defer()
+        player = MusicPlayerManager.get_player(ctx)
+        was_playing = not (await player.is_paused())
+        log.debug(f"{was_playing = }")
+        try:
+            successfull_play = await player.play(self.query)
+            if not successfull_play:
+                return
+        except TimeoutError:
+            # triggered, when no song was selected
+            return
+        
+        await asyncio.sleep(0.15)  # without this, it does not start playing
+        await player.send_queue(True)
+        
+        
 @loader.command
 class SkipCommand(
     lightbulb.SlashCommand,
