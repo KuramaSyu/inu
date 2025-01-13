@@ -346,7 +346,7 @@ class CreatedResponseState(BaseResponseState):
     """
     @property
     def invalid_at(self) -> datetime:
-        return self.created_at + timedelta(minutes=1)  # TEMP TO 1 MIN!
+        return self.created_at + timedelta(minutes=14)
     
     async def respond(
         self,
