@@ -821,7 +821,7 @@ class AnimeCornerPaginator2(AnimePaginator):
 
     async def start(
         self, 
-        ctx: Context, 
+        ctx: Context | InuContext, 
         submission: asyncpraw.models.Submission,
         title: str,
     ) -> hikari.Message:
