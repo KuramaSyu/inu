@@ -63,7 +63,6 @@ def main():
     stop = False
     while not stop:
         try:
-            asyncio.run(inu.load_tasks_and_commands())
             inu.run()
 
             print(f"Press Strl C again to exit")
@@ -119,6 +118,7 @@ async def on_ready(event : hikari.StartingEvent):
     except Exception:
         log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
 
+    await inu.load_tasks_and_commands(["tasks", "commands"])
     # update bot start value
     try:
         table = Table("bot")
@@ -177,18 +177,6 @@ async def on_bot_ready(event : hikari.StartedEvent):
     except Exception:
         log.error(f"failed to set presence: {traceback.format_exc()}", prefix="start")
 
-
-# def tests():
-#     from core.context import CommandContext, ComponentContext
-#     def check_unimplemented():
-#         classes = [CommandContext, ComponentContext]
-#         for c in classes:
-#             m = check_unimplemented_methods(c)
-#             log.critical(
-#                 f"Following functions for `{c.__name__}` are missing: {m}"
-#             )
-#     # check for unimplemented methods
-#     log.critical(f"Unimplemented: {CommandContext.__abstractmethods__}")
 
 if __name__ == "__main__":
     # if os.name != "nt":
