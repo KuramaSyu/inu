@@ -43,7 +43,7 @@ ALLOWED_EXTENSIONS = [
     "basics", "errors", "counter", "tags", "maths", "games", 
     "statistics", "settings", "anime", "w2g", "tmdb", 
     "message", "stopwatch", "random", "music_basic", "music_adv",
-    "reddit", "xkcd", "reminders"
+    "reddit", "xkcd", "reminders", "vocable", "rtfm"
 ]
 
 class BotResponseError(Exception):
