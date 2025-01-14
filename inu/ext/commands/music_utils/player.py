@@ -402,7 +402,7 @@ class MusicPlayer:
         progress: List[Tuple[int, str]] = []
         for i, query in enumerate(lines):
             try:
-                message, was_successfull = await self._add_track(player_ctx, query, silent)
+                message, was_successfull = await self._add_track(player_ctx, query, silent, position)
                 progress.append((i+1, str(message)[:50]))
                 proxy = await self._communicate_parsing_progress(progress, proxy, silent)
             except BotResponseError as e:
