@@ -85,7 +85,7 @@ class Remind(
             offset_hours=offset_hours,
         )
         await ctx.respond(
-            f"reminding you to: <t:{str(int(reminder.datetime.timestamp()))}>\n"\
+            f"Reminding you on: <t:{str(int(reminder.datetime.timestamp()))}>\n"\
             f"or in seconds: `{Human.number(round(reminder.in_seconds, 2))}`"
         )
 
