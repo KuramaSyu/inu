@@ -43,7 +43,7 @@ ALLOWED_EXTENSIONS = [
     "basics", "errors", "counter", "tags", "maths", "games", 
     "statistics", "settings", "anime", "w2g", "tmdb", 
     "message", "stopwatch", "random", "music_basic", "music_adv",
-    "reddit"
+    "reddit", "xkcd", "reminders"
 ]
 
 class BotResponseError(Exception):
@@ -197,7 +197,7 @@ class Inu(hikari.GatewayBot):
 
 
     async def load_tasks_and_commands(self, type: List[str] = ["commands", "tasks"]):
-        if not self.scheduler.running:
+        if not self.scheduler.running and "tasks" in type:
             self.scheduler.start()  # TODO: this should go somewhere else
         if "commands" in type:
             log.info("Loading Commands", prefix="init")
