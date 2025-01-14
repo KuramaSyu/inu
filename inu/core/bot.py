@@ -26,7 +26,7 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from colorama import Fore, Style
 from matplotlib.colors import cnames
-from numpy import mod
+from numpy import mod, tri
 import tabulate
 
 from .singleton import Singleton
@@ -42,7 +42,9 @@ log = getLogger(__name__)
 ALLOWED_EXTENSIONS = [
     "basics", "errors", "counter", "tags", "maths", "games", 
     "statistics", "settings", "anime", "w2g", "tmdb", 
-    "message", "stopwatch", "random", "music_basic", "music_adv",]
+    "message", "stopwatch", "random", "music_basic", "music_adv",
+    "reddit"
+]
 
 class BotResponseError(Exception):
     def __init__(self, bot_message: Optional[str]=None, ephemeral: bool = False, **kwargs) -> None:
@@ -198,12 +200,14 @@ class Inu(hikari.GatewayBot):
         await self._load("inu/ext/commands/")
         #await self._load("inu/ext/tasks/")
 
-    async def _load(self, folder_path: str):
+    async def _load(self, folder_path: str, type: str = "commands"):
         """
         Loads extensions in <folder_path> and ignores files starting with `_` and ending with `.py`
         """
         # TODO: remove when finished with testing
         def is_allowed(extension: str) -> bool:
+            if type == "tasks":
+                return True
             for allowed in ALLOWED_EXTENSIONS:
                 if allowed in extension:
                     return True
@@ -225,11 +229,22 @@ class Inu(hikari.GatewayBot):
                     modules[trimmed_name] = False
                     continue
                 importlib.import_module(trimmed_name)
-                await self.client.load_extensions(trimmed_name)
+                match type:
+                    case "commands": await self.client.load_extensions(trimmed_name)
+                    case "tasks": 
+                        module = importlib.import_module(trimmed_name)
+                        
+                        # Check if the module has a load function
+                        if hasattr(module, 'load') and callable(module.load):
+                            log.info(f'Loading Task {trimmed_name}', prefix="init")
+                            module.load()
+                        else:
+                            log.error(f'No load() function in {trimmed_name}', prefix="init")
             except Exception:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
         table = tabulate.tabulate(modules.items(), headers=["Extension", "Loaded"])
         self.log.info(table, multiline=True, prefix="init")
+
 
     async def init_db(self):
         await self.db.connect()
