@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import traceback
 
 import lightbulb
-from lightbulb.commands.base import OptionModifier as OM
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
