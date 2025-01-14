@@ -6,7 +6,7 @@ from typing import *
 import asyncio
 import hikari
 import lightbulb
-from lightbulb import AutocompleteContext, Context, SlashCommand
+from lightbulb import AutocompleteContext, Context, SlashCommand, invoke
 from fuzzywuzzy import fuzz
 import lavalink_rs
 from lavalink_rs.model import events
@@ -360,3 +360,105 @@ class SkipCommand(
         player = MusicPlayerManager.get_player(ctx)
         await player.skip()
         await player.send_queue(True)
+
+
+play_at_group = lightbulb.Group("play-at-position", "Play a song at a specific position", dm_enabled=False)
+
+
+@play_at_group.register
+class PlayAtPositionNowCommand(
+    SlashCommand,
+    name="now",
+    description="Play a song next",
+):
+    query = lightbulb.string(
+        "query",
+        "The spotify search query, or any URL",
+        autocomplete=query_auto_complete,
+        default=None,
+    )
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext) -> None:
+        await play(self.query, ctx, 0)
+
+
+
+@play_at_group.register
+class PlayAtPositionNowCommand(
+    SlashCommand,
+    name="second",
+    description="Play a song next-next",
+):
+    query = lightbulb.string(
+        "query",
+        "The spotify search query, or any URL",
+        autocomplete=query_auto_complete,
+        default=None,
+    )
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext) -> None:
+        await play(self.query, ctx, 1)
+
+
+@play_at_group.register
+class PlayAtPositionNowCommand(
+    SlashCommand,
+    name="position",
+    description="Play a song next-next",
+):
+    query = lightbulb.string(
+        "query",
+        "The spotify search query, or any URL",
+        autocomplete=query_auto_complete,
+        default=None,
+    )
+    position = lightbulb.integer(
+        "position",
+        "The position in the queue to insert the song",
+        default=0,
+    )
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext) -> None:
+        await play(self.query, ctx, self.position)
+
+
+
+async def play(query: Optional[str], ctx: InuContext, position: Optional[int]) -> None:
+    """
+    Play a song in a voice channel.
+
+    Parameters
+    ----------
+    query : str
+        The search query or URL to play.
+    ctx : InuContext
+        The command context.
+    position : Optional[int]
+        The position in the queue to insert the song. If None, appends to end.
+    """
+    if not ctx.guild_id:
+        return None
+    if not query:
+        query, new_ctx = await ctx.ask_with_modal(
+            "Search a title", "What do you search for?", 
+            placeholder_s="Title / URL / Playlist\nTitle2 / URL2 / Playlist2\n..."
+        )
+        ctx = new_ctx or ctx
+    assert query
+    await ctx.defer()
+    player = MusicPlayerManager.get_player(ctx)
+    was_playing = not (await player.is_paused())
+    log.debug(f"{was_playing = }")
+    try:
+        successfull_play = await player.play(query)
+        if not successfull_play:
+            return
+    except TimeoutError:
+        # triggered, when no song was selected
+        return
+    
+    await asyncio.sleep(0.15)  # without this, it does not start playing
+    await player.send_queue(True)
