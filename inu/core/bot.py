@@ -196,9 +196,16 @@ class Inu(hikari.GatewayBot):
         return hikari.Color.from_hex_code(str(hex_))
 
 
-    async def load_tasks_and_commands(self):
-        await self._load("inu/ext/commands/")
-        #await self._load("inu/ext/tasks/")
+    async def load_tasks_and_commands(self, type: List[str] = ["commands", "tasks"]):
+        if not self.scheduler.running:
+            self.scheduler.start()  # TODO: this should go somewhere else
+        if "commands" in type:
+            log.info("Loading Commands", prefix="init")
+            await self._load("inu/ext/commands/", type="commands")
+        if "tasks" in type:
+            log.debug("Loaded Tasks", prefix="init")
+            await self._load("inu/ext/tasks/", type="tasks")
+
 
     async def _load(self, folder_path: str, type: str = "commands"):
         """
@@ -213,7 +220,7 @@ class Inu(hikari.GatewayBot):
                     return True
             return False
 
-        self.scheduler.start()  # TODO: this should go somewhere else
+        
         modules: Dict[str, bool] = defaultdict(lambda: True)
         for extension in os.listdir(os.path.join(os.getcwd(), folder_path)):
             if (
@@ -228,18 +235,9 @@ class Inu(hikari.GatewayBot):
                 if not is_allowed(trimmed_name):
                     modules[trimmed_name] = False
                     continue
-                importlib.import_module(trimmed_name)
-                match type:
-                    case "commands": await self.client.load_extensions(trimmed_name)
-                    case "tasks": 
-                        module = importlib.import_module(trimmed_name)
-                        
-                        # Check if the module has a load function
-                        if hasattr(module, 'load') and callable(module.load):
-                            log.info(f'Loading Task {trimmed_name}', prefix="init")
-                            module.load()
-                        else:
-                            log.error(f'No load() function in {trimmed_name}', prefix="init")
+                module = importlib.import_module(trimmed_name)
+                await self.client.load_extensions(trimmed_name)
+
             except Exception:
                 self.log.critical(f"can't load {extension}\n{traceback.format_exc()}", exc_info=True)
         table = tabulate.tabulate(modules.items(), headers=["Extension", "Loaded"])
@@ -377,6 +375,9 @@ class Inu(hikari.GatewayBot):
             return event.message.content, event 
         except asyncio.TimeoutError:
             return None, None
+    
+    def run(self, **kwargs):
+        super().run(**kwargs)
 
 
 
