@@ -40,6 +40,11 @@ log = getLogger(__name__)
 loader = lightbulb.Loader()
 bot: Inu
 
+
+@loader.error_handler
+async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -> bool:
+    ...
+
 @loader.command
 class CommandName(
     SlashCommand,
