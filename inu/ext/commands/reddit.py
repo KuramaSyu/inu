@@ -1,12 +1,6 @@
 import asyncio
 import typing
-from typing import (
-    List,
-    Dict,
-    Any,
-    Optional,
-    Union
-)
+from typing import *
 import time as tm
 import random
 import logging
@@ -16,28 +10,21 @@ from copy import deepcopy
 import asyncpraw
 import hikari
 import lightbulb
-from lightbulb.context import Context
-from lightbulb import commands
+from lightbulb import Context, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
+
 from utils.rest import Reddit, AnimeCornerAPI
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
 from utils import Human as H
 from utils.paginators import AnimeCornerPaginator, AnimeCornerPaginator2
-from core import getLogger, stopwatch, BotResponseError, Inu, get_context
+from core import getLogger, stopwatch, BotResponseError, Inu, get_context, InuContext
 
 log = getLogger(__name__)
 
-
-plugin = lightbulb.Plugin("Reddit things", include_datastore=True)
-plugin.d.last_update = 0
-plugin.d.updating = False
-bot: Inu
-
-@plugin.listener(hikari.ShardReadyEvent)
-async def on_ready(event: hikari.ShardReadyEvent):
-    await Reddit.init_reddit_credentials(plugin.bot)
-    
+loader = lightbulb.Loader()
+bot: Inu = Inu.instance
 
 subreddits: Dict[str, Dict[str, int]] = {
     'AnimeBooty': {
@@ -122,7 +109,11 @@ hentai_cache_indexes: Dict[int, List[int]] = {
 SYNCING = False
 HENTAI_DISABLED = True
 
-@plugin.listener(hikari.ShardReadyEvent)
+@loader.listener(hikari.ShardReadyEvent)
+async def on_ready(event: hikari.ShardReadyEvent):
+    await Reddit.init_reddit_credentials(bot)
+
+@loader.listener(hikari.ShardReadyEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
     global SYNCING
     if SYNCING or HENTAI_DISABLED:
@@ -132,50 +123,55 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     await _update_pictures(subreddits)
 
     trigger = IntervalTrigger(hours=10)
-    plugin.bot.scheduler.add_job(_update_pictures, trigger, args=[subreddits])
+    bot.scheduler.add_job(_update_pictures, trigger, args=[subreddits])
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
 
 
 # deactivated because of the reddit api changes
 if not HENTAI_DISABLED:
-    @plugin.command
-    @lightbulb.add_cooldown(1, 4, lightbulb.UserBucket)
-    @lightbulb.command("hentai", "sends a hentai picture from Reddit")
-    @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-    async def hentai(ctx: Context):
-        '''
-        Sends a Hentai picture
-        Parameters:
-        [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
-        '''
-        id = ctx.guild_id or ctx.channel_id
-        def check_index_list():
-            if not hentai_cache_indexes.get(id, []):
-                hentai_cache_indexes[id] = [i for i in range(len(hentai_cache))]
-                random.shuffle(hentai_cache_indexes[id])
-        check_index_list()
-        # needs to be in a function, otherwise async would cause problems
-        # when command is called very fast
-        def get_submission():
-            return hentai_cache[hentai_cache_indexes[id].pop(-1)]
-        submission = get_submission()
-        return await send_pic(ctx, "", footer=True, amount=10, submission=submission)
+    @loader.command
+    class HentaiCommand(
+        lightbulb.SlashCommand,
+        name="hentai",
+        description="sends a hentai picture from Reddit"
+    ):
+        async def callback(self, ctx: Context):
+            '''
+            Sends a Hentai picture
+            Parameters:
+            [Optional] subreddit: The subreddit u want a picture from - Default: A list of Hentai Subreddits
+            '''
+            id = ctx.guild_id or ctx.channel_id
+            def check_index_list():
+                if not hentai_cache_indexes.get(id, []):
+                    hentai_cache_indexes[id] = [i for i in range(len(hentai_cache))]
+                    random.shuffle(hentai_cache_indexes[id])
+            check_index_list()
+            # needs to be in a function, otherwise async would cause problems
+            # when command is called very fast
+            def get_submission():
+                return hentai_cache[hentai_cache_indexes[id].pop(-1)]
+            submission = get_submission()
+            return await send_pic(ctx, "", footer=True, amount=10, submission=submission)
 
 
-@plugin.command
-@lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
-@lightbulb.command("anime-of-the-week", "get information of an Manga by name")
-@lightbulb.implements(commands.SlashCommand)
-async def anime_of_the_week(ctx: Context):
-    ctx = get_context(ctx.event)
-    await ctx.defer()
-    try:
-        submission = await Reddit.get_anime_of_the_week_post()
-    except Exception:
-        log.error(traceback.format_exc())
-        return await ctx.respond("Well - I didn't found it")
-    pag = AnimeCornerPaginator2()
-    await pag.start(ctx, submission, submission.title)
+@loader.command
+class AnimeOfTheWeekCommand(
+    lightbulb.SlashCommand,
+    name="anime-of-the-week",
+    description="get information of an Manga by name",
+    hooks=[sliding_window(30, 2, "user")]
+):
+    @invoke
+    async def callback(self, _: Context, ctx: InuContext):
+        await ctx.defer()
+        try:
+            submission = await Reddit.get_anime_of_the_week_post()
+        except Exception:
+            log.error(traceback.format_exc())
+            return await ctx.respond("Well - I didn't found it")
+        pag = AnimeCornerPaginator2()
+        await pag.start(ctx, submission, submission.title)
 
 
 
@@ -186,9 +182,11 @@ async def anime_of_the_week(ctx: Context):
         f"| new added: {len(set(hentai_cache) - _old_hentai_cache)}"
     )
 )
+
+
 async def _update_pictures(subreddits: Dict[str, int], minimum: int = 5):
     new_cache: List[asyncpraw.models.Submission] = []
-    async def update(subreddit, amount: int):
+    async def update(subreddit, amount: Dict[str, int]):
         subs = await Reddit._fetch_posts(
             subreddit=subreddit,
             hot=True,
@@ -263,10 +261,4 @@ async def send_pic(
         embed.description = f'[{post.subreddit_name_prefixed}](https://www.reddit.com/{post.subreddit._path})'
     await ctx.respond(embed=embed)
 
-
-def load(inu: lightbulb.BotApp):
-    inu.add_plugin(plugin)
-    global bot
-    bot = inu
-    
 
