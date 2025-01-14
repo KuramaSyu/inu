@@ -63,6 +63,7 @@ def main():
     stop = False
     while not stop:
         try:
+            asyncio.run(inu.load_tasks_and_commands(["commands"]))
             inu.run()
 
             print(f"Press Strl C again to exit")
@@ -118,7 +119,7 @@ async def on_ready(event : hikari.StartingEvent):
     except Exception:
         log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
 
-    await inu.load_tasks_and_commands(["tasks", "commands"])
+    await inu.load_tasks_and_commands(["tasks"])
     # update bot start value
     try:
         table = Table("bot")
