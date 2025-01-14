@@ -13,7 +13,6 @@ import time
 import traceback
 
 import lightbulb
-from lightbulb.commands.base import OptionModifier as OM
 import hikari
 from hikari import Embed
 import apscheduler
@@ -26,10 +25,11 @@ from utils import make_message_link, Colors, Multiple, Human
 
 log = getLogger(__name__)
 BOARD_SYNC_TIME = 60*60*24
+bot: Inu = Inu.instance
+BOARD_SYNC_TIME = bot.conf.commands.board_sync_time * 60 * 60
 SYNCING = False
-bot: Inu
 
-plugin = lightbulb.Plugin("board tracker", "tracks messages if they where pinned")
+plugin = lightbulb.Loader()
 
 @plugin.listener(hikari.ShardReadyEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
@@ -43,7 +43,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
 
     trigger = IntervalTrigger(seconds=BOARD_SYNC_TIME)
     log.info(f"scheduled job for boards update: {trigger}", prefix="init")
-    plugin.bot.scheduler.add_job(clean_boards, trigger)
+    bot.scheduler.add_job(clean_boards, trigger)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
     await init_method()
 
@@ -301,12 +301,3 @@ async def update_message(
             embeds=embeds,
             content=reaction_content,
         )
-
-    
-
-def load(inu: Inu):
-    global bot
-    bot = inu
-    global BOARD_SYNC_TIME
-    BOARD_SYNC_TIME = inu.conf.commands.board_sync_time * 60 * 60
-    inu.add_plugin(plugin)

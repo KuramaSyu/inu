@@ -11,7 +11,6 @@ import time
 import traceback
 
 import lightbulb
-from lightbulb.commands.base import OptionModifier as OM
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -23,10 +22,11 @@ log = getLogger(__name__)
 METHOD_SYNC_TIME: int = 60*5
 SYNCING = False
 ENABLE = False
-bot: Inu
+bot: Inu = Inu.instance
+plugin = lightbulb.Loader()
+METHOD_SYNC_TIME = bot.conf.commands.poll_sync_time
 
 
-plugin = lightbulb.Plugin("poll loader", "loads polls from database")
 if ENABLE:
     @plugin.listener(hikari.ShardReadyEvent)
     async def load_tasks(event: hikari.ShardReadyEvent):
@@ -39,7 +39,7 @@ if ENABLE:
         await method()
 
         trigger = IntervalTrigger(seconds=METHOD_SYNC_TIME)
-        plugin.bot.scheduler.add_job(method, trigger)
+        bot.scheduler.add_job(method, trigger)
         logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
         await init_method()
 
@@ -80,13 +80,4 @@ if ENABLE:
     async def on_guild_leave(event: hikari.GuildLeaveEvent):
         # remove all starboards
         ...
-
-def load(inu: Inu):
-    if not ENABLE:
-        return
-    global bot
-    bot = inu
-    global METHOD_SYNC_TIME
-    METHOD_SYNC_TIME = inu.conf.commands.poll_sync_time
-    inu.add_plugin(plugin)
 
