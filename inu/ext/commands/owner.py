@@ -14,8 +14,7 @@ import ast
 import hikari
 import lightbulb
 from lightbulb.context import Context
-from lightbulb import commands
-from lightbulb.commands import OptionModifier as OM
+from lightbulb import AutocompleteContext, SlashCommand, invoke
 from expiring_dict import ExpiringDict
 
 from utils import crumble
@@ -29,7 +28,7 @@ from core import getLogger, get_context
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Owner", "Commands, which are only accessable to the owner of the bot")
+plugin = lightbulb.Loader()
 LOG_LEVELS = {"DEBUG":1, "INFO":2, "WARNING":3, "ERROR":4, "CRITICAL":5}
 all_levels = list(LOG_LEVELS.keys())
 
@@ -41,17 +40,38 @@ message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext, Paginator]] = Ex
 async def on_message_update(event: hikari.events.MessageUpdateEvent):
     if not event.message_id in message_id_cache:
         return
+        
     # I know, that this is a nasty way
+    ctx: InuContext
     func, ctx, _ = message_id_cache[event.message_id]
-    ctx._event = event
-    if "run " in ctx._event.message.content:
-        ctx._options = {"code": ctx._event.message.content.split(" ", 1)[-1]}
-    elif "run\n" in ctx._event.message.content:
-        ctx._options = {"code": ctx._event.message.content.split("\n", 1)[-1]}
+    content = str((await ctx.message()).content)
+    code = None
+    if "run " in content:
+        code = content.split(" ", 1)[-1]
+    elif "run\n" in content:
+        code = content.split("\n", 1)[-1]
     else:
         return
-    await func(ctx)
+    await func(ctx, code)
 
+
+def build_sql(sql: str, method: str) -> str:
+    parts = sql.split(";;")
+    if len(parts) == 1:
+        line = f"'''{parts[0]}'''"
+    elif len(parts) == 2:
+        line = f"'''{parts[0]}''', {parts[1]}"
+    else:
+        raise TypeError("SQL string has more than 1x ';;' to devide sql from args")
+    code = (
+        f"from pprint import pprint\n"
+        f"resp = await db.{method}(\n"
+        f"{line}\n"
+        f")\n"
+        f"if resp is None: print('None')\n"
+        f"else: pprint(resp)"
+    )
+    return code
 
 
 # from norinorin: https://github.com/norinorin/nokari/blob/kita/nokari/extensions/extras/admin.py#L32-L50
@@ -77,165 +97,131 @@ def insert_returns(body: Union[List[ast.AST], List[ast.stmt]]) -> None:
 
 
 
-@plugin.command
-@lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("sql", "The sql query you want to execute", modifier=OM.CONSUME_REST)
-@lightbulb.command("sql", "executes SQL. NOTE: seperate sql from args with ';;' and sep. args with ','")
-@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
-async def sql(ctx: Context):
-    """
-    executes sql
-    Parameters:
-    code: your code to execute
-    args: your arguments if needed
+loader = lightbulb.Loader()
+bot: Inu
 
-    NOTE:
-    -----
-        - seperate sql from args with ";;", seperate every arg with ","
-    """
-    pass
+async def log_level_autocomplete(ctx: AutocompleteContext) -> None:
+    await ctx.respond(all_levels) 
 
+sql_group = lightbulb.Group("sql", description="Commands for SQL queries")
 
-@sql.child
-@lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("sql", "The SQL query you want to execute. Good for selection querys", modifier=OM.CONSUME_REST)
-@lightbulb.command("return", "executes SQL with return", aliases=["-r", "r", "fetch"])
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def fetch(ctx: Context):
-    """
-    fetches sql (returns something)
-    Parameters:
-    code: your code to execute
-    args: your arguments if needed
-
-    NOTE:
-    -----
-        - seperate sql from args with ";;", seperate every arg with ","
-    """
-    sql_and_values = ctx.options.sql.split(";;")
-    sql = sql_and_values[0]
-    values = ""
-    if len(sql_and_values) > 1:
-        values += f"```\n{sql_and_values[1]}\n```"
-    code = build_sql(ctx.options.sql, "fetch")
-    ctx = get_context(ctx.event)
-    await ctx.defer()
-    page_s, ms = await _execute(ctx, code, add_code_to_embed=False)
-    if not page_s[0]._fields:
-        page_s[0]._fields = []
-    page_s[0]._fields.insert(0, hikari.EmbedField(name="SQL", value=f"```sql\n{sql}```"))
-    if values:
-        page_s[0]._fields.insert(1, hikari.EmbedField(name="Values", value=values))
-    pag = Paginator(page_s=page_s)
-    await pag.start(ctx)
-
-
-def build_sql(sql: str, method: str) -> str:
-    parts = sql.split(";;")
-    if len(parts) == 1:
-        line = f"'''{parts[0]}'''"
-    elif len(parts) == 2:
-        line = f"'''{parts[0]}''', {parts[1]}"
-    else:
-        raise TypeError("SQL string has more than 1x ';;' to devide sql from args")
-    code = (
-        f"from pprint import pprint\n"
-        f"resp = await db.{method}(\n"
-        f"{line}\n"
-        f")\n"
-        f"if resp is None: print('None')\n"
-        f"else: pprint(resp)"
-    )
-    return code
-
-
-@plugin.command
-@lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("level-stop", "the last level to show", default="CRITICAL", autocomplete=True)
-@lightbulb.option("level-start", "the lowest level to show", default="INFO", autocomplete=True)
-@lightbulb.command("log", "Shows the log of the entire me")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def log_(ctx: Context):
-    """
-    Shows my LOG file
-    """
+@sql_group.register
+class SqlFetchCommand(
+    lightbulb.SlashCommand,
+    name="return",
+    description="executes SQL with return",
+    dm_enabled=False,
+):
+    sql = lightbulb.string("sql", "The SQL query you want to execute. Good for selection querys")
     
-    options = ctx.options
-    ctx = get_context(ctx.event)
-    await ctx.defer()
-    levels_to_use = [
-        k for k, v in LOG_LEVELS.items() 
-        if v >= LOG_LEVELS[options["level-start"]] 
-        and v <= LOG_LEVELS[options["level-stop"]]
-    ]
+    @lightbulb.invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        sql_and_values = self.sql.split(";;")
+        sql = sql_and_values[0]
+        values = ""
+        if len(sql_and_values) > 1:
+            values += f"```\n{sql_and_values[1]}\n```"
+        code = build_sql(self.sql, "fetch")
+        await ctx.defer()
+        page_s, ms = await _execute(ctx, code, add_code_to_embed=False)
+        if not page_s[0]._fields:
+            page_s[0]._fields = []
+        page_s[0]._fields.insert(0, hikari.EmbedField(name="SQL", value=f"```sql\n{sql}```"))
+        if values:
+            page_s[0]._fields.insert(1, hikari.EmbedField(name="Values", value=values))
+        pag = Paginator(page_s=page_s)
+        await pag.start(ctx)
+
+@loader.command
+class LogCommand(
+    lightbulb.SlashCommand,
+    name="log",
+    description="Shows the log of the entire me",
+    dm_enabled=False,
+    default_member_permissions=None,
+):
+    level_stop = lightbulb.string("level-stop", "the last level to show", default="CRITICAL", autocomplete=log_level_autocomplete)
+    level_start = lightbulb.string("level-start", "the lowest level to show", default="INFO", autocomplete=log_level_autocomplete)
+
+    @lightbulb.invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await ctx.defer()
+        levels_to_use = [
+            k for k, v in LOG_LEVELS.items() 
+            if v >= LOG_LEVELS[self.level_start] 
+            and v <= LOG_LEVELS[self.level_stop]
+        ]
+
+        # ...rest of log command implementation...
+        inu_log_file = open(f"{os.getcwd()}/inu/inu.log", mode="r", encoding="utf-8")
+        try:
+            inu_log = inu_log_file.read()
+            inu_log.encode("utf-8")
+        except Exception:
+            log.error(traceback.format_exc())
+            return
+        inu_log_file.close()
+        inu_log_filtered = ""
+        append = False
+        for line in inu_log.split("\n"):
+            if Multiple.startswith_(line, levels_to_use):  # one of the wanted log levels
+                append = True
+            elif Multiple.startswith_(line, all_levels):  # one of the unwanted log levels
+                append = False
+            if append:
+                inu_log_filtered += f"{line}\n"
+        shorted = crumble(inu_log_filtered, max_length_per_string=1980, clean_code=True)
+        embeds = []
+        for i, page in enumerate(shorted):
+            description = f"```py\n{page}\n```page {i+1}/{len(shorted)}"
+            embeds.append(description)
+        paginator = Paginator(page_s=embeds, timeout=10*60, download=inu_log, default_page_index=-1)
+        await paginator.start(ctx)
 
 
-    inu_log_file = open(f"{os.getcwd()}/inu/inu.log", mode="r", encoding="utf-8")
-    try:
-        inu_log = inu_log_file.read()
-        inu_log.encode("utf-8")
-    except Exception:
-        log.error(traceback.format_exc())
-        return
-    inu_log_file.close()
-    inu_log_filtered = ""
-    append = False
-    for line in inu_log.split("\n"):
-        if Multiple.startswith_(line, levels_to_use):  # one of the wanted log levels
-            append = True
-        elif Multiple.startswith_(line, all_levels):  # one of the unwanted log levels
-            append = False
-        if append:
-            inu_log_filtered += f"{line}\n"
-    shorted = crumble(inu_log_filtered, max_length_per_string=1980, clean_code=True)
-    embeds = []
-    for i, page in enumerate(shorted):
-        description = f"```py\n{page}\n```page {i+1}/{len(shorted)}"
-        embeds.append(description)
-    paginator = Paginator(page_s=embeds, timeout=10*60, download=inu_log, default_page_index=-1)
-    await paginator.start(ctx)
 
-@plugin.command
-@lightbulb.add_checks(lightbulb.owner_only)
-@lightbulb.option("code", "The code I should execute", modifier=OM.CONSUME_REST)
-@lightbulb.command("run", "Executes given Python code", aliases=['py', 'exec', 'execute'])
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def execute(_ctx: Context):
-    '''
-    executes code
-    Parameters:
-    code: your code to execute
-    '''
-    code = _ctx.options.code
-    if isinstance(_ctx, InuContext):
-        ctx = _ctx
-    else:
-        ctx = get_context(_ctx.event, options={"code": code})
-    ctx._update = True
-    
-    await ctx.defer(background=False)
-    ctx._update = True
-    page_s, ms = await _execute(ctx, code)
-    
-    if len(page_s) > 5:
-        kwargs = {"disable_search_btn": True, "compact": False}
-    else:
-        kwargs = {"compact": True}
-    _, _, pag = message_id_cache.get(ctx.id, (None, None, None))
-    try:
-        await pag.delete_presence()
-    except Exception:
-        pass
-    pag = Paginator(
-        page_s=page_s, 
-        disable_paginator_when_one_site=False, 
-        timeout=10*60,
-        **kwargs, 
-    )
-    message_id_cache[ctx.id] = (execute, ctx, pag)
-    await pag.start(ctx)
+@loader.command
+class ExecuteCommand(
+    lightbulb.SlashCommand,
+    name="run",
+    description="Executes given Python code",
+    dm_enabled=False,
+    default_member_permissions=None,
+):
+    code = lightbulb.string("code", "The code I should execute")
 
-async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> Tuple[List[hikari.Embed], float]:
+    @lightbulb.invoke 
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        ...
+
+    @staticmethod
+    async def execute_callback(ctx: InuContext, code: str):
+        ctx.enforce_update(True)
+        await ctx.defer(background=False)
+        page_s, ms = await _execute(ctx, code)
+        
+        if len(page_s) > 5:
+            kwargs = {"disable_search_btn": True, "compact": False}
+        else:
+            kwargs = {"compact": True}
+        _, _, pag = message_id_cache.get(ctx.id, (None, None, None))
+        try:
+            await pag.delete_presence()
+        except Exception:
+            pass
+        pag = Paginator(
+            page_s=page_s, 
+            disable_paginator_when_one_site=False, 
+            timeout=10*60,
+            **kwargs, 
+        )
+        message_id_cache[ctx.id] = (ExecuteCommand.execute_callback, ctx, pag)
+        await pag.start(ctx)
+
+
+
+
+async def _execute(ctx: InuContext, code: str, add_code_to_embed: bool = True) -> Tuple[List[hikari.Embed], float]:
     """
     executes the code.
 
@@ -247,9 +233,9 @@ async def _execute(ctx: Context, code: str, add_code_to_embed: bool = True) -> T
         the time it took to execute
     """
     env = {
-        'client': plugin.bot,
-        'bot': plugin.bot,
-        'db': plugin.bot.db,
+        'client': bot,
+        'bot': bot,
+        'db': bot.db,
         'ctx': ctx,
         'p': print,
         'getmembers': getmembers,
@@ -400,19 +386,3 @@ def wrap_into_async(code):
     func_name = '_to_execute'
     code = "\n".join(f"    {line}" for line in code.splitlines())
     return f"async def {func_name}():\n{code}", func_name
-
-@log_.autocomplete("level-stop")
-@log_.autocomplete("level-start")
-async def tag_name_auto_complete(
-    option: hikari.AutocompleteInteractionOption, 
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
-    return all_levels
-
-
-
-
-def load(inu: Inu):
-    global bot
-    bot = inu
-    bot.add_plugin(plugin)
