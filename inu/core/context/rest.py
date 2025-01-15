@@ -64,6 +64,10 @@ class RestContext(InuContextBase, GuildsAndChannelsMixin, AuthorMixin):
         return self._app
     
     @property
+    def id(self) -> Snowflake:
+        return self._message.id
+
+    @property
     def responses(self) -> List[Response]:
         return self._responses
     
