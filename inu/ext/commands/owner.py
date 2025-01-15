@@ -16,6 +16,7 @@ import lightbulb
 from lightbulb.context import Context
 from lightbulb import AutocompleteContext, SlashCommand, invoke
 from expiring_dict import ExpiringDict
+import lightbulb.prefab.checks
 
 from utils import crumble
 from utils import Paginator
@@ -28,13 +29,23 @@ from core import getLogger, get_context
 
 log = getLogger(__name__)
 
+bot = Inu.instance
 plugin = lightbulb.Loader()
 LOG_LEVELS = {"DEBUG":1, "INFO":2, "WARNING":3, "ERROR":4, "CRITICAL":5}
 all_levels = list(LOG_LEVELS.keys())
 
 # specific for run command - only for response update on message edit
-message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext, Paginator]] = ExpiringDict(ttl=60*10)
+message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext, Paginator]] = ExpiringDict(ttl=60*120)  # type: ignore
 
+
+def strip_code(code: str) -> str | None:
+    if "run " in code:
+        code = code.split(" ", 1)[-1]
+    elif "run\n" in code:
+        code = code.split("\n", 1)[-1]
+    else:
+        return None
+    return code
 
 @plugin.listener(hikari.events.MessageUpdateEvent)
 async def on_message_update(event: hikari.events.MessageUpdateEvent):
@@ -43,8 +54,10 @@ async def on_message_update(event: hikari.events.MessageUpdateEvent):
         
     # I know, that this is a nasty way
     ctx: InuContext
-    func, ctx, _ = message_id_cache[event.message_id]
-    content = str((await ctx.message()).content)
+    _, ctx, _ = message_id_cache[event.message_id]
+    content = event.message.content
+    if not content:
+        return
     code = None
     if "run " in content:
         code = content.split(" ", 1)[-1]
@@ -52,8 +65,22 @@ async def on_message_update(event: hikari.events.MessageUpdateEvent):
         code = content.split("\n", 1)[-1]
     else:
         return
-    await func(ctx, code)
-
+    await ExecuteCommand.execute_callback(ctx, code)
+    
+@plugin.listener(hikari.events.MessageCreateEvent)
+async def on_message_create(event: hikari.events.MessageCreateEvent):
+    ctx = get_context(event)
+    content = (await ctx.message()).content
+    if not content:
+        return
+    
+    code = None
+    code = strip_code(content)
+    if not code:
+        return
+    await ExecuteCommand.execute_callback(ctx, code)
+    
+    
 
 def build_sql(sql: str, method: str) -> str:
     parts = sql.split(";;")
@@ -111,6 +138,7 @@ class SqlFetchCommand(
     name="return",
     description="executes SQL with return",
     dm_enabled=False,
+    hooks=[lightbulb.prefab.checks.owner_only]
 ):
     sql = lightbulb.string("sql", "The SQL query you want to execute. Good for selection querys")
     
@@ -138,7 +166,7 @@ class LogCommand(
     name="log",
     description="Shows the log of the entire me",
     dm_enabled=False,
-    default_member_permissions=None,
+    hooks=[lightbulb.prefab.checks.owner_only]
 ):
     level_stop = lightbulb.string("level-stop", "the last level to show", default="CRITICAL", autocomplete=log_level_autocomplete)
     level_start = lightbulb.string("level-start", "the lowest level to show", default="INFO", autocomplete=log_level_autocomplete)
@@ -186,13 +214,13 @@ class ExecuteCommand(
     name="run",
     description="Executes given Python code",
     dm_enabled=False,
-    default_member_permissions=None,
+    hooks=[lightbulb.prefab.checks.owner_only]
 ):
     code = lightbulb.string("code", "The code I should execute")
 
     @lightbulb.invoke 
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
-        ...
+        await ExecuteCommand.execute_callback(ctx, self.code)
 
     @staticmethod
     async def execute_callback(ctx: InuContext, code: str):
