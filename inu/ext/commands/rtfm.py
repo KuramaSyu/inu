@@ -38,7 +38,7 @@ from core import getLogger, Inu, InuContext
 log = getLogger(__name__)
 
 loader = lightbulb.Loader()
-bot: Inu
+bot: Inu = Inu.instance
 
 
 rtfm_cache = {}
