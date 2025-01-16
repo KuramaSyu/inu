@@ -1,32 +1,39 @@
 from hikari import Embed
 import lightbulb
-from lightbulb import commands, context
+from lightbulb import commands, context, SlashCommand, invoke, Loader
 
-from core import getLogger, BotResponseError
+from core import getLogger, BotResponseError, Inu, InuContext
 from utils import Urban, Paginator, Colors
 
 
 log = getLogger(__name__)
-plugin = lightbulb.Plugin("Dictionary", "Extends the commands with urban commands")
+loader = lightbulb.Loader()
 
+@loader.error_handler
+async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -> bool:
+    if isinstance(exc.causes[0], BotResponseError):
+        await exc.context.respond(exc.causes[0].bot_message)
+        return True
+    return False
 
-
-@plugin.command
-@lightbulb.option("word", "What do you want to search?")
-@lightbulb.command(
-    "urban", 
-    "Search a word in the urban (city) dictionary", 
+@loader.command
+class UrbanDictionaryCommand(
+    SlashCommand,
+    name="urban",
+    description="Search a word in the urban (city) dictionary",
     aliases=["urban-dictionary"],
-    auto_defer=True,
-)
-@lightbulb.implements(commands.SlashCommand, commands.PrefixCommand)
-async def urban_search(ctx: context.Context):
-    try:
+    dm_enabled=True,
+    auto_defer=True
+):
+    word = lightbulb.string("word", "What do you want to search?")
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
         pag = Paginator(
             page_s=[
                 Embed(
                     description=(
-                        f"**Description for [{ctx.options.word}]({d['permalink']}):**\n"
+                        f"**Description for [{self.word}]({d['permalink']}):**\n"
                         f"{d['definition'].replace('[', '').replace(']', '')}\n\n"
                     ),
                     color=Colors.random_color(),
@@ -42,19 +49,12 @@ async def urban_search(ctx: context.Context):
                 .set_thumbnail(
                     "https://upload.wikimedia.org/wikipedia/commons/thumb/f/f0/Urban_Dictionary_logo.svg/512px-Urban_Dictionary_logo.svg.png"
                 )
-                for d in await Urban.fetch(ctx.options.word)
+                for d in await Urban.fetch(self.word)
             ],
             compact=True,
             timeout=120,
         )
         await pag.start(ctx)
-    except BotResponseError as e:
-        await ctx.respond(e.bot_message)
-
-
-
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(plugin)
 
 
 
