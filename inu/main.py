@@ -26,7 +26,8 @@ from utils import (
 import lavalink_rs
 from core import getLogger, InuContext
 from utils import Human
-from ext.hooks import LOG_USAGE
+from ext.hooks.usage import record_command_metrics
+
 
 
 log = getLogger(__name__)
@@ -41,11 +42,8 @@ log.info("Create Inu")
 inu = Inu()  # Instance of GatewayBot
 
 
-
 client = lightbulb.client_from_app(
-    inu,
-    execution_step_order=[LOG_USAGE, *lightbulb.DEFAULT_EXECUTION_STEP_ORDER],
-)
+    inu, hooks=[record_command_metrics])
 # Get the registry for the default context
 registry = client.di.registry_for(lightbulb.di.Contexts.COMMAND)
 # Register our new dependency
@@ -59,9 +57,7 @@ registry.register_factory(
 inu.client = client
 inu.subscribe(hikari.StartingEvent, client.start)
 
-@inu.listen(hikari.ExceptionEvent)
-async def error_handler(event: hikari.ExceptionEvent):
-    log.error("".join(traceback.format_exception(event.exception)))
+
     
 def main():
     stop = False
