@@ -43,7 +43,8 @@ ALLOWED_EXTENSIONS = [
     "basics", "errors", "counter", "tags", "maths", "games", 
     "statistics", "settings", "anime", "w2g", "tmdb", 
     "message", "stopwatch", "random", "music_basic", "music_adv",
-    "reddit", "xkcd", "reminders", "vocable", "rtfm", "owner"
+    "reddit", "xkcd", "reminders", "vocable", "rtfm", "owner",
+    "voice", "code", "stats"
 ]
 
 class BotResponseError(Exception):
@@ -130,14 +131,8 @@ class Inu(hikari.GatewayBot):
             logs="TRACE",
         )
         self.mrest = MaybeRest(self)
-        # self.load("inu/ext/commands/")
-        # self.load("inu/ext/tasks/")
-
         self.wait_for = self.wait_for
 
-    # async def start(self, *args, **kwargs):
-    #     await self.init_db()
-        #await super().start(**kwargs)
     
     @property
     def client(self) -> lightbulb.GatewayEnabledClient:
@@ -196,7 +191,7 @@ class Inu(hikari.GatewayBot):
         return hikari.Color.from_hex_code(str(hex_))
 
 
-    async def load_tasks_and_commands(self, type: List[str] = ["commands", "tasks"]):
+    async def load_tasks_and_commands(self, type: List[str] = ["commands", "tasks", "hooks"]):
         if not self.scheduler.running and "tasks" in type:
             self.scheduler.start()  # TODO: this should go somewhere else
         if "commands" in type:
@@ -205,6 +200,9 @@ class Inu(hikari.GatewayBot):
         if "tasks" in type:
             log.debug("Loaded Tasks", prefix="init")
             await self._load("inu/ext/tasks/", type="tasks")
+        if "hooks" in type:
+            log.debug("Loaded Hooks", prefix="init")
+            await self._load("inu/ext/hooks/", type="hooks")
 
 
     async def _load(self, folder_path: str, type: str = "commands"):
@@ -213,7 +211,7 @@ class Inu(hikari.GatewayBot):
         """
         # TODO: remove when finished with testing
         def is_allowed(extension: str) -> bool:
-            if type == "tasks":
+            if type == "tasks" or type == "hooks":
                 return True
             for allowed in ALLOWED_EXTENSIONS:
                 if allowed in extension:
