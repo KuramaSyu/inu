@@ -26,6 +26,7 @@ from utils import (
 import lavalink_rs
 from core import getLogger, InuContext
 from utils import Human
+from ext.hooks import LOG_USAGE
 
 
 log = getLogger(__name__)
@@ -41,7 +42,10 @@ inu = Inu()  # Instance of GatewayBot
 
 
 
-client = lightbulb.client_from_app(inu)
+client = lightbulb.client_from_app(
+    inu,
+    execution_step_order=[LOG_USAGE, *lightbulb.DEFAULT_EXECUTION_STEP_ORDER],
+)
 # Get the registry for the default context
 registry = client.di.registry_for(lightbulb.di.Contexts.COMMAND)
 # Register our new dependency
@@ -119,7 +123,7 @@ async def on_ready(event : hikari.StartingEvent):
     except Exception:
         log.critical(f"Can't connect Database to classes: {traceback.format_exc()}")
 
-    await inu.load_tasks_and_commands(["tasks"])
+    await inu.load_tasks_and_commands(["tasks", "hooks"])
     # update bot start value
     try:
         table = Table("bot")
