@@ -9,11 +9,12 @@ from pprint import pprint
 import asyncio
 
 import aiohttp
+import miru
 from core import LoggingHandler, get_context
 logging.setLoggerClass(LoggingHandler)
 
-import miru
 import hikari
+import miru
 import lightbulb
 from core import Inu, Table
 from utils import (
@@ -40,7 +41,8 @@ log.info(f"hikari-miru version:{miru.__version__}")
 log.info("Create Inu")
 
 inu = Inu()  # Instance of GatewayBot
-
+miru_client = miru.client.Client(inu)
+inu._miru = miru_client
 
 client = lightbulb.client_from_app(
     inu, hooks=[record_command_metrics])
@@ -56,6 +58,7 @@ registry.register_factory(
 
 inu.client = client
 inu.subscribe(hikari.StartingEvent, client.start)
+
 
 
     
