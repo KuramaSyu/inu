@@ -26,6 +26,8 @@ from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from colorama import Fore, Style
 from matplotlib.colors import cnames
+import miru
+import miru.client
 from numpy import mod, tri
 import tabulate
 
@@ -44,7 +46,7 @@ ALLOWED_EXTENSIONS = [
     "statistics", "settings", "anime", "w2g", "tmdb", 
     "message", "stopwatch", "random", "music_basic", "music_adv",
     "reddit", "xkcd", "reminders", "vocable", "rtfm", "owner",
-    "voice", "code", "stats"
+    "voice", "code", "stats", "polls", "github", "autoroles"
 ]
 
 class BotResponseError(Exception):
@@ -110,8 +112,13 @@ class Inu(hikari.GatewayBot):
         self._lavalink: Optional[lavalink_rs.LavalinkClient] = None
         self._client = None
         self.data = Data()
+        self._miru: Optional[miru.Client] = None
         
-
+        @property
+        def miru_client(self) -> miru.Client:
+            if not self._miru:
+                raise RuntimeError("Miru client is not initialized")
+            return self._miru
         
         logger_names = [
             "hikari", "hikari.event_manager", "ligthbulb.app", "lightbulb",
