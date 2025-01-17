@@ -42,8 +42,6 @@ class NumberCommand(
     lightbulb.SlashCommand,
     name="number",
     description="Gives a number between start and stop",
-    dm_enabled=False,
-    default_member_permissions=None,
 ):
     stop_number = lightbulb.integer("stop-number", "This number is included")
     start_number = lightbulb.integer("start-number", "This number is included", default=1)
@@ -67,8 +65,6 @@ class ListCommand(
     lightbulb.SlashCommand,
     name="list",
     description="shuffles a given list",
-    dm_enabled=False,
-    default_member_permissions=None,
 ):
     tag_with_list = lightbulb.string("tag-with-list", "a tag which contains the list", autocomplete=tag_name_auto_complete, default=None)
     list = lightbulb.string('list', 'seperate with comma -- eg: apple, kiwi, tree, stone', default=None)
@@ -292,8 +288,6 @@ class DiceCommand(
     lightbulb.SlashCommand,
     name="dice",
     description="Roll a dice!",
-    dm_enabled=False,
-    default_member_permissions=None,
 ):
     eyes = lightbulb.integer("eyes", "How many eyes should the dice have? (1-6)", default=6)
 
@@ -367,8 +361,6 @@ class CoinCommand(
     lightbulb.SlashCommand,
     name="coin",
     description="flips a coin",
-    dm_enabled=False,
-    default_member_permissions=None,
 ):
     @lightbulb.invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
@@ -391,8 +383,6 @@ class ProbabilityCommand(
     lightbulb.SlashCommand,
     name="probability",
     description="Rolles a dice with own probability. Dafault is 1/4 or 0.25",
-    dm_enabled=False,
-    default_member_permissions=None,
 ):
     number_1 = lightbulb.number("number_1", "The probability. Can be a single num like 0.75 which would mean 75%. Can also be used with a 2nd num")
     number_2 = lightbulb.integer("number_2", "needed if you choose to set propability with 2 numbers. like 3 4 wihch would mean 3 in 4 aka 75%", default=None)
@@ -465,8 +455,6 @@ class BoredCommand(
     lightbulb.SlashCommand,
     name="bored",
     description="get an idea, what you can do when you are bored",
-    dm_enabled=False,
-    default_member_permissions=None,
 ):
     @lightbulb.invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):

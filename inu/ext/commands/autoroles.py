@@ -35,7 +35,8 @@ client = bot.miru_client
 autoroles_group = lightbulb.Group(
     name="autoroles",
     description="Role Management",
-    dm_enabled=False
+    dm_enabled=False,
+    default_member_permissions=hikari.Permissions.MANAGE_ROLES
 )
 
 @autoroles_group.register
@@ -43,7 +44,6 @@ class AutorolesEdit(
     SlashCommand,
     name="edit",
     description="a command for editing autoroles",
-    default_member_permissions=hikari.Permissions.MANAGE_ROLES
 ):
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
@@ -60,8 +60,6 @@ class AutorolesViewCommand(
     SlashCommand,
     name="view",
     description="a command for viewing the autoroles given to members",
-    dm_enabled=False,
-    default_member_permissions=hikari.Permissions.MANAGE_ROLES
 ):
     role = lightbulb.string(
         "role",
