@@ -230,12 +230,12 @@ class InitialResponseState(BaseResponseState):
 
     @property
     def invalid_at(self) -> datetime:
-        return self.created_at + timedelta(minutes=1)
+        return self.created_at + timedelta(minutes=3)
     
     @property
     def is_valid(self) -> bool:
-        log.debug(f"{(datetime.now(utc) - self.last_response) < timedelta(seconds=60)} - {self.last_response=}, {datetime.now(utc)=}")
-        return (datetime.now(utc) - self.last_response) < timedelta(seconds=60) 
+        log.debug(f"{(datetime.now(utc) - self.last_response) < timedelta(minutes=3)} - {datetime.now(utc) - self.last_response}")
+        return (datetime.now(utc) - self.last_response) < timedelta(minutes=3) 
         # theoretically 3sec, but often timeserver is too inaccurate
     
     async def respond(
