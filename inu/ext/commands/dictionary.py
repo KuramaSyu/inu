@@ -23,12 +23,12 @@ class UrbanDictionaryCommand(
     description="Search a word in the urban (city) dictionary",
     aliases=["urban-dictionary"],
     dm_enabled=True,
-    auto_defer=True
 ):
     word = lightbulb.string("word", "What do you want to search?")
 
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await ctx.defer()
         pag = Paginator(
             page_s=[
                 Embed(
