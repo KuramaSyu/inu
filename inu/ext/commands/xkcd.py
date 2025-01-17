@@ -11,7 +11,7 @@ from hikari import (
     TextInputStyle,
 )
 from hikari.impl import MessageActionRowBuilder
-from lightbulb import commands, context
+from lightbulb import commands, context, SlashCommand, invoke
 
 
 from utils import (
@@ -33,10 +33,10 @@ from core import (
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Name", "Description")
+loader = lightbulb.Loader()
 bot: Inu
 
-@plugin.listener(hikari.InteractionCreateEvent)
+@loader.listener(hikari.InteractionCreateEvent)
 async def on_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
@@ -87,44 +87,50 @@ async def on_interaction(event: hikari.InteractionCreateEvent):
     except BotResponseError as e:
         pass
 
+group = lightbulb.Group(name="xkcd", description="Commands to access the xkcd comics")
 
+@group.register
+class Random(
+    SlashCommand,
+    name="random",
+    description="Get a random xkcd comic"
+):
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        comic = await xkcdAPI.fetch_comic(
+            comic_url=xkcdAPI.random_comic_endpoint()
+        )
+        await send_comic(ctx, comic, True)
 
-@plugin.command
-@lightbulb.command("xkcd", "Commands to access the xkcd comics")
-@lightbulb.implements(commands.SlashCommandGroup)
-async def xkcd_group(ctx: context.Context):
-    ...
+@group.register
+class Current(
+    SlashCommand,
+    name="current",
+    description="Get the current xkcd comic"
+):
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        comic = await xkcdAPI.fetch_comic(
+            comic_url=xkcdAPI.current_comic_endpoint()
+        )
+        await send_comic(ctx, comic)
 
-@xkcd_group.child
-@lightbulb.command("random", "Get a random xkcd comic")
-@lightbulb.implements(commands.SlashSubCommand)
-async def xkcd_random(ctx: context.Context):
-    ctx = get_context(ctx.event)
-    comic = await xkcdAPI.fetch_comic(
-        comic_url=xkcdAPI.random_comic_endpoint()
-    )
-    await send_comic(ctx, comic, True)
+@group.register
+class WithHashtag(
+    SlashCommand,
+    name="with-hashtag",
+    description="Get a specific xkcd comic"
+):
+    hashtag = lightbulb.integer("hashtag", "The hashtag of the comic you want to get")
 
-@xkcd_group.child
-@lightbulb.command("current", "Get the current xkcd comic")
-@lightbulb.implements(commands.SlashSubCommand)
-async def xkcd_current(ctx: context.Context):
-    ctx = get_context(ctx.event)
-    comic = await xkcdAPI.fetch_comic(
-        comic_url=xkcdAPI.current_comic_endpoint()
-    )
-    await send_comic(ctx, comic)
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        comic = await xkcdAPI.fetch_comic(
+            comic_url=xkcdAPI.specific_comic_endpoint(self.hashtag)
+        )
+        await send_comic(ctx, comic)
 
-@xkcd_group.child
-@lightbulb.option("hashtag", "The hashtag of the comic you want to get", type=int)
-@lightbulb.command("with-hashtag", "Get a specific xkcd comic")
-@lightbulb.implements(commands.SlashSubCommand)
-async def xkcd_with_hashtag(ctx: context.Context):
-    ctx = get_context(ctx.event, options=ctx.options)
-    comic = await xkcdAPI.fetch_comic(
-        comic_url=xkcdAPI.specific_comic_endpoint(ctx.options.hashtag)
-    )
-    await send_comic(ctx, comic)
+loader.command(group)
 
 async def send_comic(
         ctx: InuContext, 
@@ -193,12 +199,4 @@ async def send_comic(
         embed=embed,
         components=components
     )
-
-
-
-
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
 

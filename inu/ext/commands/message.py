@@ -21,6 +21,8 @@ import hikari
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
+from lightbulb import SlashCommand, invoke
+from lightbulb.prefab import sliding_window
 import re
 from expiring_dict import ExpiringDict
 
@@ -31,12 +33,12 @@ from utils import prepare_for_latex as replace_unsupported_chars, Paginator
 log = getLogger(__name__)
 
 
-plugin = lightbulb.Plugin("Message Content Processing", include_datastore=True)
+plugin = lightbulb.Loader()
 
 # storing the last answers of users, that it can be used later
 last_ans: Dict[int, str] = {}
 # specific for calculate - only for response update on message edit
-message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext]] = ExpiringDict(ttl=60*60*3)
+message_id_cache: ExpiringDict[int, Tuple[Callable, InuContext]] = ExpiringDict(ttl=60*60*3)  # type: ignore
 
 @plugin.listener(hikari.MessageCreateEvent)
 async def on_message_create(event: hikari.MessageCreateEvent):
@@ -60,7 +62,6 @@ async def on_message(event: hikari.MessageCreateEvent | hikari.MessageUpdateEven
     elif text.startswith("="):
         base = None
         content = str(event.message.content)
-        #log.debug(content)
         try:
             # extract base 
             base = re.findall(r"-(-)?(?:b|base)(?:[ ])?(\d|bin|dec|oct|hex)[ ]", content)[0]
@@ -76,18 +77,24 @@ async def artur_ist_dumm(message: hikari.PartialMessage):
         await message.respond(f"Ich weiß\n{txt}")
 
 @plugin.command
-@lightbulb.option("calculation", "e.g. 1+1; 2x + 10 = 40; ...")
-@lightbulb.option("base", "base of the number e.g. bin or 2, oct or 8, hex or 16 etc.", default=None)
-@lightbulb.command("calculate", "advanced calculator")
-@lightbulb.implements(commands.SlashCommand)
-async def qalc(ctx: Context):
-    await calc_msg(
-        ctx=get_context(ctx.event), 
-        calculation=ctx.options["calculation"], 
-        base=ctx.options["base"]
-    )
-    
+class CalculateCommand(
+    SlashCommand,
+    name="calculate",
+    description="advanced calculator",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    calculation = lightbulb.string("calculation", "e.g. 1+1; 2x + 10 = 40; ...")
+    base = lightbulb.string("base", "base of the number e.g. bin or 2, oct or 8, hex or 16 etc.", default=None)
 
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await calc_msg(
+            ctx=ctx, 
+            calculation=self.calculation, 
+            base=self.base
+        )
 
 async def calc_msg(ctx: InuContext, calculation: str, base: str | None = None):
     """base method for editing the calculation, calculating it, setting it as `last_ans` and finally sending it"""
@@ -162,7 +169,7 @@ async def send_result(ctx: InuContext, result: str, calculation: str, base: str 
         log.warning(f"parsing {result} failed: {traceback.format_exc()}")
 
     if not message_id_cache.get(ctx.message_id):
-        await ctx.respond(embed)
+        await ctx.respond(embed=embed)
         message_id_cache[ctx.message_id] = (calc_msg, ctx)
     else:
         await ctx.last_response.edit(embed=embed)
@@ -204,7 +211,5 @@ def set_answer(result: str, author_id) -> None:
     except Exception:
         pass
 
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(plugin)
-    
-    
+
+

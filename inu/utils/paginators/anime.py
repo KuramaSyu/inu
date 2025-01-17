@@ -1,4 +1,5 @@
 import asyncio
+from code import interact
 from typing import *
 from enum import Enum
 from pprint import pprint
@@ -25,7 +26,7 @@ from fuzzywuzzy import fuzz
 import asyncpraw
 
 from core.api.anime import PartialAnimeMatch, AnimeMatch
-from core import getLogger, InteractionContext
+from core import getLogger, ComponentContext, InuContext
 from utils import Human, Colors, MyAnimeList, Anime, AnimeCornerAPI, AnimeCornerView
 
 log = getLogger(__name__)
@@ -89,11 +90,11 @@ class AnimePaginator(Paginator):
         # re-init in start - just leave it
         super().__init__(
             page_s=["None"], 
-            timeout=60*2,
+            timeout=60*3,
         )
         
 
-    def build_default_components(self, position=None) -> Optional[List[Optional[MessageActionRowBuilder]]]:
+    def build_default_components(self, position=None) -> List[MessageActionRowBuilder]:
         components = super().build_default_components(position)
         if not isinstance(components, list):
             return components
@@ -146,32 +147,33 @@ class AnimePaginator(Paginator):
 
     @listener(hikari.InteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
-        if not self.interaction_pred(event):
+        log.debug(f"@listener in anime: {event}")
+        if not self.interaction_pred(event.interaction):
             return
-        custom_id = event.interaction.custom_id
+        custom_id = event.interaction.custom_id  # type: ignore
         i = event.interaction
-        self.set_context(event=event)
-        if event.interaction.custom_id == "btn_anime_sort":
+        self.set_context(interaction=event.interaction)
+        if custom_id == "btn_anime_sort":
             self._sort_embeds(SortTypes.BY_SCORE)
             self._position = 0
-            await self.send(self._pages[self._position], interaction=event.interaction)
+            await self.send(self._pages[self._position])
             return
-        elif custom_id == "btn_anime_re_search":
-            self._stop = True
-            if self._old_message:
-                await self._old_message.delete()
-            await self.bot.rest.delete_messages(self.ctx.channel_id, [self._message.id])
-            try:
-                ext = self.bot.get_plugin("Anime")
-                for cmd in ext.all_commands:
-                    if cmd.name == "anime":
-                        self.ctx._options["name"] = self.pages[self._position].title
-                        await cmd.callback(self.ctx)
-                        return
-            except:
-                log.error(traceback.format_exc())
+        # elif custom_id == "btn_anime_re_search":
+        #     self._stop.set()
+        #     if self._old_message:
+        #         await self._old_message.delete()
+        #     await self.bot.rest.delete_messages(self.ctx.channel_id, [self._message.id])
+        #     try:
+        #         ext = self.bot.get_plugin("Anime")
+        #         for cmd in ext.all_commands:
+        #             if cmd.name == "anime":
+        #                 self.ctx._options["name"] = self.pages[self._position].title
+        #                 await cmd.callback(self.ctx)
+        #                 return
+        #     except:
+        #         log.error(traceback.format_exc())
         elif custom_id == "btn_anime_more_info":
-            await self._update_position(event.interaction, detailed=True)
+            await self._update_position(detailed=True)
             return
         elif custom_id == "btn_anime_openings":
             return await self._send_openings(interaction=event.interaction)
@@ -211,7 +213,7 @@ class AnimePaginator(Paginator):
         self._pages = sort_by(self._pages)
 
 
-    async def start(self, ctx: Context, anime_name: str | None, results: List[Dict[str, Dict[str, int]]] | None = None) -> hikari.Message:
+    async def start(self, ctx: Context | InuContext, anime_name: str | None, results: List[Dict[str, Dict[str, int]]] | None = None) -> hikari.Message:
         """
         entry point for paginator
 
@@ -819,7 +821,7 @@ class AnimeCornerPaginator2(AnimePaginator):
 
     async def start(
         self, 
-        ctx: Context, 
+        ctx: Context | InuContext, 
         submission: asyncpraw.models.Submission,
         title: str,
     ) -> hikari.Message:
@@ -942,7 +944,7 @@ class AnimeCornerPaginator2(AnimePaginator):
         # this starts the sub-anime paginator; this paginator needs to be updated first
         if self._position != len(self._pages) - 1:
             if not self._anime_corner_task.done():
-                self.ctx._update = True
+                self.ctx.enforce_update(True)
                 await self.ctx.defer(update=True)
                 await self._anime_corner_task
             if self._pages[self._position].title == self.default_embed.title:

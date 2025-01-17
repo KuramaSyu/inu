@@ -9,10 +9,15 @@ from hikari import (
     Embed,
     ResponseType, 
     TextInputStyle,
+    Permissions,
+    ButtonStyle,
+    InteractionCreateEvent
 )
 from hikari.impl import MessageActionRowBuilder
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
 from lightbulb import commands, context
-
+from humanize import precisedelta
 
 from utils import (
     Colors, 
@@ -31,31 +36,54 @@ from core import (
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Name", "Description")
+# in old code lightbulb.Plugin() => remove
+loader = lightbulb.Loader()
 bot: Inu
 
-@plugin.command
-@lightbulb.command("testmodal", "test command for modal interactions")
-@lightbulb.implements(commands.SlashCommand)
-async def testmodal(ctx: context.Context):
-    bot: Inu = ctx.bot
-    answers, interaction, _ = await bot.shortcuts.ask_with_modal(
-        "Tag", 
-        ["Name:", "Value:"], 
-        interaction=ctx.interaction,
-        input_style_s=[TextInputStyle.SHORT, TextInputStyle.PARAGRAPH],
-        placeholder_s=[None, "What you will see, when you do /tag get <name>"],
-        is_required_s=[True, None],
-        pre_value_s=[None, "Well idc"]
 
-    )
-    await interaction.create_initial_response(ResponseType.MESSAGE_CREATE, f"{answers}")
+@loader.error_handler
+async def handler(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -> bool:
+    ...
 
+@loader.command
+class CommandName(
+    SlashCommand,
+    name="name",
+    description="description",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    optional_string = lightbulb.string("message-link", "Delete until this message", default=None)  # Option 1
+    optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None) # Option 2
+    # when ctx.options.<optional_string> is used, replace it self.<optional_string>
 
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        ...
 
+# Groups
+# in old code done with SubCommand, Group, SubGroup
+group = lightbulb.Group(name="group", description="description")
 
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
+@group.register
+class SubCommandName(
+    SlashCommand,
+    name="name",
+    description="description",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    optional_string = lightbulb.string("message-link", "Delete until this message", default=None)  # Option 1
+    optional_int = lightbulb.integer("amount", "The amount of messages you want to delete, Default: 5", default=None) # Option 2
+    # when ctx.options.<optional_string> is used, replace it self.<optional_string>
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        ...
+
+loader.command(group)
+
+# in old code load() func => remove
 

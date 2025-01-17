@@ -7,13 +7,19 @@ import traceback
 from typing_extensions import Self
 from typing import *
 
-
-import lightbulb
-from lightbulb import ResponseProxy, commands
-from lightbulb.context import Context
 import hikari
+from hikari import (
+    Embed,
+    ResponseType, 
+    TextInputStyle,
+    Permissions,
+    ButtonStyle
+)
 from hikari.impl import MessageActionRowBuilder
-from hikari import ButtonStyle, ComponentInteraction, Embed, ResponseType
+import lightbulb
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
+
 from core.bot import Inu, getLogger
 from utils.language import Human
 import tabulate
@@ -27,7 +33,13 @@ from utils import (
 )
 
 from core import (
-    get_context
+    BotResponseError, 
+    Inu, 
+    Table, 
+    getLogger,
+    InuContext,
+    get_context,
+    ResponseProxy
 )
 
 log = getLogger(__name__)
@@ -183,7 +195,7 @@ class CalculationBlueprint:
         return self.name == __o.name
 
 
-plugin = lightbulb.Plugin("mind_training", "Contains calcualtion commands")
+loader = lightbulb.Loader()
 
 bot: Optional[Inu] = None
 
@@ -292,7 +304,7 @@ stages = [
 ]
 
 
-@plugin.listener(hikari.InteractionCreateEvent)
+@loader.listener(hikari.InteractionCreateEvent)
 async def on_math_task_click(event: hikari.InteractionCreateEvent):
     """
     Listens to the /math menu and starts the math tasks
@@ -311,26 +323,35 @@ async def on_math_task_click(event: hikari.InteractionCreateEvent):
 
 
 active_sessions: Set[hikari.Snowflakeish] = set()
-@plugin.command
-@lightbulb.command("math", "Menu with all calculation tasks I have")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def calculation_tasks(ctx: Context):
-    embed = Embed(title="Calculation tasks")
-    embed.set_footer("Stop by writing 'stop!'")
-    menu = MessageActionRowBuilder().add_text_menu("calculation_task_menu")
-    for c in stages:
-        embed.add_field(f"{c.display_name}", str(c), inline=True)
-        menu.add_option(f"{c.display_name.replace('_', '')}", f"{c.name}")
-    menu = menu.parent
-    buttons = MessageActionRowBuilder().add_interactive_button(
-        ButtonStyle.PRIMARY, 
-        "math_highscore_btn",
-        label="Highscores"
-    )
-    await ctx.respond(embed=embed, components=[menu, buttons])
+
+@loader.command
+class CommandName(
+    SlashCommand,
+    name="math",
+    description="Menu with all calculation tasks I have",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        embed = Embed(title="Calculation tasks")
+        embed.set_footer("Stop by writing 'stop!'")
+        menu = MessageActionRowBuilder().add_text_menu("calculation_task_menu")
+        for c in stages:
+            embed.add_field(f"{c.display_name}", str(c), inline=True)
+            menu.add_option(f"{c.display_name.replace('_', '')}", f"{c.name}")
+        menu = menu.parent
+        buttons = MessageActionRowBuilder().add_interactive_button(
+            ButtonStyle.PRIMARY, 
+            "math_highscore_btn",
+            label="Highscores"
+        )
+        await ctx.respond(embed=embed, components=[menu, buttons])
 
 
-async def start_math_tasks(ctx: Context, stage: str):
+async def start_math_tasks(ctx: InuContext, stage: str):
     # prevent user from running multiple sessions
     if ctx.user.id in active_sessions:
         return await ctx.respond(f"You already play a game. End it with `stop! or wait`")
@@ -359,17 +380,18 @@ async def start_math_tasks(ctx: Context, stage: str):
         log.error(traceback.format_exc())
     
 
-async def _change_embed_color(msg: ResponseProxy, embed: Embed, in_seconds: int):
+async def _change_embed_color(msg: ResponseProxy, embed: Embed, in_seconds: int | float):
     await asyncio.sleep(in_seconds)
     await msg.edit(embed=embed)
 
-async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, timedelta]:
+
+async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, timedelta]:
     """
     Executes a task and returns the number of tasks finished and the total time taken.
 
     Parameters:
     -----------
-    - ctx (Context): The context object containing information about the command execution.
+    - ctx (InuContext): The context object containing information about the command execution.
     - c (CalculationBlueprint): The calculation blueprint object.
 
     Returns:
@@ -377,6 +399,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
     - tasks_done (int): The number of tasks finished.
     - total_time (timedelta): The total time taken to finish the tasks.
     """
+    bot = ctx.bot
     if bot is None:
         raise RuntimeError(f"Inu is None") # should never happen
     tasks_done = 0
@@ -384,6 +407,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
     message_ids: List[hikari.Snowflake] = []
     total_time = timedelta(seconds=0)
     current_task_beautiful = ""
+    current_task = ""
 
     while resume_task_creation:
         # new task
@@ -418,7 +442,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
 
         while answer != current_task_result and not time_is_up():
             answer, event = await bot.wait_for_message(
-                timeout=expire_time.timestamp() - time(),
+                timeout=expire_time.timestamp() - time(),  # type:ignore
                 channel_id=ctx.channel_id,
                 user_id=ctx.user.id,
             )
@@ -430,6 +454,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
             message_ids.append(event.message_id)
             log.debug(f"{answer=}, {event.author.username=}, {current_task_result=}")
             # stopped by user
+            assert answer is not None
             answer = answer.replace(",", ".")
             if answer.strip().lower() == "stop!":
                 resume_task_creation = False
@@ -462,7 +487,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
             components=purge_delete_button
         )
     else:
-        embed = hikari.Embed(title=f"{ctx.member.display_name}'s results for {c.display_name}")
+        embed = hikari.Embed(title=f"{ctx.member.display_name}'s results for {c.display_name}")  # type: ignore
         embed.add_field("Tasks solved:", f"```\n{Human.plural_('task', tasks_done)}```")
         time_per_task = 0
         try:
@@ -477,6 +502,7 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
     async def maybe_clean_up(messages: List[hikari.Snowflake], message_id: int, channel_id: int):
         delete = True
         repeat = True
+        bot = Inu.instance
         while True:
             try:
                 custom_id, event, _ = await bot.wait_for_interaction(
@@ -486,9 +512,11 @@ async def execute_task(ctx: Context, c: CalculationBlueprint) -> Tuple[int, time
                 )
             except asyncio.TimeoutError:
                 break
+            assert event is not None
             ctx = get_context(event)
             if custom_id == "math_bulk_delete":
                 delete = False
+                # split messages in 100 message chunks and delete those
                 sub_lists = []
                 for i, m in enumerate(messages):
                     if i % 100 == 0:
@@ -521,10 +549,12 @@ def get_calculation_blueprint(stage_name: str) -> CalculationBlueprint:
     for stage in stages:
         if stage.name == stage_name:
             return stage
+    raise ValueError(f"Stage {stage_name} not found")
 
 
 
-async def show_highscores(from_: str, ctx: Context):
+async def show_highscores(from_: str, ctx: InuContext):
+    bot = Inu.instance
     stages = await MathScoreManager.fetch_highscores(
         type_=from_,
         guild_id=ctx.guild_id or 0,
@@ -538,7 +568,7 @@ async def show_highscores(from_: str, ctx: Context):
     }
     for i, d in enumerate(stages.items()):
         stage, records = d
-        log.debug(d)
+        log.debug(f"{d}")
         if i % 24 == 0:
             embeds.append(
                 Embed(title=f"🏆 Highscores", color=Colors.random_color())
@@ -551,11 +581,11 @@ async def show_highscores(from_: str, ctx: Context):
             name_short = ""
             if ctx.guild_id:
                 name_short = Human.short_text(
-                    (await bot.mrest.fetch_member(ctx.guild_id, user_id)).display_name, 25, ".." 
+                    (await bot.mrest.fetch_member(ctx.guild_id, user_id)).display_name, 25, ".."  # type: ignore
                 )
             else:
                 name_short = Human.short_text(
-                    (await bot.mrest.fetch_user(user_id)).display_name, 25, ".." 
+                    (await bot.mrest.fetch_user(user_id)).display_name, 25, ".." # type: ignore
                 )
             results.append((i+1, name_short, score, f"{time_per_task.total_seconds():.2f}s"))
 
@@ -574,12 +604,6 @@ async def show_highscores(from_: str, ctx: Context):
         embeds[-1].add_field(get_calculation_blueprint(stage).display_name, f"```{value}```", inline=False)
     pag = Paginator(page_s=embeds)
     await pag.start(ctx)
-
-
-def load(inu: Inu):
-    inu.add_plugin(plugin)
-    global bot
-    bot = inu
 
 
 

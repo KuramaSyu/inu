@@ -11,10 +11,12 @@ from hikari import (
     ResponseType, 
     TextInputStyle,
     ButtonStyle,
-    InteractionCreateEvent
+    InteractionCreateEvent,
+    Permissions
 )
 from hikari.impl import MessageActionRowBuilder
-from lightbulb import commands, context
+from lightbulb import commands, context, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
 from humanize import precisedelta
 
 from utils import (
@@ -34,7 +36,7 @@ from core import (
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Name", "Description")
+plugin = lightbulb.Loader()
 bot: Inu
 
 
@@ -161,28 +163,26 @@ async def on_interaction_create(event: InteractionCreateEvent):
     ctx = get_context(event)
     await handle_stopwatch_action(ctx, d)
 
+
 @plugin.command
-@lightbulb.command("stopwatch", "A stopwatch")
-@lightbulb.implements(lightbulb.SlashCommand)
-async def stopwatch(ctx: context.Context):
-    # MAX_TITLE_LENGTH = 60
-    # if len(title) > MAX_TITLE_LENGTH:
-    #     await ctx.respond(f"The title is {Human.plural_('character', len(title) - MAX_TITLE_LENGTH)} too long", ephemeral=True)
-    #     return
+class StopwatchCommand(
+    SlashCommand,
+    name="stopwatch",
+    description="A stopwatch",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await ctx.respond(
+            get_stopwatch_message_content(0, False, datetime.now()),
+            components=get_stopwatch_message_components({
+                "a": "start",
+                "e": 0,
+                "ts": round(datetime.now().timestamp(), 1),
+                "r": False,
+            })
+        )
 
-    await ctx.respond(
-        get_stopwatch_message_content(0, False, datetime.now()),
-        components=get_stopwatch_message_components({
-            "a": "start",
-            "e": 0,
-            "ts": round(datetime.now().timestamp(), 1),
-            "r": False,
-        })
-    )
-
-
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
 

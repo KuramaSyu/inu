@@ -5,13 +5,14 @@ import lightbulb
 from lightbulb.context import *
 
 from .protocols import InuContext, InuContextProtocol
-from .interactions import InteractionContext, CommandInteractionContext, MessageInteractionContext, ModalInteractionContext
-from .rest import RESTContext
+from .interactions import CommandContext, ComponentContext
+from .rest import RestContext
 
-ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent]
+ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent, hikari.MessageUpdateEvent]
+Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | hikari.ComponentInteraction]
 
 def get_context(
-    event: ContextEvent, 
+    event: ContextEvent | Interaction, 
     **kwargs,
 ) -> InuContext:
     """
@@ -37,29 +38,39 @@ def get_context(
     """
 
     ctx_cls, custom_attrs = builder(event, **kwargs)
-    ctx = ctx_cls.from_event(event=event)
+    if isinstance(event, ContextEvent):
+        if isinstance(event, (hikari.MessageCreateEvent, hikari.MessageUpdateEvent)):
+            ctx_cls = cast(RestContext, ctx_cls)
+            ctx = ctx_cls.from_event(event)
+        else:
+            ctx = ctx_cls.from_event(interaction=event.interaction)  # type: ignore
+    else:
+         ctx = ctx_cls.from_event(interaction=event)
     ctx.set(**custom_attrs)
-    return ctx
+    return ctx  # type: ignore
 
 def from_context():
     ...
 
-def builder(event: ContextEvent, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
+def builder(event: ContextEvent | Interaction, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
     """
     returns the coresponding class to an event
     """
     if isinstance(event, hikari.MessageCreateEvent):
-        return RESTContext, kwargs
+        return RestContext, kwargs  # type: ignore
     elif isinstance(event, hikari.MessageUpdateEvent):
-        return RESTContext, kwargs
-    if isinstance(event, hikari.InteractionCreateEvent):
-        interaction = event.interaction
+        raise NotImplementedError("MessageUpdateEvent is not supported yet")
+    if isinstance(event, hikari.InteractionCreateEvent) or isinstance(event, hikari.PartialInteraction):
+        if isinstance(event, hikari.PartialInteraction):
+            interaction = event
+        else:
+            interaction = event.interaction
         if isinstance(interaction, hikari.ComponentInteraction):
-            return InteractionContext, kwargs
+            return ComponentContext, kwargs  # type: ignore
         elif isinstance(interaction, hikari.ModalInteraction):
-            return ModalInteractionContext, kwargs
+            raise NotImplementedError("ModalInteraction is not supported yet")
         elif isinstance(interaction, hikari.CommandInteraction):
-            return CommandInteractionContext, kwargs  # lightbulb acknowledges them automatically
+            return CommandContext, kwargs  #type: ignore # lightbulb acknowledges them automatically
         else:
             raise TypeError(
                 f"Can't create `InuContext` out of an `InteractionCreateEvent` with `{type(interaction)}` as interaction"

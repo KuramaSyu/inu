@@ -11,7 +11,6 @@ from pprint import pformat
 import hikari
 from hikari.events.shard_events import ShardReadyEvent
 import lightbulb
-from lightbulb import Plugin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from asyncpg import StringDataRightTruncationError
@@ -25,13 +24,9 @@ from utils import Columns as Col
 
 from core import getLogger
 
+plugin = lightbulb.Loader()
 log = getLogger(__name__)
-
-plugin = lightbulb.Plugin(
-    "Auto Category", 
-    "Creates a category which will be updated with games which are played", 
-    include_datastore=True
-)
+bot = Inu.instance
 
 # Mapping from guild_id to a mapping from game name to amount of users playing it
 games: Dict[int, Dict[str, int]] = {}
@@ -75,7 +70,7 @@ async def fetch_current_games(bot: Inu):
 
 
 async def log_current_activity(bot: Inu):
-    for _, guild in await bot.cache.get_guilds_view().items():
+    for _, guild in bot.cache.get_guilds_view().items():
         log.debug(f"activity for {guild.name}: {await CurrentGamesManager.fetch_games(guild.id, datetime.now() - timedelta(days=30))}")
 
 # TODO: add a task to delete games older than a certain time
@@ -86,7 +81,7 @@ async def log_current_activity(bot: Inu):
 async def load_tasks(event: ShardReadyEvent):
     # return if it's already scheduled
     try:
-        if [True for job in plugin.bot.scheduler.get_jobs() if job.name == fetch_current_games.__name__ ]:
+        if [True for job in bot.scheduler.get_jobs() if job.name == fetch_current_games.__name__ ]:
             log.info("fetch_current_games already scheduled - skipping")
             return
     except Exception:
@@ -97,14 +92,10 @@ async def load_tasks(event: ShardReadyEvent):
         seconds_until_min_is_5 = (5 - now.minute % 5) * 60 - now.second
         log.info(f"sleep for {timedelta(seconds=seconds_until_min_is_5)} until fetching first current games", prefix="init")
         await asyncio.sleep(seconds_until_min_is_5)
-        await fetch_current_games(plugin.bot)
+        await fetch_current_games(bot)
         trigger = IntervalTrigger(minutes=10)
         log.info(f"scheduled fetch_current_games: {trigger}", prefix="init")
-        plugin.bot.scheduler.add_job(fetch_current_games, trigger, args=[plugin.bot])
+        bot.scheduler.add_job(fetch_current_games, trigger, args=[bot])
        # log.info("scheduled fetch_current_games every 10 minutes", prefix="init")
     except Exception:
         log.critical(traceback.format_exc())
-
-
-def load(bot: Inu):
-    bot.add_plugin(plugin)

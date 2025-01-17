@@ -18,7 +18,21 @@ class Button(ABC):
     ) -> List[MessageActionRowBuilder]:
         pass
 
+def is_row_filled(
+    row: MessageActionRowBuilder,
+    min_empty_slots: int = 1
+) -> bool:
+    """
+    Checks if the last row in the list is filled
 
+    Args:
+    -----
+    row : List[MessageActionRowBuilder]
+        the row to inspect
+    min_empty_slots : int
+        the minimum amount of empty slots to be considered filled
+    """
+    return len(row.components) > 5 - min_empty_slots
 def add_row_when_filled(
         row: List[MessageActionRowBuilder], 
         position: int = -1, 

@@ -11,10 +11,9 @@ from hikari.interactions.base_interactions import ResponseType
 from hikari.interactions.component_interactions import ComponentInteraction
 from hikari import ButtonStyle
 import lightbulb
-from lightbulb.context import Context
 
 from utils import Colors
-from core import Inu, getLogger
+from core import Inu, getLogger, InuContext, get_context
 from .onu import *
 from .onu import CardColors
 from .onu import CardFunctions
@@ -22,6 +21,8 @@ from .onu import SideEvent
 from .onu import WrongTurnEvent
 
 log = getLogger(__name__)
+
+
 
 class HikariOnu(OnuHandler):
     def __init__(
@@ -41,8 +42,14 @@ class HikariOnu(OnuHandler):
             "green": CardColors.GREEN, 
             "blue": CardColors.BLUE
         }
-        self.bot = None
+        self._bot = None
         self.ctx = None
+
+    @property
+    def bot(self) -> Inu:
+        if self._bot is None:
+            raise RuntimeError("bot not set but needed")
+        return self._bot
 
     def get_user(self, hand: Hand) -> Union[hikari.User, hikari.Member]:
         return self.players[int(hand.id)]
@@ -93,6 +100,7 @@ class HikariOnu(OnuHandler):
     async def loop(self):
         while not self.onu.game_over:
             card_index, user_id = await self._wait_for_interaction()
+            assert user_id is not None
             if card_index is None:
                 # timeout
                 break
@@ -101,6 +109,7 @@ class HikariOnu(OnuHandler):
             if card_index in self.colors.keys():
                 # change selected color
                 # here the name card_index is maybe a bit weird
+                card_index = cast(str, card_index)
                 event = self.do_turn(hand, select_color=self.colors[card_index])
             elif card_index == 0:
                 # draw a card
@@ -111,6 +120,16 @@ class HikariOnu(OnuHandler):
             await self.a_on_event(event)
 
     async def _wait_for_interaction(self) -> Tuple[Optional[Union[int, str]], Optional[Snowflakeish]]:
+        """
+        Returns:
+        --------
+        _: Tuple[card_index, user_id]
+            card_index: int or str
+                if str: color
+                if int: card index
+            user_id: int
+                the user id of the player
+        """
         try:
             coros = [
                 self.bot.wait_for(
@@ -141,7 +160,7 @@ class HikariOnu(OnuHandler):
                 return None, None
             event = done.pop().result()
             if isinstance(event, MessageCreateEvent):
-                index = int(event.message.content)
+                index = int(event.message.content)  # type:ignore - this is caught by try except
                 user_id = event.author_id
                 return index, user_id
             await event.interaction.create_initial_response(ResponseType.DEFERRED_MESSAGE_UPDATE)
@@ -155,8 +174,8 @@ class HikariOnu(OnuHandler):
         except Exception:
             return await self._wait_for_interaction()
 
-    async def start(self, bot: Inu, ctx: Context):
-        self.bot = bot
+    async def start(self, bot: Inu, ctx: InuContext):
+        self._bot = bot
         self.ctx = ctx
         tasks = []
         for user in self.players.values():
@@ -170,7 +189,7 @@ class HikariOnu(OnuHandler):
             # # log.debug(task.get_name())
             self.channels[int(task.get_name())] = int(task.result().id)
 
-        async def initial_message(self: OnuHandler, hand):
+        async def initial_message(self: HikariOnu, hand):
             channel_id = self.channels[int(hand.id)]
             message = await self.bot.rest.create_message(channel_id, self.create_player_hand_embed(hand), components=self.create_player_hand_component(hand))
             self.messages[int(hand.id)] = message.id
@@ -251,7 +270,7 @@ class HikariOnu(OnuHandler):
         for hand in self.onu.hands:
             await self.send(hand)
 
-    def create_player_hand_embed(self, hand: Hand, info: str = None):
+    def create_player_hand_embed(self, hand: Hand, info: Optional[str] = None):
         embed = hikari.Embed(
             title="Your hand", 
             color=Colors.from_name(

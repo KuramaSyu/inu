@@ -216,7 +216,9 @@ class Tag():
                 ),
                 ephemeral=True,
             )
-        return await cls.from_record(records[0], db_checks=False)
+        tag = await cls.from_record(records[0], db_checks=False)
+        log.debug(f"Tag fetched from link: {repr(tag)}")
+        return tag
 
     async def used_now(self):
         """Adds a asyncio task to update the tag last_use column"""
@@ -461,8 +463,24 @@ class Tag():
 
     @property
     def components(self) -> List[MessageActionRowBuilder] | None:
-        """
-        Returns a list of components of the tag.
+        """Returns a list of components of the tag.
+
+        This method generates UI components based on tag link information. If there are 5 or fewer
+        links in the value, it creates buttons. For 6 or more links (up to 24), it creates a dropdown menu.
+
+        Returns
+        -------
+        List[MessageActionRowBuilder] | None
+            A list containing a single action row with either:
+            - Multiple interactive buttons (for 5 or fewer links)
+            - A dropdown menu (for 6-24 links)
+            - None if no tag link information exists
+
+        Notes
+        -----
+        - For button display (<=5 links): Creates secondary style buttons with tag names
+        - For menu display (6-24 links): Creates a dropdown with tag options
+        - Menu is limited to first 24 options if more exist
         """
         if not self.tag_link_infos:
             return None
@@ -1087,7 +1105,34 @@ class TagManager():
         option: hikari.AutocompleteInteractionOption, 
         interaction: hikari.AutocompleteInteraction
     ) -> List[str]:
-        """autocomplete for tag keys"""
+        """Auto-complete tag names based on user input.
+
+        This method provides auto-completion suggestions for tag names in a Discord interaction
+        based on the user's input. The behavior varies depending on input length:
+        - For inputs > 2 chars: Returns similar tag names using fuzzy matching
+        - For inputs of 1-2 chars: Returns tags starting with input (including aliases)
+        - For empty/null input: Returns most recent tags
+
+        Parameters
+        ----------
+        option : hikari.AutocompleteInteractionOption
+            The autocomplete interaction option containing the user's input value
+        interaction : hikari.AutocompleteInteraction
+            The Discord autocomplete interaction object
+
+        Returns
+        -------
+        List[str]
+            A list of up to 24 tag names matching the search criteria.
+            Returns an empty list if an error occurs.
+
+        Notes
+        -----
+        The method uses different search strategies based on input length:
+        - Fuzzy search for 3+ characters
+        - Prefix matching for 1-2 characters 
+        - Recent tags for empty input
+        """
         guild_or_channel = get_guild_or_channel_id(interaction)
         try:
             if option.value and len(str(option.value)) > 2:

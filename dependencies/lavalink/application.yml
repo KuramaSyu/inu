@@ -9,13 +9,13 @@ server: # REST and WS server
 plugins:
   youtube:
     enabled: true
-    clients: ["MUSIC", "ANDROID", "WEB", "WEBEMBEDDED", "TVHTML5EMBEDDED"]
+    clients: ["MUSIC", "ANDROID", "WEB", "WEBEMBEDDED"]
 
 lavalink:
   plugins:
     # Replace VERSION with the current version as shown by the Releases tab or a long commit hash for snapshots.
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.8.3"
-    # URL: https://github.com/lavalink-devs/youtube-source/releases
+    # https://github.com/lavalink-devs/youtube-source/releases
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.11.3"  
       snapshot: false # Set to true if you want to use a snapshot version.
   pluginsDir: "./plugins"
   server:

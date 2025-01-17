@@ -4,49 +4,42 @@ from datetime import timedelta
 
 
 import hikari
-from hikari import TextInputStyle
+from hikari import (
+    Message, Resourceish, Snowflake, SnowflakeishOr, TextInputStyle, 
+    UndefinedOr, UNDEFINED, Embed, UndefinedNoneOr
+)
+from hikari.impl import MessageActionRowBuilder
 from lightbulb.context import Context
-from lightbulb import ResponseProxy
 
-
+from .mixins import GuildsAndChannelsMixin, AuthorMixin, CustomIDMixin
 from ..bot import Inu
 
+if TYPE_CHECKING:
+    from .response_state import BaseResponseState
+    from .response_proxy import ResponseProxy
 
 T = TypeVar("T")
-
+Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | hikari.ComponentInteraction]
 T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 
 class InuContext(ABC):
+    update: bool
+
+    @classmethod
     @abstractmethod
     def from_context(cls, ctx: Context) -> T:
         ...
 
+    @classmethod
     @abstractmethod
-    def from_event(cls, event: hikari.Event) -> T:
+    def from_event(cls, interaction: Interaction) -> T:
         ...
     
     @property
     @abstractmethod
-    def original_message(self) -> hikari.Message:
+    def original_message(self) -> Optional[hikari.Message]:
         ...
-
-    @property
-    @abstractmethod
-    def is_responded(self) -> bool:
-        "Whether or not the interaction has been responded to"
-
-    @property
-    @abstractmethod
-    def is_deferred(self) -> bool:
-        "Whether or not the interaction has been deferred"
-        return False
-
-    @property
-    @abstractmethod
-    def needs_response(self) -> bool:
-        "Whether or not the interaction needs a response because is was deferred"
-        return False
 
     @property
     @abstractmethod
@@ -75,7 +68,7 @@ class InuContext(ABC):
     
     @property
     @abstractmethod
-    def author_id(self) -> int:
+    def author_id(self) -> Snowflake:
         ...
 
     @property
@@ -85,64 +78,93 @@ class InuContext(ABC):
         
     @property
     @abstractmethod
-    def guild_id(self) -> int | None:
+    def guild_id(self) -> Snowflake | None:
         ...
         
     @property
     @abstractmethod
-    def channel_id(self) -> int:
+    def channel_id(self) -> Snowflake:
         ...
+    
+    @abstractmethod
+    def get_channel(self) -> hikari.GuildChannel | None:
+        ...
+
+    @abstractmethod
+    async def execute(self, *args, delete_after: timedelta | int | None = None, **kwargs) -> Message:
+        ...
+
+    @abstractmethod
+    async def respond(
+        self, 
+        content: UndefinedOr[str] = UNDEFINED,
+        embed: UndefinedNoneOr[Embed] = UNDEFINED,
+        embeds: UndefinedOr[List[Embed]] = UNDEFINED,
+        delete_after: timedelta | None = None,
+        ephemeral: bool = False,
+        component: UndefinedNoneOr[MessageActionRowBuilder] = UNDEFINED,
+        components: UndefinedOr[List[MessageActionRowBuilder]] = UNDEFINED,   
+        flags: hikari.MessageFlag = hikari.MessageFlag.NONE,
+        update: SnowflakeishOr[Message] | bool = False,
+        attachment: UndefinedNoneOr[Resourceish] = UNDEFINED,
+        attachments: UndefinedOr[List[Resourceish]] = UNDEFINED,
+        ) -> "ResponseProxy":
+        """Respond to an interaction or command with a message.
+
+        Parameters
+        ----------
+        content : UndefinedOr[str], optional
+            The text content of the message
+        embed : UndefinedNoneOr[Embed], optional
+            A single embed to send
+        embeds : UndefinedOr[List[Embed]], optional
+            List of embeds to send
+        delete_after : timedelta | None, optional
+            If set, delete the message after this duration
+        ephemeral : bool, default False
+            Whether the message should be ephemeral (only visible to command user)
+        component : UndefinedNoneOr[MessageActionRowBuilder], optional
+            A single component action row to add
+        components : UndefinedOr[List[MessageActionRowBuilder]], optional
+            List of component action rows to add
+        flags : hikari.MessageFlag, default NONE
+            Message flags to apply
+        update : bool, default False
+            Whether to update the original message instead of sending new one
+
+        Returns
+        -------
+        ResponseProxy
+            Proxy object for the sent message response
+
+        Notes
+        -----
+        - Only one of `embed`/`embeds` and `component`/`components` can be used
+        - Ephemeral messages cannot be deleted with delete_after
         
-    @property
-    def display_name(self) -> str:
-        """
-        returns member.display_name or user.username
-        """
-        if self.member:
-            return self.member.display_name
-        return self.author.username
-
-    @abstractmethod
-    async def execute(self, *args, delete_after: timedelta | int | None = None, **kwargs) -> ResponseProxy:
-        ...
-
-    @abstractmethod
-    async def respond(self, *args, **kwargs) -> ResponseProxy:
-        """
-        Create a response for this context. The first time this method is called, the initial
-        interaction response will be created by calling
-        :obj:`~hikari.interactions.command_interactions.CommandInteraction.create_initial_response` with the response
-        type set to :obj:`~hikari.interactions.base_interactions.ResponseType.MESSAGE_CREATE` if not otherwise
-        specified.
-
-        Subsequent calls will instead create followup responses to the interaction by calling
-        :obj:`~hikari.interactions.command_interactions.CommandInteraction.execute`.
-
-        Args:
-            update : bool
-                wether or not to update the current interaction message
-            *args (Any): Positional arguments passed to ``CommandInteraction.create_initial_response`` or
-                ``CommandInteraction.execute``.
-            delete_after (Union[:obj:`int`, :obj:`float`, ``None``]): The number of seconds to wait before deleting this response.
-            **kwargs: Keyword arguments passed to ``CommandInteraction.create_initial_response`` or
-                ``CommandInteraction.execute``.
-
-        Returns:
-            :obj:`~ResponseProxy`: Proxy wrapping the response of the ``respond`` call.
-
-        .. versionadded:: 2.2.0
-            ``delete_after`` kwarg.
+        Examples
+        --------
+        Simple text response:
+        >>> await ctx.respond("Hello!")
+        
+        Ephemeral embed:
+        >>> embed = Embed(title="Secret")
+        >>> await ctx.respond(embed=embed, ephemeral=True)
         """
         ...
     @property
     @abstractmethod
-    def id(self):
+    def id(self) -> int:
         """used to Compare `InuContext` classes"""
         ...
 
     @property
-    def interaction(self) -> hikari.PartialInteraction | None:
+    def interaction(self) -> Interaction:
         ...
+
+    @abstractmethod
+    def is_responded(self) -> bool:
+        "Whether or not the interaction has been responded to. Checks is the response state is not InitialResponseState"
     
     @abstractmethod
     async def defer(self, update: bool = False, background: bool = True):
@@ -183,7 +205,7 @@ class InuContext(ABC):
         return self.id is not None
     
     @property
-    def last_response(self) -> ResponseProxy | None:
+    def last_response(self) -> Message:
         """the last response message"""
         ...
     
@@ -204,7 +226,11 @@ class InuContext(ABC):
         after : int
             wait <after> seconds, until deleting
         """
-
+    @abstractmethod
+    def enforce_update(self, value: bool):
+        """Whether to enforce updating the message with respond()"""
+        ...
+        
     @abstractmethod
     async def ask(
             self, 
@@ -215,7 +241,7 @@ class InuContext(ABC):
             delete_after_timeout: bool = False,
             allowed_users: List[hikari.SnowflakeishOr[hikari.User]] | None = None
     ) -> Tuple[str, "InuContext"]:
-        """g
+        """
         ask a question with buttons
 
         Args:
@@ -228,15 +254,15 @@ class InuContext(ABC):
             whether or not the message should be ephemeral
         timeout : int
             the timeout in seconds
-        delete_after_timeout : bool (default: False)
-            wether or not to delete the message after the timeout
-        allowed_users : List[hikari.User] | None
-            the allowed users to interact with the buttons
-        
+        allowed_users : List[hikari.User]
+            the users allowed to interact with the buttons
+
         Returns:
         --------
-        Tuple[str, "InteractionContext"]
+        Tuple[str, "InuContext"]
             the selected label and the new context
+        None
+            if the timeout is reached
         """
 
     async def ask_with_modal(
@@ -250,7 +276,7 @@ class InuContext(ABC):
             pre_value_s: Optional[Union[str, List[Union[str, None]]]] = None,
             is_required_s: Optional[Union[bool, List[Union[bool, None]]]] = None,
             timeout: int = 120
-    ) -> Tuple[T_STR_LIST, "InuContext"] | None:
+    ) -> Tuple[T_STR_LIST, "InuContext"] | Tuple[None, None]:
         """
         ask a question with buttons
 
@@ -297,6 +323,31 @@ class InuContext(ABC):
         """the ID of the initial response message if there is one"""
         ...
 
+    async def edit_last_response(
+        self,
+        embeds: List[hikari.Embed] | None = None,
+        content: str | None = None,
+        components: List[MessageActionRowBuilder] | None = None,
+    ) -> Message:
+        """edits the last response"""
+        ...
+
+    @property
+    @abstractmethod
+    def response_state(self) -> "BaseResponseState":
+        ...
+
+    @property
+    @abstractmethod
+    def needs_response(self) -> bool:
+        """Whether or not the interaction needs a response. Need is definded, that otherwise an error would be raised"""
+        ...
+
+    @property
+    def display_name(self) -> str:
+        """returns the display name, if user is a member, otherwise the username"""
+        ...
+    
 class InuContextProtocol(Protocol[T]):
     def from_context(cls: Context, ctx: Context) -> T:
         ...
@@ -305,11 +356,11 @@ class InuContextProtocol(Protocol[T]):
         ...
 
     @property
-    def original_message(self) -> hikari.Message:
+    def initial_response(self) -> hikari.Message:
         ...
 
     @property
-    def interaction(self) -> hikari.PartialInteraction | None:
+    def interaction(self) -> Interaction:
         ...
     
     async def defer(self, background: bool = True):
@@ -403,3 +454,4 @@ class InuContextProtocol(Protocol[T]):
     async def delete_inital_response(self) -> None:
         """deletes the initial response"""
         ...
+        

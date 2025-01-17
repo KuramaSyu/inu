@@ -6,13 +6,13 @@ import traceback
 
 from humanize import naturaldelta
 import hikari
-from lightbulb import commands, context
+from lightbulb import commands, context, SlashCommand, invoke, Loader
 from tabulate import tabulate
 
 
 from utils import (
     crumble,
-    AutorolesView,
+    AutorolesScreen,
     AutoroleManager,
     AutorolesViewer,
     CustomID
@@ -20,54 +20,64 @@ from utils import (
 from core import (
     Inu, 
     getLogger,
-    get_context
+    get_context,
+    InuContext
 )
+import miru 
+from miru.ext.menu import menu
 
 log = getLogger(__name__)
 
-plugin = lightbulb.Plugin("Autoroles", "Role Management")
-bot: Inu
+loader = lightbulb.Loader()
+bot: Inu = Inu.instance
+client = bot.miru_client
 
-@plugin.command
-@lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.app_command_permissions(hikari.Permissions.MANAGE_ROLES)
-@lightbulb.command("autoroles", "a command for editing autoroles")
-@lightbulb.implements(commands.SlashCommandGroup)
-async def autoroles(ctx: context.Context):
-    ...
-
-@autoroles.child()
-@lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.app_command_permissions(hikari.Permissions.MANAGE_ROLES)
-@lightbulb.command("edit", "a command for editing autoroles")
-@lightbulb.implements(commands.SlashSubCommand)
-async def autoroles_edit(ctx: context.Context):
-    view = AutorolesView(author_id=ctx.author.id)
-    await view.pre_start(ctx.guild_id)
-    msg = await ctx.respond(components=view, embed=await view.embed())
-    await view.start(await msg.message())
-    
-@autoroles.child()
-@lightbulb.add_checks(lightbulb.guild_only)
-@lightbulb.option(
-    "role", 
-    "the role to add or remove from the autoroles",
-    choices=[v.__name__ for v in AutoroleManager.id_event_map.values()]
+autoroles_group = lightbulb.Group(
+    name="autoroles",
+    description="Role Management",
+    dm_enabled=False,
+    default_member_permissions=hikari.Permissions.MANAGE_ROLES
 )
-@lightbulb.command("view", "a command for viewing the autoroles given to members")
-@lightbulb.implements(commands.SlashSubCommand)
-async def autoroles_view(ctx: context.Context):
-    event_id = None
-    for k, v in AutoroleManager.id_event_map.items():
-        if ctx.options["role"] == v.__name__:
-            event_id = k
-            break
-    pag = AutorolesViewer().set_autorole_id(event_id)
-    await pag.start(get_context(ctx.event))
-    # records = await AutoroleManager.fetch_instances(ctx.guild_id, event=event)
-    # pag = Paginator(page_s=make_autorole_strings(records, ctx.guild_id))
-    # await pag.start(ctx)
-@plugin.listener(hikari.InteractionCreateEvent)
+
+@autoroles_group.register
+class AutorolesEdit(
+    SlashCommand,
+    name="edit",
+    description="a command for editing autoroles",
+):
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        menu = miru.ext.menu.Menu()
+        screen = AutorolesScreen(menu, ctx.author_id)
+        await screen.pre_start(ctx.guild_id)
+        builder = await menu.build_response_async(client, screen)
+        await builder.create_initial_response(ctx.interaction)
+        client.start_view(menu)
+
+
+@autoroles_group.register
+class AutorolesViewCommand(
+    SlashCommand,
+    name="view",
+    description="a command for viewing the autoroles given to members",
+):
+    role = lightbulb.string(
+        "role",
+        "the role to add or remove from the autoroles",
+        choices=[lightbulb.Choice(v.__name__, v.__name__) for v in AutoroleManager.id_event_map.values()]
+    )
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        event_id = None
+        for k, v in AutoroleManager.id_event_map.items():
+            if self.role == v.__name__:
+                event_id = k
+                break
+        pag = AutorolesViewer().set_autorole_id(event_id)
+        await pag.start(ctx)
+
+@loader.listener(hikari.InteractionCreateEvent)
 async def on_autoroles_view_interaction(event: hikari.InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return
@@ -77,11 +87,12 @@ async def on_autoroles_view_interaction(event: hikari.InteractionCreateEvent):
             return
     except Exception:
         return
+    log.debug(f"custom_id: {custom_id}")
     pag = AutorolesViewer().set_autorole_id(custom_id.get("autoid")).set_custom_id(event.interaction.custom_id)
-    await pag.rebuild(event)
-    
+    await pag.rebuild(event.interaction)
+
 def make_autorole_strings(
-    records: List[Dict[Literal['id', 'user_id', 'expires_at', 'event_id', 'role_id'], Any]],
+    records: List[Dict[Literal['id', 'user_id', 'expires_at', 'event_id', 'role_id'], Any]], 
     guild_id: int
 ) -> List[str]:
     AMOUNT_PER_PAGE = 15
@@ -118,13 +129,6 @@ def make_autorole_strings(
     
     string = tabulate(table, headers=table.keys(), tablefmt="simple_grid")
     return [f"```\n{x}\n```" for x in crumble(string, 2000, seperator="\n")]
-                
-        
-    
-    
 
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
+loader.command(autoroles_group)
 

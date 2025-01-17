@@ -5,81 +5,87 @@ import traceback
 
 from tabulate import tabulate
 import hikari
-from hikari import ComponentInteraction, ButtonStyle
+from hikari import ComponentInteraction, ButtonStyle, InteractionCreateEvent, PartialInteraction, Role
 from hikari.impl import MessageActionRowBuilder
 import miru
 from pytimeparse.timeparse import timeparse
 from humanize import naturaldelta
-
+from miru.ext import menu
 from . import Paginator, StatelessPaginator
 from ..db import AutoroleManager, AutoroleBuilder, AutoroleEvent
 
 from utils import crumble
-from core import getLogger, InuContext, BotResponseError, Inu
+from core import getLogger, InuContext, BotResponseError, Inu, get_context
 
 log = getLogger(__name__)
 
 
-class RoleSelectView(miru.View):
-    author_id: int
-    roles: Sequence[hikari.Role] = []
 
-    def __init__(self, author_id: int) -> None:
-        super().__init__(timeout=15*10, autodefer=True)
+class RoleSelectScreen(menu.Screen):
+    def __init__(self, menu_instance: menu.Menu, author_id: int) -> None:
+        super().__init__(menu_instance)
         self.author_id = author_id
-        self.roles = []
+        self.roles: Sequence[Role] = []
 
-    @miru.role_select(custom_id="role_select", placeholder="Select a role")
-    async def role_select(self, select: miru.RoleSelect, ctx: miru.ViewContext):
+    async def build_content(self) -> menu.ScreenContent:
+        return menu.ScreenContent()
+
+    @menu.role_select(custom_id="role_select", placeholder="Select a role")
+    async def role_select(self, ctx: miru.ViewContext, select: miru.RoleSelect):
         self.roles = select.values
-        self.stop()
+        await self.menu.pop()
+        
+class MyModal(miru.Modal, title="Example Title"):
 
-    async def view_check(self, context: miru.ViewContext) -> bool:
-        return context.message.id == self.message.id and context.author.id == self.author_id
-    
-
-
-class EventSelectView(miru.View):
-    author_id: int
-    event: Type[AutoroleEvent]
-
-    def __init__(self, author_id: int) -> None:
-        super().__init__(timeout=15*10, autodefer=True)
-        self.author_id = author_id
-        self.event_id = 0
-
-    @miru.text_select(
-            custom_id="event_select", 
-            placeholder="Select an event", 
-            options=[miru.SelectOption(event.name, str(event.event_id)) for event in AutoroleManager.id_event_map.values()],
+    name = miru.TextInput(
+        label="Name",
+        placeholder="Type your name!",
+        required=True
     )
-    async def event_select(self, select: miru.TextSelect, ctx: miru.ViewContext):
-        self.event = AutoroleManager.id_event_map[int(select.values[0])]
-        self.stop()
 
-    async def view_check(self, context: miru.ViewContext) -> bool:
-        return context.message.id == self.message.id and context.author.id == self.author_id
+    bio = miru.TextInput(
+        label="Biography",
+        value="Pre-filled content!",
+        style=hikari.TextInputStyle.PARAGRAPH
+    )
 
+    # The callback function is called after the user hits 'Submit'
+    async def callback(self, ctx: miru.ModalContext) -> None:
+        # You can also access the values using ctx.values,
+        # Modal.values, or use ctx.get_value_by_id()
+        await ctx.respond(
+            f"Your name: `{self.name.value}`\nYour bio: ```{self.bio.value}```"
+        )
 
-
-class AutorolesView(miru.View):
-    table_headers = ["ID", "Role", "Event", "duration"]
-    table: List[AutoroleBuilder] = []
-    selected_row_index = 0
-    author_id: int
-    
-    def __init__(self, author_id: int) -> None:
-        super().__init__(timeout=15*10, autodefer=True)
+class EventSelectScreen(menu.Screen):
+    def __init__(self, menu_instance: menu.Menu, author_id: int) -> None:
+        super().__init__(menu_instance)
         self.author_id = author_id
+        self.event = None
+
+    async def build_content(self) -> menu.ScreenContent:
+        return menu.ScreenContent()
+
+    @menu.text_select(
+        custom_id="event_select", 
+        placeholder="Select an event", 
+        options=[miru.SelectOption(str(event.name), str(event.event_id)) for event in AutoroleManager.id_event_map.values()],
+    )
+    async def event_select(self, ctx: miru.ViewContext, select: miru.TextSelect):
+        self.event = AutoroleManager.id_event_map[int(select.values[0])]
+        await self.menu.pop()
+
+class AutorolesScreen(menu.Screen):
+    table_headers = ["ID", "Role", "Event", "duration"]
+    
+    def __init__(self, menu_instance: menu.Menu, author_id: int) -> None:
+        self.author_id = author_id
+        self.table: List[AutoroleBuilder] = []
+        self.selected_row_index = 0
+        super().__init__(menu_instance)
+
 
     async def pre_start(self, guild_id: int):
-        """Fetches events from the database and wraps them in a table
-        
-        Parameters
-        ----------
-        guild_id : int
-            The guild ID to fetch events for
-        """
         try:
             self.table = await AutoroleManager.wrap_events_in_builder(
                 await AutoroleManager.fetch_events(guild_id, None)
@@ -91,109 +97,7 @@ class AutorolesView(miru.View):
             builder.guild = guild_id
             self.table = [builder]
 
-    async def start(self, message: hikari.Message):
-        await super().start(message)
-
-    @miru.button(label="⬆️", style=ButtonStyle.SECONDARY, custom_id="autoroles_up")
-    async def button_up(self, button: miru.Button, ctx: miru.ViewContext):
-        self.selected_row_index = max(0, self.selected_row_index - 1)
-        await self.render_table()
-    
-    @miru.button(label="⬇️", style=ButtonStyle.SECONDARY, custom_id="autoroles_down")
-    async def button_down(self, button: miru.Button, ctx: miru.ViewContext):
-        self.selected_row_index = min(len(self.table) - 1, self.selected_row_index + 1)
-        await self.render_table()
-
-    @miru.button(label="➕", style=ButtonStyle.SECONDARY, custom_id="autoroles_add")
-    async def button_add(self, button: miru.Button, ctx: miru.ViewContext):
-        builder = AutoroleBuilder()
-        builder.guild = self._last_context.guild_id
-        self.table.insert(self.selected_row_index, builder)
-        await self.render_table()
-
-    @miru.button(label="➖", style=ButtonStyle.SECONDARY, custom_id="autoroles_remove")
-    async def button_remove(self, button: miru.Button, ctx: miru.ViewContext):
-        event = self.table.pop(self.selected_row_index)
-        maybe_deleted = await event.delete()
-        await self.render_table()
-        await ctx.respond(
-            f"Event with ID {event.id} was {'' if maybe_deleted else 'not '}deleted.",
-            flags=hikari.MessageFlag.EPHEMERAL
-        )
-
-    @miru.button(emoji="📌", label="Set Role", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_role", row=2)
-    async def button_set_role(self, button: miru.Button, ctx: miru.ViewContext):
-        role_select = RoleSelectView(ctx.author.id)
-        msg = await ctx.edit_response(components=role_select)
-        await role_select.start(await msg.retrieve_message())
-        await role_select.wait()
-        if not role_select.roles:
-            return
-        await self.start(await msg.retrieve_message())
-        self.table[self.selected_row_index].role = role_select.roles[0]
-        await self.render_table()
-
-
-    @miru.button(emoji="📅", label="Set Event", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_event", row=2)
-    async def button_set_event(self, button: miru.Button, ctx: miru.ViewContext):
-        event_select = EventSelectView(ctx.author.id)
-        msg = await ctx.edit_response(components=event_select)
-        await event_select.start(await msg.retrieve_message())
-        await event_select.wait()
-        if not event_select.event:
-            return
-        await self.start(await msg.retrieve_message())
-        self.table[self.selected_row_index].event = event_select.event
-        await self.render_table()
-
-
-    @miru.button(emoji="🕒", label="Set Duration", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_duration", row=2)
-    async def button_set_duration(self, button: miru.Button, ctx: miru.ViewContext):
-        bot: Inu = ctx.bot
-        answer, interaction, event = None, None, None
-        try:
-            answer, interaction, event = await bot.shortcuts.ask_with_modal(
-                "Duration",
-                "Duration:",
-                ctx.interaction,
-                placeholder_s="2 weeks 5 days"
-            )
-        except asyncio.TimeoutError:
-            return
-        if not answer:
-            return
-        duration = timeparse(answer)
-        ctx._interaction = interaction
-        if not duration:
-            await ctx.respond("Invalid duration. Use something like 3 weeks or 20 days", flags=hikari.MessageFlag.EPHEMERAL)
-            return
-        self.table[self.selected_row_index].duration = timedelta(seconds=duration)
-        await self.render_table()
-
-    # save button
-    @miru.button(emoji="💾", label="Save", style=ButtonStyle.SECONDARY, custom_id="autoroles_save", row=2)
-    async def button_save(self, button: miru.Button, ctx: miru.ViewContext):
-        await ctx.respond("Start..", flags=hikari.MessageFlag.EPHEMERAL)
-        await self.save_rows()
-        await ctx.edit_response("Saved!", flags=hikari.MessageFlag.EPHEMERAL)
-        
-    @miru.button(emoji="❌", label="Stop", style=ButtonStyle.SECONDARY, custom_id="autoroles_close")
-    async def button_close(self, button: miru.Button, ctx: miru.ViewContext):
-        await self.render_table(update_db=False)
-        await (await ctx.get_last_response()).delete()
-        self.stop()
-
-    async def render_table(self, update_db: bool = True):
-        """Renders the table and updates the message."""
-        if update_db:
-            await self.save_rows()
-        if not self.table:
-            self.table.append(AutoroleBuilder())
-        embed = await self.embed()
-        await self._last_context.edit_response(embed=embed, components=self)
-
-    async def embed(self) -> hikari.Embed:
-        """Renders the table as an embed."""
+    async def build_content(self) -> menu.ScreenContent:
         DEFAULT_NONE_VALUE = "---"
         table = []
         for index, row in enumerate(self.table):
@@ -204,22 +108,109 @@ class AutorolesView(miru.View):
                 (None if not row.event else row.event.name) or DEFAULT_NONE_VALUE,
                 (naturaldelta(row.duration) if row.duration else None) or "∞",
             ])
+        if not table:
+            table = [[]]
+        log.info(f"{table=} {[repr(x) for x in self.table]}")
         rendered_table = tabulate(table, headers=self.table_headers, tablefmt="simple_grid", maxcolwidths=[4, 15, 15, 10])
-        return hikari.Embed(
-            title="Autoroles",
-            description=f"```{rendered_table}```"
+        return menu.ScreenContent(
+            embed=hikari.Embed(
+                title="Autoroles",
+                description=f"```{rendered_table}```"
+            )
         )
 
+    @menu.button(label="⬆️", style=ButtonStyle.SECONDARY)
+    async def button_up(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        self.selected_row_index = max(0, self.selected_row_index - 1)
+        await self.menu.update_message(await self.build_content())
+    
+    @menu.button(label="⬇️", style=ButtonStyle.SECONDARY)
+    async def button_down(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        self.selected_row_index = min(len(self.table) - 1, self.selected_row_index + 1)
+        await self.menu.update_message(await self.build_content())
+
+    @menu.button(label="➕", style=ButtonStyle.SECONDARY)
+    async def button_add(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        builder = AutoroleBuilder()
+        builder.guild = ctx.guild_id
+        self.table.insert(self.selected_row_index, builder)
+        await self.menu.update_message(await self.build_content())
+
+    @menu.button(label="➖", style=ButtonStyle.SECONDARY)
+    async def button_remove(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        event = self.table.pop(self.selected_row_index)
+        maybe_deleted = await event.delete()
+        await self.menu.update_message()
+        await ctx.respond(
+            f"Event with ID {event.id} was {'' if maybe_deleted else 'not '}deleted.",
+            flags=hikari.MessageFlag.EPHEMERAL
+        )
+
+    @menu.button(emoji="📌", label="Set Role", style=ButtonStyle.SECONDARY, row=2)
+    async def button_set_role(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        role_screen = RoleSelectScreen(self.menu, ctx.author.id)
+        await self.menu.push(role_screen)
+        log.debug("waiting for role screen")
+        await role_screen.menu.wait_for_input()
+        log.debug("role screen done")
+        if role_screen.roles:
+            log.debug(f"{role_screen.roles=}")
+            self.table[self.selected_row_index].role = role_screen.roles[0]
+            await self.menu.update_message(await self.build_content())
+        else:
+            log.debug("no role selected")
+            await ctx.respond("No role selected", flags=hikari.MessageFlag.EPHEMERAL)
+
+    @menu.button(emoji="📅", label="Set Event", style=ButtonStyle.SECONDARY, row=2)
+    async def button_set_event(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        event_screen = EventSelectScreen(self.menu, ctx.author.id)
+        await self.menu.push(event_screen)
+        await self.menu.wait_for_input()
+        if event_screen.event:
+            self.table[self.selected_row_index].event = event_screen.event
+            await self.menu.update_message(await self.build_content())
+
+    @menu.button(emoji="🕒", label="Set Duration", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_duration", row=2)
+    async def button_set_duration(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        ictx = get_context(ctx.interaction)
+        answer, new_ictx = await ictx.ask_with_modal(
+            "Duration",
+            "Duration:",
+            placeholder_s="2 weeks 5 days"
+        )
+        if not answer:
+            return
+        duration = timeparse(answer)
+        
+
+        if not duration:
+            await new_ictx.respond("Invalid duration. Use something like 3 weeks or 20 days", update=True)
+            return
+        
+        ctx = miru.ViewContext(self.menu, Inu.instance.miru_client, new_ictx.interaction)
+        self.menu._last_context = ctx
+        self._last_context = ctx
+        
+        self.table[self.selected_row_index].duration = timedelta(seconds=duration)
+        await self.menu.update_message(await self.build_content())
+
+    # save button
+    @menu.button(emoji="💾", label="Save", style=ButtonStyle.SECONDARY, custom_id="autoroles_save", row=2)
+    async def button_save(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        await ctx.respond("Start..", flags=hikari.MessageFlag.EPHEMERAL)
+        await self.save_rows()
+        await ctx.edit_response("Saved!", flags=hikari.MessageFlag.EPHEMERAL)
+        
+    @menu.button(emoji="❌", label="Stop", style=ButtonStyle.SECONDARY, custom_id="autoroles_close")
+    async def button_close(self, ctx: miru.ViewContext, button: menu.ScreenButton):
+        self.menu.stop()
+        await (await ctx.get_last_response()).delete()
+
     async def save_rows(self):
-        """Saves all rows in the table if possible."""
         for row in self.table:
             saved = await row.save()
             log.trace(f"{saved=}; {row=}")
 
-    async def view_check(self, context: miru.ViewContext) -> bool:
-        """predicate to check wether or not a user is allowed to use the view."""
-        return context.message.id == self.message.id and context.author.id == self.author_id
-    
 class AutorolesViewer(StatelessPaginator):
     """
     Viewer for which person has got which role
@@ -269,8 +260,8 @@ class AutorolesViewer(StatelessPaginator):
         await self._set_pages_with_autorole_id(self._autorole_id)
         await super().start(ctx)
 
-    async def _rebuild(self, event: hikari.ComponentInteraction):
-        self.set_context(event=event)
+    async def _rebuild(self, interaction: ComponentInteraction, **kwargs):
+        self.set_context(interaction=interaction)
         self._autorole_id = self.custom_id.get("autoid")
         autorole_event = AutoroleManager.id_event_map.get(self._autorole_id)
         await self._set_pages_with_autorole_id(autorole_event)

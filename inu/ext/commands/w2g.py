@@ -17,15 +17,16 @@ from hikari import (
     MessageCreateEvent, 
     embeds, 
     ResponseType, 
-    TextInputStyle
+    TextInputStyle,
+    Permissions,
+    ButtonStyle
 )
 from hikari.events import InteractionCreateEvent
 from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBuilder
-from hikari import ButtonStyle
-from jikanpy import AioJikan
-from lightbulb import OptionModifier as OM
-from lightbulb import commands, context
+from hikari.impl import MessageActionRowBuilder
+from lightbulb import commands, context, Loader, Group, SubGroup, SlashCommand, invoke
 from lightbulb.context import Context
+from lightbulb.prefab import sliding_window
 from matplotlib.style import available
 from typing_extensions import Self
 
@@ -43,34 +44,36 @@ from core import (
     BotResponseError, 
     Inu, 
     Table, 
-    getLogger
+    getLogger,
+    InuContext
 )
 
 log = getLogger(__name__)
-plugin = lightbulb.Plugin("API Stuff", "API commands")
+loader = lightbulb.Loader()
 bot: Inu
 
-@plugin.command
-@lightbulb.option(name="link", description="A optional YouTube video to add", default=None)
-@lightbulb.command("watch2gether", "Create a W2G room")
-@lightbulb.implements(commands.SlashCommand)
-async def make_w2g_link(ctx: context.Context):
-    resp = await Watch2Gether.fetch_link(ctx.options.link)
-    await ctx.respond(
-        component=(
-            MessageActionRowBuilder()
-            .add_link_button(
-                resp['room-link'],
-                label="Watch2Gether Room"
+@loader.command
+class Watch2GetherCommand(
+    SlashCommand,
+    name="watch2gether",
+    description="Create a W2G room",
+    dm_enabled=False,
+    default_member_permissions=None,
+    hooks=[sliding_window(3, 1, "user")]
+):
+    optional_link = lightbulb.string("link", "An optional YouTube video to add", default=None)  # Option 1
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        resp = await Watch2Gether.fetch_link(self.optional_link)
+        await ctx.respond(
+            component=(
+                MessageActionRowBuilder()
+                .add_link_button(
+                    resp['room-link'],
+                    label="Watch2Gether Room"
+                )
             )
         )
-    )
 
-
-
-
-def load(inu: lightbulb.BotApp):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
 

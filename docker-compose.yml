@@ -27,7 +27,7 @@ services:
   app:
     container_name: inu
     depends_on:
-      - lava
+      # - lava
       - db
     build: .
     restart: "unless-stopped"
@@ -39,7 +39,7 @@ services:
   lava:
     container_name: lavalink
     restart: "unless-stopped"
-    image: fredboat/lavalink:latest-alpine
+    image: fredboat/lavalink:latest
     volumes:
       - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
     networks:

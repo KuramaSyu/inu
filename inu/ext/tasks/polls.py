@@ -11,7 +11,6 @@ import time
 import traceback
 
 import lightbulb
-from lightbulb.commands.base import OptionModifier as OM
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -22,9 +21,9 @@ from core import Table, getLogger, Inu
 log = getLogger(__name__)
 POLL_SYNC_TIME: int
 SYNCING = False
-bot: Inu
-
-plugin = lightbulb.Plugin("poll loader", "loads polls from database")
+bot: Inu = Inu.instance
+POLL_SYNC_TIME = bot.conf.commands.poll_sync_time
+plugin = lightbulb.Loader()
 
 @plugin.listener(hikari.ShardReadyEvent)
 async def load_tasks(event: hikari.ShardReadyEvent):
@@ -37,7 +36,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     await load_active_polls()
 
     trigger = IntervalTrigger(seconds=POLL_SYNC_TIME)
-    plugin.bot.scheduler.add_job(load_active_polls, trigger)
+    bot.scheduler.add_job(load_active_polls, trigger)
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
     await initial_load_all_polls()
 
@@ -90,10 +89,3 @@ async def load_active_polls():
 
 #     sql = """SELECT * FROM polls"""
 #     records = await Table("polls").fetch(sql)
-
-def load(inu: Inu):
-    global bot
-    bot = inu
-    global POLL_SYNC_TIME
-    POLL_SYNC_TIME = inu.conf.commands.poll_sync_time
-    inu.add_plugin(plugin)

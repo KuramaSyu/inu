@@ -1,3 +1,4 @@
+from email import message
 from typing import *
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -7,7 +8,7 @@ from contextlib import suppress
 
 import hikari
 from hikari.api import VoiceConnection
-from hikari import Embed
+from hikari import Embed, Snowflake
 from hikari.impl import MessageActionRowBuilder
 from lavalink_rs import PlayerContext, TrackInQueue
 import lightbulb
@@ -15,9 +16,11 @@ from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo
 from lavalink_rs.model.player import Player
 from sortedcontainers.sortedlist import traceback
+from tabulate import tabulate
 
 from utils.shortcuts import display_name_or_id
-from core import BotResponseError
+from .query_strategies import *
+from core import BotResponseError, ResponseProxy
 
 
 from . import (
@@ -27,13 +30,13 @@ from . import (
 )
 from ..tags import get_tag
 from utils import Human, MusicHistoryHandler
-from core import Inu, get_context, InuContext, getLogger
+from core import Inu, get_context, InuContext, getLogger, InuContextBase
 
 log = getLogger(__name__)
 
 class MusicPlayerManager:
     _instances: Dict[int, "MusicPlayer"] = {}
-    _bot: lightbulb.BotApp
+    _bot: Inu
     _ctx: InuContext
 
     @classmethod
@@ -48,7 +51,8 @@ class MusicPlayerManager:
         guild_id = None
         ctx = None
 
-        if isinstance(ctx_or_guild_id, InuContext):
+        if isinstance(ctx_or_guild_id, InuContextBase):
+            ctx_or_guild_id = cast(InuContext, ctx_or_guild_id)
             guild_id = ctx_or_guild_id.guild_id
             ctx = ctx_or_guild_id
         else:
@@ -68,19 +72,28 @@ class MusicPlayerManager:
         return player
 
     @classmethod
-    def set_bot(cls, bot: lightbulb.BotApp) -> None:
+    def set_bot(cls, bot: Inu) -> None:
         cls._bot = bot
 
 
     
 
 class MusicPlayer:
-    def __init__(self, bot: lightbulb.BotApp, guild_id: int) -> None:
+    def __init__(self, bot: Inu, guild_id: Snowflake) -> None:
         self.bot: Inu = bot
         self._guild_id = guild_id
         self._ctx: InuContext | None = None
         self._queue: QueueMessage = QueueMessage(self)
         self.response_lock = ResponseLock(timedelta(seconds=6))
+        self._join_channel: hikari.PartialChannel | None = None
+        
+    def with_join_channel(self, channel: hikari.PartialChannel) -> "MusicPlayer":
+        """
+        Sets the channel for /join
+        """
+        self._join_channel = channel
+        return self
+        
 
     def _get_voice(self) -> LavalinkVoice | None:
         """
@@ -112,8 +125,14 @@ class MusicPlayer:
         return self._ctx
     
     @property
-    def guild_id(self) -> int:
+    def guild_id(self) -> Snowflake:
         return self._guild_id
+    
+    @property
+    def ctx_avatar_url(self) -> str:
+        url = self.ctx.author.avatar_url or self.bot.me.avatar_url
+        assert isinstance(url, str)
+        return url
     
     async def is_paused(self) -> bool:
         """
@@ -130,16 +149,14 @@ class MusicPlayer:
     def set_context(self, ctx: InuContext) -> None:
         self._ctx = ctx
 
-    async def _join(self) -> Optional[int]:
+    async def _join(self, channel: Optional[hikari.PartialChannel] = None) -> Optional[int]:
         if not self.guild_id:
             return None
 
         channel_id = None
 
-        for i in self.ctx.options.items():
-            if i[0] == "channel" and i[1]:
-                channel_id = i[1].id
-                break
+        if channel:
+            channel_id = channel.id
 
         if not channel_id:
             voice_state = self.bot.cache.get_voice_state(self.guild_id, self.ctx.author.id)
@@ -153,7 +170,7 @@ class MusicPlayer:
 
         if not voice:
             await LavalinkVoice.connect(
-                self.guild_id,
+                Snowflake(self.guild_id),
                 channel_id,
                 self.bot,
                 self.bot.lavalink,
@@ -163,7 +180,7 @@ class MusicPlayer:
             assert isinstance(voice, LavalinkVoice)
 
             await LavalinkVoice.connect(
-                self.guild_id,
+                Snowflake(self.guild_id),
                 channel_id,
                 self.bot,
                 self.bot.lavalink,
@@ -178,7 +195,7 @@ class MusicPlayer:
         if not suppress_info:
             self._queue.add_footer_info(
                 f"⏸️ Music paused by {self.ctx.author.username}", 
-                self.ctx.author.avatar_url
+                self.ctx.author.avatar_url  # type: ignore
             )
         await self._set_pause(True)
         
@@ -186,7 +203,7 @@ class MusicPlayer:
         """Resumes the player and adds a footer info"""
         self._queue.add_footer_info(
             f"▶️ Music resumed by {self.ctx.author.username}", 
-            self.ctx.author.avatar_url
+            self.ctx.author.avatar_url  # type: ignore
         )
         await self._set_pause(False)
 
@@ -229,12 +246,12 @@ class MusicPlayer:
         if amount > 1:
             self._queue.add_footer_info(
                 f"🎵 Skipped {Human.plural_('song', amount, True)}", 
-                self.ctx.author.avatar_url
+                self.ctx.author.avatar_url  # type: ignore
             )
         else:
             self._queue.add_footer_info(
-                f"🎵 Skipped {player.track.info.author} - {player.track.info.title}", 
-                self.ctx.author.avatar_url
+                f"🎵 Skipped {player.track.info.author} - {player.track.info.title}",   
+                self.ctx.author.avatar_url  # type: ignore
             )
 
         if not player.track:
@@ -299,122 +316,108 @@ class MusicPlayer:
         return voice_player.track  # type: ignore
     
 
-    async def _process_query(self, query: str, user_data: TrackUserData) -> str:
+    async def _process_query(self, query: str) -> List[str]:
         """
-        Checks the query and returns the query.
-        Changes MEDIA TAGS and HISTORY PREFIXES to the actual url or name.
-        Adds scsearch: if the query is not a url
+        Process the query (one line) and return the modified query.
+
+        Parameters
+        ----------
+        query : str
+            The search query or URL for the track or playlist.
+        user_data : TrackUserData
+            The user data associated with the track.
+
+        Returns
+        -------
+        str
+            The processed query.
+
+        Raises
+        ------
+        BotResponseError
+            If no query strategy matches the query.
+
+        Notes
+        -----
+        - Changes MEDIA TAGS and HISTORY PREFIXES to the actual URL or name.
+        - is for one line queries
         """
-        if not query:
-            return query
-        elif query.startswith(HISTORY_PREFIX):
-            # -> history -> get url from history
-            # only edits the query
-            query = query.replace(HISTORY_PREFIX, "")
-            history = await MusicHistoryHandler.cached_get(self.guild_id)
-            if (alt_query:=[t["url"] for t in history if query in t["title"]]):
-                return alt_query[0]
+        if len(query.splitlines()) > 1:
+            results = []
+            for line in query.splitlines():
+                results.extend(await self._process_query(line))
+            return results
+
+        for strategy in QUERY_STRATEGIES:
+            if not strategy.matches_query(query):
+                continue
+            result = await strategy.process_query(self.ctx, query, self.guild_id)
+            log.trace(f"process {query} with {type(strategy).__name__} -> {result}; {len(result.splitlines())}")
+            if len(result.splitlines()) > 1:
+                # return each line as a separate query
+                return [line for q in await self._process_query(result) for line in q.splitlines()]
             else:
-                raise BotResponseError(f"Couldn't find the title `{query}` in the history")
+                return [result]
+        raise BotResponseError(f"No QueryStrategy for: {query}")
 
-        elif query.startswith(MEDIA_TAG_PREFIX):
-            # -> media tag -> get url from tag
-            # only edits the query
-            query = query.replace(MEDIA_TAG_PREFIX, "")
-            tag = await get_tag(self.ctx, query)  # type: ignore
-            if not tag:
-                raise BotResponseError(f"Couldn't find the tag `{query}`")
-            # self._queue.add_footer_info(f"🎵 {tag['tag_key']} added by {self.ctx.author.username}", self.ctx.author.avatar_url)
-            return tag["tag_value"][0]
+    async def play(self, query: str, position: int | None = None) -> bool:
+        """
+        Plays a track or playlist based on the provided query.
 
-        if not query.startswith("http"):
-            query = SearchEngines.youtube(query)
-        return query
+        Parameters
+        ----------
+        query : str
+            The search query or URL for the track or playlist to play.
 
-    async def play(self, query: str) -> None:
+        Returns
+        -------
+        _ : bool
+            Whether the track was successfully added to the queue.
+
+        Raises
+        ------
+        BotResponseError
+            If there is an error processing the query.
+        TimeoutError
+            If no track is selected from the search results.
+
+        Notes
+        -----
+        - If no query is provided, it will attempt to play the next track in the queue.
+        - If a track is already playing, it will notify the user.
+        - If the queue is empty, it will notify the user.
+        - Supports loading a single track, a search result, or a playlist.
+        - Adds track or playlist information to the queue and updates the music history.
+        """
         log.debug(f"play: {query = }")
         voice, has_joined = await self._connect()
-        log.debug(f"{voice = }; {has_joined = }")
         if not has_joined:
-            return
+            return False
         player_ctx = voice.player  # type: ignore
-        ctx = self.ctx
-        user_data: TrackUserData = self._make_user_data(ctx)
-
-        if not query:
-            player = await player_ctx.get_player()
-            queue = player_ctx.get_queue()
-
-            if not player.track and await queue.get_count() > 0:
-                player_ctx.skip()
-            else:
-                if player.track:
-                    await ctx.respond("A song is already playing")
-                else:
-                    await ctx.respond("The queue is empty")
-
-            return None
-
-        # process query
-        try:
-            query = await self._process_query(query, user_data)
-        except BotResponseError as e:
-            await self.ctx.respond(**e.context_kwargs)
-            return
-
-        try:
-            tracks: Track = await ctx.bot.lavalink.load_tracks(ctx.guild_id, query)
-            loaded_tracks = tracks.data
-
-        except Exception as e:
-            log.error(traceback.format_exc())
-            await ctx.respond("Error")
-            return None
-
-        if tracks.load_type == TrackLoadType.Track:
-            assert isinstance(loaded_tracks, TrackData)
-            loaded_tracks.user_data = user_data
-            player_ctx.queue(loaded_tracks)
-            self._queue.add_footer_info(make_track_message(loaded_tracks), ctx.author.avatar_url)
-
-        elif tracks.load_type == TrackLoadType.Search:
-            assert isinstance(loaded_tracks, list)
-            track = await self._choose_track(loaded_tracks)
-            if not track:
-                raise TimeoutError("No track selected")
-            track.user_data = user_data
-            self.add_to_queue(track, player_ctx)
-            self._queue.add_footer_info(make_track_message(track), ctx.author.avatar_url)
-
-        elif tracks.load_type == TrackLoadType.Playlist:
-            assert isinstance(loaded_tracks, PlaylistData)
-            if loaded_tracks.info.selected_track:
-                track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
-                track.user_data = user_data
-                self.add_to_queue(track, player_ctx)
-                self._queue.add_footer_info(make_track_message(track), ctx.author.avatar_url)
-            else:
-                log.debug(f"load playlist without selected track")
-                tracks = loaded_tracks.tracks
-                for i in tracks:
-                    i.user_data = user_data
-
-                queue = player_ctx.get_queue()
-                queue.append(tracks)
-                self._queue.add_footer_info(
-                    f"🎵 Added playlist to queue: `{loaded_tracks.info.name}`", 
-                    ctx.author.avatar_url
-                )
-                # query should be the playlist URL
-                await MusicHistoryHandler.add(ctx.guild_id, loaded_tracks.info.name, query)
-
-        # Error or no search results
-        else:
-            await ctx.respond("No songs found")
-            return None
-
+        
+        # process query and add track(s) line by line
+        lines = await self._process_query(query)
+        silent = len(lines) > 1
+        proxy = None
+        progress: List[Tuple[int, str]] = []
+        for i, query in enumerate(lines):
+            try:
+                message, was_successfull = await self._add_track(player_ctx, query, silent, position)
+                progress.append((i+1, str(message)[:50]))
+                proxy = await self._communicate_parsing_progress(progress, proxy, silent)
+            except BotResponseError as e:
+                await self.ctx.respond(**e.context_kwargs)
+            except TimeoutError:
+                return False
+            
+        if len(lines) > 1:
+            # when multiple tracks are added, the listener will trigger,
+            # when first track is added. Hence we need to resend the queue
+            # to show all the tracks instead of the first one.
+            await self.send_queue()
+            
         if has_joined:
-            return None
+            return True
 
         player_data = await player_ctx.get_player()
         queue = player_ctx.get_queue()
@@ -422,8 +425,50 @@ class MusicPlayer:
         if player_data:
             if not player_data.track and await queue.get_track(0):
                 player_ctx.skip()
+        return True
 
-    async def _choose_track(self, tracks: List[TrackData]) -> TrackData | None:
+    async def _communicate_parsing_progress(self, progress: List[Tuple[int, str]], proxy: None | ResponseProxy, silent: bool) -> None | ResponseProxy:
+        """
+        silent means in this case, that this message will be send und updated. Not silent means that this will be done 
+        in another part of the code, hence here it will be ignored.
+        """
+        if not silent:
+            return None
+        table = tabulate(progress, headers=["Line", "Title"], tablefmt="rounded_outline")
+        if not proxy:
+            proxy = await self.ctx.respond(f"Searching Tracks...\n```{table}```")
+        else:
+            await proxy.edit(f"Searching Tracks...\n```{table}```")
+        return proxy
+    
+    async def _choose_track(self, tracks: List[TrackData], silent: bool) -> TrackData | None:
+        """
+        Creates a selection menu for the user to choose a track from a list of tracks.
+        
+        Parameters
+        ----------
+        tracks : List[TrackData]
+            List of track data objects to choose from
+        silent : bool
+            Don't ask the user, just return the first track
+            
+        Returns
+        -------
+        TrackData or None
+            The selected track if user makes a selection, None if user cancels or timeout occurs
+            
+        Notes
+        -----
+        Creates an interactive message with:
+        - A dropdown menu listing up to 25 tracks
+        - A cancel button
+        - 60 second timeout for user interaction
+        - Updates context after selection
+        The tracks are displayed in format: "<index> | <title> (<author>)"
+        """
+        if silent:
+            return tracks[0]
+
         id_ = self.bot.id_creator.create_id()
         # create component
         menu: hikari.impl.TextSelectMenuBuilder = (
@@ -432,27 +477,26 @@ class MusicPlayer:
             .set_min_values(1)
             .set_max_values(1)
             .set_placeholder("Choose a song")
+        ) # type: ignore
+
+        stop_button = (
+            MessageActionRowBuilder()
+            .add_interactive_button(
+                hikari.ButtonStyle.SECONDARY, 
+                f"stop_query_menu-{id_}", 
+                label="I don't find it ¯\_(ツ)_/¯",
+                emoji="🗑️"
+            )
         )
-        
         # add songs to menu with index as ID
         for i, track in enumerate(tracks):
             if i >= 25:
                 break
             query_display = f"{i+1} | {track.info.title} ({track.info.author})"[:100]
             menu.add_option(query_display, str(i))
-            stop_button = (
-                MessageActionRowBuilder()
-                .add_interactive_button(
-                    hikari.ButtonStyle.SECONDARY, 
-                    f"stop_query_menu-{id_}", 
-                    label="I don't find it ¯\_(ツ)_/¯",
-                    emoji="🗑️"
-                )
-            )
         
         # ask the user
-        menu = menu.parent
-        proxy = await self.ctx.respond(components=[menu, stop_button])
+        proxy = await self.ctx.respond(components=[menu.parent, stop_button])
         menu_msg = await proxy.message()
         
         # wait for interaction
@@ -468,18 +512,119 @@ class MusicPlayer:
             return None
         
         # set new context and return
-        ctx = get_context(event)
+        assert event is not None
+        assert isinstance(event.interaction, hikari.ComponentInteraction)
+        assert isinstance(value_or_custom_id, str)
+        
+        ctx = get_context(event.interaction)
         await ctx.defer(update=True)
         self.set_context(ctx)
+
         return tracks[int(value_or_custom_id)]
-        
+    
+    
+    async def _add_track(self, player_ctx: PlayerContext, query: str, silent: bool, position: int | None = None) -> Tuple[Optional[str], bool]:
+        """Add a track or playlist to the queue based on the query.
+
+        Parameters
+        ----------
+        player_ctx : PlayerContext
+            The player context managing the queue
+        query : str
+            The search query or URL to load tracks from
+        silent : bool
+            Whether or not to supress responses to the user (e.g. track selection)
+
+        Returns
+        -------
+        Optional[str]
+            The title of the track/playlist or the error message
+        bool
+            True if track(s) were successfully added, False if there was an error
+
+        Notes
+        -----
+        This method handles three types of track loading:
+
+        1. Single Track: Directly adds the track to queue
+        2. Search Results: Shows selection menu and adds chosen track
+        3. Playlist: Adds all tracks from playlist to queue
+
+        For playlists with a selected track, only that track is added.
+        Otherwise all tracks in the playlist are added.
+
+        Raises
+        ------
+        TimeoutError
+            If no track is selected from search results
+        """
+        # search for tracks with the query
+        ctx = self.ctx
+        user_data: TrackUserData = self._make_user_data(ctx)
+        track_title: str | None = None
+        try:
+            tracks: Track = await ctx.bot.lavalink.load_tracks(self.guild_id, query)
+            loaded_tracks = tracks.data
+        except Exception as e:
+            log.error(traceback.format_exc())
+            if not silent:
+                await ctx.respond("Error")
+            return "Interal Error", False
+
+        if tracks.load_type == TrackLoadType.Track:
+            assert isinstance(loaded_tracks, TrackData)
+            loaded_tracks.user_data = user_data  # type: ignore
+            self.add_to_queue(loaded_tracks, player_ctx, position=position)  # adds the track
+            self._queue.add_footer_info(make_track_message(loaded_tracks), self.ctx_avatar_url)
+            track_title = loaded_tracks.info.title
+            
+        elif tracks.load_type == TrackLoadType.Search:
+            assert isinstance(loaded_tracks, list)
+            track = await self._choose_track(loaded_tracks, silent)
+            if not track:
+                raise TimeoutError("No track selected")
+            track.user_data = user_data  # type: ignore
+            self.add_to_queue(track, player_ctx, position=position)
+            self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
+            track_title = track.info.title
+
+        elif tracks.load_type == TrackLoadType.Playlist:
+            assert isinstance(loaded_tracks, PlaylistData)
+            if loaded_tracks.info.selected_track:
+                track = loaded_tracks.tracks[loaded_tracks.info.selected_track]
+                track.user_data = user_data  # type: ignore
+                self.add_to_queue(track, player_ctx, position=position)
+                self._queue.add_footer_info(make_track_message(track), self.ctx_avatar_url)
+                track_title = track.info.title
+            else:
+                log.debug(f"load playlist without selected track")
+                tracks = loaded_tracks.tracks
+                for i in tracks:
+                    i.user_data = user_data
+
+                queue = player_ctx.get_queue()
+                queue.append(tracks)
+                self._queue.add_footer_info(
+                    f"🎵 Added playlist to queue: `{loaded_tracks.info.name}`", 
+                    self.ctx_avatar_url
+                )
+                # query should be the playlist URL
+                await MusicHistoryHandler.add(self.guild_id, loaded_tracks.info.name, query)
+                track_title = loaded_tracks.info.name
+
+        # Error or no search results
+        else:
+            if not silent:
+                await ctx.respond("No tracks found")
+            return "Not Found", False
+        return track_title, True
         
     def add_to_queue(
 
         self, 
         track: TrackInQueue | TrackData, 
         player_ctx: PlayerContext, 
-        position: int = 0
+        position: int | None = None
     ):
         """
         Adds a track to the player's queue at the specified position.
@@ -493,7 +638,7 @@ class MusicPlayer:
         Returns:
         None
         """
-        if position == 0:
+        if not position:
             player_ctx.queue(track)
         else:
             queue = player_ctx.get_queue()
@@ -576,7 +721,7 @@ class MusicPlayer:
 @dataclass
 class MessageData:
     id: int
-    proxy: lightbulb.ResponseProxy
+    proxy: ResponseProxy
 
 
 @dataclass
@@ -658,18 +803,10 @@ class QueueMessage:
         numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
 
         upcomping_song_fields: List[hikari.EmbedField] = []
-        first_field: hikari.EmbedField = hikari.EmbedField(
-            name=" ", 
-            value=" ", 
-            inline=True
-        )
-        second_field: hikari.EmbedField = hikari.EmbedField(
-            name=" ", 
-            value=" ", 
-            inline=True
-        )
+        
         pre_titles_total_delta = timedelta()
-
+        if title := await self.player.fetch_current_track():
+            pre_titles_total_delta = timedelta(milliseconds=title.info.length)
         # create upcoming song fields
         # pre_titles_total_delta += timedelta(milliseconds=36_000_000)  # 10 hours
         log.debug(f"create upcoming song fields")
@@ -774,26 +911,29 @@ class QueueMessage:
         if force_resend:
             edit_history = False
         else:
+            assert self.message_id is not None
             edit_history = await is_in_history(self.player.ctx.channel_id, self.message_id)
         
         # edit history message
         failed = False
         if edit_history:
-            log.debug(f"edit history: {ctx.needs_response = }; ")
+            log.debug(f"edit history: ")
             if ctx.needs_response or self._message:
                 try:
-                    log.debug(f"ctx respond edit history; {self._message.id = } == {ctx.message_id = }")
-                    await ctx.respond(embeds=[embed], components=components, update=self._message.id or True)
+                    log.debug(f"ctx respond edit history; {self.message_id = } == {ctx.message_id = }")
+                    await ctx.respond(embeds=[embed], components=components, update=self.message_id or True)
                 except Exception:
                     log.debug(f"failed to ctx respond edit history")
                     failed = True
             if failed:
+                # this should never occur; maybe remove this branch
                 failed = False
                 try:
                     log.debug(f"edit message with rest")
+                    assert self.message_id is not None
                     await self.bot.rest.edit_message(
                         self.player.ctx.channel_id, 
-                        self._message_id, embeds=[embed], components=components
+                        self.message_id, embeds=[embed], components=components
                     )
                 except:
                     log.debug(f"failed to edit message with rest")
@@ -801,27 +941,34 @@ class QueueMessage:
         
         if edit_history and not failed:
             return
-        
-        if ctx.needs_response:
-            log.debug(f"make init resp and delete")
-            # respond and delete since id is not in history
-            proxy = await ctx.respond(components=components)
-            proxy_id = (await proxy.message()).id
-            await proxy.delete()
-            if proxy_id == self.message_id:
-                self._message = None
 
-        # send new message
+        # delete old message
         if self.message_id:
             # delete old message
-            log.debug(f"delete old message first: {self.message_id}; {failed = }")
-            task = asyncio.create_task(
-                self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
-            )
+            if ctx.needs_response and ctx.message_id == self.message_id:
+                # Case: button was pressed on older then last 4 messages
+                # -> make deferred response -> delete this response -> resend
+                log.debug(f"Make deferred response to delete it {self.message_id = }")
+                proxy = await ctx.respond(components=components)
+                await proxy.delete()
+                self._message = None
+            else:
+                # Case: normal message
+                log.debug(f"delete old message {self.message_id = }")
+                task = asyncio.create_task(self._delete_old_message())
+        # send new message
         log.debug(f"create music message with ctx respond")
         proxy = await ctx.respond(embeds=[embed], components=components, update=False)
         message_id = (await proxy.message()).id
         self._message = MessageData(id=message_id, proxy=proxy)
+    
+    async def _delete_old_message(self) -> None:
+        if self.message_id:
+            try:
+                await self.bot.rest.delete_message(self._player.ctx.channel_id, self.message_id)
+            except:
+                pass
+        self._message = None
     
         
         
@@ -832,10 +979,10 @@ async def is_in_history(channel_id: int, message_id: int, amount: int = 3) -> bo
     """
     async for m in MusicPlayerManager._bot.rest.fetch_messages(channel_id):
         amount -= 1
-        if amount <= 0:
-            break
         if m.id == message_id:
             return True
+        if amount < 0:
+            break
     return False
 
 def make_track_message(track: TrackData) -> str:

@@ -94,7 +94,7 @@ class InvokationStats:
     async def add_or_sub(
         cls,
         command_name: str,
-        guild_id: int = None,
+        guild_id: Optional[int] = None,
         value: int = 1,
     ):
         """

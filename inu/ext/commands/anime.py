@@ -1,12 +1,21 @@
-import traceback
+import asyncio
 from typing import *
-
-from jikanpy import AioJikan
+from datetime import datetime
 import hikari
 import lightbulb
-from lightbulb import commands, context
-from lightbulb.commands import OptionModifier as OM
-from matplotlib.pyplot import title
+import traceback
+
+from fuzzywuzzy import fuzz
+from hikari import (
+    Embed,
+    ResponseType, 
+    TextInputStyle,
+    Permissions,
+    ButtonStyle
+)
+from hikari.impl import MessageActionRowBuilder
+from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
+from lightbulb.prefab import sliding_window
 
 from utils import (
     Human, 
@@ -17,82 +26,74 @@ from utils import (
     check_website,
     MAGIC_ERROR_MONSTER
 )
-from core import getLogger, get_context
+from core import getLogger, get_context, InuContext
 
 log = getLogger(__name__)
-plugin = lightbulb.Plugin("Anime", "Expends bot with anime based commands")
+loader = lightbulb.Loader()
+
+@loader.command
+class Anime(
+    SlashCommand,
+    name="anime",
+    description="Search for an Anime by name",
+    default_member_permissions=None,
+    hooks=[sliding_window(5, 1, "user")]
+):
+    name = lightbulb.string("name", "The name of the Anime")
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        pag = AnimePaginator()
+        await ctx.defer()
+        try:
+            await pag.start(ctx, self.name)
+        except Exception:
+            log = getLogger(__name__, "fetch_anime")
+            log.debug(traceback.format_exc())
+            url = "https://myanimelist.net/"
+            code, error = await check_website(url)
+            if code == 200:
+                await ctx.respond(
+                    f"Seems like you haven't typed in something anime like.",
+                    ephemeral=True
+                )
+            else:
+                await ctx.respond(
+                    f"Seems like [MyAnimeList]({url}) is down. Please try again later.\n_{code} - {error}_",
+                    ephemeral=True,
+                    attachments=[hikari.files.URL(url=MAGIC_ERROR_MONSTER, filename="error-monster.png")],
+                )
 
 
+# @loader.command
+# class Manga(
+#     SlashCommand,
+#     name="manga",
+#     description="get information of a Manga by name",
+#     default_member_permissions=None,
+#     hooks=[sliding_window(8, 1, "user")]
+# ):
+#     name = lightbulb.string("name", "The name of the Manga")
 
-@plugin.command
-@lightbulb.add_cooldown(5, 1, lightbulb.UserBucket)
-@lightbulb.option("name", "the name of the Anime", type=str, modifier=OM.CONSUME_REST)
-@lightbulb.command("anime", "get information of an Anime by name")
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def fetch_anime(_ctx: context.Context):
-    pag = AnimePaginator()
-    ctx = get_context(_ctx.event)
-    await ctx.defer()
-    try:
-        await pag.start(ctx, _ctx.options.name)
-    except Exception:
-        log = getLogger(__name__, "fetch_anime")
-        log.debug(traceback.format_exc())
-        url = "https://myanimelist.net/"
-        code, error = await check_website(url)
-        if code == 200:
-            await ctx.respond(
-                f"Seems like you haven't typed in something anime like.",
-                ephemeral=True
-            )
-        else:
-            await ctx.respond(
-                f"Seems like [MyAnimeList]({url}) is down. Please try again later.\n_{code} - {error}_",
-                ephemeral=True,
-                attachments=[hikari.files.URL(url=MAGIC_ERROR_MONSTER, filename="error-monster.png")],
-            )
-
-
-# @fetch_anime.set_error_handler()
-# async def anime_on_error(e: lightbulb.CommandErrorEvent):
-#     await e.context.respond(
-#         f"Seems like you haven't typed in something anime like.",
-#         flags=hikari.MessageFlag.EPHEMERAL
-#     )
-#     return True
-
-
-# @plugin.command
-# @lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
-# @lightbulb.option("name", "the name of the Anime character", type=str, modifier=OM.CONSUME_REST)
-# @lightbulb.command("anime-character", "get information of an Anime character by name", aliases=["character"], auto_defer=True)
-# @lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-# async def fetch_anime_character(ctx: context.Context):
-#     try:
-#         pag = AnimeCharacterPaginator()
-#     except Exception:
-#         log = getLogger(__name__, "fetch_anime_character")
-#         log.debug(traceback.format_exc())
-#         return
-#     await pag.start(ctx, ctx.options.name)
-
-
-
-@plugin.command
-@lightbulb.add_cooldown(8, 1, lightbulb.UserBucket)
-@lightbulb.option("name", "the name of the Manga", type=str, modifier=OM.CONSUME_REST)
-@lightbulb.command("manga", "get information of an Manga by name", auto_defer=True)
-@lightbulb.implements(commands.PrefixCommand, commands.SlashCommand)
-async def fetch_manga(ctx: context.Context):
-    try:
-        pag = MangaPaginator()
-    except Exception:
-        log = getLogger(__name__, "fetch_manga")
-        log.debug(traceback.format_exc())
-        return
-    await pag.start(ctx, ctx.options.name)
-
-
-
-def load(bot: lightbulb.BotApp):
-    bot.add_plugin(plugin)
+#     @invoke
+#     async def callback(self, _: lightbulb.Context, ctx: InuContext):
+#         pag = MangaPaginator()
+#         await ctx.defer()
+#         try:
+#             await pag.start(ctx, self.name)
+#         except Exception:
+#             log = getLogger(__name__, "fetch_manga")
+#             log.debug(traceback.format_exc())
+#             url = "https://myanimelist.net/"
+#             code, error = await check_website(url)
+#             if code == 200:
+#                 await ctx.respond(
+#                     f"Seems like you haven't typed in something manga like.",
+#                     ephemeral=True
+#                 )
+#             else:
+#                 await ctx.respond(
+#                     f"Seems like [MyAnimeList]({url}) is down. Please try again later.\n_{code} - {error}_",
+#                     ephemeral=True,
+#                     attachments=[hikari.files.URL(url=MAGIC_ERROR_MONSTER, filename="error-monster.png")],
+#                 )

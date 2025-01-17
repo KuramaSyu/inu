@@ -11,7 +11,6 @@ from pprint import pformat
 import hikari
 from hikari.events.shard_events import ShardReadyEvent
 import lightbulb
-from lightbulb import Plugin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
@@ -26,8 +25,8 @@ from core import getLogger, Bash
 
 log = getLogger(__name__)
 loaded = False
-
-plugin = lightbulb.Plugin("Update qalc", "Sends daily automated Reddit pictures")
+bot = Inu.instance
+plugin = lightbulb.Loader()
 i = 0
 
 async def update_qalc_currency():
@@ -50,12 +49,8 @@ async def load_tasks(event: ShardReadyEvent):
         hours = 3
         trigger = IntervalTrigger(hours=hours)
         log.info(f"scheduled job for updating currency: {trigger}", prefix="init")
-        bot: Inu = plugin.bot
         bot.scheduler.add_job(update_qalc_currency, trigger)
         
         await update_qalc_currency()
     except:
         log.error(traceback.format_exc())
-
-def load(bot: Inu):
-    bot.add_plugin(plugin)

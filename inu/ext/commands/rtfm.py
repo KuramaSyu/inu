@@ -23,7 +23,7 @@ from hikari.impl.special_endpoints import MessageActionRowBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
 import lightbulb.utils as lightbulb_utils
-from lightbulb import commands, context
+from lightbulb import AutocompleteContext, commands, context, SlashCommand, invoke, invoke
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -33,9 +33,45 @@ from cachetools import LRUCache, cached
 from utils import Colors
 from utils import Paginator
 
-from core import getLogger, Inu
+from core import getLogger, Inu, InuContext
 
 log = getLogger(__name__)
+
+loader = lightbulb.Loader()
+bot: Inu = Inu.instance
+
+
+rtfm_cache = {}
+DOCS = {
+    'hikari-lightbulb': 'https://hikari-lightbulb.readthedocs.io/en/latest',
+    'python': 'https://docs.python.org/3',
+    'hikari': "https://www.hikari-py.dev",
+}
+#### AUTOCOMPLETE ####
+
+async def rtfm_autocomplete(
+    option: hikari.AutocompleteInteractionOption, 
+    docs: List[str]
+) -> List[str]:
+    if not rtfm_cache:
+        await _update_rtfm_cache()
+    results = search(
+        search_for=option.value,
+        docs=tuple(docs),
+    )
+    return [dict_["item"] for dict_ in results]
+
+
+async def autocomplete_python(
+    ctx: AutocompleteContext
+) -> None:
+    await ctx.respond(await rtfm_autocomplete(ctx.focused, ["python"])
+) 
+
+async def autocomplete_hikari(
+    ctx: AutocompleteContext
+) -> None:
+    await ctx.respond(await rtfm_autocomplete(ctx.focused, ["hikari", "hikari-lightbulb"]))
 
 class SphinxObjectFileReader:
     """Reads Sphinx files (.inv)"""
@@ -148,7 +184,7 @@ def search(search_for, docs: tuple, case_sensitive=True):
     # for item in iterable:
     #     if (start := item.lower().find(search_for)) >= 0:
     #         found.append((start, item))
-    iterable = [item for d in docs for item in plugin.d.rtfm_cache[plugin.d.docs[d]]]
+    iterable = [item for d in docs for item in rtfm_cache[DOCS[d]]]
     ratios = []
     for item in iterable:
         r = fuzz.token_sort_ratio(search_for, item)
@@ -163,44 +199,80 @@ def search(search_for, docs: tuple, case_sensitive=True):
     ratios.sort(key=lambda d: d["ratio"], reverse=True)
     return ratios[:24]
 
+# Initialize cache dict
 
-plugin = lightbulb.Plugin("Read the FUCKING manual", "Extends the commands with rtfm commands", include_datastore=True)
-plugin.d.rtfm_cache = {}
-plugin.d.docs = {
-            'hikari-lightbulb': 'https://hikari-lightbulb.readthedocs.io/en/latest',
-            'python': 'https://docs.python.org/3',
-            'hikari': "https://www.hikari-py.dev",
 
-}
-
-@plugin.listener(lightbulb.LightbulbStartedEvent)
-async def on_ready(event: lightbulb.LightbulbStartedEvent):
-    # return if it's already scheduled
-    try:
-        if [True for job in plugin.bot.scheduler.get_jobs() if job.name == _update_rtfm_cache.__name__ ]:
-            log.info(f"{_update_rtfm_cache.__name__} already scheduled - skipping")
-            return
-    except Exception:
-        log.error(traceback.format_exc())
+async def init_rtfm():
     try:
         await asyncio.sleep(10)
         trigger = IntervalTrigger(hours=8)
-        plugin.bot.scheduler.add_job(_update_rtfm_cache, trigger)
+        bot.scheduler.add_job(_update_rtfm_cache, trigger)
         log.info(f"scheduled {_update_rtfm_cache.__name__}: {trigger}", prefix="init")
     except Exception:
         log.critical(traceback.format_exc())
 
+rtfm_group = lightbulb.Group(name="rtfm", description="READ THE FUCKING MANUAL!")
+
+@rtfm_group.register
+class Rtfm(
+    SlashCommand, 
+    name="all",
+    description="search all manuals",
+    dm_enabled=True
+):
+    obj = lightbulb.string("obj", "the thing you want to search")
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await send_manual(ctx, ["hikari", 'hikari-lightbulb'], self.obj)
+
+@rtfm_group.register
+class RtfmHikari(
+    SlashCommand,
+    name="hikari",
+    description="search hikari manual",
+    dm_enabled=True
+):
+    obj = lightbulb.string("obj", "the thing you want to search", autocomplete=autocomplete_hikari)
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await send_manual(ctx, ["hikari", 'hikari-lightbulb'], self.obj)
+
+
+
+
+@rtfm_group.register
+class RtfmPython(
+    SlashCommand,
+    name="python",
+    description="search Python manual",
+    dm_enabled=True
+):
+    obj = lightbulb.string("obj", "the thing you want to search", autocomplete=autocomplete_python)
+
+    @invoke
+    async def callback(self, _: lightbulb.Context, ctx: InuContext):
+        await send_manual(ctx, ["python"], self.obj)
+
+
+
+# Schedule the cache update job when bot starts
+@loader.listener(hikari.StartedEvent)
+async def on_ready(_: hikari.StartedEvent):
+    await init_rtfm()
+
 def get_docs_url_from(key):
-    return plugin.d.docs.get(key)
+    return DOCS.get(key)
 
 def get_docs_name_form(url):
-    for key, value in plugin.d.docs.items():
+    for key, value in DOCS.items():
         if value == url:
             return key
     return None
 
 async def send_manual(ctx, key: Union[str, list], obj):
-    if not plugin.d.rtfm_cache:
+    if not rtfm_cache:
         await _update_rtfm_cache()
     keys = []
     results = []
@@ -227,7 +299,7 @@ async def send_manual(ctx, key: Union[str, list], obj):
         for dict_ in result:
             entry = dict_["item"]
             try:
-                rtfm_embed.description += f"[`{entry}`]({plugin.d.rtfm_cache[get_docs_url_from(keys[index])][entry]})\n"
+                rtfm_embed.description += f"[`{entry}`]({rtfm_cache[get_docs_url_from(keys[index])][entry]})\n"
                 nothing = False
             except KeyError:
                 log.info(f"no url for '{entry}' found")
@@ -244,7 +316,7 @@ async def send_manual(ctx, key: Union[str, list], obj):
 
 async def _update_rtfm_cache() -> None:
     session = aiohttp.ClientSession(loop=asyncio.get_running_loop())
-    for name, url in plugin.d.docs.items():
+    for name, url in DOCS.items():
         try:
             async with session.get(url + "/objects.inv") as resp:
                 if resp.status != 200:
@@ -254,91 +326,16 @@ async def _update_rtfm_cache() -> None:
                     url,
                     auto=True,
                 )
-                plugin.d.rtfm_cache[url] = inv_file.result
+                rtfm_cache[url] = inv_file.result
         except Exception:
             log.error(traceback.format_exc())
     await session.close()
     return
 
-@plugin.command
-@lightbulb.option("obj", "the thing you want to search")
-@lightbulb.command("rtfm", "read(s) the fucking manual", aliases=["rtfd"])
-@lightbulb.implements(commands.PrefixCommandGroup, commands.SlashCommandGroup)
-async def rtfm(ctx: context.Context):
-    """
-    READ THE FUCKING MANUAL!
-    Searches the docs for your given obj
-    [optional]obj: the thing you want to search; Default: all
-    """
-    urls = []
-    urls.append(get_docs_url_from('hikari'))
-    urls.append(get_docs_url_from('hikari-lightbulb'))
-    await send_manual(ctx, ["hikari", 'hikari-lightbulb'], ctx.options.obj)
 
 
-# @rtfm.child
-# @lightbulb.option("obj", "the thing you want to search")
-# @lightbulb.command("discod-py", "search discord py manual", aliases=["dpy"])
-# @lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-# async def discord_py(ctx: context.Context):
-#     """
-#     Searches the latest Discord.py docs
-#     [optional]obj: the thing you want to search; Default: all
-#     """
-#     url = get_docs_url_from('dpy-latest')
-#     await send_manual(ctx, url, ctx.options.obj)
+loader.command(rtfm_group)
 
-@rtfm.child
-@lightbulb.option("obj", "the thing you want to search", autocomplete=True)
-@lightbulb.command("hikari", "search hikari manual")
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def _hikari(ctx: context.Context):
-    """
-    Searches the hikari and lightbulb docs
-    [optional]obj: the thing you want to search; Default: all
-    """
-    await send_manual(ctx, ["hikari", 'hikari-lightbulb'], ctx.options.obj)
-
-@rtfm.child
-@lightbulb.option("obj", "the thing you want to search", autocomplete=True)
-@lightbulb.command("python", "search Python manual", aliases=["py"])
-@lightbulb.implements(commands.PrefixSubCommand, commands.SlashSubCommand)
-async def python(ctx: context.Context):
-    """
-    Searches the Python docs
-    [optional]obj: the thing you want to search; Default: all
-    """
-    await send_manual(ctx, ["python"], ctx.options.obj)
-
-@python.autocomplete("obj")
-async def tag_name_auto_complete(
-    option: hikari.AutocompleteInteractionOption, 
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
-    return await rtfm_autocomplete(option, interaction, ["python"])
-
-@_hikari.autocomplete("obj")
-async def tag_name_auto_complete(
-    option: hikari.AutocompleteInteractionOption, 
-    interaction: hikari.AutocompleteInteraction
-) -> List[str]:
-    return await rtfm_autocomplete(option, interaction, ["hikari", "hikari-lightbulb"])
-
-async def rtfm_autocomplete(
-    option: hikari.AutocompleteInteractionOption, 
-    interaction: hikari.AutocompleteInteraction,
-    docs: List[str]
-) -> List[str]:
-    if not plugin.d.rtfm_cache:
-        await _update_rtfm_cache()
-    results = search(
-        search_for=option.value,
-        docs=tuple(docs),
-    )
-    return [dict_["item"] for dict_ in results]
-
-def load(bot: Inu):
-    bot.add_plugin(plugin)
 
 
 

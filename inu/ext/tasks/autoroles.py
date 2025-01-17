@@ -5,7 +5,6 @@ from datetime import datetime, timedelta
 import traceback
 
 import lightbulb
-from lightbulb.commands.base import OptionModifier as OM
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -16,8 +15,8 @@ from core import Table, getLogger, Inu
 log = getLogger(__name__)
 METHOD_SYNC_TIME: int = 60*10
 SYNCING = False
-bot: Inu
-plugin = lightbulb.Plugin("poll loader", "loads polls from database")
+bot: Inu = Inu.instance  # directly instanciate the bot
+plugin = lightbulb.Loader()
 
 
 
@@ -32,7 +31,7 @@ async def load_tasks(event: hikari.ShardReadyEvent):
     await remove_expired_autoroles()
 
     trigger = IntervalTrigger(seconds=METHOD_SYNC_TIME)
-    plugin.bot.scheduler.add_job(remove_expired_autoroles, trigger)
+    bot.scheduler.add_job(remove_expired_autoroles, trigger)  # use bot instead of plugin.bot
     logging.getLogger('apscheduler.executors.default').setLevel(logging.WARNING)
     await init_method()
 
@@ -98,9 +97,3 @@ async def on_voice_state_update(event: hikari.VoiceStateUpdateEvent):
             task.renew_user_duration(event.state.user_id, event.guild_id)
         ))
     await asyncio.gather(*tasks)
-
-
-def load(inu: Inu):
-    global bot
-    bot = inu
-    inu.add_plugin(plugin)
