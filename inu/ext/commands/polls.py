@@ -32,7 +32,7 @@ from core import getLogger, Inu, Table, BotResponseError, ComponentContext, InuC
 log = getLogger(__name__)
 
 loader = lightbulb.Loader()
-bot: Inu
+bot: Inu = Inu.instance
 POLL_SYNC_TIME: int = 0
 
 # Global variables moved to top
