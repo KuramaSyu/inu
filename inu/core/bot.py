@@ -113,13 +113,7 @@ class Inu(hikari.GatewayBot):
         self._client = None
         self.data = Data()
         self._miru: Optional[miru.Client] = None
-        
-        @property
-        def miru_client(self) -> miru.Client:
-            if not self._miru:
-                raise RuntimeError("Miru client is not initialized")
-            return self._miru
-        
+    
         logger_names = [
             "hikari", "hikari.event_manager", "ligthbulb.app", "lightbulb",
             "hikari.gateway", "hikari.ratelimits", "hikari.rest", "lightbulb.internal"
@@ -140,6 +134,11 @@ class Inu(hikari.GatewayBot):
         self.mrest = MaybeRest(self)
         self.wait_for = self.wait_for
 
+    @property
+    def miru_client(self) -> miru.Client:
+        if not self._miru:
+            raise RuntimeError("Miru client is not initialized")
+        return self._miru
     
     @property
     def client(self) -> lightbulb.GatewayEnabledClient:
