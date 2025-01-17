@@ -12,7 +12,7 @@ from tabulate import tabulate
 
 from utils import (
     crumble,
-    AutorolesView,
+    AutorolesScreen,
     AutoroleManager,
     AutorolesViewer,
     CustomID
@@ -20,14 +20,17 @@ from utils import (
 from core import (
     Inu, 
     getLogger,
-    get_context
+    get_context,
+    InuContext
 )
 import miru 
+from miru.ext.menu import menu
 
 log = getLogger(__name__)
 
 loader = lightbulb.Loader()
-bot: Inu
+bot: Inu = Inu.instance
+client = bot.miru_client
 
 autoroles_group = lightbulb.Group(
     name="autoroles",
@@ -44,18 +47,13 @@ class AutorolesEdit(
 ):
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
-        view = AutorolesView()  # Create a new Menu
-        # You may need to defer if building your first page takes more than 3 seconds
-        builder = await view.build_response_async(client, MainScreen(my_menu))
+        menu = miru.ext.menu.Menu()
+        screen = AutorolesScreen(menu, ctx.author_id)
+        await screen.pre_start(ctx.guild_id)
+        builder = await menu.build_response_async(client, screen)
         await builder.create_initial_response(ctx.interaction)
-        # Or if using a prefix command:
-        # await builder.send_to_channel(ctx.channel_id)
+        client.start_view(menu)
 
-        client.start_view(my_menu)
-        view = AutorolesView(author_id=ctx.author.id)
-        await view.pre_start(ctx.guild_id)
-        msg = await ctx.respond(components=view, embed=await view.embed())
-        await view.start(await msg.message())
 
 @autoroles_group.register
 class AutorolesViewCommand(
@@ -68,7 +66,7 @@ class AutorolesViewCommand(
     role = lightbulb.string(
         "role",
         "the role to add or remove from the autoroles",
-        choices=[v.__name__ for v in AutoroleManager.id_event_map.values()]
+        choices=[lightbulb.Choice(v.__name__, v.__name__) for v in AutoroleManager.id_event_map.values()]
     )
 
     @invoke
@@ -91,8 +89,9 @@ async def on_autoroles_view_interaction(event: hikari.InteractionCreateEvent):
             return
     except Exception:
         return
+    log.debug(f"custom_id: {custom_id}")
     pag = AutorolesViewer().set_autorole_id(custom_id.get("autoid")).set_custom_id(event.interaction.custom_id)
-    await pag.rebuild(event)
+    await pag.rebuild(event.interaction)
 
 def make_autorole_strings(
     records: List[Dict[Literal['id', 'user_id', 'expires_at', 'event_id', 'role_id'], Any]], 
