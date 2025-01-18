@@ -21,7 +21,6 @@ class UrbanDictionaryCommand(
     SlashCommand,
     name="urban",
     description="Search a word in the urban (city) dictionary",
-    aliases=["urban-dictionary"],
     dm_enabled=True,
 ):
     word = lightbulb.string("word", "What do you want to search?")
