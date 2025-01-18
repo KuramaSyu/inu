@@ -46,7 +46,7 @@ ALLOWED_EXTENSIONS = [
     "statistics", "settings", "anime", "w2g", "tmdb", 
     "message", "stopwatch", "random", "music_basic", "music_adv",
     "reddit", "xkcd", "reminders", "vocable", "rtfm", "owner",
-    "voice", "code", "stats", "polls", "github", "autoroles"
+    "voice", "code", "stats", "polls", "github", "autoroles", "dictionary"
 ]
 
 class BotResponseError(Exception):
