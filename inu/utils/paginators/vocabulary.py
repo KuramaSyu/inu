@@ -172,19 +172,21 @@ class VocabularyPaginator(Paginator):
 
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
-        if not self.interaction_pred(event):
+        if not self.interaction_pred(event.interaction):
             return
         prefix = "vocabulary_"
-        if not event.interaction.custom_id.startswith(prefix):
+        custom_id = event.interaction.custom_id
+        assert custom_id
+        if not custom_id.startswith(prefix):
             return
-        task = event.interaction.custom_id.replace(prefix, "")
+        task = custom_id.replace(prefix, "")
 
         if task == "start_training":
             ctx = get_context(event)
             pag = TrainingPaginator(page_s=[""], timeout=30*60)
             await pag.start(ctx, vocables=self._vocabulary, shuffle_languages=self.shuffle_languages)
         if task == "switch_languages":
-            self.set_context(event=event)
+            self.set_context(interaction=event.interaction)
             # switch everything needed
             self._languages = (self._languages[1], self._languages[0])
             self._vocabulary = {v: k for k, v in self._vocabulary.items()}
@@ -194,11 +196,11 @@ class VocabularyPaginator(Paginator):
             self._pages = self._embeds
             await self._update_position()
         if task == "shuffle_languages":
-            self.set_context(event=event)
+            self.set_context(interaction=event.interaction)
             await self.toggle_shuffle_languages()
             await self._update_position()
         if task == "help":
-            self.set_context(event=event)
+            self.set_context(interaction=event.interaction)
             await self.ctx.respond(
                 (
                 "To create a vocabulary list, create a tag with `/tag add` with following format:\n"
@@ -292,17 +294,19 @@ class TrainingPaginator(Paginator):
 
     @listener(hikari.InteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
-        if not self.interaction_pred(event):
+        if not self.interaction_pred(event.interaction):
             return
         prefix = "vocabulary_training_"
-        if not event.interaction.custom_id.startswith(prefix):
+        custom_id = event.interaction.custom_id
+        assert custom_id
+        if not custom_id.startswith(prefix):
             return
-        task = event.interaction.custom_id.replace(prefix, "")
+        task = custom_id.replace(prefix, "")
         try:
             if task == "stop":
                 ctx = get_context(event)
                 await ctx.respond("Preparing results...")
-                ctx.set_update(True)
+                ctx.enforce_update(True)
                 vocables = [*self._vocables]
                 if self.shuffle_languages:
                     vocables.extend(self.reversed_vocables)
@@ -319,13 +323,13 @@ class TrainingPaginator(Paginator):
                 
                 return
             if task == "yes":
-                self.set_context(event=event)
+                self.set_context(interaction=event.interaction)
                 self.current_vocable.add_try(True)
             if task == "no":
-                self.set_context(event=event)
+                self.set_context(interaction=event.interaction)
                 self.current_vocable.add_try(False)
         except BotResponseError as e:
-            self.ctx.respond(**e.context_kwargs)
+            await self.ctx.respond(**e.context_kwargs)
         await self._update_position()
 
 
