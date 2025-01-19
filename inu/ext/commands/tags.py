@@ -484,7 +484,7 @@ class TagAdd(
     description="description",
     dm_enabled=True,
 ):
-    name = lightbulb.string("name", "The tags name", default=None, autocomplete=tag_name_auto_complete)
+    name = lightbulb.string("name", "The tags name", default=None)
     value = lightbulb.string("content", "the text your tag should return", default=None)
 
     @invoke
