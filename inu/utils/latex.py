@@ -419,8 +419,6 @@ class Function(Element):
             return "\\text{{det}}{0}"
         elif fn_name in ["arcsin", "arccos", "arctan"]:
             return "\\texttt{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
-        elif fn_name == "exp":
-            return "e^{{{0}}}"
         else:
             return (
                 "\\texttt{{" + fn_name + "}}" +
