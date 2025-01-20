@@ -36,6 +36,10 @@ from PIL import Image
 from pprint import pprint
 import logging
 
+from core import getLogger
+
+
+log = getLogger(__name__)
 
 
 PERIOD_START = " "
@@ -96,7 +100,7 @@ class Element:
         self.negate = negate
         self.unit = unit
         self.number = number
-        self.number_args = number_args
+        self.number_args: int | None = number_args
         self.children: List["Element"] = []
         self.parent: "Element" | None = None
 
@@ -118,7 +122,7 @@ class Element:
         for child in children:
             set_parent(child)
         self.children.extend(children)
-        logging.debug(f"children:{str(self)}: {[str(ch) for ch in children]}")
+        log.debug(f"children:{str(self)}: {[str(ch) for ch in children]}")
 
     @property
     def type(self) -> str:
@@ -366,6 +370,7 @@ class Function(Element):
     Represents any type of fuction with it's arguments as children
     """
     def get_latex_fn(self, fn_name: str, number_args) -> str:
+        log.debug(f"fn_name: {fn_name}, number_args: {number_args}")
         if fn_name == "sin":
             return "\\sin({0})"
         elif fn_name == "cos":
@@ -395,7 +400,9 @@ class Function(Element):
         elif fn_name == "product":
             return "\\prod_{{i={1}}}^{{{0}}} x_i={2}"
         elif fn_name == "integrate":
-            return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ dx"
+            match number_args:
+                case 3: return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ d{3}" 
+                case _: return "\\int {0} \\,\\ dx"
         elif fn_name == "cross":
             return "{1} \\times {0}"
         elif fn_name == "dot":
@@ -412,6 +419,8 @@ class Function(Element):
             return "\\text{{det}}{0}"
         elif fn_name in ["arcsin", "arccos", "arctan"]:
             return "\\texttt{{" + fn_name[3:] + "}}^{{-1}}\\left(" + "{0}\\right)"
+        elif fn_name == "exp":
+            return "e^{{{0}}}"
         else:
             return (
                 "\\texttt{{" + fn_name + "}}" +
@@ -421,6 +430,7 @@ class Function(Element):
             )
 
     def to_latex(self) -> str:
+        log.debug(f"fn: {self.element}, number_args: {self.number_args}")
         number_args = self.number_args
         format_values = [child.to_latex() for child in self.children]
         prefix = "- " if self.is_negated else ""
@@ -439,7 +449,7 @@ class NumericStringParser(object):
     '''
 
     def pushFirst(self, strg, loc, toks):
-        logging.debug(f"pushFirst: {''.join(toks)}; all: {toks}")
+        log.debug(f"pushFirst: {''.join(toks)}; all: {toks}")
         #number = self.prepare_number(toks[0])
         
         self.exprStack.append(
@@ -478,14 +488,14 @@ class NumericStringParser(object):
         return unit
     
     def pushUnitFirst(self, strg, loc, toks):
-        logging.debug(f"pushUnitFirst: {toks[0]}; all: {toks}")
+        log.debug(f"pushUnitFirst: {toks[0]}; all: {toks}")
         unit = self.prepare_unit(toks[0])
         self.exprStack.append(
             Unit(toks[0], "unit")
         )
 
     def pushArray(self, strg, loc, toks):
-        logging.debug(f"Array: all: {toks}")
+        log.debug(f"Array: all: {toks}")
         negate = False
         if toks and toks[0] == '-':
             negate = True
@@ -494,7 +504,7 @@ class NumericStringParser(object):
         )
 
     def pushFunction(self, strg, loc, toks):
-        logging.debug(f"Function: {toks[0]}; all: {toks}")
+        log.debug(f"Function: {toks[0]}; all: {toks}")
         negate = False
         if toks and toks[0] == '-':
             negate = True
@@ -504,12 +514,12 @@ class NumericStringParser(object):
                 element=toks[0], 
                 type_="function", 
                 negate=negate, 
-                number_args=self.fn.get(toks[0], None) or len(toks)-1
+                number_args=self.fn.get(toks[0], None) or len([t for t in toks if t is not None])-1
             )
         )
     
     def pushVector(self, strg, loc, toks):
-        logging.debug(f"Vector 0x{len(toks[0])}: {toks}")
+        log.debug(f"Vector 0x{len(toks[0])}: {toks}")
         self.exprStack.append(
             Vector(
                 element=f"0x{len(toks[0])}",
@@ -518,7 +528,7 @@ class NumericStringParser(object):
         )
 
     def pushMatrix(self, strg, loc, toks):
-        logging.debug(f"Matrix {len(toks)}x{len(toks[0])}: {toks}")
+        log.debug(f"Matrix {len(toks)}x{len(toks[0])}: {toks}")
         self.exprStack.append(
             Matrix(
                 element=f"{len(toks)}x{len(toks[0])}",
@@ -527,31 +537,31 @@ class NumericStringParser(object):
         )
     
     def pushFactorFirst(self, strg, loc, toks):
-        logging.debug(f"pushFactorFirst: {toks[0]}; all: {toks}")
+        log.debug(f"pushFactorFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             Exp(toks[0], "exp")
         )
 
     def pushTermFirst(self, strg, loc, toks):
-        logging.debug(f"pushTermFirst: {toks[0]}; all: {toks}")
+        log.debug(f"pushTermFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             MulOp(toks[0], "mulop")
         )
 
     def pushExprFirst(self, strg, loc, toks):
-        logging.debug(f"pushExprFirst: {toks[0]}; all: {toks}")
+        log.debug(f"pushExprFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             AddOp(toks[0], "addop")
         )
 
     def pushImplicitMult(self, strg, loc, toks):
-        logging.debug(f"pushImplicitMult: *; all: {toks}")
+        log.debug(f"pushImplicitMult: *; all: {toks}")
         self.exprStack.append(
             MulOp("*", "implicit_mulop")
         )
 
     def pushEquationFirst(self, strg, loc, toks):
-        logging.debug(f"pushEquationFirst: {toks[0]}; all: {toks}")
+        log.debug(f"pushEquationFirst: {toks[0]}; all: {toks}")
         self.exprStack.append(
             Equation(toks[0], "equation")
         )
@@ -698,7 +708,7 @@ class NumericStringParser(object):
             "sqrt": 1,
             "√": 1,
             "sum": 3,
-            "integrate": 3,
+            #"integrate": 3,  # can be 1 or 3
             "product": 3,
             "cross": 2,
             "dot": 2,
@@ -838,12 +848,12 @@ class NumericStringParser(object):
         """
         self.exprStack: List[Element] = []
         results = self.bnf.parseString(num_string, parseAll)
-        logging.debug("results")
+        log.debug("results")
         # results.pprint()
-        logging.debug("exprStack")
-        logging.debug(pformat(self.exprStack))
+        log.debug("exprStack")
+        log.debug(pformat(self.exprStack))
         val = self.evaluateStack(self.exprStack[:])
-        logging.debug(f"{val}")
+        log.debug(f"{val}")
         # pprint(val)
         return val.to_latex()
     
@@ -945,7 +955,7 @@ def latex2image(
 
         return buffer
     except Exception as e:
-        logging.error(f"LaTeX: {result}\nError:{traceback.format_exc()}")
+        log.error(f"LaTeX: {result}\nError:{traceback.format_exc()}")
         return None
 
 from io import BytesIO
@@ -966,7 +976,7 @@ def evaluation2image(evaluation: str, multiline: bool = False) -> BytesIO:
     parser = NumericStringParser()
     evaluations = [parser.eval(ev) for ev in evaluations]
     if not parser.needs_latex:
-        logging.debug("No latex needed")
+        log.debug("No latex needed")
         return None
     latex = "\n".join(evaluations)
     image = latex2image(latex, multiline=multiline)
@@ -1058,19 +1068,19 @@ def tests(display: bool = False):
             if result:
                 assert latex == result, f"Expected: {result}, got: {latex}"
             else:
-                logging.info(f"result:\n{latex}")
+                log.info(f"result:\n{latex}")
             if display:
                 image = latex2image(latex)
                 img = Image.open(image)
                 img.show()
-            logging.info(f"Passed test: {name}")
+            log.info(f"Passed test: {name}")
         except Exception as e:
-            logging.warning(f"Failed test: {name}")
-            logging.error(traceback.format_exc())
+            log.warning(f"Failed test: {name}")
+            log.error(traceback.format_exc())
 
 if __name__ == "__main__":
-    logging.basicConfig(
-        level=logging.INFO, 
+    log.basicConfig(
+        level=log.INFO, 
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     try:
@@ -1078,10 +1088,10 @@ if __name__ == "__main__":
         code = """€90 * e^2"""
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
-        #     logging.info(name)
-        logging.info(prepare_for_latex(code))
+        #     log.info(name)
+        log.info(prepare_for_latex(code))
         latex = "\n".join([NumericStringParser().eval(prepare_for_latex(c)) for c in code.splitlines() if c.strip()])
-        logging.info(f"Latex: {latex}")
+        log.info(f"Latex: {latex}")
         image = latex2image(latex)
         img = Image.open(image)
         img.show()
