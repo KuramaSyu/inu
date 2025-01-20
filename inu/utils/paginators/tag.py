@@ -554,12 +554,14 @@ class TagHandler(StatelessPaginator):
                 value, new_ctx = await ctx.ask_with_modal(
                     title=self.tag.name or "Tag",
                     question_s="Add to value:" if append else "Value:",
+                    timeout=60*20,
                 )
             else:
                 value, new_ctx = await ctx.ask_with_modal(
                     title=self.tag.name or "Tag",
                     question_s="Edit value:",
                     pre_value_s=self.tag.value[self._position] or "",
+                    timeout=60*20,
                 )
         except asyncio.TimeoutError:
             return False
