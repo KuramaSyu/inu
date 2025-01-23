@@ -1,5 +1,6 @@
 import os
 from typing import Union, Dict, Any, List, Tuple
+import typing as t
 import re
 from pyparsing import (
     Literal,
@@ -184,6 +185,7 @@ class Unit(Element):
             "_": "\\_",
             "EUR": "\\text{€}",
             "celsius": "^\\circ C",
+            "Ω":"\\Omega"
         }
         for old, new in old_to_new.items():
             unit = unit.replace(old, new)
@@ -734,7 +736,7 @@ class NumericStringParser(object):
 
         self.needs_latex = False
 
-    def evaluateStack(self, s: List[Element]) -> str:
+    def evaluateStack(self, s: List[Element]) -> Element:
         """
         converts the stack to latex
         """
