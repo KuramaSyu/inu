@@ -118,6 +118,10 @@ class MusicPlayer:
         assert isinstance(voice, LavalinkVoice)
         return await voice.player.get_player()
     
+    @property
+    def queue(self) -> "QueueMessage":
+        return self._queue
+    
     @property   
     def ctx(self) -> InuContext:
         if self._ctx is None:
