@@ -410,10 +410,9 @@ class TagHandler(StatelessPaginator):
             
     async def sort(self, reverse: bool = False):
         value = self.tag.value[self._position]
-        parser = ListParser()
-        parsed = sorted(parser.parse(value), reverse=reverse, key=lambda x: x.strip())
-        most_used_delim = [x for x in parser.count_seperators.most_common(3)[0][0] if x not in [" ", None]][0]
-        self.tag.value[self._position] = most_used_delim.join(parsed)
+        strategy = ListParser().parse(value)
+        parsed = sorted(strategy.processed_list, reverse=reverse, key=lambda x: x.strip())
+        self.tag.value[self._position] = strategy.reassemble(parsed)
 
     async def change_info_visibility(self):
         self.tag.info_visible = not self.tag.info_visible
