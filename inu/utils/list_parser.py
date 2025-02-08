@@ -1,13 +1,126 @@
 from typing import *
 from collections import Counter
 import traceback
+from abc import ABC, abstractmethod
+import re
+
+
+class ListStrategy(ABC):
+    def __init__(self, content: str):
+        self._content = content
+        self._parsed: List[str] = []
+    
+    def is_usable(self) -> bool:
+        ...
+    
+    @abstractmethod
+    def parse(self) -> List[str]:
+        ...
+    
+    @property
+    @abstractmethod
+    def count(self) -> int:
+        ...
+
+class MarkDownStrategy(ListStrategy, ABC):
+    @property
+    @abstractmethod
+    def regex(self) -> str:
+        ...
+
+
+class EnumerationMarkdownRegex(MarkDownStrategy):
+    @property
+    def regex(self) -> str:
+        return r"^[ ]*\d+[.]?.+"
+    
+    def is_usable(self) -> bool:
+        if len(self._content.splitlines()) < 2:
+            return False
+        return all(re.match(self.regex, line) for line in self._content.splitlines())
+
+    def parse(self) -> List[str]:
+        if self._parsed:
+            return self._parsed
+        for line in self._content.splitlines():
+            self._parsed.append(
+                re.sub(self.regex, "", line)
+            )
+        return self._parsed
+
+    @property
+    def count(self) -> int:
+        if not self._parsed:
+            self.parse()
+        return len(self._parsed)
+    
+    @property
+    def weight(self) -> int:
+        return 10
+
+class ListMarkdownRegex(MarkDownStrategy):
+    @property
+    def regex(self) -> str:
+        return r"^[ ]*[-*].+"
+    
+    def is_usable(self) -> bool:
+        if len(self._content.splitlines()) < 2:
+            return False
+        return all(re.match(self.regex, line) for line in self._content.splitlines())
+
+    def parse(self) -> List[str]:
+        if self._parsed:
+            return self._parsed
+        for line in self._content.splitlines():
+            self._parsed.append(
+                re.sub(self.regex, "", line)
+            )
+        return self._parsed
+
+    @property
+    def count(self) -> int:
+        if not self._parsed:
+            self.parse()
+        return len(self._parsed)
+    
+    @property
+    def weight(self) -> int:
+        return 9
+
+class SimpleStringSplitStrategy(ListStrategy):
+    def __init__(self, content: str, separator: str):
+        super().__init__(content)
+        self._separator = separator
+    
+    def is_usable(self) -> bool:
+        # The strategy is usable if the separator appears in the content.
+        return self._separator in self._content
+    
+    def parse(self) -> List[str]:
+        if self._parsed:
+            return self._parsed
+        self._parsed = [part.strip() for part in self._content.split(self._separator) if part.strip()]
+        return self._parsed
+    
+    @property
+    def weight(self) -> int:
+        sep_weights = {"\n": 8, ";": 7, ",": 6, "->": 5, " ": 4}
+        return sep_weights.get(self._separator, 0)
+
+    @property
+    def count(self) -> int:
+        if not self._parsed:
+            self.parse()
+        return len(self._parsed)
+
 
 class ListParser:
     _separator_order = [
         ";", 
         ",", 
         "->", 
-        " "
+        "\n",
+        " ",
     ]
     
     def __init__(self):
@@ -22,10 +135,12 @@ class ListParser:
 
     def parse(self, value: str) -> List[str]:
         """
-        parses a string into a list of strings.
-        The string is checked against separators in `_separator_order`.
-        The separator is checked on each line. An item could not be 
-        written onto 2 lines
+        parses a string into a list of strings using strategies.
+        Check from top to down: 
+         1. EnumerationMarkdownRegex (weight 10)
+         2. ListMarkdownRegex (weight 9)
+         3. SimpleStringSplitStrategy for each separator in order:
+            "\n" (8), ";" (7), "," (6), "->" (5), " " (4)
         
         Args:
         -----
@@ -37,47 +152,34 @@ class ListParser:
         List[str]
             the parsed list
         """
-        return self.separate(self._separator_order, value)
-        
-        
-    def separate(self, separator_order: List[str], text: str) -> List[str]:
-        """
-        Separates the given text into a list of strings based on the provided separator order.
-
-        Args:
-        -----
-        separator_order: List[str]
-            a list of strings that are checked in the given order to separate the text
-        text: str
-            the text to be separated
-
-        Returns:
-        --------
-        List[str]
-            the separated text
-            
-        Example:
-        --------
-        >>> separate([";", ",", " "], "a; b; c")
-        ["a", "b", "c"]
-        """
-        parsed_list: List[str] = []
-        for line in text.split("\n"):
-            separator = None
-            for s in separator_order:
-                if s in line:
-                    separator = s
-                    break
-        
-            if separator is None and line:
-                parsed_list.append(line)
-                self._parsed_lines.append((None, [line]))
+        strategy = None
+        # try strategies in order
+        candidate = EnumerationMarkdownRegex(value)
+        if candidate.is_usable():
+            strategy = candidate
+        else:
+            candidate = ListMarkdownRegex(value)
+            if candidate.is_usable():
+                strategy = candidate
             else:
-                elements = [x for x in line.split(separator) if x]
-                parsed_list.extend(elements)
-                self._parsed_lines.append((separator, elements))                
-            
-        return parsed_list
+                for sep in ["\n", ";", ",", "->", " "]:
+                    candidate = SimpleStringSplitStrategy(value, sep)
+                    if candidate.is_usable():
+                        strategy = candidate
+                        break
+        
+        if strategy is None:
+            raise ValueError("No strategy (markdown enumeration, markdown list, simple strings) found to parse the given string.")
+        parsed = strategy.parse()
+        # Identify the strategy by its regex (for markdown ones) or by the splitting string.
+        if isinstance(strategy, MarkDownStrategy):
+            identifier = strategy.regex
+        elif isinstance(strategy, SimpleStringSplitStrategy):
+            identifier = strategy._separator
+        else:
+            identifier = ""
+        self._parsed_lines = [(identifier, parsed)]
+        return parsed
     
     @classmethod
     def check_if_list(cls, value: str) -> bool:
@@ -97,16 +199,10 @@ class ListParser:
             True if the string is a list, False otherwise.
         """
         try:
-            parser = cls()
-            parser.parse(value)
-            counter = Counter([sep for sep, line in parser.parsed_lines for _ in line])
-            if sum([value for key, value in counter.items() if key]) >= 4:
-                return True
+            ListParser().parse(value)
+        except ValueError:
             return False
-        except Exception:
-            traceback.print_exc()
-            
-            return False
+        return True
         
     @property
     def count_seperators(self) -> Counter:
@@ -126,4 +222,3 @@ b
     print(ListParser().parse(test_string))
     print(ListParser().check_if_list(test_string))
     print(ListParser().check_if_list(false_string))
-    
