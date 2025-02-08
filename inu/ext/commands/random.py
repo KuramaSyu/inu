@@ -88,23 +88,20 @@ class ListCommand(
         SPLIT = ","
         kwargs = {}
         
-        # no options given
         if not list and not tag_with_list:
-            try:
-                facts, new_ctx = await ctx.ask_with_modal(
-                    "Enter a list", 
-                    "List:", 
-                    placeholder_s="Kiwi, tree, stone, strawberries, teamspeak",
-                )
-            except Exception:
-                return
+            # no options given
+            facts, new_ctx = await ctx.ask_with_modal(
+                "Enter a list", 
+                "List:", 
+                placeholder_s="Kiwi, tree, stone, strawberries, teamspeak",
+            )
             if not facts:
                 return
             assert new_ctx is not None
             ctx = new_ctx
             list_text: str = facts
-        # tag given
         elif tag_with_list:
+            # tag given
             tag = await Tag.fetch_tag_from_link(f"tag://{tag_with_list}.local", ctx.guild_id)
             list_text = ("".join(tag.value))
             length = 16
