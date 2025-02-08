@@ -4,11 +4,14 @@ import traceback
 from abc import ABC, abstractmethod
 import re
 
+from hikari import PartialChannel
+
 
 class ListStrategy(ABC):
     def __init__(self, content: str):
         self._content = content
-        self._parsed: List[str] = []
+        self._bare: List[str] = []
+        self._processed: List[str] = []
     
     def is_usable(self) -> bool:
         ...
@@ -21,6 +24,29 @@ class ListStrategy(ABC):
     @abstractmethod
     def count(self) -> int:
         ...
+    
+    @property
+    def processed_list(self) -> List[str]:
+        """
+        Contains list removed of enumeration or bullet points
+        """
+        if not self._processed:
+            self.parse()
+        return self._processed
+
+    @property
+    def bare_list(self) -> List[str]:
+        """
+        Contains list with enumeration or bullet points
+        """
+        if not self._bare:
+            self.parse()
+        return self._bare
+
+    @abstractmethod
+    def reassemble(self, new_list: List[str]) -> str:
+        ...
+
 
 class MarkDownStrategy(ListStrategy, ABC):
     @property
@@ -28,64 +54,60 @@ class MarkDownStrategy(ListStrategy, ABC):
     def regex(self) -> str:
         ...
 
-
-class EnumerationMarkdownRegex(MarkDownStrategy):
-    @property
-    def regex(self) -> str:
-        return r"^[ ]*\d+[.]?.+"
-    
     def is_usable(self) -> bool:
         if len(self._content.splitlines()) < 2:
             return False
-        return all(re.match(self.regex, line) for line in self._content.splitlines())
+        return all(re.match(self.regex, line) for line in self._content.splitlines() if line)
 
     def parse(self) -> List[str]:
-        if self._parsed:
-            return self._parsed
+        if self._bare:
+            return self._bare
         for line in self._content.splitlines():
-            self._parsed.append(
-                re.sub(self.regex, "", line)
+            if not line:
+                continue
+            self._processed.append(
+                re.sub(self.regex, "", line).strip()
             )
-        return self._parsed
+            self._bare.append(line)
+        return self._bare
 
     @property
     def count(self) -> int:
-        if not self._parsed:
+        if not self._bare:
             self.parse()
-        return len(self._parsed)
-    
+        return len(self._bare)
+
+
+class EnumerationMarkdownStrategy(MarkDownStrategy):
+    @property
+    def regex(self) -> str:
+        return r"^\s*\d+\.?\s*"
+
     @property
     def weight(self) -> int:
         return 10
 
-class ListMarkdownRegex(MarkDownStrategy):
+    def reassemble(self, new_list: List[str]) -> str:
+        return "\n".join(f"{i+1}. {item}" for i, item in enumerate(new_list))
+
+
+class MarkdownListStrategy(MarkDownStrategy):
     @property
     def regex(self) -> str:
-        return r"^[ ]*[-*].+"
-    
-    def is_usable(self) -> bool:
-        if len(self._content.splitlines()) < 2:
-            return False
-        return all(re.match(self.regex, line) for line in self._content.splitlines())
-
-    def parse(self) -> List[str]:
-        if self._parsed:
-            return self._parsed
-        for line in self._content.splitlines():
-            self._parsed.append(
-                re.sub(self.regex, "", line)
-            )
-        return self._parsed
+        return r"^\s*[-*][ ]+\s*"  # Checks for bullet point followed by at least one character
 
     @property
     def count(self) -> int:
-        if not self._parsed:
+        if not self._bare:
             self.parse()
-        return len(self._parsed)
+        return len(self._bare)
     
     @property
     def weight(self) -> int:
         return 9
+
+    def reassemble(self, new_list: List[str]) -> str:
+        return "\n".join(f"- {item}" for item in new_list)
 
 class SimpleStringSplitStrategy(ListStrategy):
     def __init__(self, content: str, separator: str):
@@ -94,33 +116,39 @@ class SimpleStringSplitStrategy(ListStrategy):
     
     def is_usable(self) -> bool:
         # The strategy is usable if the separator appears in the content.
-        return self._separator in self._content
+        return self._separator in self._content and len(self._content.split(self._separator)) > 1
     
     def parse(self) -> List[str]:
-        if self._parsed:
-            return self._parsed
-        self._parsed = [part.strip() for part in self._content.split(self._separator) if part.strip()]
-        return self._parsed
+        if self._bare:
+            return self._bare
+        self._processed = [part.strip() for part in self._content.split(self._separator) if part.strip()]
+        self._bare = [part for part in self._content.split(self._separator) if part]
+        return self._bare
     
     @property
     def weight(self) -> int:
-        sep_weights = {"\n": 8, ";": 7, ",": 6, "->": 5, " ": 4}
+        sep_weights = {"\n": 8, ";": 7, ",": 6, "->": 5}
         return sep_weights.get(self._separator, 0)
 
     @property
     def count(self) -> int:
-        if not self._parsed:
+        if not self._bare:
             self.parse()
-        return len(self._parsed)
+        return len(self._bare)
+
+    def reassemble(self, new_list: List[str]) -> str:
+        return self._separator.join(new_list)
+
 
 
 class ListParser:
     _separator_order = [
+        "; ",
         ";", 
+        ", ",
         ",", 
         "->", 
         "\n",
-        " ",
     ]
     
     def __init__(self):
@@ -133,7 +161,7 @@ class ListParser:
         """
         return self._parsed_lines
 
-    def parse(self, value: str) -> List[str]:
+    def parse(self, value: str) -> ListStrategy:
         """
         parses a string into a list of strings using strategies.
         Check from top to down: 
@@ -146,6 +174,8 @@ class ListParser:
         -----
         value: str
             the string to parse
+        processed: bool
+            whether the return list will be processed (e.g. 1. 2. 3. or - at start of line stripped)
             
         Returns:
         --------
@@ -154,20 +184,20 @@ class ListParser:
         """
         strategy = None
         # try strategies in order
-        candidate = EnumerationMarkdownRegex(value)
+        candidate = EnumerationMarkdownStrategy(value)
         if candidate.is_usable():
             strategy = candidate
         else:
-            candidate = ListMarkdownRegex(value)
+            candidate = MarkdownListStrategy(value)
             if candidate.is_usable():
                 strategy = candidate
             else:
-                for sep in ["\n", ";", ",", "->", " "]:
+                for sep in self._separator_order:
                     candidate = SimpleStringSplitStrategy(value, sep)
                     if candidate.is_usable():
                         strategy = candidate
                         break
-        
+        print(f"use strategy: {strategy}")
         if strategy is None:
             raise ValueError("No strategy (markdown enumeration, markdown list, simple strings) found to parse the given string.")
         parsed = strategy.parse()
@@ -179,7 +209,7 @@ class ListParser:
         else:
             identifier = ""
         self._parsed_lines = [(identifier, parsed)]
-        return parsed
+        return strategy
     
     @classmethod
     def check_if_list(cls, value: str) -> bool:
@@ -212,11 +242,14 @@ class ListParser:
 
 if __name__ == "__main__":
     test_string = """
-a; b; c
-1,2,3
-3,4; 5,6
-a
-b
+1. ICE-Spikes Biom finden,  
+2. Zombie Doktor Achievment (difficulty hard),  
+3. Silk Touch auf Tool oder Buch,  
+4. Hot Tourist Destination,  
+5. 5 Effekte Gleichzeitig,  
+6. RAID abschließen (Hero of the village),  
+7. Eins der 3 Sachen mit Fernglas anschauen,  
+8. Caves and Cliffs als erstes (von oben nach unten).
 """
     false_string = "1,2,3,4,5,6"
     print(ListParser().parse(test_string))
