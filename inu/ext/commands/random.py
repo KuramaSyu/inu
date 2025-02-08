@@ -135,8 +135,12 @@ class ListCommand(
         else:
             list_text = list
             
-        # clean list
-        fact_list = ListParser().parse(list_text)
+        try:
+            # clean list
+            fact_list = ListParser().parse(list_text).processed_list
+        except ValueError:
+            await ctx.respond("I can't parse this list. Please check the format.")
+            return
         
         # add component to save list
         if not tag_with_list:
