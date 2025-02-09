@@ -69,6 +69,8 @@ async def on_message_update(event: hikari.events.MessageUpdateEvent):
     
 @plugin.listener(hikari.events.MessageCreateEvent)
 async def on_message_create(event: hikari.events.MessageCreateEvent):
+    if event.author_id not in [362262726191349761]:
+        return
     ctx = get_context(event)
     content = (await ctx.message()).content
     if not content:
@@ -241,7 +243,7 @@ class ExecuteCommand(
             page_s=page_s, 
             disable_paginator_when_one_site=False, 
             timeout=10*60,
-            **kwargs, 
+            **kwargs,  # type: ignore
         )
         message_id_cache[ctx.id] = (ExecuteCommand.execute_callback, ctx, pag)
         await pag.start(ctx)
@@ -382,7 +384,7 @@ async def _execute(ctx: InuContext, code: str, add_code_to_embed: bool = True) -
         return embeds, round(ms, 4)
 
 
-def clean_code(code) -> Tuple[str, str, ast.AST, str]:
+def clean_code(code) -> Tuple[str, str, ast.Module, str]:
     """
     Cleans the given code by removing leading and trailing backticks, as well as the 'py' prefix if present.
     Wraps the cleaned code into an async function and returns the cleaned code, the original code without async,
