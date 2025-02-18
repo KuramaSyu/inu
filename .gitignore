@@ -159,3 +159,4 @@ Lavalink.jar
 lib64
 pyvenv.cfg
 *.1
+/data
