@@ -15,7 +15,7 @@ lavalink:
   plugins:
     # Replace VERSION with the current version as shown by the Releases tab or a long commit hash for snapshots.
     # https://github.com/lavalink-devs/youtube-source/releases
-    - dependency: "dev.lavalink.youtube:youtube-plugin:1.11.3"  
+    - dependency: "dev.lavalink.youtube:youtube-plugin:1.11.4"  
       snapshot: false # Set to true if you want to use a snapshot version.
   pluginsDir: "./plugins"
   server:
