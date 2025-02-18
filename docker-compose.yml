@@ -42,6 +42,6 @@ services:
     image: ghcr.io/lavalink-devs/lavalink:4
     volumes:
       - ./dependencies/lavalink/application.yml:/opt/Lavalink/application.yml
-      - ./data/plugins/:/opt/Lavalink/plugins/
+     # - ./data/plugins/:/opt/Lavalink/plugins/
     networks:
       inu_net:  # Connect to the custom network
