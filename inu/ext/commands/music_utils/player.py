@@ -789,7 +789,7 @@ class QueueMessage:
         return Embed(
             title="Error",
             description=info or "An error occured",
-            color=self.bot.error_color
+            # color=self.bot.error_color
         )
 
     async def build_embed(self) -> hikari.Embed:
@@ -840,9 +840,12 @@ class QueueMessage:
         except Exception as e:
             log.warning(f"can't get current playing song: {e}")
 
-        if not voice_player.track.user_data:
+        if not voice_player.track or not voice_player.track.user_data:
             log.warning("no requester of current track - returning")
 
+        if voice_player.track is None:
+            return Embed(title="Queue is empty", description="or broken", color=self.bot.accent_color)
+        
         requester = self.bot.cache.get_member(
             self.player.guild_id, 
             voice_player.track.user_data["requester_id"]
