@@ -624,24 +624,28 @@ class MusicPlayer:
         return track_title, True
         
     def add_to_queue(
-
         self, 
         track: TrackInQueue | TrackData, 
         player_ctx: PlayerContext, 
         position: int | None = None
     ):
-        """
-        Adds a track to the player's queue at the specified position.
+        """Add a track to the queue.
 
-        Parameters:
-        - track (TrackInQueue | TrackData): The track to be added to the queue.
-        - player_ctx (PlayerContext): The context of the player managing the queue.
-        - position (int, optional): The position in the queue where the track should be added. 
-          Defaults to 0, which means the track will be added to the end of the queue.
+        Parameters
+        ----------
+        track : Union[TrackInQueue, TrackData]
+            The track to add to the queue. Can be either a TrackInQueue or TrackData object.
+        player_ctx : PlayerContext
+            The player context managing the queue.
+        position : Optional[int], default=None
+            The position to insert the track in the queue. If None, appends to the end.
 
-        Returns:
-        None
+        Notes
+        -----
+        If position is None, the track is added to the end of the queue.
+        If position is specified, the track is inserted at that position.
         """
+
         if not position:
             player_ctx.queue(track)
         else:
@@ -665,11 +669,30 @@ class MusicPlayer:
     
     
     async def send_queue(self, force_resend: bool = False, disable_components: bool = False, force_lock: bool = False) -> bool:
-        """
-        Returns:
-        --------
-        `bool`:
-            Whether the message was sent
+        """Sends or updates the queue message in the text channel.
+        This method manages the queue display in Discord, handling message updates and component states.
+        
+        Parameters
+        ----------
+        force_resend : bool, optional
+            If True, forces a new message to be sent instead of updating existing one.
+            Defaults to False.
+        disable_components : bool, optional
+            If True, disables interactive components in the message.
+            Defaults to False.
+        force_lock : bool, optional
+            If True, bypasses the response lock check.
+            Defaults to False.
+        
+        Returns
+        -------
+        bool
+            True if the message was successfully sent/updated, False if locked and force_lock is False.
+        
+        Notes
+        -----
+        Uses a response lock to prevent concurrent message updates.
+        Automatically resets the queue footer after sending.
         """
         if not self.response_lock.is_available() and not force_lock:
             return False
@@ -717,7 +740,7 @@ class MusicPlayer:
         Pauses the player, updates the queue message and sends the leave embed
         """
         await self.pause(suppress_info=True)
-        self._queue.add_footer_info(f"🛑 stopped by {self.ctx.display_name}", icon=self.ctx.author.avatar_url)
+        self._queue.add_footer_info(f"🛑 stopped by {self.ctx.display_name}", icon=self.ctx.author.avatar_url)  # type: ignore
         await self.send_queue(force_resend=force_resend, disable_components=True, force_lock=True)
         assert(self.ctx.member is not None)
         await self.ctx.execute(embed=self.create_leave_embed(self.ctx.member), delete_after=30)
