@@ -401,7 +401,7 @@ class Function(Element):
             return "\\prod_{{i={1}}}^{{{0}}} x_i={2}"
         elif fn_name == "integrate":
             match number_args:
-                case 4: return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ d{3}"
+                case 4: return "\\int_{{{2}}}^{{{1}}} {3} \\,\\ d{0}"
                 case 3: return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ dx"
                 case 2: return "\\int {0} \\,\\ d{1}"
                 case _: return "\\int {0} \\,\\ dx"
@@ -1016,6 +1016,14 @@ def prepare_for_latex(result: str) -> str:
 
 
 test_calculations = {
+    "integrate_upper_lower": (
+        "integrate(x; 0; 1) = 1/2 = 0.5",
+        r"\int_{0}^{1} x \,\ dx = \frac{1}{2} = 0.5"
+    ),
+    "integrate_bare": (
+        "integrate(x²) = x³ / 3 + C",
+        r"\int x^{2} \,\ dx = \frac{x^{3}}{3} + C"
+    ),
     "vectors": (
         "cross([1  2  3], [1  2  sqrt(9)]) = [0  0  0]", 
         r"\begin{pmatrix} 1\\2\\3 \end{pmatrix} \times \begin{pmatrix} 1\\2\\\sqrt{9} \end{pmatrix} = \begin{pmatrix} 0\\0\\0 \end{pmatrix}"
@@ -1080,12 +1088,12 @@ def tests(display: bool = False):
 
 if __name__ == "__main__":
     log.basicConfig(
-        level=log.INFO, 
+        level=logging.INFO, 
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     try:
-        tests(display=True)
-        code = """integrate(2x^2,x,1,2)"""
+        #tests(display=False)
+        code = """integrate(x²) = x³ / 3 + C"""
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     log.info(name)
