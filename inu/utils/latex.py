@@ -39,9 +39,7 @@ import logging
 
 from core import getLogger
 
-
 log = getLogger(__name__)
-
 
 PERIOD_START = " "
 
@@ -403,7 +401,9 @@ class Function(Element):
             return "\\prod_{{i={1}}}^{{{0}}} x_i={2}"
         elif fn_name == "integrate":
             match number_args:
-                case 3: return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ d{3}" 
+                case 4: return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ d{3}"
+                case 3: return "\\int_{{{1}}}^{{{0}}} {2} \\,\\ dx"
+                case 2: return "\\int {0} \\,\\ d{1}"
                 case _: return "\\int {0} \\,\\ dx"
         elif fn_name == "cross":
             return "{1} \\times {0}"
@@ -430,9 +430,9 @@ class Function(Element):
             )
 
     def to_latex(self) -> str:
-        log.debug(f"fn: {self.element}, number_args: {self.number_args}")
         number_args = self.number_args
         format_values = [child.to_latex() for child in self.children]
+        log.debug(f"fn: {self.element}, number_args: {self.number_args}; values: {format_values}")
         prefix = "- " if self.is_negated else ""
         return f"{prefix}{self.get_latex_fn(self.element, number_args).format(*format_values)}"
     
@@ -1085,7 +1085,7 @@ if __name__ == "__main__":
     )
     try:
         tests(display=True)
-        code = """€90 * e^2"""
+        code = """integrate(2x^2,x,1,2)"""
         #code = test_calculations["vectors"]
         # for name, code in test_calculations.items():
         #     log.info(name)
