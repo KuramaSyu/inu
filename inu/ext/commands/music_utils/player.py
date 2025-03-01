@@ -26,7 +26,7 @@ from core import BotResponseError, ResponseProxy
 from . import (
     LavalinkVoice, YouTubeHelper, TrackUserData, 
     ResponseLock, MusicMessageComponents, HISTORY_PREFIX,
-    MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX
+    MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, BotIsActiveState
 )
 from ..tags import get_tag
 from utils import Human, MusicHistoryHandler
@@ -86,6 +86,7 @@ class MusicPlayer:
         self._queue: QueueMessage = QueueMessage(self)
         self.response_lock = ResponseLock(timedelta(seconds=6))
         self._join_channel: hikari.PartialChannel | None = None
+        self.voice_state = BotIsActiveState(self)  # Default state
         
     def with_join_channel(self, channel: hikari.PartialChannel) -> "MusicPlayer":
         """
@@ -137,6 +138,24 @@ class MusicPlayer:
         url = self.ctx.author.avatar_url or self.bot.me.avatar_url
         assert isinstance(url, str)
         return url
+
+    # Add voice state methods that delegate to the current state
+    async def check_if_bot_is_alone(self):
+        """Check if the bot is alone in the voice channel, delegates to current state."""
+        if hasattr(self, 'voice_client') and self.voice_client:
+            return await self.voice_state.check_if_bot_is_alone()
+        return False
+    
+    async def on_bot_lonely(self):
+        """Handle the event when bot becomes lonely, delegates to current state."""
+        await self.voice_state.on_bot_lonely()
+        await self.voice_state.update_message()
+    
+    async def on_human_join(self):
+        """Handle the event when a human joins the voice channel, delegates to current state."""
+        await self.voice_state.on_human_join()
+        await self.voice_state.update_message()
+
     
     async def is_paused(self) -> bool:
         """
@@ -364,6 +383,12 @@ class MusicPlayer:
                 return [result]
         raise BotResponseError(f"No QueryStrategy for: {query}")
 
+    def _get_player_ctx(self) -> PlayerContext:
+        voice = self.bot.voice.connections.get(self.guild_id)
+        if not voice:
+            raise RuntimeError("Not connected to a voice channel")
+        return voice.player
+    
     async def play(self, query: str, position: int | None = None) -> bool:
         """
         Plays a track or playlist based on the provided query.
@@ -398,6 +423,7 @@ class MusicPlayer:
         if not has_joined:
             return False
         player_ctx = voice.player  # type: ignore
+        self._get_voice
         
         # process query and add track(s) line by line
         lines = await self._process_query(query)
