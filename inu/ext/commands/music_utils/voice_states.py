@@ -37,6 +37,11 @@ class VoiceState(ABC):
     async def change_state(self, new_state_class):
         """Change to a new state"""
         pass
+        
+    @abstractmethod
+    async def update_message(self):
+        """Update queue message with state-specific information"""
+        pass
 
 
 class BotIsLonelyState(VoiceState):
@@ -73,6 +78,11 @@ class BotIsLonelyState(VoiceState):
             
     async def _update_queue_message(self):
         """Update the queue message to show the disconnect timer"""
+        self.player.queue.add_footer_info("I'll leave the channel in 10 Minutes")
+        await self.player.send_queue()
+    
+    async def update_message(self):
+        """Update queue message with lonely state information"""
         self.player.queue.add_footer_info("I'll leave the channel in 10 Minutes")
         await self.player.send_queue()
         
@@ -112,15 +122,34 @@ class BotIsActiveState(VoiceState):
         """Update the queue message to remove the disconnect timer notice"""
         ...
         
+    async def update_message(self):
+        """Update queue message for active state"""
+        # Remove any disconnect timer notices
+        self.player.queue.remove_footer_info()
+        await self.player.send_queue()
+        
     async def check_if_bot_is_alone(self):
         """Check if the bot is alone, change state if needed"""
-        voice_channel = self.player.voice_client.channel
-        members = voice_channel.members
+        bot = self.player.bot
         
-        # Count real users (excluding bots)
-        real_users = sum(1 for member in members if not member.bot)
-        
-        if real_users == 0:
+        if not self.guild_id:
+            # theoretically this should never happen
+            return
+        if not (voice_state := bot.cache.get_voice_state(self.guild_id, bot.me.id)):
+            # not in a channel
+            return
+        if not (channel_id := voice_state.channel_id):
+            # not in a channel
+            return
+        other_states = [
+            state 
+            for state 
+            in bot.cache.get_voice_states_view_for_channel(
+                self.guild_id, channel_id
+            ).values() 
+            if state.user_id != bot.get_me().id
+        ]
+        if not other_states:
             await self.on_bot_lonely()
             return True
         return False
