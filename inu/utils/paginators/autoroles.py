@@ -5,7 +5,7 @@ import traceback
 
 from tabulate import tabulate
 import hikari
-from hikari import ComponentInteraction, ButtonStyle, InteractionCreateEvent, PartialInteraction, Role
+from hikari import ComponentInteraction, ButtonStyle
 from hikari.impl import MessageActionRowBuilder
 import miru
 from pytimeparse.timeparse import timeparse
@@ -17,6 +17,7 @@ from ..db import AutoroleManager, AutoroleBuilder, AutoroleEvent
 from utils import crumble
 from core import getLogger, InuContext, BotResponseError, Inu, get_context
 
+client = Inu()._miru
 log = getLogger(__name__)
 
 
@@ -25,7 +26,7 @@ class RoleSelectScreen(menu.Screen):
     def __init__(self, menu_instance: menu.Menu, author_id: int) -> None:
         super().__init__(menu_instance)
         self.author_id = author_id
-        self.roles: Sequence[Role] = []
+        self.roles = []
 
     async def build_content(self) -> menu.ScreenContent:
         return menu.ScreenContent()
@@ -79,11 +80,10 @@ class AutorolesScreen(menu.Screen):
     table_headers = ["ID", "Role", "Event", "duration"]
     
     def __init__(self, menu_instance: menu.Menu, author_id: int) -> None:
+        super().__init__(menu_instance)
         self.author_id = author_id
         self.table: List[AutoroleBuilder] = []
         self.selected_row_index = 0
-        super().__init__(menu_instance)
-
 
     async def pre_start(self, guild_id: int):
         try:
@@ -108,9 +108,6 @@ class AutorolesScreen(menu.Screen):
                 (None if not row.event else row.event.name) or DEFAULT_NONE_VALUE,
                 (naturaldelta(row.duration) if row.duration else None) or "∞",
             ])
-        if not table:
-            table = [[]]
-        log.info(f"{table=} {[repr(x) for x in self.table]}")
         rendered_table = tabulate(table, headers=self.table_headers, tablefmt="simple_grid", maxcolwidths=[4, 15, 15, 10])
         return menu.ScreenContent(
             embed=hikari.Embed(
@@ -122,19 +119,19 @@ class AutorolesScreen(menu.Screen):
     @menu.button(label="⬆️", style=ButtonStyle.SECONDARY)
     async def button_up(self, ctx: miru.ViewContext, button: menu.ScreenButton):
         self.selected_row_index = max(0, self.selected_row_index - 1)
-        await self.menu.update_message(await self.build_content())
+        await self.menu.update_message()
     
     @menu.button(label="⬇️", style=ButtonStyle.SECONDARY)
     async def button_down(self, ctx: miru.ViewContext, button: menu.ScreenButton):
         self.selected_row_index = min(len(self.table) - 1, self.selected_row_index + 1)
-        await self.menu.update_message(await self.build_content())
+        await self.menu.update_message()
 
     @menu.button(label="➕", style=ButtonStyle.SECONDARY)
     async def button_add(self, ctx: miru.ViewContext, button: menu.ScreenButton):
         builder = AutoroleBuilder()
         builder.guild = ctx.guild_id
         self.table.insert(self.selected_row_index, builder)
-        await self.menu.update_message(await self.build_content())
+        await self.menu.update_message()
 
     @menu.button(label="➖", style=ButtonStyle.SECONDARY)
     async def button_remove(self, ctx: miru.ViewContext, button: menu.ScreenButton):
@@ -150,25 +147,17 @@ class AutorolesScreen(menu.Screen):
     async def button_set_role(self, ctx: miru.ViewContext, button: menu.ScreenButton):
         role_screen = RoleSelectScreen(self.menu, ctx.author.id)
         await self.menu.push(role_screen)
-        log.debug("waiting for role screen")
-        await role_screen.menu.wait_for_input()
-        log.debug("role screen done")
         if role_screen.roles:
-            log.debug(f"{role_screen.roles=}")
             self.table[self.selected_row_index].role = role_screen.roles[0]
-            await self.menu.update_message(await self.build_content())
-        else:
-            log.debug("no role selected")
-            await ctx.respond("No role selected", flags=hikari.MessageFlag.EPHEMERAL)
+            await self.menu.update_message()
 
     @menu.button(emoji="📅", label="Set Event", style=ButtonStyle.SECONDARY, row=2)
     async def button_set_event(self, ctx: miru.ViewContext, button: menu.ScreenButton):
         event_screen = EventSelectScreen(self.menu, ctx.author.id)
         await self.menu.push(event_screen)
-        await self.menu.wait_for_input()
         if event_screen.event:
             self.table[self.selected_row_index].event = event_screen.event
-            await self.menu.update_message(await self.build_content())
+            await self.menu.update_message()
 
     @menu.button(emoji="🕒", label="Set Duration", style=ButtonStyle.SECONDARY, custom_id="autoroles_set_duration", row=2)
     async def button_set_duration(self, ctx: miru.ViewContext, button: menu.ScreenButton):
@@ -187,12 +176,12 @@ class AutorolesScreen(menu.Screen):
             await new_ictx.respond("Invalid duration. Use something like 3 weeks or 20 days", update=True)
             return
         
-        ctx = miru.ViewContext(self.menu, Inu.instance.miru_client, new_ictx.interaction)
+        ctx = miru.ViewContext(self, client, new_ictx.interaction)
         self.menu._last_context = ctx
         self._last_context = ctx
         
         self.table[self.selected_row_index].duration = timedelta(seconds=duration)
-        await self.menu.update_message(await self.build_content())
+        await self.menu.update_message()
 
     # save button
     @menu.button(emoji="💾", label="Save", style=ButtonStyle.SECONDARY, custom_id="autoroles_save", row=2)
@@ -260,8 +249,8 @@ class AutorolesViewer(StatelessPaginator):
         await self._set_pages_with_autorole_id(self._autorole_id)
         await super().start(ctx)
 
-    async def _rebuild(self, interaction: ComponentInteraction, **kwargs):
-        self.set_context(interaction=interaction)
+    async def _rebuild(self, event: hikari.ComponentInteraction):
+        self.set_context(event=event)
         self._autorole_id = self.custom_id.get("autoid")
         autorole_event = AutoroleManager.id_event_map.get(self._autorole_id)
         await self._set_pages_with_autorole_id(autorole_event)
