@@ -197,6 +197,10 @@ class MusicPlayer:
 
         voice = self._get_voice()
 
+
+        # set state to active, to not directly leave
+        self.voice_state = BotIsActiveState(self)
+        
         if not voice:
             await LavalinkVoice.connect(
                 Snowflake(self.guild_id),
@@ -697,6 +701,7 @@ class MusicPlayer:
         else:
             has_joined = True
         assert isinstance(voice, LavalinkVoice)
+
         return voice, has_joined
     
     
