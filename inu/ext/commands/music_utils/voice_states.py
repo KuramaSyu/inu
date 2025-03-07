@@ -19,7 +19,7 @@ class VoiceState(ABC):
         self.player: "MusicPlayer" = player
     
     @abstractmethod
-    async def check_if_bot_is_alone(self):
+    async def check_if_bot_is_alone(self) -> bool:
         """Check if the bot is alone in the voice channel"""
         pass
         
@@ -125,10 +125,10 @@ class BotIsActiveState(VoiceState):
     async def update_message(self):
         """Update queue message for active state"""
         # Remove any disconnect timer notices
-        self.player.queue.remove_footer_info()
+        self.player.queue.reset_footer()
         await self.player.send_queue()
         
-    async def check_if_bot_is_alone(self):
+    async def check_if_bot_is_alone(self) -> bool:
         """Check if the bot is alone, change state if needed"""
         bot = self.player.bot
         
