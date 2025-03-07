@@ -131,23 +131,24 @@ class BotIsActiveState(VoiceState):
     async def check_if_bot_is_alone(self) -> bool:
         """Check if the bot is alone, change state if needed"""
         bot = self.player.bot
-        
-        if not self.guild_id:
+        guild_id = self.player.guild_id
+
+        if not guild_id:
             # theoretically this should never happen
-            return
-        if not (voice_state := bot.cache.get_voice_state(self.guild_id, bot.me.id)):
+            return False
+        if not (voice_state := bot.cache.get_voice_state(guild_id, bot.me.id)):
             # not in a channel
-            return
+            return False
         if not (channel_id := voice_state.channel_id):
             # not in a channel
-            return
+            return False
         other_states = [
             state 
             for state 
             in bot.cache.get_voice_states_view_for_channel(
-                self.guild_id, channel_id
+                guild_id, channel_id
             ).values() 
-            if state.user_id != bot.get_me().id
+            if state.user_id != bot.me.id
         ]
         if not other_states:
             await self.on_bot_lonely()

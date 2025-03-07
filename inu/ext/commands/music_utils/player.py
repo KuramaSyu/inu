@@ -26,7 +26,8 @@ from core import BotResponseError, ResponseProxy
 from . import (
     LavalinkVoice, YouTubeHelper, TrackUserData, 
     ResponseLock, MusicMessageComponents, HISTORY_PREFIX,
-    MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, BotIsActiveState
+    MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, BotIsActiveState,
+    VoiceState
 )
 from ..tags import get_tag
 from utils import Human, MusicHistoryHandler
@@ -86,7 +87,7 @@ class MusicPlayer:
         self._queue: QueueMessage = QueueMessage(self)
         self.response_lock = ResponseLock(timedelta(seconds=6))
         self._join_channel: hikari.PartialChannel | None = None
-        self.voice_state = BotIsActiveState(self)  # Default state
+        self.voice_state: VoiceState = BotIsActiveState(self)  # Default state
         
     def with_join_channel(self, channel: hikari.PartialChannel) -> "MusicPlayer":
         """
