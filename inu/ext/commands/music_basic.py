@@ -385,7 +385,7 @@ class PlayAtPositionNowCommand(
 
 
 @play_at_group.register
-class PlayAtPositionNowCommand(
+class PlayAtPositionSecondCommand(
     SlashCommand,
     name="second",
     description="Play a song next-next",
@@ -403,7 +403,7 @@ class PlayAtPositionNowCommand(
 
 
 @play_at_group.register
-class PlayAtPositionNowCommand(
+class PlayAtPositionAnyCommand(
     SlashCommand,
     name="position",
     description="Play a song next-next",
