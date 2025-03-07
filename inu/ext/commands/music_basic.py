@@ -6,7 +6,7 @@ from typing import *
 import asyncio
 import hikari
 import lightbulb
-from lightbulb import AutocompleteContext, Context, SlashCommand, invoke
+from lightbulb import AutocompleteContext, Context, SlashCommand, invoke, Choice
 from fuzzywuzzy import fuzz
 import lavalink_rs
 from lavalink_rs.model import events
@@ -218,7 +218,9 @@ async def _join(ctx: InuContext, channel: Optional[hikari.PartialChannel]) -> Op
 
     return channel_id
 
-
+YOUTUBE_SEARCH = Choice("YouTube: not reliable, all songs", "youtube")
+SOUNDCLOUD_SEARCH = Choice("Soundcloud: reliable, less songs", "soundcloud")
+SEARCH_ENGINE_CHOICES = [YOUTUBE_SEARCH, SOUNDCLOUD_SEARCH]
 
 @loader.command
 class JoinCommand(
@@ -275,6 +277,11 @@ class PlayCommand(
         autocomplete=query_auto_complete,
         default=None,
     )
+    search_engine = lightbulb.string(
+        "search-engine", "the website to search with",
+        choices=SEARCH_ENGINE_CHOICES,
+        default=SOUNDCLOUD_SEARCH
+    )
 
     @lightbulb.invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
@@ -292,7 +299,7 @@ class PlayCommand(
         was_playing = not (await player.is_paused())
         log.debug(f"{was_playing = }")
         try:
-            successfull_play = await player.play(self.query)
+            successfull_play = await player.play(self.query, search_engine=str(self.search_engine))
             if not successfull_play:
                 return
         except TimeoutError:
@@ -419,6 +426,7 @@ class PlayAtPositionAnyCommand(
         "The position in the queue to insert the song",
         default=0,
     )
+    
 
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext) -> None:
@@ -426,7 +434,12 @@ class PlayAtPositionAnyCommand(
 
 
 
-async def play(query: Optional[str], ctx: InuContext, position: Optional[int]) -> None:
+async def play(
+    query: Optional[str], 
+    ctx: InuContext, 
+    position: Optional[int],
+    search_engine: str = "soundcloud"
+) -> None:
     """
     Play a song in a voice channel.
 
@@ -453,7 +466,7 @@ async def play(query: Optional[str], ctx: InuContext, position: Optional[int]) -
     was_playing = not (await player.is_paused())
     log.debug(f"{was_playing = }")
     try:
-        successfull_play = await player.play(query)
+        successfull_play = await player.play(query, search_engine=search_engine)
         if not successfull_play:
             return
     except TimeoutError:

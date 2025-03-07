@@ -200,7 +200,7 @@ class MusicPlayer:
 
         # set state to active, to not directly leave
         self.voice_state = BotIsActiveState(self)
-        
+
         if not voice:
             await LavalinkVoice.connect(
                 Snowflake(self.guild_id),
@@ -349,7 +349,7 @@ class MusicPlayer:
         return voice_player.track  # type: ignore
     
 
-    async def _process_query(self, query: str) -> List[str]:
+    async def _process_query(self, query: str, search_engine: Optional[str] = None) -> List[str]:
         """
         Process the query (one line) and return the modified query.
 
@@ -378,17 +378,17 @@ class MusicPlayer:
         if len(query.splitlines()) > 1:
             results = []
             for line in query.splitlines():
-                results.extend(await self._process_query(line))
+                results.extend(await self._process_query(line, search_engine))
             return results
 
         for strategy in QUERY_STRATEGIES:
             if not strategy.matches_query(query):
                 continue
-            result = await strategy.process_query(self.ctx, query, self.guild_id)
+            result = await strategy.process_query(self.ctx, query, self.guild_id, search_engine)
             log.trace(f"process {query} with {type(strategy).__name__} -> {result}; {len(result.splitlines())}")
             if len(result.splitlines()) > 1:
                 # return each line as a separate query
-                return [line for q in await self._process_query(result) for line in q.splitlines()]
+                return [line for q in await self._process_query(result, search_engine) for line in q.splitlines()]
             else:
                 return [result]
         raise BotResponseError(f"No QueryStrategy for: {query}")
@@ -398,8 +398,8 @@ class MusicPlayer:
         if not voice:
             raise RuntimeError("Not connected to a voice channel")
         return voice.player
-    
-    async def play(self, query: str, position: int | None = None) -> bool:
+
+    async def play(self, query: str, position: int | None = None, search_engine: str = "soundcloud") -> bool:
         """
         Plays a track or playlist based on the provided query.
 
@@ -433,10 +433,9 @@ class MusicPlayer:
         if not has_joined:
             return False
         player_ctx = voice.player  # type: ignore
-        self._get_voice
-        
+
         # process query and add track(s) line by line
-        lines = await self._process_query(query)
+        lines = await self._process_query(query, search_engine)
         silent = len(lines) > 1
         proxy = None
         progress: List[Tuple[int, str]] = []
@@ -530,12 +529,13 @@ class MusicPlayer:
         )
         # add songs to menu with index as ID
         for i, track in enumerate(tracks):
-            if i >= 25:
+            if i >= 24:
                 break
             query_display = f"{i+1} | {track.info.title} ({track.info.author})"[:100]
             menu.add_option(query_display, str(i))
         
         # ask the user
+        log.debug(f"Song Selection: {menu.parent}")
         proxy = await self.ctx.respond(components=[menu.parent, stop_button])
         menu_msg = await proxy.message()
         
@@ -603,6 +603,7 @@ class MusicPlayer:
         user_data: TrackUserData = self._make_user_data(ctx)
         track_title: str | None = None
         try:
+            log.debug(f"Search {query=}")
             tracks: Track = await ctx.bot.lavalink.load_tracks(self.guild_id, query)
             loaded_tracks = tracks.data
         except Exception as e:
