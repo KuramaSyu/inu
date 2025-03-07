@@ -38,7 +38,7 @@ def get_preferred_search(ctx: InuContext, guild_id: Snowflakeish) -> Callable[[s
 
 class QueryStrategyABC(ABC):
     @abstractmethod
-    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
+    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish, search_engine: Optional[str] = None) -> str:
         ...
         
     @abstractmethod
@@ -49,8 +49,16 @@ class QueryStrategyABC(ABC):
 
    
 class SearchQueryStrategy(QueryStrategyABC):
-    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
-        return get_preferred_search(ctx, guild_id)(query)
+    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish, search_engine: Optional[str] = None) -> str:
+        match search_engine:
+            case None:
+                return get_preferred_search(ctx, guild_id)(query)
+            case "youtube":
+                return SearchEngines.youtube(query)
+            case "soundcloud":
+                return SearchEngines.soundcloud(query)
+            case _:
+                return get_preferred_search(ctx, guild_id)(query)
     
     def matches_query(self, query: str) -> bool:
         # Default strategy for plain text searches
@@ -59,7 +67,7 @@ class SearchQueryStrategy(QueryStrategyABC):
 
   
 class UrlQueryStrategy(QueryStrategyABC):
-    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
+    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish, search_engine: Optional[str] = None) -> str:
         if (match := URL_REGEX.match(query)):
             return match.group(0)
         else:
@@ -71,7 +79,7 @@ class UrlQueryStrategy(QueryStrategyABC):
 
 
 class MarkdownUrlQueryStrategy(QueryStrategyABC):
-    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
+    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish, search_engine: Optional[str] = None) -> str:
         """Get url from markdown url; can raise Botresponseerror"""
         if (match:=MARKDOWN_URL_REGEX.match(query)):
             return match.group(1)
@@ -84,7 +92,7 @@ class MarkdownUrlQueryStrategy(QueryStrategyABC):
 
   
 class TagQueryStrategy(QueryStrategyABC):
-    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
+    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish, search_engine: Optional[str] = None) -> str:
         """Get url from tag; can raise Botresponseerror"""
         query = query.replace(MEDIA_TAG_PREFIX, "")
         tag = await get_tag(ctx, query)
@@ -101,7 +109,7 @@ class TagQueryStrategy(QueryStrategyABC):
 
 
 class HistoryQueryStrategy(QueryStrategyABC):
-    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish) -> str:
+    async def process_query(self, ctx: InuContext, query: str, guild_id: Snowflakeish, search_engine: Optional[str] = None) -> str:
         """
         get url from history
         only edits the query
