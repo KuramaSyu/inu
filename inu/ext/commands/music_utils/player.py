@@ -95,6 +95,11 @@ class MusicPlayer:
         self._join_channel = channel
         return self
         
+    @property
+    def guild(self) -> hikari.Guild:
+        guild = self.bot.cache.get_guild(self.guild_id)
+        assert guild
+        return guild
 
     def _get_voice(self) -> LavalinkVoice | None:
         """
