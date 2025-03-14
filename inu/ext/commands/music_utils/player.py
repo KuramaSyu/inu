@@ -639,7 +639,7 @@ class MusicPlayer:
                 track_title = track.info.title
             else:
                 log.debug(f"load playlist without selected track")
-                tracks = loaded_tracks.tracks
+                tracks: List[TrackData] = loaded_tracks.tracks
                 for i in tracks:
                     i.user_data = user_data
 
