@@ -5,6 +5,7 @@ from typing import *
 
 import asyncio
 import hikari
+from hikari import VoiceStateUpdateEvent
 import lightbulb
 from lightbulb import AutocompleteContext, Context, SlashCommand, invoke, Choice
 from fuzzywuzzy import fuzz
@@ -25,6 +26,92 @@ log = getLogger(__name__)
 loader = lightbulb.Loader()
 bot = Inu.instance
 
+
+@loader.listener(hikari.VoiceStateUpdateEvent)
+async def on_voice_state_update(event: VoiceStateUpdateEvent):
+    """Listener, to let the bot leave or pause"""
+    try:
+        ## USER RELATED VOICE STATES ##
+        if (
+            (
+                event.state.user_id != bot.me.id 
+                and not (
+                    event.old_state
+                    and event.old_state.channel_id == event.state.channel_id
+                )
+            ) # someone left/joined/changed the channel
+            or (
+                event.state.user_id == bot.me.id 
+                and event.old_state
+                and event.state.channel_id
+            ) # bot changed a channel
+            or (
+                event.state.user_id != bot.me.id
+                and event.old_state
+                and event.state.channel_id != event.old_state.channel_id
+            ) # user changed room
+        ):
+            # someone left channel or bot joined/changed channel
+            await asyncio.sleep(3)
+            player = MusicPlayerManager.get_player(event.state.guild_id)
+            is_alone = player.check_if_bot_is_alone()
+            if is_alone:
+                log.debug(f"Bot is alone in {event.state.guild_id}")
+                await player.on_bot_lonely()
+            else:
+                log.debug(f"Bot is not alone in {event.state.guild_id}")
+                await player.on_human_join()
+
+        ## BOT RELATED VOICE STATES ##
+        # check if the user is the bot
+        if not event.state.user_id == music.bot.get_me().id: # type: ignore
+            return
+        if event.old_state is None and event.state.channel_id:
+            # bot connected (No channel -> channel)
+            pass
+        elif event.old_state and event.state.channel_id:
+            # bot changed room (channel -> channel)
+            # check if room is empty
+            user_states = [
+                state.user_id for state in 
+                bot.cache.get_voice_states_view_for_channel(
+                    event.guild_id, event.state.channel_id
+                ).values() 
+                if state.user_id != bot.me.id
+            ]
+            player = MusicPlayerManager.get_player(event.state.guild_id)
+            if len(user_states) > 0:
+                # resume player if new room is not empty
+                log.debug(f"Bot changed room in {event.guild_id} to {event.state.channel_id}")
+                await player.pause(False)
+                player.queue.add_footer_info(
+                    f"▶ Music was resumed by {bot.me.username}",
+                    str(bot.me.avatar_url)
+                )
+                log.debug("Resend queue from on_voice_state_update, resume player if new room not empty")
+                await player.send_queue()
+            elif len(user_states) == 0 and not player.is_paused():
+                # pause player if new room is empty
+                await player.pause()
+                await asyncio.sleep(0.1)
+                player.queue.add_footer_info(
+                    f"⏸ Music was paused by {bot.me.username}",
+                    str(bot.me.avatar_url),
+                )
+                log.debug("Resend queue because bot is lonely")
+                await player.send_queue()
+                await player.on_bot_lonely()
+        elif event.state.channel_id is None and not event.old_state is None:
+            # bot disconnected
+            player = MusicPlayerManager.get_player(event.state.guild_id)
+            
+            # add current song again, because the current will be removed
+            current_track = await player.fetch_current_track()
+            if current_track: 
+                player.add_to_queue(current_track, player._get_player_ctx(), position=0)
+                # await bot.lavalink.wait_for_connection_info_remove(event.guild_id)
+    except Exception:
+        log.error(traceback.format_exc())
 
 
 async def query_auto_complete(ctx: AutocompleteContext) -> None:
