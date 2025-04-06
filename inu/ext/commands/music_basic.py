@@ -64,7 +64,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
 
         ## BOT RELATED VOICE STATES ##
         # check if the user is the bot
-        if not event.state.user_id == music.bot.get_me().id: # type: ignore
+        if not event.state.user_id == bot.me.id:
             return
         if event.old_state is None and event.state.channel_id:
             # bot connected (No channel -> channel)
