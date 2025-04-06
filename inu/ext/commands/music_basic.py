@@ -63,8 +63,8 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                 await player.on_human_join()
 
         ## BOT RELATED VOICE STATES ##
-        # check if the user is the bot
         if not event.state.user_id == bot.me.id:
+            # check if the user is the bot
             return
         if event.old_state is None and event.state.channel_id:
             # bot connected (No channel -> channel)
