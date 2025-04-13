@@ -41,7 +41,7 @@ log.info(f"hikari-miru version:{miru.__version__}")
 log.info("Create Inu")
 
 inu = Inu()  # Instance of GatewayBot
-miru_client = miru.client.Client(inu)
+miru_client = miru.Client(inu, ignore_unknown_interactions=True) 
 inu._miru = miru_client
 
 client = lightbulb.client_from_app(
