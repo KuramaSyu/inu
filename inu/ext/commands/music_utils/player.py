@@ -858,12 +858,13 @@ class QueueMessage:
         AMOUNT_OF_SONGS_IN_QUEUE = 4
         
         voice = self._player._get_voice()
-        queue = await voice.player.get_queue().get_queue()  # type: ignore
+
+        if not voice:
+            return self.error_embed("Not connected to a voice channel")
+        
+        queue = await voice.player.get_queue().get_queue()
         voice_player = await self._player._fetch_voice_player()
         is_paused = await self._player.is_paused()
-        
-        if not voice_player:
-            return self.error_embed("Not connected to a voice channel")
         
         numbers = ['1️⃣','2️⃣','3️⃣','4️⃣','5️⃣','6️⃣','7️⃣','8️⃣','9️⃣','🔟']
 
