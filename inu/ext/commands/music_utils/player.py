@@ -149,6 +149,7 @@ class MusicPlayer:
     async def check_if_bot_is_alone(self):
         """Check if the bot is alone in the voice channel, delegates to current state."""
         #if hasattr(self, 'voice_client') and self.voice_client:
+        log.debug(f"Check for is alone with {type(self.voice_state)}")
         return await self.voice_state.check_if_bot_is_alone()
     
     async def on_bot_lonely(self):
