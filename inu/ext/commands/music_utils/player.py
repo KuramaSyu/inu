@@ -148,9 +148,8 @@ class MusicPlayer:
     # Add voice state methods that delegate to the current state
     async def check_if_bot_is_alone(self):
         """Check if the bot is alone in the voice channel, delegates to current state."""
-        if hasattr(self, 'voice_client') and self.voice_client:
-            return await self.voice_state.check_if_bot_is_alone()
-        return False
+        #if hasattr(self, 'voice_client') and self.voice_client:
+        return await self.voice_state.check_if_bot_is_alone()
     
     async def on_bot_lonely(self):
         """Handle the event when bot becomes lonely, delegates to current state."""
@@ -223,20 +222,22 @@ class MusicPlayer:
 
         return channel_id
     
-    async def pause(self, suppress_info: bool = False) -> None:
+    async def pause(self, suppress_info: bool = False, paused_by: hikari.User | None = None) -> None:
         """Pauses a player and adds a footer info"""
+        user = paused_by or self.ctx.author
         if not suppress_info:
             self._queue.add_footer_info(
-                f"⏸️ Music paused by {self.ctx.author.username}", 
-                self.ctx.author.avatar_url  # type: ignore
+                f"⏸️ Music paused by {user.username}", 
+                user.avatar_url  # type: ignore
             )
         await self._set_pause(True)
         
-    async def resume(self) -> None:
+    async def resume(self, resumed_from: hikari.User | None = None) -> None:
         """Resumes the player and adds a footer info"""
+        user = resumed_from or self.ctx.author
         self._queue.add_footer_info(
-            f"▶️ Music resumed by {self.ctx.author.username}", 
-            self.ctx.author.avatar_url  # type: ignore
+            f"▶️ Music resumed by {user.username}", 
+            user.avatar_url  # type: ignore
         )
         await self._set_pause(False)
 
@@ -324,17 +325,17 @@ class MusicPlayer:
             await ctx.respond("Nothing to stop")
                 
         
-    async def leave(self) -> None:
+    async def leave(self, silent: bool = False) -> None:
         ctx = self.ctx
         if not ctx.guild_id:
             return None
 
         voice = self._get_voice()
-        if not voice:
+        if not voice and not silent:
             await ctx.respond("I can't leave without beeing in a voice channel in the first place, y'know?")
             return None
-
-        await voice.disconnect()
+        if voice:
+            await voice.disconnect()
 
     def _make_user_data(self, ctx: Optional[InuContext] = None) -> TrackUserData:
         """
