@@ -106,10 +106,9 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             player = MusicPlayerManager.get_player(event.state.guild_id)
             
             # add current song again, because the current will be removed
-            current_track = await player.fetch_current_track()
+            current_track = await player.fetch_current_track() # TODO: current_track always None because of disconnect
             if current_track: 
                 player.add_to_queue(current_track, player._get_player_ctx(), position=0)
-                # await bot.lavalink.wait_for_connection_info_remove(event.guild_id)
     except Exception:
         log.error(traceback.format_exc())
 
