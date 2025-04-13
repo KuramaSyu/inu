@@ -18,10 +18,35 @@ class VoiceState(ABC):
         """Initialize with reference to the player"""
         self.player: "MusicPlayer" = player
     
-    @abstractmethod
     async def check_if_bot_is_alone(self) -> bool:
-        """Check if the bot is alone in the voice channel"""
-        pass
+        """Check if the bot is alone, change state if needed"""
+        bot = self.player.bot
+        guild_id = self.player.guild_id
+
+        if not guild_id:
+            # theoretically this should never happen
+            return False
+        if not (voice_state := bot.cache.get_voice_state(guild_id, bot.me.id)):
+            # not in a channel
+            return False
+        if not (channel_id := voice_state.channel_id):
+            # not in a channel
+            return False
+        other_states = [
+            state 
+            for state 
+            in bot.cache.get_voice_states_view_for_channel(
+                guild_id, channel_id
+            ).values() 
+        ]
+        # check for bot
+        if bot.me.id not in other_states:
+            return False
+        
+        if len(other_states) <= 1:
+            await self.on_bot_lonely()
+            return True
+        return False
         
     @abstractmethod
     async def on_bot_lonely(self):
@@ -49,6 +74,8 @@ class BotIsLonelyState(VoiceState):
     State representing when the bot is alone in a voice channel.
     Includes a timer to automatically disconnect after 10 minutes.
     """
+    WAIT_MINUTES = 0.25
+
     def __init__(self, player: "MusicPlayer"):
         super().__init__(player)
         self.disconnect_task = None
@@ -58,38 +85,30 @@ class BotIsLonelyState(VoiceState):
         
     def _start_disconnect_timer(self):
         """Start the disconnect timer task"""
+        
         if self.disconnect_task:
             self.disconnect_task.cancel()
-            
-        self.disconnect_time = datetime.now() + timedelta(minutes=10)
+        
+        self.disconnect_time = datetime.now() + timedelta(minutes=self.WAIT_MINUTES)
         self.disconnect_task = asyncio.create_task(self._disconnect_after_timeout())
-        asyncio.create_task(self._update_queue_message())
+        # the message for the leave in 10 minutes is created by on_bot_lonly by calling update_message
         
     async def _disconnect_after_timeout(self):
         """Disconnect the bot after 10 minutes of being alone"""
         try:
-            await asyncio.sleep(600)  # 10 minutes in seconds
-            logger.info(f"Bot was alone for 10 minutes in guild {self.player.guild.name}, leaving voice channel")
-            self.player.queue.add_footer_info("I left the channel because I was alone for 10 minutes")
+            await asyncio.sleep(self.WAIT_MINUTES*60)
+            logger.info(f"Bot was alone for {self.WAIT_MINUTES} minutes in guild {self.player.guild.name}, leaving voice channel")
+            self.player.queue.add_footer_info(f"I left the channel because I was alone for {self.WAIT_MINUTES} minutes")
             await self.player.send_queue()
-            await self.player.leave()
+            await self.player.leave(silent=True)
         except asyncio.CancelledError:
             logger.info(f"Disconnect timer cancelled in guild {self.player.guild.name}")
-            
-    async def _update_queue_message(self):
-        """Update the queue message to show the disconnect timer"""
-        self.player.queue.add_footer_info("I'll leave the channel in 10 Minutes")
-        await self.player.send_queue()
     
     async def update_message(self):
         """Update queue message with lonely state information"""
-        self.player.queue.add_footer_info("I'll leave the channel in 10 Minutes")
+        await self.player.pause(paused_by=self.player.ctx.bot.me)
+        self.player.queue.add_footer_info(f"I'll leave the channel in {self.WAIT_MINUTES} Minutes")
         await self.player.send_queue()
-        
-    async def check_if_bot_is_alone(self):
-        """Check if the bot is still alone"""
-        # Bot is already in lonely state, no change needed
-        return True
         
     async def on_bot_lonely(self):
         """Bot is already lonely, no action needed"""
