@@ -148,9 +148,12 @@ class BotIsActiveState(VoiceState):
             in bot.cache.get_voice_states_view_for_channel(
                 guild_id, channel_id
             ).values() 
-            if state.user_id != bot.me.id
         ]
-        if not other_states:
+        # check for bot
+        if bot.me.id not in other_states:
+            return False
+        
+        if len(other_states) <= 1:
             await self.on_bot_lonely()
             return True
         return False
