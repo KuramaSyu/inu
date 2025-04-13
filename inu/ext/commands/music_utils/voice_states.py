@@ -72,7 +72,7 @@ class BotIsLonelyState(VoiceState):
     State representing when the bot is alone in a voice channel.
     Includes a timer to automatically disconnect after 10 minutes.
     """
-    WAIT_MINUTES = 0.25
+    WAIT_MINUTES = 10
 
     def __init__(self, player: "MusicPlayer"):
         super().__init__(player)
@@ -143,6 +143,7 @@ class BotIsActiveState(VoiceState):
         """Update queue message for active state"""
         # Remove any disconnect timer notices
         self.player.queue.reset_footer()
+        await self.player.resume(self.player.bot.me)
         await self.player.send_queue()
         
     async def on_bot_lonely(self):
