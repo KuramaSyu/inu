@@ -3,8 +3,9 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import *
+from core import getLogger
 # Set up logging
-logger = logging.getLogger(__name__)
+log = getLogger(__name__)
 
 if TYPE_CHECKING:
     from .player import MusicPlayer
@@ -28,7 +29,7 @@ class VoiceState(ABC):
             return False
         if not (voice_state := bot.cache.get_voice_state(guild_id, bot.me.id)):
             # not in a channel
-            return False
+            return False 
         if not (channel_id := voice_state.channel_id):
             # not in a channel
             return False
@@ -37,14 +38,11 @@ class VoiceState(ABC):
             for state 
             in bot.cache.get_voice_states_view_for_channel(
                 guild_id, channel_id
-            ).values() 
+            ).values()
+            if state.user_id != bot.me.id
         ]
-        # check for bot
-        if bot.me.id not in other_states:
-            return False
         
-        if len(other_states) <= 1:
-            await self.on_bot_lonely()
+        if len(other_states) == 0:
             return True
         return False
         
@@ -97,12 +95,12 @@ class BotIsLonelyState(VoiceState):
         """Disconnect the bot after 10 minutes of being alone"""
         try:
             await asyncio.sleep(self.WAIT_MINUTES*60)
-            logger.info(f"Bot was alone for {self.WAIT_MINUTES} minutes in guild {self.player.guild.name}, leaving voice channel")
+            log.info(f"Bot was alone for {self.WAIT_MINUTES} minutes in guild {self.player.guild.name}, leaving voice channel")
             self.player.queue.add_footer_info(f"I left the channel because I was alone for {self.WAIT_MINUTES} minutes")
             await self.player.send_queue()
             await self.player.leave(silent=True)
         except asyncio.CancelledError:
-            logger.info(f"Disconnect timer cancelled in guild {self.player.guild.name}")
+            log.info(f"Disconnect timer cancelled in guild {self.player.guild.name}")
     
     async def update_message(self):
         """Update queue message with lonely state information"""
@@ -124,7 +122,7 @@ class BotIsLonelyState(VoiceState):
             self.disconnect_task.cancel()
             self.disconnect_task = None
         
-        logger.info(f"Changing state from BotIsLonelyState to {new_state_class.__name__} in guild {self.player.guild.name}")
+        log.info(f"Changing state from BotIsLonelyState to {new_state_class.__name__} in guild {self.player.guild.name}")
         self.player.voice_state = new_state_class(self.player)
 
 
@@ -147,36 +145,6 @@ class BotIsActiveState(VoiceState):
         self.player.queue.reset_footer()
         await self.player.send_queue()
         
-    async def check_if_bot_is_alone(self) -> bool:
-        """Check if the bot is alone, change state if needed"""
-        bot = self.player.bot
-        guild_id = self.player.guild_id
-
-        if not guild_id:
-            # theoretically this should never happen
-            return False
-        if not (voice_state := bot.cache.get_voice_state(guild_id, bot.me.id)):
-            # not in a channel
-            return False
-        if not (channel_id := voice_state.channel_id):
-            # not in a channel
-            return False
-        other_states = [
-            state 
-            for state 
-            in bot.cache.get_voice_states_view_for_channel(
-                guild_id, channel_id
-            ).values() 
-        ]
-        # check for bot
-        if bot.me.id not in other_states:
-            return False
-        
-        if len(other_states) <= 1:
-            await self.on_bot_lonely()
-            return True
-        return False
-        
     async def on_bot_lonely(self):
         """Handle the bot becoming lonely"""
         await self.change_state(BotIsLonelyState)
@@ -189,5 +157,5 @@ class BotIsActiveState(VoiceState):
         """Change to a new state"""
         guild = self.player.bot.cache.get_guild(self.player.guild_id)
         assert guild
-        logger.info(f"Changing state from BotIsActiveState to {new_state_class.__name__} in guild {guild.name}")
+        log.info(f"Changing state from BotIsActiveState to {new_state_class.__name__} in guild {guild.name}")
         self.player.voice_state = new_state_class(self.player)
