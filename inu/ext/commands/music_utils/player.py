@@ -346,7 +346,9 @@ class MusicPlayer:
     
     async def fetch_current_track(self) -> TrackData | None:
         voice_player = await self._fetch_voice_player()
-        return voice_player.track  # type: ignore
+        if not voice_player:
+            return None
+        return voice_player.track
     
 
     async def _process_query(self, query: str, search_engine: Optional[str] = None) -> List[str]:
@@ -861,7 +863,7 @@ class QueueMessage:
 
         if not voice:
             return self.error_embed("Not connected to a voice channel")
-        
+
         queue = await voice.player.get_queue().get_queue()
         voice_player = await self._player._fetch_voice_player()
         is_paused = await self._player.is_paused()
