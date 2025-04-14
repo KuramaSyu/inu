@@ -11,6 +11,7 @@ from pprint import pformat
 
 import hikari
 from hikari.events.shard_events import ShardReadyEvent
+from hikari.presences import ActivityType
 import lightbulb
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
@@ -66,11 +67,14 @@ async def fetch_current_games(bot: Inu):
 
 def emulation_format(emulator: str, activity: hikari.RichActivity) -> str:
     """Goes through EmulationFormats to properly format to Game (Emulator)"""
+    log.debug(f"emulator: {emulator}, activity: {repr(activity)}, details: {activity.details}")
     strategies = [RyujinxFormat, YuzuFormat]
     for s in strategies:
         s = s(emulator, activity)
         if emulator in s.emulator_list:
-            return s.make_title()
+            title = s.make_title()
+            log.debug(f"{title}")
+            return title
     return emulator
 
 class EmulationFormat(ABC):
@@ -91,7 +95,7 @@ class EmulationFormat(ABC):
         """Returns string in format: Game (Emulator)"""
         game_name = self.extract_game()
         if game_name:
-            return f"{self.extract_game} ({self.emulator})"
+            return f"{game_name} ({self.emulator})"
         return self.emulator
 
 
@@ -111,13 +115,7 @@ class RyujinxFormat(EmulationFormat):
 
 class YuzuFormat(EmulationFormat):
     def extract_game(self) -> str | None:
-        if not self.activity.details:
-            return None
-
-        game_name = self.activity.details.splitlines()[0]
-        if game_name.lower().startswith("currently in game"):
-            game_name = self.activity.details.splitlines()[1]
-        return game_name
+        return self.activity.state
 
     @property
     def emulator_list(self) -> List[str]:
