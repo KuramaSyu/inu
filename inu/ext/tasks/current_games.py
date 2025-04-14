@@ -1,3 +1,4 @@
+from abc import ABC, abstractmethod
 import asyncio
 import typing
 from typing import *
@@ -34,7 +35,7 @@ banned_act_names = ["Custom Status", "Hang Status"]
 
 async def fetch_current_games(bot: Inu):
     games: Dict[int, Dict[str, int]] = {}
-    guild: hikari.Guild
+    guild: hikari.OwnGuild
     now = datetime.now()
     if now.hour == 0:
         # TODO: write games to database
@@ -48,11 +49,7 @@ async def fetch_current_games(bot: Inu):
                         continue
                     if act_name in Games.EMULATORS and activity.details:
                         # if the activity is an emulator, add the game name to the activity name
-                        # format: "Game (Emulator)"
-                        game_name = activity.details.splitlines()[0]
-                        if game_name.startswith("Playing "):
-                            game_name = game_name[8:]
-                        act_name = f"{game_name} ({act_name})"
+                        act_name = emulation_format(act_name, activity)
                     if not games.get(guild.id):
                         games[guild.id] = {}
                     if act_name in games[guild.id]:
@@ -67,6 +64,64 @@ async def fetch_current_games(bot: Inu):
                 log.warning(f"Current Games ignored: `{game}` with len of {len(game)}", prefix="task")
                 banned_act_names.append(game)
 
+def emulation_format(emulator: str, activity: hikari.RichActivity) -> str:
+    """Goes through EmulationFormats to properly format to Game (Emulator)"""
+    strategies = [RyujinxFormat, YuzuFormat]
+    for s in strategies:
+        s = s(emulator, activity)
+        if emulator in s.emulator_list:
+            return s.make_title()
+    return emulator
+
+class EmulationFormat(ABC):
+    def __init__(self, emulator: str, activity: hikari.RichActivity) -> None:
+        self.emulator = emulator
+        self.activity = activity
+
+    @property
+    @abstractmethod
+    def emulator_list(self) -> List[str]:
+        ...
+
+    @abstractmethod
+    def extract_game(self) -> str | None:
+        ...
+    
+    def make_title(self) -> str:
+        """Returns string in format: Game (Emulator)"""
+        game_name = self.extract_game()
+        if game_name:
+            return f"{self.extract_game} ({self.emulator})"
+        return self.emulator
+
+
+class RyujinxFormat(EmulationFormat):
+    def extract_game(self) -> str | None:
+        if not self.activity.details:
+            return None
+
+        game_name = self.activity.details.splitlines()[0]
+        if game_name.startswith("Playing "):
+            game_name = game_name[8:]
+        return game_name
+
+    @property
+    def emulator_list(self) -> List[str]:
+        return ["Ryujinx"]
+
+class YuzuFormat(EmulationFormat):
+    def extract_game(self) -> str | None:
+        if not self.activity.details:
+            return None
+
+        game_name = self.activity.details.splitlines()[0]
+        if game_name.lower().startswith("currently in game"):
+            game_name = self.activity.details.splitlines()[1]
+        return game_name
+
+    @property
+    def emulator_list(self) -> List[str]:
+        return ["Yuzu", "Citron", "Sudachi", "Suyu"]
 
 
 async def log_current_activity(bot: Inu):
