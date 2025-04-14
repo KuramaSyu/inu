@@ -62,7 +62,8 @@ class Games:
     EMULATORS = [
         "RetroArch", "Dolphin", "Citra", "PCSX2", 
         "RPCS3", "Yuzu", "Xenia", "Cemu", "PPSSPP", 
-        "DeSmuME", "PCSX2", "Dolphin", "Ryujinx", "Suyu"
+        "DeSmuME", "PCSX2", "Dolphin", "Ryujinx", "Suyu",
+        "Sudachi"
     ]
 
 
