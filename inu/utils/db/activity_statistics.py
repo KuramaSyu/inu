@@ -58,12 +58,16 @@ class Games:
     """
     PROGRAMMING = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow", "Code"]
     MUSIC = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
-    DUPLEX_GAMES = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
+    DUPLEX_GAMES = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS", "/"]  # these will be removed from games too
     EMULATORS = [
         "RetroArch", "Dolphin", "Citra", "PCSX2", 
         "RPCS3", "Yuzu", "Xenia", "Cemu", "PPSSPP", 
         "DeSmuME", "PCSX2", "Dolphin", "Ryujinx", "Suyu",
-        "Sudachi"
+        "Sudachi", "osu!(lazer)"
+    ]
+    # activities, which arn't recorded at all
+    DONT_RECORD = [
+        "Lossless Scaling", "Wallpaper Engine"
     ]
 
 
