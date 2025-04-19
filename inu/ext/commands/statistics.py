@@ -181,7 +181,7 @@ class CurrendGames(
         # constants
         app_amount = self.app_amount
         timedelta_ = timedelta(seconds=seconds)
-        show_only_games = self.show_all == "No"
+        show_only_games = self.show_all == NO
         remove_apps: List[str] = []
         apps = [app.strip() for app in self.apps.split(",")] if self.apps else None
         coding_apps = Games.PROGRAMMING
@@ -287,9 +287,10 @@ class CurrendGames(
             coding_time = timedelta(minutes=int(
                 sum([g["amount"]*10 for g in activity_records if g['game'] in coding_apps])
             ))
+            # for gaming, use prefiltered `game_records`
             gaming_time = timedelta(minutes=int(
                 sum(int(game['amount']) for game in game_records)*10
-            )) - music_time - coding_time
+            ))
             
             # add total played games/time
             embeds[0] = (
