@@ -32,7 +32,7 @@ bot = Inu.instance
 
 # Mapping from guild_id to a mapping from game name to amount of users playing it
 games: Dict[int, Dict[str, int]] = {}
-banned_act_names = ["Custom Status", "Hang Status"]
+banned_act_names = ["Custom Status", "Hang Status", *Games.DONT_RECORD]
 
 async def fetch_current_games(bot: Inu):
     games: Dict[int, Dict[str, int]] = {}
