@@ -188,7 +188,7 @@ class CurrendGames(
         music_apps = Games.MUSIC
         double_games = Games.DUPLEX_GAMES  # these will be removed from games too
         remove_apps.extend(double_games)
-        remove.apps.extend(Games.DONT_RECORD)
+        remove_apps.extend(Games.DONT_RECORD)
         if show_only_games:
             remove_apps.extend([*coding_apps, *music_apps])
         max_ranking_num: int = 20
