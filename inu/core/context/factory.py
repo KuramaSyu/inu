@@ -15,7 +15,8 @@ def get_context(
     event: ContextEvent | Interaction, 
     **kwargs,
 ) -> InuContext:
-    """
+    """Simple Factory, to create InuContext depending on envet or interaction type.
+    
     Args:
     -----
     event : `ContextEvent`
@@ -54,7 +55,7 @@ def from_context():
 
 def builder(event: ContextEvent | Interaction, **kwargs) -> Tuple[Type[InuContext], Dict[str, Any]]:
     """
-    returns the coresponding class to an event
+    returns the coresponding InuContext class to an event
     """
     if isinstance(event, hikari.MessageCreateEvent):
         return RestContext, kwargs  # type: ignore
