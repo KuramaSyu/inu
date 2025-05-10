@@ -12,7 +12,7 @@ from lightbulb.context import Context
 from core import Inu
 from utils.language import Human
 
-from core import getLogger, BotResponseError, Inu, ComponentContext, RestContext
+from core import getLogger, BotResponseError, Inu, ComponentContext, RestContext, get_context
 
 log = getLogger("Error Handler")
 pl = lightbulb.Loader()
@@ -46,19 +46,21 @@ bot = Inu.instance
 
 @pl.error_handler()
 async def on_error(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -> bool:
+    """Default Error handler
     """
-    """
-    # Implement BotResponseError
-    log.debug(type(exc.causes))
+    
     if isinstance(exc.causes[0], BotResponseError):
         kwargs = exc.causes[0].kwargs
         content = kwargs.pop("content") or UNDEFINED
         try:
-            await exc.context.respond(content, **kwargs)
+            ctx = get_context(exc.context.interaction)
+            await ctx.respond(content, **kwargs)
         except:
             await bot.rest.create_message(exc.context.channel_id, content, **kwargs)
-    for cause in exc.causes:
-        log.error(f"{''.join(traceback.format_exception(cause))}")
+    else:
+        log.debug(type(exc.causes))
+        for cause in exc.causes:
+            log.error(f"{''.join(traceback.format_exception(cause))}")
     return True
     # try:
     #     ctx: Context | None = event.context
