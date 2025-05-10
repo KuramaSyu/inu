@@ -44,7 +44,7 @@ async def on_music_menu_interaction(event: hikari.InteractionCreateEvent) -> Non
     await ctx.defer(update=True)
     member: hikari.Member = ctx.member  # type: ignore
     custom_id = ctx.custom_id
-    player = MusicPlayerManager.get_player(ctx)
+    player = MusicPlayerManager.player_factory(ctx)
     player.set_context(ctx)
 
     if custom_id == "music_pause":
@@ -87,7 +87,7 @@ class PauseCommand(
     async def callback(self, _: lightbulb.Context, ctx: InuContext) -> None:
         if not ctx.guild_id:
             return None
-        player = MusicPlayerManager.get_player(ctx)
+        player = MusicPlayerManager.player_factory(ctx)
         await player.ctx.defer()
         await player.pause()
         await player.send_queue(True)
@@ -104,7 +104,7 @@ class ResumeCommand(
     async def callback(self, _: lightbulb.Context, ctx: InuContext) -> None:
         if not ctx.guild_id:
             return None
-        player = MusicPlayerManager.get_player(ctx)
+        player = MusicPlayerManager.player_factory(ctx)
         await player.ctx.defer()
         await player.resume()
         await player.send_queue(True)
@@ -153,7 +153,7 @@ class QueueCommand(
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext) -> None:
         await ctx.defer()
-        player = MusicPlayerManager.get_player(ctx)
+        player = MusicPlayerManager.player_factory(ctx)
         await player.send_queue(True)
 
 @loader.command

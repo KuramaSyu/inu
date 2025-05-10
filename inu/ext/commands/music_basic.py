@@ -53,7 +53,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
         ):
             # someone left channel or bot joined/changed channel
             await asyncio.sleep(3)
-            player = MusicPlayerManager.get_player(event.state.guild_id)
+            player = MusicPlayerManager.player_factory(event.state.guild_id)
             is_alone = await player.check_if_bot_is_alone()
             if is_alone:
                 log.debug(f"Bot is alone in {event.state.guild_id}")
@@ -79,7 +79,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                 ).values() 
                 if state.user_id != bot.me.id
             ]
-            player = MusicPlayerManager.get_player(event.state.guild_id)
+            player = MusicPlayerManager.player_factory(event.state.guild_id)
             if len(user_states) > 0:
                 # resume player if new room is not empty
                 log.debug(f"Bot changed room in {event.guild_id} to {event.state.channel_id}")
@@ -103,7 +103,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
                 await player.on_bot_lonely()
         elif event.state.channel_id is None and not event.old_state is None:
             # bot disconnected
-            player = MusicPlayerManager.get_player(event.state.guild_id)
+            player = MusicPlayerManager.player_factory(event.state.guild_id)
             
             # add current song again, because the current will be removed
             current_track = await player.fetch_current_track() # TODO: current_track always None because of disconnect
@@ -199,7 +199,7 @@ class Events(lavalink_rs.EventHandler):
         log = getLogger(__name__, "Lavalink Event Handler")
         log.info(f"Started track {event.track.info.author} - {event.track.info.title} in {event.guild_id.inner}")
 
-        player = MusicPlayerManager.get_player(event.guild_id.inner)
+        player = MusicPlayerManager.player_factory(event.guild_id.inner)
         track = await player.fetch_current_track()
         if track:
             await MusicHistoryHandler.add(event.guild_id.inner, track.info.title, track.info.uri)  # type: ignore
@@ -345,7 +345,7 @@ class LeaveCommand(
     @lightbulb.invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
         await ctx.defer()
-        player = MusicPlayerManager.get_player(ctx)
+        player = MusicPlayerManager.player_factory(ctx)
         player._queue.add_footer_info(f"🛑 Stopped by {ctx.author.username}", str(ctx.author.avatar_url))
         await player.send_queue(True)
         await player.leave()
@@ -381,7 +381,7 @@ class PlayCommand(
             ctx = new_ctx or ctx
         assert self.query
         await ctx.defer()
-        player = MusicPlayerManager.get_player(ctx)
+        player = MusicPlayerManager.player_factory(ctx)
         was_playing = not (await player.is_paused())
         log.debug(f"{was_playing = }")
         try:
@@ -424,7 +424,7 @@ class PlayAtPositionCommand(
             ctx = new_ctx or ctx
         assert self.query
         await ctx.defer()
-        player = MusicPlayerManager.get_player(ctx)
+        player = MusicPlayerManager.player_factory(ctx)
         was_playing = not (await player.is_paused())
         log.debug(f"{was_playing = }")
         try:
@@ -450,7 +450,7 @@ class SkipCommand(
     @lightbulb.invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
         await ctx.defer()
-        player = MusicPlayerManager.get_player(ctx)
+        player = MusicPlayerManager.player_factory(ctx)
         await player.skip()
         await player.send_queue(True)
 
@@ -548,7 +548,7 @@ async def play(
         ctx = new_ctx or ctx
     assert query
     await ctx.defer()
-    player = MusicPlayerManager.get_player(ctx)
+    player = MusicPlayerManager.player_factory(ctx)
     was_playing = not (await player.is_paused())
     log.debug(f"{was_playing = }")
     try:

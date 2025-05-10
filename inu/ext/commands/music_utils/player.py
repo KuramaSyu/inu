@@ -41,11 +41,13 @@ class MusicPlayerManager:
     _ctx: InuContext
 
     @classmethod
-    def get_player(cls, ctx_or_guild_id: int | InuContext) -> "MusicPlayer":
+    def player_factory(cls, ctx_or_guild_id: int | InuContext) -> "MusicPlayer":
         """
+        Creates or retrieves a MusicPlayer for the given guild
+        
         Args:
         -----
-        `ctx_or_guild_id` (`int` | `InuContext`):
+        `ctx_or_guild_id`: (`int` | `InuContext`)
             The guild id or the context of the command.
             If it's the context, then it will be automatically set as player ctx.
         """
