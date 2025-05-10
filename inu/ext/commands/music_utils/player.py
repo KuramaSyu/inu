@@ -15,7 +15,7 @@ import lightbulb
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo
 from lavalink_rs.model.player import Player
-from sortedcontainers.sortedlist import traceback
+import traceback
 from tabulate import tabulate
 
 from utils.shortcuts import display_name_or_id
