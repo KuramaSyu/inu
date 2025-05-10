@@ -136,6 +136,11 @@ class MusicPlayer:
         return self._ctx
     
     @property
+    def is_active(self) -> bool:
+        """Whether or not the player is currently in use. Note: _ctx is checked for that"""
+        return self._ctx is not None
+    
+    @property
     def guild_id(self) -> Snowflake:
         return self._guild_id
     
