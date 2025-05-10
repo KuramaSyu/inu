@@ -5,7 +5,9 @@ from typing import *
 from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
 import functools
+from asyncache import cached
 import attrs
+from cachetools import TTLCache
 import hikari
 from hikari import (
     UNDEFINED, CacheAware, CommandInteraction, ComponentInteraction, GuildChannel, InteractionCreateEvent, Message, ModalInteraction, PartialInteraction, RESTAware, Resourceish, ResponseType, 
@@ -150,8 +152,12 @@ class BaseInteractionContext(InuContextBase):  # type: ignore[union-attr]
 
     async def defer(self, update: bool = False, background: bool = False):
         await self.response_state.defer(update=update)
-        
+    
     @classmethod
+    @cached(
+        TTLCache(int(2 ** 16), float(1*60*15)), 
+        key=lambda _cls, interaction: interaction.interaction.id if isinstance(interaction, InteractionCreateEvent) else interaction.id
+    )
     def from_event(cls, interaction: TInteraction | InteractionCreateEvent) -> "BaseInteractionContext":
         if isinstance(interaction, hikari.InteractionCreateEvent):
             interaction = interaction.interaction  # type: ignore
@@ -280,6 +286,7 @@ class CommandContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin
     @property
     def id(self) -> int:
         return self.interaction.id
+
 
 
 class ComponentContext(BaseInteractionContext, AuthorMixin, GuildsAndChannelsMixin, MessageMixin):  # type: ignore[union-attr]
