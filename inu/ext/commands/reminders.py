@@ -11,7 +11,7 @@ from datetime import datetime
 import time
 import traceback
 
-from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
+from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds, ApplicationContextType
 from hikari import ButtonStyle, PartialMessage
 from hikari.impl.special_endpoints import MessageActionRowBuilder
 from hikari.events import InteractionCreateEvent
