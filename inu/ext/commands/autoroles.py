@@ -24,7 +24,7 @@ from core import (
     InuContext
 )
 import miru 
-from miru.ext.menu import menu
+from miru.ext.menu import Menu
 
 log = getLogger(__name__)
 
@@ -47,11 +47,12 @@ class AutorolesEdit(
 ):
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
-        menu = miru.ext.menu.Menu()
+        assert ctx.guild_id
+        menu = Menu()
         screen = AutorolesScreen(menu, ctx.author_id)
         await screen.pre_start(ctx.guild_id)
         builder = await menu.build_response_async(client, screen)
-        await builder.create_initial_response(ctx.interaction)
+        await builder.create_initial_response(ctx.interaction)  # type: ignore
         client.start_view(menu)
 
 
