@@ -16,7 +16,8 @@ from hikari import (
     MessageCreateEvent, 
     ResponseType,
     Snowflake, 
-    TextInputStyle
+    TextInputStyle,
+    ApplicationContextType
 )
 from hikari.impl import MessageActionRowBuilder
 from hikari import ButtonStyle

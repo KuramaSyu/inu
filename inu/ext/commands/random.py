@@ -10,6 +10,7 @@ from copy import deepcopy
 
 import hikari
 from hikari.impl import MessageActionRowBuilder
+from hikari import ApplicationContextType
 import lightbulb
 from lightbulb.context import Context
 from PIL import Image, ImageEnhance

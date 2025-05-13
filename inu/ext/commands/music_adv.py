@@ -6,7 +6,7 @@ import asyncio
 import lightbulb
 from lightbulb import Context, SlashCommand, invoke
 import hikari 
-from hikari import Embed
+from hikari import Embed, ApplicationContextType
 
 from core import Inu
 from .music_utils import (

@@ -7,7 +7,7 @@ from numpy import full, isin
 
 import aiohttp
 import hikari
-from hikari import TextInputComponent, ButtonStyle
+from hikari import TextInputComponent, ButtonStyle, ApplicationContextType
 import lightbulb
 from lightbulb import AutocompleteContext, commands, SlashCommand, invoke
 

@@ -10,6 +10,7 @@ import time
 import re
 
 import hikari
+from hikari import ApplicationContextType
 from hikari.impl import MessageActionRowBuilder
 from hikari.embeds import Embed
 import lightbulb
