@@ -9,7 +9,7 @@ from .interactions import CommandContext, ComponentContext
 from .rest import RestContext
 
 ContextEvent = Union[hikari.MessageCreateEvent, hikari.InteractionCreateEvent, hikari.MessageUpdateEvent]
-Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | hikari.ComponentInteraction]
+Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.ComponentInteraction]
 
 def get_context(
     event: ContextEvent | Interaction, 

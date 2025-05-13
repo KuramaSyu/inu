@@ -19,7 +19,7 @@ if TYPE_CHECKING:
     from .response_proxy import ResponseProxy
 
 T = TypeVar("T")
-Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.MessageInteraction | hikari.ComponentInteraction]
+Interaction = Union[hikari.ModalInteraction | hikari.CommandInteraction | hikari.ComponentInteraction]
 T_STR_LIST = TypeVar("T_STR_LIST", list[str], str)
 
 
