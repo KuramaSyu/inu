@@ -39,7 +39,7 @@ voice | 8/10 |
 stats | 9/10 |
 reminders | 7/10 |
 github | 1/10 |
-dictionary | 2/10 |
+dictionary | 2/10 | x
 polls | 1/10 |
 stopwatch | 3/10 | x
 rtfm | 3/10 |
