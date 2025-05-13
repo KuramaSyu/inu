@@ -1,6 +1,6 @@
 
-hikari-lightbulb==3.0.0a15
-hikari==2.1.1
+hikari-lightbulb==3.0.0a22
+hikari==2.3.2
 hikari-miru==4.2.0
 asyncache==0.3.1
 cachetools==5.5.0
