@@ -18,6 +18,8 @@ import logging
 from pyparsing import ParseException
 import asyncpraw
 import hikari
+from hikari import ApplicationContextType
+
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import commands
@@ -81,7 +83,7 @@ class CalculateCommand(
     SlashCommand,
     name="calculate",
     description="advanced calculator",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(3, 1, "user")]
 ):

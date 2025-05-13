@@ -5,7 +5,7 @@ from typing import *  # type: ignore
 import aiohttp
 import json
 
-from hikari import Member, Snowflake, User, InteractionCreateEvent, ComponentInteraction, ButtonStyle
+from hikari import Member, Snowflake, User, InteractionCreateEvent, ComponentInteraction, ButtonStyle, ApplicationContextType
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import Context, Loader, SlashCommand, invoke, Group
@@ -95,7 +95,7 @@ async def start_connect_4(
     await h.start(ctx)
 
 
-con4 = Group(name="connect4", description="Various Connect 4 games", dm_enabled=False)
+con4 = Group(name="connect4", description="Various Connect 4 games", contexts=[ApplicationContextType.GUILD])
 # Connect 4 base command group
 
 @con4.register
@@ -181,7 +181,7 @@ class OnuGame(
     SlashCommand,
     name="onu",
     description="Starts an ONU game",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None
 ):
     player1 = lightbulb.user("player1", "The first player")
@@ -226,7 +226,7 @@ class AkinatorGame(
     SlashCommand,
     name="akinator",
     description="Guess a character with Akinator",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
 ):
     @invoke
     async def callback(self, ctx: lightbulb.Context):

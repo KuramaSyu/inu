@@ -19,7 +19,8 @@ from hikari import (
     ResponseType, 
     TextInputStyle,
     Permissions,
-    ButtonStyle
+    ButtonStyle,
+    ApplicationContextType
 )
 from hikari.events import InteractionCreateEvent
 from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBuilder
@@ -57,7 +58,7 @@ class Watch2GetherCommand(
     SlashCommand,
     name="watch2gether",
     description="Create a W2G room",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(3, 1, "user")]
 ):

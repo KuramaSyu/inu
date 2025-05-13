@@ -52,7 +52,7 @@ class VocabularyTraining(
     SlashCommand,
     name="vocabulary",
     description="train vocabulary",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     vocabulary_tag = lightbulb.string(
         "vocabulary-tag", 

@@ -11,7 +11,8 @@ from hikari import (
     TextInputStyle,
     Permissions,
     ButtonStyle,
-    InteractionCreateEvent
+    InteractionCreateEvent,
+    ApplicationContextType
 )
 from hikari.impl import MessageActionRowBuilder
 from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
@@ -50,7 +51,7 @@ class CommandName(
     SlashCommand,
     name="name",
     description="description",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(3, 1, "user")]
 ):
@@ -71,7 +72,7 @@ class SubCommandName(
     SlashCommand,
     name="name",
     description="description",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(3, 1, "user")]
 ):

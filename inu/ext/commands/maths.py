@@ -13,7 +13,8 @@ from hikari import (
     ResponseType, 
     TextInputStyle,
     Permissions,
-    ButtonStyle
+    ButtonStyle,
+    ApplicationContextType
 )
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
@@ -329,7 +330,7 @@ class CommandName(
     SlashCommand,
     name="math",
     description="Menu with all calculation tasks I have",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(3, 1, "user")]
 ):

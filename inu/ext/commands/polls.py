@@ -10,7 +10,7 @@ import logging
 from datetime import datetime, timedelta, timezone
 
 from hikari import ActionRowComponent, Embed, MessageCreateEvent, embeds
-from hikari import ButtonStyle
+from hikari import ButtonStyle, ApplicationContextType
 from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBuilder
 from hikari.events import InteractionCreateEvent
 import lightbulb
@@ -107,7 +107,7 @@ class PollCommand(
     SlashCommand,
     name="poll",
     description="start a poll",
-    dm_enabled=False
+    contexts=[ApplicationContextType.GUILD]
 ):
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):

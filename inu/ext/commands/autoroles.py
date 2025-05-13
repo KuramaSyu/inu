@@ -6,6 +6,8 @@ import traceback
 
 from humanize import naturaldelta
 import hikari
+from hikari import ApplicationContextType
+
 from lightbulb import commands, context, SlashCommand, invoke, Loader
 from tabulate import tabulate
 
@@ -35,7 +37,7 @@ client = bot.miru_client
 autoroles_group = lightbulb.Group(
     name="autoroles",
     description="Role Management",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=hikari.Permissions.MANAGE_ROLES
 )
 

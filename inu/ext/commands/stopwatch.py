@@ -12,7 +12,8 @@ from hikari import (
     TextInputStyle,
     ButtonStyle,
     InteractionCreateEvent,
-    Permissions
+    Permissions,
+    ApplicationContextType
 )
 from hikari.impl import MessageActionRowBuilder
 from lightbulb import commands, context, SlashCommand, invoke
@@ -169,7 +170,7 @@ class StopwatchCommand(
     SlashCommand,
     name="stopwatch",
     description="A stopwatch",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(3, 1, "user")]
 ):

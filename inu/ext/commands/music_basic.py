@@ -5,7 +5,7 @@ from typing import *
 
 import asyncio
 import hikari
-from hikari import VoiceStateUpdateEvent
+from hikari import VoiceStateUpdateEvent, ApplicationContextType
 import lightbulb
 from lightbulb import AutocompleteContext, Context, SlashCommand, invoke, Choice
 from fuzzywuzzy import fuzz
@@ -316,7 +316,7 @@ class JoinCommand(
     lightbulb.SlashCommand,
     name="join",
     description="Enters the voice channel you are connected to, or the one specified",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
 ):
     channel = lightbulb.channel(
@@ -342,7 +342,7 @@ class LeaveCommand(
     lightbulb.SlashCommand,
     name="leave",
     description="Leaves the voice channel",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
 ):
     @lightbulb.invoke
@@ -358,7 +358,7 @@ class PlayCommand(
     SlashCommand,
     name="play",
     description="Searches the query on Soundcloud",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
 ):
     query = lightbulb.string(
         "query",
@@ -399,14 +399,14 @@ class PlayCommand(
         await player.send_queue(True)
 
 
-play_at_group = lightbulb.Group("play-at-position", "Play a song at a specific position", dm_enabled=False)
+play_at_group = lightbulb.Group("play-at-position", "Play a song at a specific position", contexts=[ApplicationContextType.GUILD])
 
 @play_at_group.register
 class PlayAtPositionCommand(
     SlashCommand,
     name="now",
     description="Searches the query on Soundcloud",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
 ):
     query = lightbulb.string(
         "query",
@@ -447,7 +447,7 @@ class SkipCommand(
     lightbulb.SlashCommand,
     name="skip",
     description="Skip the currently playing song",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
 ):
     @lightbulb.invoke
@@ -458,7 +458,7 @@ class SkipCommand(
         await player.send_queue(True)
 
 
-play_at_group = lightbulb.Group("play-at-position", "Play a song at a specific position", dm_enabled=False)
+play_at_group = lightbulb.Group("play-at-position", "Play a song at a specific position", contexts=[ApplicationContextType.GUILD])
 
 
 @play_at_group.register

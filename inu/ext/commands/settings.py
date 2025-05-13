@@ -20,7 +20,8 @@ from hikari import (
     TextInputStyle,
     Permissions,
     ButtonStyle,
-    ComponentInteraction
+    ComponentInteraction,
+    ApplicationContextType
 )
 import hikari
 from hikari.impl import MessageActionRowBuilder
@@ -399,7 +400,7 @@ async def on_ready(_: hikari.ShardReadyEvent):
 settings_group = Group(
     "settings", 
     "Settings to change how certain things are handled", 
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=hikari.Permissions.ADMINISTRATOR,
 )
 
@@ -529,7 +530,7 @@ class RemoveTopChannel(
         await DailyContentChannels.remove_channel(Col.TOP_CHANNEL_IDS, channel_id, ctx.guild_id)
         await ctx.respond(f"removed channel: `{channel.name}` with id `{channel.id}`")
 
-prefix_group = Group("prefix", "add/remove custom prefixes", dm_enabled=False)
+prefix_group = Group("prefix", "add/remove custom prefixes", contexts=[ApplicationContextType.GUILD])
 #settings_group.register(prefix_group)
 
 @prefix_group.register
@@ -573,7 +574,7 @@ class RemovePrefix(
         prefixes = await PrefixManager.remove_prefix(ctx.guild_id, prefix)  # type: ignore
         await ctx.respond(f"""I removed it. For this guild, the prefixes are now: {', '.join([f'`{p or "<empty>"}`' for p in prefixes])}""")
 
-timezone_group = Group("timezone", "Timezone related commands", dm_enabled=False)
+timezone_group = Group("timezone", "Timezone related commands", contexts=[ApplicationContextType.GUILD])
 #settings_group.register(timezone_group)
 
 @timezone_group.register
@@ -590,7 +591,7 @@ class SetTimezone(
     async def _callback(ctx: InuContext):
         await set_timezone(ctx)
 
-settings_board_group = Group("board", "group for board commands", dm_enabled=False)
+settings_board_group = Group("board", "group for board commands", contexts=[ApplicationContextType.GUILD])
 #settings_group.register(settings_board_group)
 
 @settings_board_group.register

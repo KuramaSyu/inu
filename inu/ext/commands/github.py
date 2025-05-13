@@ -41,7 +41,7 @@ class ChangeLog(
     SlashCommand,
     name="change-log",
     description="Last changes of the bot",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):

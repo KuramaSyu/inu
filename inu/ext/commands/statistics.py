@@ -18,6 +18,7 @@ import re
 from hikari import (
     Embed,
     Snowflake, 
+    ApplicationContextType
 )
 from hikari import (
     Embed,
@@ -121,7 +122,7 @@ class CurrendGames(
     SlashCommand,
     name="current-games",
     description="Shows, which games are played in your guild",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(60, 5, "user")]
 ):
@@ -368,7 +369,7 @@ class WeekActivity(
     SlashCommand,
     name="week-activity",
     description="Shows the activity of all week days",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
     hooks=[sliding_window(5, 1, "user")]
 ):

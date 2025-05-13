@@ -63,7 +63,7 @@ class Remind(
     SlashCommand,
     name="remind",
     description="set a reminder",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     info = lightbulb.string(
         "info",
@@ -96,7 +96,7 @@ class ReminderList(
     SlashCommand,
     name="list",
     description="Get a list with all your reminders",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     @invoke
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
@@ -126,7 +126,7 @@ class ReminderCancel(
     SlashCommand,
     name="cancel",
     description="cancel a reminder",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     reminder_id = lightbulb.integer("id", "The id (get it with reminder list) of the reminder")
 

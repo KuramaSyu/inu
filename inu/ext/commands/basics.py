@@ -6,6 +6,8 @@ import traceback
 import aiohttp
 import hikari
 from hikari.impl import MessageActionRowBuilder
+from hikari import ApplicationContextType
+
 import lightbulb
 import lightbulb.utils as lightbulb_utils
 from lightbulb import Client, Context
@@ -298,7 +300,7 @@ class PurgeSlash(
     SlashCommand,
     name="purge",
     description="Delete the last messages from a channel",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=Permissions.MANAGE_MESSAGES,
     hooks=[sliding_window(3, 1, "user")]
 ):
@@ -395,7 +397,7 @@ class Purge(
     lightbulb.MessageCommand,
     name="purge until here",
     description="Deletes all messages until the message (including)",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=Permissions.MANAGE_MESSAGES,
     hooks=[sliding_window(3, 1, "user")]
 ):

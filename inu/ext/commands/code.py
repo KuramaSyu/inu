@@ -2,6 +2,8 @@ import os
 from typing import Tuple
 
 import hikari
+from hikari import ApplicationContextType
+
 import lightbulb
 from lightbulb import SlashCommand, invoke
 
@@ -54,7 +56,7 @@ class CodeCommand(
     SlashCommand,
     name="code",
     description="Shows information about the amount of code I have",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
 ):
     @invoke

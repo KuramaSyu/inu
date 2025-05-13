@@ -218,7 +218,7 @@ class Rtfm(
     SlashCommand, 
     name="all",
     description="search all manuals",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     obj = lightbulb.string("obj", "the thing you want to search")
 
@@ -231,7 +231,7 @@ class RtfmHikari(
     SlashCommand,
     name="hikari",
     description="search hikari manual",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     obj = lightbulb.string("obj", "the thing you want to search", autocomplete=autocomplete_hikari)
 
@@ -247,7 +247,7 @@ class RtfmPython(
     SlashCommand,
     name="python",
     description="search Python manual",
-    dm_enabled=True
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL]
 ):
     obj = lightbulb.string("obj", "the thing you want to search", autocomplete=autocomplete_python)
 

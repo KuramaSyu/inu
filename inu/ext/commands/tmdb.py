@@ -1,4 +1,6 @@
 import hikari
+from hikari import ApplicationContextType
+
 import lightbulb
 from lightbulb import commands, context, SlashCommand, invoke
 
@@ -23,7 +25,7 @@ class SearchShow(
     SlashCommand,
     name="tv-show",
     description="Search a tv show (TMDB)",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
 ):
     name = lightbulb.string("name", "name of tv show")
@@ -40,7 +42,7 @@ class SearchMovie(
     SlashCommand,
     name="movie",
     description="Search a movie (TMDB)",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     default_member_permissions=None,
 ):
     name = lightbulb.string("name", "name of movie")

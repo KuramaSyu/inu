@@ -12,6 +12,7 @@ import ast
 
 
 import hikari
+from hikari import ApplicationContextType
 import lightbulb
 from lightbulb.context import Context
 from lightbulb import AutocompleteContext, SlashCommand, invoke
@@ -139,8 +140,8 @@ class SqlFetchCommand(
     lightbulb.SlashCommand,
     name="return",
     description="executes SQL with return",
-    dm_enabled=False,
-    hooks=[lightbulb.prefab.checks.owner_only]
+    hooks=[lightbulb.prefab.checks.owner_only],
+    contexts=[ApplicationContextType.GUILD]
 ):
     sql = lightbulb.string("sql", "The SQL query you want to execute. Good for selection querys")
     
@@ -167,7 +168,7 @@ class LogCommand(
     lightbulb.SlashCommand,
     name="log",
     description="Shows the log of the entire me",
-    dm_enabled=True,
+    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
     hooks=[lightbulb.prefab.checks.owner_only]
 ):
     level_stop = lightbulb.string("level-stop", "the last level to show", default="CRITICAL", autocomplete=log_level_autocomplete)
@@ -215,7 +216,7 @@ class ExecuteCommand(
     lightbulb.SlashCommand,
     name="run",
     description="Executes given Python code",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     hooks=[lightbulb.prefab.checks.owner_only]
 ):
     code = lightbulb.string("code", "The code I should execute")

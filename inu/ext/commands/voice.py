@@ -5,7 +5,7 @@ import logging
 from datetime import datetime
 
 import hikari
-from hikari import ButtonStyle
+from hikari import ButtonStyle, ApplicationContextType
 from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBuilder
 import lightbulb
 from lightbulb import Context, SlashCommand, invoke
@@ -35,7 +35,7 @@ class MoveAllCommand(
     SlashCommand,
     name="move-all",
     description="moves all members from a current voice channel into another",
-    dm_enabled=False,
+    contexts=[ApplicationContextType.GUILD],
     hooks=[
         lightbulb.prefab.bot_has_permissions(hikari.Permissions.MOVE_MEMBERS),
         lightbulb.prefab.has_permissions(hikari.Permissions.MOVE_MEMBERS),

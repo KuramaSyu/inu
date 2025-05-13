@@ -4,6 +4,8 @@ import asyncio
 import logging
 
 import hikari
+from hikari import ApplicationContextType
+
 import lightbulb
 from lightbulb import Context, SlashCommand, invoke
 
@@ -35,7 +37,7 @@ async def send_formated_json(ctx: InuContext, json_: dict):
     embed.description = f"Total used commands: {total_cmds}"
     await ctx.respond(embed=embed)
 
-stats_group = lightbulb.Group("stats", "Command invocation infos", dm_enabled=False)
+stats_group = lightbulb.Group("stats", "Command invocation infos", contexts=[ApplicationContextType.GUILD])
 
 @stats_group.register
 class GuildStatsCommand(
