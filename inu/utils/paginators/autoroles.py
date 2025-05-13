@@ -86,6 +86,9 @@ class AutorolesScreen(menu.Screen):
         self.selected_row_index = 0
 
     async def pre_start(self, guild_id: int):
+        """
+        Fetches DB content
+        """
         try:
             self.table = await AutoroleManager.wrap_events_in_builder(
                 await AutoroleManager.fetch_events(guild_id, None)
@@ -126,14 +129,14 @@ class AutorolesScreen(menu.Screen):
         self.selected_row_index = min(len(self.table) - 1, self.selected_row_index + 1)
         await self.menu.update_message()
 
-    @menu.button(label="➕", style=ButtonStyle.SECONDARY)
+    @menu.button(label="➕ Add", style=ButtonStyle.SECONDARY)
     async def button_add(self, ctx: miru.ViewContext, button: menu.ScreenButton):
         builder = AutoroleBuilder()
         builder.guild = ctx.guild_id
         self.table.insert(self.selected_row_index, builder)
         await self.menu.update_message()
 
-    @menu.button(label="➖", style=ButtonStyle.SECONDARY)
+    @menu.button(label="➖ Remove", style=ButtonStyle.SECONDARY)
     async def button_remove(self, ctx: miru.ViewContext, button: menu.ScreenButton):
         event = self.table.pop(self.selected_row_index)
         maybe_deleted = await event.delete()
@@ -167,7 +170,7 @@ class AutorolesScreen(menu.Screen):
             "Duration:",
             placeholder_s="2 weeks 5 days"
         )
-        if not answer:
+        if not answer or not new_ictx:
             return
         duration = timeparse(answer)
         
@@ -176,7 +179,10 @@ class AutorolesScreen(menu.Screen):
             await new_ictx.respond("Invalid duration. Use something like 3 weeks or 20 days", update=True)
             return
         
-        ctx = miru.ViewContext(self, client, new_ictx.interaction)
+        client = Inu()._miru
+        assert client
+        assert isinstance(new_ictx.interaction, hikari.ComponentInteraction)
+        ctx = miru.ViewContext(self.menu, client, new_ictx.interaction)
         self.menu._last_context = ctx
         self._last_context = ctx
         
