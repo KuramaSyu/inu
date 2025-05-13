@@ -1,4 +1,4 @@
-from hikari import Embed
+from hikari import Embed, ApplicationContextType
 import lightbulb
 from lightbulb import commands, context, SlashCommand, invoke, Loader
 

@@ -361,7 +361,7 @@ async def start_math_tasks(ctx: InuContext, stage: str):
 
     await ctx.respond(
         f"Well then, let's go!\nIt's not over when you calculate wrong\nYou can always stop with `stop!`",
-        delete_after=60,
+        delete_after=timedelta(seconds=60),
     )
     c = get_calculation_blueprint(stage)
     highscore, time_needed = await execute_task(ctx, c)

@@ -9,6 +9,7 @@ from hikari import (
     Embed,
     ResponseType, 
     TextInputStyle,
+    ApplicationContextType
 )
 from hikari.impl import MessageActionRowBuilder
 from lightbulb import commands, context, SlashCommand, invoke, Loader
