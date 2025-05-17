@@ -168,7 +168,7 @@ class LogCommand(
     lightbulb.SlashCommand,
     name="log",
     description="Shows the log of the entire me",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
     hooks=[lightbulb.prefab.checks.owner_only]
 ):
     level_stop = lightbulb.string("level-stop", "the last level to show", default="CRITICAL", autocomplete=log_level_autocomplete)
