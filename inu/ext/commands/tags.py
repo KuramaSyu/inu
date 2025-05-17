@@ -483,7 +483,7 @@ class TagAdd(
     SlashCommand,
     name="add",
     description="description",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The tags name", default=None)
     value = lightbulb.string("content", "the text your tag should return", default=None)
@@ -582,7 +582,7 @@ class TagGet(
     SlashCommand,
     name="get",
     description="show a tag",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
 
@@ -605,7 +605,7 @@ class TagEdit(
     SlashCommand,
     name="edit",
     description="edit a tag you own",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
 
@@ -631,7 +631,7 @@ class TagRemove(
     SlashCommand,
     name="remove",
     description="remove a tag you own",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The tags name", autocomplete=tag_name_auto_complete)
     
@@ -659,7 +659,7 @@ class TagOverview(
     SlashCommand,
     name="overview",
     description="get an overview of all tags",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):    
     @invoke
     async def callback(self, _: Context, ctx: InuContext):
@@ -760,7 +760,7 @@ class TagAppend(
     SlashCommand,
     name="append",
     description="append text to a tag you own",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
     text = lightbulb.string("text", "The text you want to append to the current value", default=None)
@@ -837,7 +837,7 @@ class TagChangeName(
     SlashCommand, 
     name="change-name",
     description="Change the key (name) of a tag",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     old_name = lightbulb.string("old-name", "The old name from the tag", autocomplete=tag_name_auto_complete)
     new_name = lightbulb.string("new-name", "The new name for the tag")
@@ -868,7 +868,7 @@ class TagInfo(
     SlashCommand,
     name="info",
     description="get info to a tag",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
     
@@ -911,7 +911,7 @@ class TagAddAlias(
     SlashCommand,
     name="add-alias",
     description="Add an alias (optional name) to a tag you own",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
     alias = lightbulb.string("alias", "The optional name you want to add")
@@ -941,7 +941,7 @@ class TagRemoveAlias(
     SlashCommand,
     name="remove-alias",
     description="Remove an alias (optional name) from a tag you own",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
     alias = lightbulb.string("alias", "The optional name you want to remove")
@@ -977,7 +977,7 @@ class TagAddAuthor(
     SlashCommand,
     name="add-author",
     description="add an author to your tag",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "the name of your tag", autocomplete=tag_name_auto_complete)
     author = lightbulb.user("author", "The @person you want to add as author")
@@ -1009,7 +1009,7 @@ class TagRemoveAuthor(
     SlashCommand,
     name="remove-author",
     description="remove an author from your tag",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     name = lightbulb.string("name", "The name of your tag", autocomplete=tag_name_auto_complete)
     author = lightbulb.user("author", "The @person you want to remove as author")
@@ -1044,7 +1044,7 @@ class TagAddGuild(
     SlashCommand,
     name="add-guild",
     description="add a guild to your tag",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     guild = lightbulb.string("guild", "The guild/server ID you want to add", autocomplete=guild_auto_complete)
     name = lightbulb.string("name", "the name of your tag", autocomplete=tag_name_auto_complete)
@@ -1125,7 +1125,7 @@ class TagRemoveGuild(
     SlashCommand,
     name="remove-guild",
     description="remove a guild/server from your tag",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     guild = lightbulb.string("guild", "The guild/server ID you want to remove", autocomplete=guild_auto_complete)
     name = lightbulb.string("name", "the name of your tag", autocomplete=tag_name_auto_complete)
@@ -1163,7 +1163,7 @@ class TagRandom(
     SlashCommand,
     name="random",
     description="Get a random tag from all tags available",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     @invoke
     async def callback(self, _: Context, ctx: InuContext):

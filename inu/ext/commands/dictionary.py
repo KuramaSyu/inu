@@ -21,7 +21,7 @@ class UrbanDictionaryCommand(
     SlashCommand,
     name="urban",
     description="Search a word in the urban (city) dictionary",
-    contexts=[ApplicationContextType.GUILD | ApplicationContextType.PRIVATE_CHANNEL],
+    contexts=[ApplicationContextType.GUILD, ApplicationContextType.PRIVATE_CHANNEL],
 ):
     word = lightbulb.string("word", "What do you want to search?")
 
