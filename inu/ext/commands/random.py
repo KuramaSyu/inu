@@ -333,7 +333,7 @@ class DiceCommand(
             return components
         
         await ctx.respond(
-            content=f"Number: {eyes}",
+            content=f"Number: {picked_eye}",
             attachment=hikari.File(file_name),
             components=build_components(True)
         )
