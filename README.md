@@ -14,6 +14,8 @@ docker compose up --build
 ```
 
 # Todo
+- /dice write number above
+
 Command | Importance | finished
 --------|------------|----------
 game | 6/10 | x
