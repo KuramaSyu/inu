@@ -332,6 +332,7 @@ class DiceCommand(
             return components
         
         await ctx.respond(
+            content=f"Number: {eyes}",
             attachment=hikari.File(random.choice(all_eyes)),
             components=build_components(True)
         )

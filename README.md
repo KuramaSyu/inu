@@ -14,7 +14,6 @@ docker compose up --build
 ```
 
 # Todo
-- /dice write number above
 
 Command | Importance | finished
 --------|------------|----------
