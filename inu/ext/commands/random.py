@@ -310,7 +310,8 @@ class DiceCommand(
             f'{os.getcwd()}/inu/data/bot/dices/dice{n}.png' for n in range(1, eyes+1)
         ]
         all_eyes = [eye_ids[eye_num-1] for eye_num in range(1, eyes+1)]
-        file_name = random.choice(all_eyes)
+        picked_eye = random.randint(1, eyes)
+        file_name = f'{os.getcwd()}/inu/data/bot/dices/dice{picked_eye}.png'
 
         def build_components(is_disabled: bool = False) -> List[MessageActionRowBuilder]:
             components = [
@@ -333,7 +334,7 @@ class DiceCommand(
         
         await ctx.respond(
             content=f"Number: {eyes}",
-            attachment=hikari.File(random.choice(all_eyes)),
+            attachment=hikari.File(file_name),
             components=build_components(True)
         )
         await asyncio.sleep(3)
