@@ -14,7 +14,7 @@ docker compose up --build
 ```
 
 # Todo
-
+- calc: catch if ans substitution fails and set to 1
 Command | Importance | finished
 --------|------------|----------
 game | 6/10 | x
