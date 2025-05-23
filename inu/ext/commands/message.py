@@ -129,10 +129,14 @@ def replace_last_ans(calculation: str, author_id: int) -> str:
     pattern = re.compile(r"\bans\b")
     if (last_answer := last_ans.get(author_id)):
         last_answer = last_answer.replace("'", "")
-        query = pattern.sub(last_answer, query)
+        try: 
+            query = pattern.sub(last_answer, query)
+        except re.error:
+            query = pattern.sub("1", query)
     else:
         query = pattern.sub("1", query)
     return query
+
 
 
 
