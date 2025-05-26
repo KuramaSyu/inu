@@ -380,21 +380,22 @@ class AnimePaginator(Paginator):
         
         # build detailed embed
         popularity = ""
-        if anime.popularity <= 100:
+        anime_popularity = anime.popularity or 9999
+        if anime_popularity <= 100:
             popularity = f"very popular | {anime.popularity}"
-        elif anime.popularity <= 250:
+        elif anime_popularity <= 250:
             popularity = f"well known | {anime.popularity}"
-        elif anime.popularity <= 350:
+        elif anime_popularity <= 350:
             popularity = f"known | {anime.popularity}"
-        elif anime.popularity <= 1000:
+        elif anime_popularity <= 1000:
             popularity = f"somewhat known | {anime.popularity}"
         else:
-            popularity = anime.popularity
+            popularity = str(anime_popularity)
         embed: hikari.Embed = (
             hikari.Embed()
             .add_field("Type", anime.type_, inline=True)
             .add_field("Score", f"||{anime.score}/10||", inline=True)
-            .add_field("Episodes", f"{Human.plural_('episode', anime.episodes)}", inline=True)
+            .add_field("Episodes", f"{Human.plural_('episode', anime.episodes or 0)}", inline=True)
             .add_field("Rank", f"{anime.rank} ", inline=True)
             .add_field("Popularity", popularity, inline=True)
             .add_field("Age", f"{anime.rating}", inline=True)
