@@ -145,7 +145,7 @@ class AnimePaginator(Paginator):
         return components
     
 
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
         log.debug(f"@listener in anime: {event}")
         if not self.interaction_pred(event.interaction):
