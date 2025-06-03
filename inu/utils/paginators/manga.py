@@ -71,7 +71,7 @@ class MangaPaginator(Paginator):
 
         return components
     
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
         if not isinstance(event.interaction, ComponentInteraction):
             return

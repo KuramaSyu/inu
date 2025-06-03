@@ -170,7 +170,7 @@ class VocabularyPaginator(Paginator):
         return await super().start(ctx)
 
 
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
         if not self.interaction_pred(event.interaction):
             return
@@ -292,7 +292,7 @@ class TrainingPaginator(Paginator):
             [v.weight for v in vocables]
         )[0]
 
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
         if not self.interaction_pred(event.interaction):
             return

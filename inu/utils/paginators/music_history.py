@@ -67,7 +67,7 @@ class MusicHistoryPaginator(Paginator):
         await super().start(ctx)
 
         
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_component_interaction(self, event: hikari.InteractionCreateEvent):
         if not isinstance(event.interaction, hikari.ComponentInteraction):
             return

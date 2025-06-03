@@ -795,7 +795,7 @@ class Connect4Handler(Paginator):
             self.game.surrender(player)
             self._stop.set()  # base class will call stop() and create with it the final message
     
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
         await self._on_interaction_add(event)
@@ -901,7 +901,7 @@ class Connect4FallingRowsHandler(Connect4Handler):
         return legend
     
 
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
         await self._on_interaction_add(event)
@@ -1042,7 +1042,7 @@ class MemoryConnect4Handler(Connect4Handler):
     
 
     # needs to be re-registered for each subclass
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
         await self._on_interaction_add(event)
@@ -1120,7 +1120,7 @@ class RandomTerrainConnect4Handler(Connect4Handler):
         return legend
     
 
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction_add(self, event: hikari.InteractionCreateEvent):
         """triggered, when player presses a button"""
         await self._on_interaction_add(event)

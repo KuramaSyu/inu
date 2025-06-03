@@ -125,7 +125,7 @@ class ShowPaginator(Paginator):
         return await super().start(ctx)
 
 
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
         if not self.interaction_pred(event.interaction):
             return
@@ -262,7 +262,7 @@ class ShowSeasonPaginator(Paginator):
     _current_details: Dict[Any, Any]
     _detail_cache: List[Dict[Any, Any]]
 
-    @listener(hikari.InteractionCreateEvent)
+    @listener(hikari.ComponentInteractionCreateEvent)
     async def on_interaction(self, event: hikari.InteractionCreateEvent):
         if not self.interaction_pred(event.interaction):
             return
