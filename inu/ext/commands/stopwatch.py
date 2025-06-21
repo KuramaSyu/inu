@@ -7,6 +7,7 @@ import json
 
 from fuzzywuzzy import fuzz
 from hikari import (
+    ComponentInteractionCreateEvent,
     Embed,
     ResponseType, 
     TextInputStyle,
@@ -140,7 +141,7 @@ async def handle_stopwatch_action(ctx: InuContext, custom_id: dict):
     )
 
 
-@plugin.listener(InteractionCreateEvent)
+@plugin.listener(ComponentInteractionCreateEvent)
 async def on_interaction_create(event: InteractionCreateEvent):
     if not isinstance(event.interaction, hikari.ComponentInteraction):
         return

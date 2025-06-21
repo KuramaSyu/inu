@@ -5,7 +5,7 @@ from typing import *  # type: ignore
 import aiohttp
 import json
 
-from hikari import Member, Snowflake, User, InteractionCreateEvent, ComponentInteraction, ButtonStyle, ApplicationContextType
+from hikari import ComponentInteractionCreateEvent, Member, Snowflake, User, InteractionCreateEvent, ComponentInteraction, ButtonStyle, ApplicationContextType
 from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb import Context, Loader, SlashCommand, invoke, Group
@@ -30,7 +30,7 @@ bot: Inu = Inu.instance
 onu_sessions = set()
 
 
-@loader.listener(InteractionCreateEvent)
+@loader.listener(ComponentInteractionCreateEvent)
 async def on_connect4_restart(event: InteractionCreateEvent):
     """Handler to listn for game restarts"""
     game_modifier = ""

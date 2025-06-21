@@ -6,7 +6,7 @@ import traceback
 import aiohttp
 import hikari
 from hikari.impl import MessageActionRowBuilder
-from hikari import ApplicationContextType
+from hikari import ApplicationContextType, ComponentInteractionCreateEvent
 
 import lightbulb
 import lightbulb.utils as lightbulb_utils
@@ -136,7 +136,7 @@ def ping_to_color_rest(ping: float) -> str:
 
 loader = lightbulb.Loader()
 
-@loader.listener(InteractionCreateEvent)
+@loader.listener(ComponentInteractionCreateEvent)
 async def on_interaction(event: InteractionCreateEvent):
     """Listens for Guild-Paginator interactions"""
     if not isinstance(event.interaction, ComponentInteraction):

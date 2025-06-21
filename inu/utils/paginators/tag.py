@@ -8,7 +8,7 @@ import re
 
 import hikari
 from hikari import (
-    CommandInteraction, ComponentInteraction, InteractionCreateEvent, 
+    CommandInteraction, ComponentInteraction, ComponentInteractionCreateEvent, InteractionCreateEvent, 
     NotFoundError, PartialIntegration, PartialInteraction, 
     events, ResponseType, Embed, Event
 )
@@ -279,7 +279,7 @@ class TagHandler(StatelessPaginator):
         await self._update_position()
 
 
-    @listener(events.InteractionCreateEvent)
+    @listener(ComponentInteractionCreateEvent)
     async def on_interaction(self, event: events.InteractionCreateEvent):
         """
         The starting point of all interactions. 

@@ -113,7 +113,7 @@ class CheckForTagType:
 
 
 
-@loader.listener(hikari.InteractionCreateEvent)
+@loader.listener(hikari.ComponentInteractionCreateEvent)
 async def on_tag_paginator_interaction(event: hikari.InteractionCreateEvent):
     """
     Handler for all tag paginator related interactions
