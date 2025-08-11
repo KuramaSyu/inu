@@ -113,6 +113,13 @@ class ButtonBuilder:
 
 
 class NavigationStragegy(ABC):
+    """
+    Strategy Pattern for defining possible
+    navigations for multiple Discord Embeds or Strings,
+    where each Embed or String represents one Discord Message.
+    (the object, which handles the navigation 
+    between multiple Embeds is called "Paginator")
+    """
     @abstractmethod
     def __init__(self, paginator: "Paginator") -> None:
         ...
@@ -127,6 +134,35 @@ class NavigationStragegy(ABC):
 
 
 class NumericNavigation(NavigationStragegy):
+    """
+    A more modern alternative variant of navigation, 
+    which displays a number for each page. When moving forward,
+    it will show the numbers arround the current index. 
+    For example when starting, the buttons are:
+    [1, 2, 3, 4, 5]
+    [6, 7, 8, 9, 10]
+    where each list is one row and 1 the current index. When pressing 9,
+    it will try, to show the numbers around it like
+    [6, 7, 8, 9, 10]
+    [11, 12, 13, 14, 15].
+    This kind of navigation can use 1 up to all 5 possible 
+    ActionRows of a Discord Message.
+
+    Parameters
+    ----------
+    paginator : Paginator
+        The paginator instance this navigation strategy is attached to.
+
+    Methods
+    -------
+    build()
+        Constructs and returns the message action rows containing navigation buttons.
+
+    Returns
+    -------
+    List[MessageActionRowBuilder]
+        A list of action rows containing the navigation buttons.
+    """
     def __init__(self, paginator: "Paginator") -> None:
         self.paginator = paginator
         self.rows: int = 4
@@ -164,7 +200,6 @@ class NumericNavigation(NavigationStragegy):
         for i in range(start, stop, BUTTONS_PER_ROW):
             action_row = MessageActionRowBuilder()
             for j in range(i, min(i+BUTTONS_PER_ROW, stop)):
-                button_index = j - start
                 action_row = (ButtonBuilder(action_row)
                     .set_position(position)
                     .set_custom_id("stop" if j == position else f"pagination_page_{j}")
