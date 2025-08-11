@@ -172,34 +172,49 @@ class NumericNavigation(NavigationStragegy):
 
     def build(self) -> List[MessageActionRowBuilder]:
         pag = self.paginator
-        page_len = len(pag._pages)
+        page_amount = len(pag._pages)
         position = pag._position
         row_amount = self.rows
         # calculate start and stop indices for the three cases
         BUTTONS_PER_ROW = 5
         BUTTON_AMOUNT = row_amount * BUTTONS_PER_ROW
         if position < BUTTONS_PER_ROW * 2:
-            start = 0
-            stop = min(BUTTON_AMOUNT, page_len)
+            # current index is at the beginning. 
+            # -> start statically at 0
+            start_row = 0
+            stop_row = min(BUTTON_AMOUNT, page_amount)
         else:
+            # current index is not within the first 
+            # 2 rows (most likely 10 embeds)
             row_index = position // BUTTONS_PER_ROW
             if row_index < 2:
-                start = 0
-                stop = BUTTON_AMOUNT
-            elif row_index > page_len // BUTTONS_PER_ROW - 2:
-                stop = page_len
-                start = max(
-                    ((stop - BUTTON_AMOUNT) // BUTTONS_PER_ROW + 1) * BUTTONS_PER_ROW, 
+                # should not happen
+                start_row = 0
+                stop_row = BUTTON_AMOUNT
+            elif row_index > page_amount // BUTTONS_PER_ROW - 2:
+                # current index is within the last rows
+                # -> statically show the last rows. 
+                stop_row = page_amount
+                # calculate starte based on the amount of buttons and rows, 
+                # when stop will be the last row
+                start_row = max(
+                    ((stop_row - BUTTON_AMOUNT) // BUTTONS_PER_ROW + 1) * BUTTONS_PER_ROW, 
                     0
                 )
             else:
-                start = (row_index - 2) * BUTTONS_PER_ROW
-                stop = start + BUTTON_AMOUNT
+                # index is neither at the start, nor at the beginning.
+                # find, in which row the current index is, and 
+                # show rows before this row as well as rows after this row
+                start_row = (row_index - 2) * BUTTONS_PER_ROW
+                stop_row = start_row + BUTTON_AMOUNT
 
+        # build actuall buttons, by using calculated start and stop
         action_rows = []
-        for i in range(start, stop, BUTTONS_PER_ROW):
+        for i in range(start_row, stop_row, BUTTONS_PER_ROW):
+            # iterator for the action rows 
             action_row = MessageActionRowBuilder()
-            for j in range(i, min(i+BUTTONS_PER_ROW, stop)):
+            for j in range(i, min(i+BUTTONS_PER_ROW, stop_row)):
+                # iterator to add buttons to one specific action row
                 action_row = (ButtonBuilder(action_row)
                     .set_position(position)
                     .set_custom_id("stop" if j == position else f"pagination_page_{j}")
