@@ -204,7 +204,8 @@ class NumericNavigation(NavigationStragegy):
             else:
                 # index is neither at the start, nor at the beginning.
                 # find, in which row the current index is, and 
-                # show rows before this row as well as rows after this row
+                # show rows arround this row
+                # goal: ~same amount of buttons before and after the current one
                 start_row = (row_index - 2) * BUTTONS_PER_ROW
                 stop_row = start_row + BUTTON_AMOUNT
 
