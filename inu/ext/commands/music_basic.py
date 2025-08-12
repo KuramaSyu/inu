@@ -54,7 +54,7 @@ async def on_voice_state_update(event: VoiceStateUpdateEvent):
             # someone left channel or bot joined/changed channel
             await asyncio.sleep(3)
             player = MusicPlayerManager.player_factory(event.state.guild_id)
-            if not player.is_active: 
+            if not player.is_active or not player.is_bot_online(): 
                 return
             
             is_alone = await player.check_if_bot_is_alone()
