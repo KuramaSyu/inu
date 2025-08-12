@@ -153,11 +153,15 @@ class MusicPlayer:
         return url
 
     # Add voice state methods that delegate to the current state
-    async def check_if_bot_is_alone(self):
+    async def check_if_bot_is_alone(self) -> bool:
         """Check if the bot is alone in the voice channel, delegates to current state."""
         #if hasattr(self, 'voice_client') and self.voice_client:
         log.debug(f"Check for is alone with {type(self.voice_state)}")
         return await self.voice_state.check_if_bot_is_alone()
+
+    def is_bot_online(self) -> bool:
+        return self.voice_state.is_bot_online()
+
     
     async def on_bot_lonely(self):
         """Handle the event when bot becomes lonely, delegates to current state."""

@@ -3,6 +3,8 @@ import logging
 from abc import ABC, abstractmethod
 from datetime import datetime, timedelta
 from typing import *
+
+from hikari import Snowflake
 from core import getLogger
 # Set up logging
 log = getLogger(__name__)
@@ -19,20 +21,32 @@ class VoiceState(ABC):
         """Initialize with reference to the player"""
         self.player: "MusicPlayer" = player
     
-    async def check_if_bot_is_alone(self) -> bool:
-        """Check if the bot is alone, change state if needed"""
+    def is_bot_online(self) -> bool:
+        return self._where_is_bot_online() != None
+
+    def _where_is_bot_online(self) -> Optional[Snowflake]:
+        """Whether or not the bot is in a chnnal on this guild"""
         bot = self.player.bot
         guild_id = self.player.guild_id
 
         if not guild_id:
             # theoretically this should never happen
-            return False
+            return None
         if not (voice_state := bot.cache.get_voice_state(guild_id, bot.me.id)):
             # not in a channel
-            return False 
-        if not (channel_id := voice_state.channel_id):
-            # not in a channel
+            return None 
+
+        return voice_state.channel_id
+
+
+    async def check_if_bot_is_alone(self) -> bool:
+        """Check if the bot is alone, change state if needed"""
+        bot = self.player.bot
+        guild_id = self.player.guild_id
+
+        if not (channel_id := self._where_is_bot_online()):
             return False
+        
         other_states = [
             state 
             for state 
