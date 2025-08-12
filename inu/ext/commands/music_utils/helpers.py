@@ -31,7 +31,7 @@ import lightbulb
 from lightbulb.context import Context
 import lavalink_rs
 from lavalink_rs.model.search import SearchEngines
-from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType, Track
+from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType, Track, TrackError
 
 from core import Inu, getLogger
 
@@ -58,7 +58,7 @@ class MusicDialogs:
         ctx: Context,
         query: str,
         displayed_song_count: int = 24,
-        query_information: lavalink_rs.model.track.Track | None = None,
+        query_information: Track | None = None,
     ) -> Tuple[Optional[Track], Optional[hikari.InteractionCreateEvent]]:
         """
         Creates an interactive menu for choosing a song
@@ -85,13 +85,13 @@ class MusicDialogs:
         asyncio.TimeoutError:
             When no interaction with the menu was made
         """
-        if not ctx.guild_id:
+        if not ctx.guild_id or not bot:
             return None, None
         query_print = ""
         if not query_information:
-            query = await SearchEngines.youtube(query)
-            query_information: Track = await self.lavalink.load_tracks(query)
-            tracks: List[TrackData] = query_information.data
+            query = SearchEngines.youtube(query)
+            query_information = await self.lavalink.load_tracks(ctx.guild_id, query)
+            tracks: TrackData | PlaylistData | List[TrackData] | TrackError | None = query_information.data
             if not isinstance(query_information.load_type, TrackLoadType.Search):
                 log.critical(f"Query information is not a search type: {query_information.load_type}")
                 log.critical(f"{query_information=}")
