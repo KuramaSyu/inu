@@ -381,17 +381,6 @@ class InuContextProtocol(Protocol[T]):
         """
         ...
     
-    async def auto_defer(self) -> None:
-        """
-        Waits the about 3 seconds - REST_SENDING_MARGIN and acks then the
-        interaction.
-
-        Note:
-        -----
-        this runs as task in the background
-        """
-        ...
-    
     @property
     def bot(self) -> hikari.GatewayBot:
         ...
