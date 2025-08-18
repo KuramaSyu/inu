@@ -33,7 +33,7 @@ import lavalink_rs
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType, Track, TrackError
 
-from core import Inu, getLogger
+from core import Inu, getLogger, InuContext
 
 
 log = getLogger(__name__)
@@ -55,7 +55,7 @@ class MusicDialogs:
 
     async def ask_for_song(
         self,
-        ctx: Context,
+        ctx: InuContext,
         query: str,
         displayed_song_count: int = 24,
         query_information: Track | None = None,
