@@ -119,7 +119,7 @@ class YuzuFormat(EmulationFormat):
 
     @property
     def emulator_list(self) -> List[str]:
-        return ["Yuzu", "Citron", "Sudachi", "Suyu"]
+        return ["Yuzu", "Citron", "Sudachi", "Suyu", "Eden"]
 
 
 async def log_current_activity(bot: Inu):
