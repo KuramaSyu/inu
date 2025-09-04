@@ -85,10 +85,12 @@ class EmulationFormat(ABC):
     @property
     @abstractmethod
     def emulator_list(self) -> List[str]:
+        """List of Emulator Names which use this format"""
         ...
 
     @abstractmethod
     def extract_game(self) -> str | None:
+        """Extract the game out of `RichActivity`"""
         ...
     
     def make_title(self) -> str:
@@ -113,8 +115,11 @@ class RyujinxFormat(EmulationFormat):
     def emulator_list(self) -> List[str]:
         return ["Ryujinx"]
 
+
 class YuzuFormat(EmulationFormat):
     def extract_game(self) -> str | None:
+        # Yuzu stores it directly in the state without any prefix.
+        # The Currently in Game does not belong to activity.state
         return self.activity.state
 
     @property
