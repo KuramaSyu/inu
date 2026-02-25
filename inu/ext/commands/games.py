@@ -21,7 +21,7 @@ from utils.games.connect_four_handler import (
     RandomTerrainConnect4Handler,
 )
 from utils.games import HikariOnu
-from utils import AkinatorSI, Human
+from utils import Human
 from core import getLogger, Inu, get_context, InuContext
 
 log = getLogger(__name__)
@@ -219,19 +219,6 @@ class OnuGame(
         finally:
             for p_id in players:
                 onu_sessions.remove(p_id)
-
-
-@loader.command
-class AkinatorGame(
-    SlashCommand,
-    name="akinator",
-    description="Guess a character with Akinator",
-    contexts=[ApplicationContextType.GUILD],
-):
-    @invoke
-    async def callback(self, ctx: lightbulb.Context):
-        aki = AkinatorSI("en")
-        await aki.start(ctx)
 
 
 # REVERSI_BASE_URL = "http://inuthebot.duckdns.org:8888"
