@@ -59,11 +59,13 @@ class Games:
     PROGRAMMING = ["Visual Studio Code", "Visual Studio", "Sublime Text", "Atom", "VSCode", "Webflow", "Code"]
     MUSIC = ["Spotify", "Google Play Music", "Apple Music", "iTunes", "YouTube Music"]
     DUPLEX_GAMES = ["Rainbow Six Siege", "PUBG: BATTLEGROUNDS"]  # these will be removed from games too
+    
+    # also handle it in tasks/current_games.py in/as EmulationFormat
     EMULATORS = [
         "RetroArch", "Dolphin", "Citra", "PCSX2", 
         "RPCS3", "Yuzu", "Xenia", "Cemu", "PPSSPP", 
         "DeSmuME", "PCSX2", "Dolphin", "Ryujinx", "Suyu",
-        "Sudachi", "Citron"
+        "Sudachi", "Citron", "Eden", 
     ]
     # activities, which arn't recorded at all
     DONT_RECORD = [
