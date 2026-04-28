@@ -25,9 +25,9 @@ from lightbulb.context import Context
 from fuzzywuzzy import fuzz
 import asyncpraw
 
-from core.api.anime import PartialAnimeMatch, AnimeMatch
-from core import getLogger, ComponentContext, InuContext
-from utils import Human, Colors, MyAnimeList, Anime, AnimeCornerAPI, AnimeCornerView
+from inu.core.api.anime import PartialAnimeMatch, AnimeMatch
+from inu.core import getLogger, ComponentContext, InuContext
+from inu.utils import Human, Colors, MyAnimeList, Anime, AnimeCornerAPI, AnimeCornerView
 
 log = getLogger(__name__)
 

@@ -28,9 +28,9 @@ from lightbulb.prefab import sliding_window
 import re
 from expiring_dict import ExpiringDict
 
-from core import getLogger, Inu, get_context, Bash, InuContext
-from utils import Human, calc, evaluation2image
-from utils import prepare_for_latex as replace_unsupported_chars, Paginator
+from inu.core import getLogger, Inu, get_context, Bash, InuContext
+from inu.utils import Human, calc, evaluation2image
+from inu.utils import prepare_for_latex as replace_unsupported_chars, Paginator
 
 log = getLogger(__name__)
 

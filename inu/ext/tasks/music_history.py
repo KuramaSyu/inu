@@ -9,8 +9,8 @@ import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from core import Table, getLogger, Inu
-from utils import MusicHistoryHandler
+from inu.core import Table, getLogger, Inu
+from inu.utils import MusicHistoryHandler
 
 log = getLogger(__name__)
 METHOD_SYNC_TIME: int = 12*60*60 # 12 hours

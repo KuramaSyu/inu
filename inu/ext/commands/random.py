@@ -18,8 +18,8 @@ from io import BytesIO
 from expiring_dict import ExpiringDict
 
 from .tags import tag_name_auto_complete, _tag_add
-from core import getLogger, Inu, get_context, BotResponseError, InuContext
-from utils import (
+from inu.core import getLogger, Inu, get_context, BotResponseError, InuContext
+from inu.utils import (
     crumble, 
     BoredAPI, 
     Tag, 

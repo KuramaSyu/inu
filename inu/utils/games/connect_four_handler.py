@@ -17,9 +17,9 @@ from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context
 
-from utils.paginators.base import PaginatorReadyEvent, listener, Paginator, PaginatorTimeoutEvent
-from utils import Colors, Grid, Human
-from core import get_context, InuContext
+from inu.utils.paginators.base import PaginatorReadyEvent, listener, Paginator, PaginatorTimeoutEvent
+from inu.utils import Colors, Grid, Human
+from inu.core import get_context, InuContext
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)

@@ -3,9 +3,9 @@ import json
 import typing as t
 import logging
 
-from core.db import Database
+from inu.core.db import Database
 
-from core import getLogger, Inu
+from inu.core import getLogger, Inu
 
 log = getLogger(__name__)
 

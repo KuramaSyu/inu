@@ -1,7 +1,7 @@
 from datetime import datetime, timedelta
 from typing import Dict, List, Tuple
 
-from core import Table, Database, getLogger
+from inu.core import Table, Database, getLogger
 
 log = getLogger(__name__)
 

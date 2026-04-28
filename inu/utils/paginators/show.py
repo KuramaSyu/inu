@@ -15,8 +15,8 @@ from fuzzywuzzy import fuzz
 
 from .base import Paginator, listener
 
-from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
-from utils import Human, crumble, Colors
+from inu.core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
+from inu.utils import Human, crumble, Colors
 
 log = getLogger(__name__)
 

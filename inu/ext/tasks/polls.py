@@ -14,9 +14,9 @@ import lightbulb
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from utils import PollManager, Poll
+from inu.utils import PollManager, Poll
 
-from core import Table, getLogger, Inu
+from inu.core import Table, getLogger, Inu
 
 log = getLogger(__name__)
 POLL_SYNC_TIME: int

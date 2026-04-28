@@ -33,7 +33,7 @@ import lavalink_rs
 from lavalink_rs.model.search import SearchEngines
 from lavalink_rs.model.track import TrackData, PlaylistData, TrackLoadType, Track, TrackError
 
-from core import Inu, getLogger, InuContext
+from inu.core import Inu, getLogger, InuContext
 
 
 log = getLogger(__name__)

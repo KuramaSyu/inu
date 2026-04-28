@@ -9,8 +9,8 @@ from hikari.impl import MessageActionRowBuilder
 
 from .base import PaginatorReadyEvent, Paginator, listener
 
-from core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
-from utils import Human, Colors, MyAnimeList, Anime, Tag, crumble
+from inu.core import getLogger, InuContext, ConfigProxy, ConfigType, BotResponseError, get_context
+from inu.utils import Human, Colors, MyAnimeList, Anime, Tag, crumble
 
 log = getLogger(__name__)
 

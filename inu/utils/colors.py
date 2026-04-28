@@ -5,7 +5,7 @@ import hikari
 from matplotlib.colors import cnames
 from colormap import rgb2hex, rgb2hls, hls2rgb
 
-from core import ConfigProxy
+from inu.core import ConfigProxy
 
 
 embeds: List[hikari.Embed] = []

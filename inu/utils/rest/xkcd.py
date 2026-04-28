@@ -19,7 +19,7 @@ class xkcdComicDict(TypedDict):
     day: str
     explanation_url: str
 
-from utils import Colors
+from inu.utils import Colors
 
 class xkcdAPI:
     BaseEndpoint = "https://xkcd.com/"

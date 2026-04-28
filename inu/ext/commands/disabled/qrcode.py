@@ -29,7 +29,7 @@ from lightbulb import commands, context
 from lightbulb.context import Context
 
 
-from utils import (
+from inu.utils import (
     Colors, 
     Human, 
     Paginator, 
@@ -37,7 +37,7 @@ from utils import (
     Urban, 
     crumble
 )
-from core import (
+from inu.core import (
     BotResponseError, 
     Inu, 
     Table, 

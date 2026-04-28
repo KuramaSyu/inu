@@ -17,13 +17,13 @@ from lightbulb.prefab import sliding_window
 
 
 
-from utils import (
+from inu.utils import (
     Colors, 
     Human, 
     Paginator, 
     crumble
 )
-from core import (
+from inu.core import (
     BotResponseError, 
     Inu, 
     Table, 

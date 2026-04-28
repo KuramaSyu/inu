@@ -3,7 +3,7 @@ import traceback
 
 import aiohttp
 
-from core import getLogger
+from inu.core import getLogger
 
 
 log = getLogger(__name__)

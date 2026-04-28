@@ -4,7 +4,7 @@ from typing import *
 from cachetools import TTLCache
 from asyncache import cached
 
-from core import Table, getLogger
+from inu.core import Table, getLogger
 
 
 log = getLogger(__name__)

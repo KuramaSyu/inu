@@ -17,12 +17,12 @@ from lightbulb.context import Context
 import asyncpg
 import pandas
 
-from core.bot import Inu
-from core import Database, Table
-from core import getLogger, Table
+from inu.core.bot import Inu
+from inu.core import Database, Table
+from inu.core import getLogger, Table
 
 if TYPE_CHECKING:
-    from utils import Poll
+    from inu.utils import Poll
 
 log = getLogger(__name__)
 

@@ -14,8 +14,8 @@ from typing import (
 import enum
 from collections import deque
 
-from core import getLogger
-from utils import Emoji
+from inu.core import getLogger
+from inu.utils import Emoji
 
 
 from .onu_cards import (

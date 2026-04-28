@@ -21,11 +21,11 @@ import lightbulb
 from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
 from lightbulb.prefab import sliding_window
 
-from core.bot import Inu, getLogger
-from utils.language import Human
+from inu.core.bot import Inu, getLogger
+from inu.utils.language import Human
 import tabulate
 
-from utils import (
+from inu.utils import (
     NumericStringParser,
     Multiple, 
     Colors, 
@@ -33,7 +33,7 @@ from utils import (
     Paginator
 )
 
-from core import (
+from inu.core import (
     BotResponseError, 
     Inu, 
     Table, 

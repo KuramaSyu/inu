@@ -5,7 +5,7 @@ import asyncio
 
 import aiohttp
 
-from core import ConfigProxy, ConfigType
+from inu.core import ConfigProxy, ConfigType
 
 class RESTFacts():
     _key = (ConfigProxy(ConfigType.YAML)).api_ninjas.SECRET

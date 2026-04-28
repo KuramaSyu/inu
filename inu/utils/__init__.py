@@ -25,5 +25,5 @@ from .paginators import *
 
 
 import logging
-from core._logging import LoggingHandler
+from inu.core._logging import LoggingHandler
 logging.setLoggerClass(LoggingHandler)

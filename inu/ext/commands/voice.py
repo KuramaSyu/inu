@@ -10,8 +10,8 @@ from hikari.impl.special_endpoints import MessageActionRowBuilder, LinkButtonBui
 import lightbulb
 from lightbulb import Context, SlashCommand, invoke
 
-from utils import Colors, Human, Paginator, crumble
-from core import getLogger, Inu, InuContext
+from inu.utils import Colors, Human, Paginator, crumble
+from inu.core import getLogger, Inu, InuContext
 
 log = getLogger(__name__)
 

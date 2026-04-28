@@ -25,12 +25,12 @@ import lightbulb
 from lightbulb import AutocompleteContext, Context, Loader, Group, SubGroup, SlashCommand, invoke
 import asyncpg
 from fuzzywuzzy import fuzz
-from utils import (
+from inu.utils import (
     TagIsTakenError, TagManager, TagScope, Human, get_guild_or_channel_id, 
     guild_name_or_id, TagType, crumble, ListParser, Paginator, StatelessPaginator, 
     TagHandler, Tag, TagViewPaginator, add_row_when_filled, TagCustomID, mockup_action_row
 )
-from core import (
+from inu.core import (
     Inu, BotResponseError, getLogger, BotResponseError, ComponentContext, 
     get_context, InuContext
 )

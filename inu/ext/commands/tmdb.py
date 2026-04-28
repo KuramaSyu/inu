@@ -4,11 +4,11 @@ from hikari import ApplicationContextType
 import lightbulb
 from lightbulb import commands, context, SlashCommand, invoke
 
-from utils import (
+from inu.utils import (
     ShowPaginator, 
     MoviePaginator
 )
-from core import (
+from inu.core import (
     Inu, 
     getLogger,
     InuContext,

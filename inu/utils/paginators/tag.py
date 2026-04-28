@@ -17,7 +17,7 @@ from hikari.impl import MessageActionRowBuilder
 import lightbulb
 from lightbulb.context import Context
 
-from utils import TagIsTakenError
+from inu.utils import TagIsTakenError
 from .base import (
     JsonDict,
     CustomID,
@@ -29,11 +29,11 @@ from .base import (
 )
 import asyncpg
 
-from utils import crumble, TagManager, add_row_when_filled, ListParser
-from utils.language import Human
-from utils.db import Tag, TagType
+from inu.utils import crumble, TagManager, add_row_when_filled, ListParser
+from inu.utils.language import Human
+from inu.utils.db import Tag, TagType
 
-from core import Inu, BotResponseError, ComponentContext, get_context, InuContext, Interaction
+from inu.core import Inu, BotResponseError, ComponentContext, get_context, InuContext, Interaction
 import hashlib
 
 log = logging.getLogger(__name__)

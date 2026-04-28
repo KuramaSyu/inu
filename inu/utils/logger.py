@@ -21,7 +21,7 @@ import traceback
 import inspect
 import logging
 
-from core import getLogger
+from inu.core import getLogger
 
 log = getLogger(__name__)
 

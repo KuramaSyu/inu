@@ -18,9 +18,9 @@ from lavalink_rs.model.player import Player
 import traceback
 from tabulate import tabulate
 
-from utils.shortcuts import display_name_or_id
+from inu.utils.shortcuts import display_name_or_id
 from .query_strategies import *
-from core import BotResponseError, ResponseProxy
+from inu.core import BotResponseError, ResponseProxy
 
 
 from . import (
@@ -30,8 +30,8 @@ from . import (
     VoiceState
 )
 from ..tags import get_tag
-from utils import Human, MusicHistoryHandler
-from core import Inu, get_context, InuContext, getLogger, InuContextBase
+from inu.utils import Human, MusicHistoryHandler
+from inu.core import Inu, get_context, InuContext, getLogger, InuContextBase
 
 log = getLogger(__name__)
 

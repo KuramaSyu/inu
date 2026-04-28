@@ -5,8 +5,8 @@ from hikari.impl import MessageActionRowBuilder
 import aiohttp
 import lightbulb
 
-from core import Inu, getLogger
-from utils import pacman
+from inu.core import Inu, getLogger
+from inu.utils import pacman
 
 log = getLogger(__name__)
 # Pictures

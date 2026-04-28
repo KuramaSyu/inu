@@ -17,7 +17,7 @@ import asyncio
 from fuzzywuzzy import fuzz
 from expiring_dict import ExpiringDict
 
-from core import getLogger, stopwatch
+from inu.core import getLogger, stopwatch
 
 log = getLogger(__name__)
 

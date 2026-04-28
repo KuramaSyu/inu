@@ -31,8 +31,8 @@ from tabulate import tabulate
 
 from ..shortcuts import guild_name_or_id, get_guild_or_channel_id, user_name_or_id
 from ..language import Human, Multiple
-from core.db import Database, Table
-from core import Inu, BotResponseError, getLogger
+from inu.core.db import Database, Table
+from inu.core import Inu, BotResponseError, getLogger
 
 log = getLogger(__name__)
 

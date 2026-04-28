@@ -1,6 +1,6 @@
 from hikari import Event
 
-from core import Inu
+from inu.core import Inu
 
 class PaginatorReadyEvent(Event):
     def __init__(self, bot: Inu):

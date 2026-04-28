@@ -9,8 +9,8 @@ import asyncio
 import aiohttp
 from matplotlib.pyplot import get
 
-from core import Table, Inu, ConfigProxy, getLogger
-from utils import Colors
+from inu.core import Table, Inu, ConfigProxy, getLogger
+from inu.utils import Colors
 
 log = getLogger(__name__)   
 

@@ -10,8 +10,8 @@ import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from humanize import naturaldelta
-from core import Table, getLogger, Inu, stopwatch
-from utils import Reddit, AnimeCornerAPI, AnimeCornerPaginator2, AnimeCornerView
+from inu.core import Table, getLogger, Inu, stopwatch
+from inu.utils import Reddit, AnimeCornerAPI, AnimeCornerPaginator2, AnimeCornerView
 
 
 

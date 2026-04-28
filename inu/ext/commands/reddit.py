@@ -13,13 +13,13 @@ import lightbulb
 from lightbulb import Context, SlashCommand, invoke
 from lightbulb.prefab import sliding_window
 
-from utils.rest import Reddit, AnimeCornerAPI
+from inu.utils.rest import Reddit, AnimeCornerAPI
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from utils import Human as H
-from utils.paginators import AnimeCornerPaginator, AnimeCornerPaginator2
-from core import getLogger, stopwatch, BotResponseError, Inu, get_context, InuContext
+from inu.utils import Human as H
+from inu.utils.paginators import AnimeCornerPaginator, AnimeCornerPaginator2
+from inu.core import getLogger, stopwatch, BotResponseError, Inu, get_context, InuContext
 
 log = getLogger(__name__)
 

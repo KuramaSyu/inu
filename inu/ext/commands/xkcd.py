@@ -14,7 +14,7 @@ from hikari.impl import MessageActionRowBuilder
 from lightbulb import commands, context, SlashCommand, invoke
 
 
-from utils import (
+from inu.utils import (
     Colors, 
     Human, 
     Paginator, 
@@ -22,7 +22,7 @@ from utils import (
     xkcdAPI,
     xkcdComicDict,
 )
-from core import (
+from inu.core import (
     BotResponseError, 
     Inu, 
     Table, 

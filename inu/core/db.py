@@ -12,7 +12,7 @@ import aiofiles
 import asyncpg
 import pandas as pd
 
-from core import Inu
+from inu.core import Inu
 from . import Singleton, ConfigProxy, ConfigType
 if TYPE_CHECKING:
 
@@ -20,7 +20,7 @@ if TYPE_CHECKING:
 
 __all__: Final[Sequence[str]] = ["Database"]
 
-from core import getLogger
+from inu.core import getLogger
 
 log = getLogger(__name__)
 conf = ConfigProxy(ConfigType.YAML)

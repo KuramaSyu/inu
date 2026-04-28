@@ -4,13 +4,13 @@ from typing import *
 
 from hikari import Snowflakeish
 from matplotlib.pylab import f
-from core import InuContext
+from inu.core import InuContext
 from lavalink_rs.model.search import SearchEngines  # type: ignore
 from lavalink_rs.model.track import Track, TrackData, PlaylistData, TrackLoadType, PlaylistInfo  # type: ignore
 from lavalink_rs.model.player import Player  # type: ignore
 
-from core import BotResponseError, getLogger
-from utils import Human, MusicHistoryHandler, Tag
+from inu.core import BotResponseError, getLogger
+from inu.utils import Human, MusicHistoryHandler, Tag
 from .constants import HISTORY_PREFIX, MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, URL_REGEX
 
 from ..tags import get_tag

@@ -40,8 +40,8 @@ import lightbulb
 from lightbulb.context import Context
 
 from . import EventListener, InteractionListener, ButtonListener, EventObserver, InteractionObserver, PaginatorReadyEvent, PaginatorTimeoutEvent
-from core import InuContext, get_context, BotResponseError, getLogger, ResponseProxy, Inu, Interaction, InuContextBase
-from utils import add_row_when_filled, Multiple
+from inu.core import InuContext, get_context, BotResponseError, getLogger, ResponseProxy, Inu, Interaction, InuContextBase
+from inu.utils import add_row_when_filled, Multiple
 
 
 LOGLEVEL = logging.DEBUG

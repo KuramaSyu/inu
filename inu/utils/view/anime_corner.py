@@ -1,7 +1,7 @@
 from typing import *
 from pprint import pformat
-from utils import MyAnimeList, Anime
-from core import PartialAnimeMatch, AnimeMatch
+from inu.utils import MyAnimeList, Anime
+from inu.core import PartialAnimeMatch, AnimeMatch
 from expiring_dict import ExpiringDict
 from fuzzywuzzy import fuzz
 

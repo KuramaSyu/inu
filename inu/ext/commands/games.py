@@ -12,7 +12,7 @@ from lightbulb import Context, Loader, SlashCommand, invoke, Group
 from lightbulb.prefab import sliding_window
 
 
-from utils.games.connect_four_handler import (
+from inu.utils.games.connect_four_handler import (
     Connect4Handler, 
     Connect4FallingRowsHandler,
     Player, 
@@ -20,9 +20,9 @@ from utils.games.connect_four_handler import (
     MemoryConnect4Handler,
     RandomTerrainConnect4Handler,
 )
-from utils.games import HikariOnu
-from utils import Human
-from core import getLogger, Inu, get_context, InuContext
+from inu.utils.games import HikariOnu
+from inu.utils import Human
+from inu.core import getLogger, Inu, get_context, InuContext
 
 log = getLogger(__name__)
 loader = lightbulb.Loader()

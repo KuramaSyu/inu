@@ -17,11 +17,11 @@ import hikari
 from hikari import Embed
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from utils.db import BoardManager
+from inu.utils.db import BoardManager
 import asyncpg
 
-from core import Table, getLogger, Inu
-from utils import make_message_link, Colors, Multiple, Human
+from inu.core import Table, getLogger, Inu
+from inu.utils import make_message_link, Colors, Multiple, Human
 
 log = getLogger(__name__)
 BOARD_SYNC_TIME = 60*60*24

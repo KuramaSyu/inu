@@ -12,8 +12,8 @@ from .base import PaginatorReadyEvent
 from .base import Paginator
 from .base import listener
 
-from utils import Colors
-from core import get_context, InuContext, BotResponseError
+from inu.utils import Colors
+from inu.core import get_context, InuContext, BotResponseError
 
 log = logging.getLogger(__name__)
 log.setLevel(logging.WARNING)

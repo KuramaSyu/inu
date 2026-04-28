@@ -18,8 +18,8 @@ from .music_utils import (
     LavalinkVoice, MusicPlayerManager, HISTORY_PREFIX, 
     MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, DISCONNECT_AFTER
 )
-from utils import TagManager, TagType, MusicHistoryHandler
-from core import Inu, getLogger, get_context, InuContext
+from inu.utils import TagManager, TagType, MusicHistoryHandler
+from inu.core import Inu, getLogger, get_context, InuContext
 
 log = getLogger(__name__)
 

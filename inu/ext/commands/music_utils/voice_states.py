@@ -5,7 +5,7 @@ from datetime import datetime, timedelta
 from typing import *
 
 from hikari import Snowflake
-from core import getLogger
+from inu.core import getLogger
 # Set up logging
 log = getLogger(__name__)
 

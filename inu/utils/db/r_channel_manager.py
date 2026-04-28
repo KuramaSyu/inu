@@ -20,9 +20,9 @@ from hikari import User, Member
 from numpy import column_stack
 
 
-from core.db import Database, Table
+from inu.core.db import Database, Table
 
-from core import getLogger
+from inu.core import getLogger
 
 log = getLogger(__name__)
 

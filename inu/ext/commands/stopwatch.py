@@ -21,13 +21,13 @@ from lightbulb import commands, context, SlashCommand, invoke
 from lightbulb.prefab import sliding_window
 from humanize import precisedelta
 
-from utils import (
+from inu.utils import (
     Colors, 
     Human, 
     Paginator, 
     crumble
 )
-from core import (
+from inu.core import (
     BotResponseError, 
     Inu, 
     Table, 

@@ -8,7 +8,7 @@ from lavalink_rs import LavalinkClient, PlayerContext
 from lavalink_rs.model.http import UpdatePlayer
 from lavalink_rs.model.player import ConnectionInfo
 
-from core import Inu
+from inu.core import Inu
 
 class TrackUserData(t.TypedDict):
     requester_id: hikari.Snowflake

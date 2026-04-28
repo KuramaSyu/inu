@@ -33,12 +33,12 @@ from lightbulb.context import Context
 from lightbulb import Context, Group, commands
 import miru
 
-from core import Inu, Table, BotResponseError, InuContext
-from utils import DailyContentChannels, PrefixManager, TimezoneManager, Colors, YES_NO, Paginator, button
-from utils.db.r_channel_manager import Columns as Col
-from utils.db import BoardManager, SettingsManager
+from inu.core import Inu, Table, BotResponseError, InuContext
+from inu.utils import DailyContentChannels, PrefixManager, TimezoneManager, Colors, YES_NO, Paginator, button
+from inu.utils.db.r_channel_manager import Columns as Col
+from inu.utils.db import BoardManager, SettingsManager
 
-from core import getLogger, Inu, get_context
+from inu.core import getLogger, Inu, get_context
 
 log = getLogger(__name__)
 EPHEMERAL = {"flags": hikari.MessageFlag.EPHEMERAL}

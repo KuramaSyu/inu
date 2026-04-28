@@ -19,13 +19,13 @@ from lightbulb import AutocompleteContext, SlashCommand, invoke
 from expiring_dict import ExpiringDict
 import lightbulb.prefab.checks
 
-from utils import crumble
-from utils import Paginator
-from utils.tree import tree as tree_
-from core import Inu, InuContext
-from utils import BaseReminder, HikariReminder, Reminders, Human, Multiple
-from utils.string_crumbler import NumberWordIterator as NWI
-from core import getLogger, get_context
+from inu.utils import crumble
+from inu.utils import Paginator
+from inu.utils.tree import tree as tree_
+from inu.core import Inu, InuContext
+from inu.utils import BaseReminder, HikariReminder, Reminders, Human, Multiple
+from inu.utils.string_crumbler import NumberWordIterator as NWI
+from inu.core import getLogger, get_context
 
 
 log = getLogger(__name__)

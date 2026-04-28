@@ -30,10 +30,10 @@ from apscheduler.triggers.interval import IntervalTrigger
 from fuzzywuzzy import fuzz
 from cachetools import LRUCache, cached
 
-from utils import Colors
-from utils import Paginator
+from inu.utils import Colors
+from inu.utils import Paginator
 
-from core import getLogger, Inu, InuContext
+from inu.core import getLogger, Inu, InuContext
 
 log = getLogger(__name__)
 

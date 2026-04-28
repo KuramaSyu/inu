@@ -4,7 +4,7 @@ import pickle
 import pandas as pd
 #from dataenforce import Dataset
 
-from core import Database, Table
+from inu.core import Database, Table
 
 
 # how many minutes does python takes the records?

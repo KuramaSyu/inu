@@ -7,9 +7,9 @@ from hikari import ApplicationContextType
 import lightbulb
 from lightbulb import SlashCommand, invoke
 
-from core import Inu, InuContext, getLogger
-from utils import Colors, Human
-from utils.language import Multiple
+from inu.core import Inu, InuContext, getLogger
+from inu.utils import Colors, Human
+from inu.utils.language import Multiple
 
 log = getLogger(__name__)
 

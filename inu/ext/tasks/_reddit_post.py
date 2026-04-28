@@ -15,14 +15,14 @@ from lightbulb import Plugin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from utils import Reddit
-from core.db import Database
-from core import Inu
-from utils import DailyContentChannels, Human
-from utils import Columns as Col
+from inu.utils import Reddit
+from inu.core.db import Database
+from inu.core import Inu
+from inu.utils import DailyContentChannels, Human
+from inu.utils import Columns as Col
 
 
-from core import getLogger
+from inu.core import getLogger
 
 log = getLogger(__name__)
 

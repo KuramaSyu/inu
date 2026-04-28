@@ -9,10 +9,10 @@ from hikari import UNDEFINED, Embed
 import lightbulb
 from lightbulb.context import Context
 
-from core import Inu
-from utils.language import Human
+from inu.core import Inu
+from inu.utils.language import Human
 
-from core import getLogger, BotResponseError, Inu, ComponentContext, RestContext, get_context
+from inu.core import getLogger, BotResponseError, Inu, ComponentContext, RestContext, get_context
 
 log = getLogger("Error Handler")
 pl = lightbulb.Loader()

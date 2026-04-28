@@ -10,14 +10,14 @@ import asyncio
 
 import aiohttp
 import miru
-from core import LoggingHandler, get_context
+from inu.core import LoggingHandler, get_context
 logging.setLoggerClass(LoggingHandler)
 
 import hikari
 import miru
 import lightbulb
-from core import Inu, Table
-from utils import (
+from inu.core import Inu, Table
+from inu.utils import (
     tmdb_setup, InvokationStats, Reminders, 
     TagManager, PollManager, Urban, 
     MyAnimeListAIOClient, CurrentGamesManager,
@@ -25,9 +25,9 @@ from utils import (
     check_unimplemented_methods
 )
 import lavalink_rs
-from core import getLogger, InuContext
-from utils import Human
-from ext.hooks.usage import record_command_metrics
+from inu.core import getLogger, InuContext
+from inu.utils import Human
+from inu.ext.hooks.usage import record_command_metrics
 
 
 

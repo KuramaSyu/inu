@@ -12,8 +12,8 @@ import inspect
 import textwrap
 from pprint import pprint
 
-from utils import WordIterator
-from core import getLogger, SectionProxy
+from inu.utils import WordIterator
+from inu.core import getLogger, SectionProxy
 
 T_str_list = TypeVar("T_str_list", str, list)
 

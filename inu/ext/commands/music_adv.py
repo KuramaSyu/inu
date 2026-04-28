@@ -8,12 +8,12 @@ from lightbulb import Context, SlashCommand, invoke
 import hikari 
 from hikari import Embed, ApplicationContextType
 
-from core import Inu
+from inu.core import Inu
 from .music_utils import (
     LavalinkVoice, MusicPlayerManager, HISTORY_PREFIX, 
     MEDIA_TAG_PREFIX, MARKDOWN_URL_REGEX, DISCONNECT_AFTER
 )
-from core import getLogger, get_context, BotResponseError, InuContext
+from inu.core import getLogger, get_context, BotResponseError, InuContext
 
 log = getLogger(__name__)
 

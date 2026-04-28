@@ -24,8 +24,8 @@ from fuzzywuzzy import fuzz
 from pytimeparse.timeparse import timeparse
 from hikari import TextInputStyle
 
-from utils import Colors, Human, Paginator, crumble, Poll, PollManager
-from core import getLogger, Inu, Table, BotResponseError, ComponentContext, InuContext, get_context
+from inu.utils import Colors, Human, Paginator, crumble, Poll, PollManager
+from inu.core import getLogger, Inu, Table, BotResponseError, ComponentContext, InuContext, get_context
 # import Dataset
 
 

@@ -16,9 +16,9 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import mplcyberpunk
 
-from utils.db import PollManager
-from utils import Colors
-from core import Table, Inu, getLogger, ConfigProxy, ConfigType, InuContext
+from inu.utils.db import PollManager
+from inu.utils import Colors
+from inu.core import Table, Inu, getLogger, ConfigProxy, ConfigType, InuContext
 
 log = getLogger(__name__)
 conf = ConfigProxy(ConfigType.YAML)

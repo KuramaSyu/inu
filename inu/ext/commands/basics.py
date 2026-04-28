@@ -13,7 +13,7 @@ import lightbulb.utils as lightbulb_utils
 from lightbulb import Client, Context
 from lightbulb.prefab import sliding_window
 
-from core import (
+from inu.core import (
     BotResponseError, Inu, Table, 
     getLogger, get_context, InuContext
 )
@@ -28,12 +28,12 @@ from lightbulb import (
     commands, SlashCommand, invoke, Context, 
 )
 from tmdb import route
-from utils import (
+from inu.utils import (
     Colors, Human, Paginator, GuildPaginator,
     Reddit, Urban, crumble, MyAnimeList, 
     BoredAPI, IP, Facts, xkcdAPI,
 )
-from utils.shortcuts import display_name_or_id
+from inu.utils.shortcuts import display_name_or_id
 
 # conditional
 lavalink = None

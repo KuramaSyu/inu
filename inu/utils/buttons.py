@@ -4,8 +4,8 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 from abc import ABC, abstractmethod
 
-from core import InuContext
-from utils import pacman
+from inu.core import InuContext
+from inu.utils import pacman
 
 class Button(ABC):
     @classmethod

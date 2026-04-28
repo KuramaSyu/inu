@@ -10,9 +10,9 @@ from dataclasses import dataclass
 from asyncache import cached
 from cachetools import TTLCache
 from dotenv import load_dotenv
-from core import Inu
-from core import getLogger
-from utils import Multiple
+from inu.core import Inu
+from inu.core import getLogger
+from inu.utils import Multiple
 
 
 log = getLogger(__name__)

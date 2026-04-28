@@ -17,8 +17,8 @@ from pyparsing import (
 import math
 import operator
 
-from core import Bash, getLogger
-from utils import Human
+from inu.core import Bash, getLogger
+from inu.utils import Human
 
 log = getLogger(__name__)
 

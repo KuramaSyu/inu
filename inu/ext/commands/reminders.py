@@ -23,12 +23,12 @@ from numpy import isin
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
 
-from utils.db.reminders import REMINDER_UPDATE, Reminders
-from utils import HikariReminder, Human, Paginator, crumble
-from core import Table, Inu, InuContext
+from inu.utils.db.reminders import REMINDER_UPDATE, Reminders
+from inu.utils import HikariReminder, Human, Paginator, crumble
+from inu.core import Table, Inu, InuContext
 
 
-from core import getLogger
+from inu.core import getLogger
 
 
 log = getLogger(__name__)

@@ -10,8 +10,8 @@ from urllib.parse import quote
 import aiohttp
 from jikanpy import AioJikan
 
-from core import Database, Table, getLogger
-from utils import Multiple, MyAnimeListAIOClient, MALRatings
+from inu.core import Database, Table, getLogger
+from inu.utils import Multiple, MyAnimeListAIOClient, MALRatings
 
 log = getLogger(__name__)
 

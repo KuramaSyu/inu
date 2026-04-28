@@ -12,8 +12,8 @@ from hikari.interactions.component_interactions import ComponentInteraction
 from hikari import ButtonStyle
 import lightbulb
 
-from utils import Colors
-from core import Inu, getLogger, InuContext, get_context
+from inu.utils import Colors
+from inu.core import Inu, getLogger, InuContext, get_context
 from .onu import *
 from .onu import CardColors
 from .onu import CardFunctions

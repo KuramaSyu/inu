@@ -18,11 +18,11 @@ from lightbulb.context import Context
 import asyncpg
 import mock
 
-from core.bot import Inu
-from core import Database, Table
+from inu.core.bot import Inu
+from inu.core import Database, Table
 from ..string_crumbler import PeekIterator, NumberWordIterator
 
-from core import getLogger
+from inu.core import getLogger
 
 log = getLogger(__name__)
 

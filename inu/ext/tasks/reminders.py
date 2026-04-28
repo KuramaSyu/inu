@@ -13,8 +13,8 @@ import lightbulb
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from utils import REMINDER_UPDATE, Reminders
-from core import Inu
+from inu.utils import REMINDER_UPDATE, Reminders
+from inu.core import Inu
 
 
 plugin = lightbulb.Loader()

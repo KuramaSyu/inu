@@ -14,8 +14,8 @@ from .base import PaginatorReadyEvent, Paginator, listener
 # from jikan4.aiojikan import AioJikan
 from lightbulb.context import Context
 
-from core import getLogger, InuContext
-from utils import Human, Colors
+from inu.core import getLogger, InuContext
+from inu.utils import Human, Colors
 
 log = getLogger(__name__)
 

@@ -1,8 +1,8 @@
 import hikari
 import lightbulb
 
-from core import logging, getLogger
-from utils import InvokationStats
+from inu.core import logging, getLogger
+from inu.utils import InvokationStats
 
 log = getLogger(__name__)
 

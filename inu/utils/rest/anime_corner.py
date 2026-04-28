@@ -10,8 +10,8 @@ import selenium_async
 from expiring_dict import ExpiringDict
 
 
-from core import stopwatch
-from core.api import PartialAnimeMatch, AnimeMatch
+from inu.core import stopwatch
+from inu.core.api import PartialAnimeMatch, AnimeMatch
 
 
 # from utils.db import MyAnimeList

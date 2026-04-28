@@ -33,7 +33,8 @@ class CommandLoader(LoaderABC):
             ):
                 continue
             try:
-                trimmed_name = f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}"
+                base = folder_path.replace('/', '.').strip('.')
+                trimmed_name = f"{base}.{extension[:-3]}"
                 modules[trimmed_name]
                 if not is_allowed(trimmed_name):
                     modules[trimmed_name] = False

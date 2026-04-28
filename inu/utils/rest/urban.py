@@ -7,7 +7,7 @@ import asyncio
 from pprint import *
 from collections.abc import Iterable
 
-from core import Inu, BotResponseError, getLogger
+from inu.core import Inu, BotResponseError, getLogger
 log = getLogger(__name__)
 
 class UrbanIterator(Iterable):

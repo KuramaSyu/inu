@@ -15,8 +15,8 @@ from hikari import (
 )
 from hikari.impl import InteractiveButtonBuilder
 
-from core import Inu, getLogger, InuContext, get_context
-from utils import add_row_when_filled, is_row_filled
+from inu.core import Inu, getLogger, InuContext, get_context
+from inu.utils import add_row_when_filled, is_row_filled
 
 if TYPE_CHECKING:
     from .base import Paginator

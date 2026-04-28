@@ -3,8 +3,8 @@ from typing import *
 import asyncio
 import hashlib
 
-from utils import RESTFacts
-from core import Table
+from inu.utils import RESTFacts
+from inu.core import Table
 
 class Facts:
     _table = Table("facts", debug_log=False, error_log=False)

@@ -49,7 +49,7 @@ import humanize
 from tabulate import tabulate
 from numpy import datetime64, timedelta64, uint8
 
-from utils import (
+from inu.utils import (
     Human, 
     Paginator, 
     CurrentGamesManager,
@@ -60,7 +60,7 @@ from utils import (
     Games,
     YES, NO, YES_NO
 )
-from core import (
+from inu.core import (
     BotResponseError, 
     Inu, 
     Table, 

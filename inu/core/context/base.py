@@ -6,7 +6,7 @@ from datetime import timedelta
 from cachetools import cached, TTLCache
 from hikari import Embed
 from hikari.impl import MessageActionRowBuilder
-from core import getLogger
+from inu.core import getLogger
 
 from ..bot import Inu
 from .protocols import InuContext

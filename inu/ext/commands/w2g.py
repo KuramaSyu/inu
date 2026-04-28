@@ -32,7 +32,7 @@ from matplotlib.style import available
 from typing_extensions import Self
 
 
-from utils import (
+from inu.utils import (
     Colors, 
     Human, 
     Paginator, 
@@ -41,7 +41,7 @@ from utils import (
     crumble,
     Watch2Gether
 )
-from core import (
+from inu.core import (
     BotResponseError, 
     Inu, 
     Table, 

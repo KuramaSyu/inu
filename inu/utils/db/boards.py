@@ -5,8 +5,8 @@ from typing import *
 import asyncpg
 asyncpg.UniqueViolationError
 
-from core import Table, Inu, getLogger
-from utils import Human
+from inu.core import Table, Inu, getLogger
+from inu.utils import Human
 
 log = getLogger(__name__)
 

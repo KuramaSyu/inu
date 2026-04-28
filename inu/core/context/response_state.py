@@ -19,7 +19,7 @@ from datetime import timedelta
 from pytz import utc
 
 #from . import Response
-from core import getLogger
+from inu.core import getLogger
 from .response_proxy import InitialResponseProxy, ResponseProxy, RestResponseProxy, WebhookProxy
 if TYPE_CHECKING:
     from . import InuContext

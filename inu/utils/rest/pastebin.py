@@ -1,6 +1,6 @@
 import urllib.request
 import urllib.parse
-from core import ConfigProxy, ConfigType, getLogger
+from inu.core import ConfigProxy, ConfigType, getLogger
 import aiohttp  
 import asyncio
 

@@ -3,7 +3,7 @@ from typing import *
 
 import pytz
 
-from core import Table
+from inu.core import Table
 
 
 class TimezoneManager:

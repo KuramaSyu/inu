@@ -14,8 +14,8 @@ from lightbulb import help_command
 from lightbulb.context import Context
 from lightbulb.commands import Command, PrefixCommand, PrefixCommandGroup, CommandLike, PrefixSubCommand, PrefixSubGroup
 
-from core import Inu, getLogger
-from utils import Paginator, Colors
+from inu.core import Inu, getLogger
+from inu.utils import Paginator, Colors
 
 log = getLogger(__name__)
 

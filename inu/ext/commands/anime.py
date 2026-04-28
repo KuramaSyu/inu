@@ -17,7 +17,7 @@ from hikari.impl import MessageActionRowBuilder
 from lightbulb import Context, Loader, Group, SubGroup, SlashCommand, invoke
 from lightbulb.prefab import sliding_window
 
-from utils import (
+from inu.utils import (
     Human, 
     Paginator,
     AnimePaginator, 
@@ -26,7 +26,7 @@ from utils import (
     check_website,
     MAGIC_ERROR_MONSTER
 )
-from core import getLogger, get_context, InuContext
+from inu.core import getLogger, get_context, InuContext
 
 log = getLogger(__name__)
 loader = lightbulb.Loader()

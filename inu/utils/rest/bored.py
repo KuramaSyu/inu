@@ -2,7 +2,7 @@ from typing import *
 import aiohttp
 import hikari
 
-from utils import Colors
+from inu.utils import Colors
 {
   "activity": "Make a couch fort",
   "type": "recreational",

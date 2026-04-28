@@ -14,9 +14,9 @@ import lightbulb
 import hikari
 import apscheduler
 from apscheduler.triggers.interval import IntervalTrigger
-from utils import Facts
+from inu.utils import Facts
 
-from core import Table, getLogger, Inu
+from inu.core import Table, getLogger, Inu
 
 log = getLogger(__name__)
 METHOD_SYNC_TIME: int = 60*5

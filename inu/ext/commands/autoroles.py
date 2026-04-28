@@ -12,14 +12,14 @@ from lightbulb import commands, context, SlashCommand, invoke, Loader
 from tabulate import tabulate
 
 
-from utils import (
+from inu.utils import (
     crumble,
     AutorolesScreen,
     AutoroleManager,
     AutorolesViewer,
     CustomID
 )
-from core import (
+from inu.core import (
     Inu, 
     getLogger,
     get_context,

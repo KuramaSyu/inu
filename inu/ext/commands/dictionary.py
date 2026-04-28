@@ -2,8 +2,8 @@ from hikari import Embed, ApplicationContextType
 import lightbulb
 from lightbulb import commands, context, SlashCommand, invoke, Loader
 
-from core import getLogger, BotResponseError, Inu, InuContext
-from utils import Urban, Paginator, Colors
+from inu.core import getLogger, BotResponseError, Inu, InuContext
+from inu.utils import Urban, Paginator, Colors
 
 
 log = getLogger(__name__)

@@ -99,7 +99,7 @@ class Inu(hikari.GatewayBot):
         self._me: Optional[hikari.User] = None
         self.startup = datetime.datetime.now()
 
-        from core.db import Database
+        from inu.core.db import Database
         self.db = Database()
         self.db.bot = self
         
@@ -234,7 +234,9 @@ class Inu(hikari.GatewayBot):
             ):
                 continue
             try:
-                trimmed_name = f"{folder_path.replace('/', '.')[4:]}{extension[:-3]}"
+                # construct full package path (e.g. 'inu.ext.commands.foo')
+                base = folder_path.replace('/', '.').strip('.')
+                trimmed_name = f"{base}.{extension[:-3]}"
                 modules[trimmed_name]
                 if not is_allowed(trimmed_name):
                     modules[trimmed_name] = False

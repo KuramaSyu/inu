@@ -2,8 +2,8 @@ from typing import *
 
 import hikari
 
-from utils import Colors
-from core import Table
+from inu.utils import Colors
+from inu.core import Table
 
 class SettingsManager:
 

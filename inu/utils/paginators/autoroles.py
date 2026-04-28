@@ -14,8 +14,8 @@ from miru.ext import menu
 from . import Paginator, StatelessPaginator
 from ..db import AutoroleManager, AutoroleBuilder, AutoroleEvent
 
-from utils import crumble
-from core import getLogger, InuContext, BotResponseError, Inu, get_context
+from inu.utils import crumble
+from inu.core import getLogger, InuContext, BotResponseError, Inu, get_context
 
 client = Inu()._miru
 log = getLogger(__name__)

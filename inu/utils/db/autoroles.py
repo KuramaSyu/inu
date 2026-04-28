@@ -8,7 +8,7 @@ import hikari
 from hikari.impl import MessageActionRowBuilder
 from hikari import Member
 
-from core import Table, Inu, getLogger
+from inu.core import Table, Inu, getLogger
 
 log = getLogger(__name__)
 

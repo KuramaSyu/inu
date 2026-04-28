@@ -1,6 +1,6 @@
 from typing import *
 
-from core import getLogger, Table, Inu
+from inu.core import getLogger, Table, Inu
 
 log = getLogger(__name__)
 

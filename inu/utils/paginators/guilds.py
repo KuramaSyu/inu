@@ -4,8 +4,8 @@ from hikari import ButtonStyle, ComponentInteraction, Embed, GatewayGuild, Guild
 from humanize import naturaldelta
 
 from . import Paginator, listener, button  # use . to prevent circular imports 
-from utils import user_name_or_id, CurrentGamesManager, TagManager, SettingsManager, InvokationStats
-from core import InuContext, getLogger
+from inu.utils import user_name_or_id, CurrentGamesManager, TagManager, SettingsManager, InvokationStats
+from inu.core import InuContext, getLogger
 
 log = getLogger(__name__)
 
