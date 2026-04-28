@@ -1,0 +1,48 @@
+[project]
+name = "inu"
+version = "0.1.0"
+description = "A Discord Bot to do all the tasks where I am to lazy for"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "aiohttp>=3.13.5",
+    "apscheduler>=3.11.2",
+    "asyncache==0.3.1",
+    "asyncpg>=0.31.0",
+    "asyncpraw==7.8.1",
+    "cachetools==5.5.0",
+    "colorama>=0.4.6",
+    "colorcet>=3.1.0",
+    "colormap>=1.3.0",
+    "dacite>=1.9.2",
+    "dataenforce>=0.1.2",
+    "easydev>=0.14.0",
+    "emoji==2.12.1",
+    "expiring-dict>=1.1.2",
+    "fuzzywuzzy>=0.18.0",
+    "hikari==2.3.2",
+    "hikari-lightbulb==3.0.0a22",
+    "hikari-miru==4.2.0",
+    "humanize>=4.15.0",
+    "jikanpy>=4.3.2",
+    "lavalink-rs==0.14.1",
+    "mock>=5.2.0",
+    "mplcyberpunk==0.7.5",
+    "pandas>=3.0.2",
+    "pyparsing>=3.3.2",
+    "python-dotenv>=1.2.2",
+    "python-levenshtein>=0.27.3",
+    "pytimeparse>=1.1.8",
+    "pyyaml>=6.0.3",
+    "qrcode>=8.2",
+    "seaborn>=0.13.2",
+    "selenium==4.14.0",
+    "selenium-async>=0.1.0",
+    "setuptools>=82.0.1",
+    "tabulate>=0.10.0",
+    "tmdb-python>=0.0.9",
+    "typer>=0.25.0",
+    "types-pytz>=2026.1.1.20260408",
+    "types-pyyaml>=6.0.12.20260408",
+    "youtube-search-python>=1.6.6",
+]
