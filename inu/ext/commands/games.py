@@ -1,5 +1,4 @@
 from os import name
-from re import T
 import traceback
 from typing import *  # type: ignore
 import aiohttp
