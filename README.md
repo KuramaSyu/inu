@@ -113,3 +113,20 @@ to restore the dump:
 to backup from ssh:
 `ssh host@IP "docker exec -t postgresql pg_dumpall -c -U inu" > dump_file.sql`
 
+## Running with uv
+
+If you manage dependencies with `uv`, run the project using the project's environment with:
+
+```bash
+# run the module using the uv-managed environment
+uv run python -O -m inu.main
+```
+
+Or create and activate a project environment and then run:
+
+```bash
+uv venv create
+uv run -- python -O -m inu.main
+```
+`scripts/run.sh` can also be used to run the bot with uv. 
+
