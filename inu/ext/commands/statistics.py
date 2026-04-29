@@ -1,3 +1,5 @@
+from __future__ import annotations
+
 from copy import deepcopy
 from datetime import datetime, timedelta
 from typing import *
@@ -11,7 +13,11 @@ import lightbulb
 import aiohttp
 import hikari
 import lightbulb
-from dataenforce import Dataset
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from dataenforce import Dataset
+    
 from pytimeparse.timeparse import timeparse
 import re
 
