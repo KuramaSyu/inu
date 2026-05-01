@@ -326,26 +326,33 @@ async def guild_auto_complete(
     """Autocomplete for guild IDs"""
     try:
         log.debug(f"Autocompleting guilds")
-        value = str(ctx.get_option(ctx.focused.name))
+        value = ctx.focused.value
+
+        # all guilds the bot is in
         guilds: List[Dict[str, str | int]] = []
         for gid, name in ctx.client.app.cache.get_available_guilds_view().items():  # type: ignore
             guilds.append({'id': gid, 'name': str(name)})
+
         if len(guilds) >= 1000:
+            # if the bot is in too many guilds encorce a simple scan to get less guilds
             log.warning("Too many guilds to autocomplete - optimising guild list fast..")
-            guilds = [guild for guild in guilds if value.lower() in guild["name"].lower()]
+            guilds = [guild for guild in guilds if value.lower() in str(guild["name"]).lower()]
+        
+        # add global option
         guilds.append({'id': 000000000000000000, 'name': "Global - Everywhere where I am"})
 
-        if len(guilds) > 25:
-            if len(value) <= 2:
-                guilds = guilds[:24]
         if len(value) > 2:
+            # make fuzzy filter
             guilds_sorted: List[Dict[str, Union[int, str]]] = []
             for guild in guilds:
                 guild["ratio"] = fuzz.ratio(value, guild["name"])
                 guilds_sorted.append(guild)
             guilds_sorted.sort(key=lambda x: x["ratio"], reverse=True)
             guilds = guilds_sorted[:24]
-        
+        else:
+            # make simple case insensitive string.contains filter
+            guilds = [guild for guild in guilds if value.lower() in str(guild["name"]).lower()][:24]
+
         await ctx.respond([f"{guild['id']} | {guild['name']}" for guild in guilds]) 
     except Exception as e:
         log.error(f"Error in guild autocomplete: {e}")
