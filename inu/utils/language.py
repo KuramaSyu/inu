@@ -20,6 +20,7 @@ T_str_list = TypeVar("T_str_list", str, list)
 log = getLogger(__name__)
 
 def human_bool(bool_, twisted=False):
+    """returns "yes" or "no" depending on the boolean value. If twisted is True, it returns the opposite."""
     if not twisted:
         return f"{'yes' if bool_ else 'no'}"
     else:
@@ -67,6 +68,7 @@ class Multiple():
     
     @staticmethod
     def repalce_(text: str, symbols: Iterable, with_: str):
+        """replaces all `symbols` in `text` with `with_`"""
         for symbol in symbols:
             text = text.replace(symbol, with_)
         return text
