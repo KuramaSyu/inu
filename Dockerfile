@@ -1,5 +1,5 @@
-FROM ubuntu:noble
-FROM python:3.10.4
+FROM astral-sh/uv:alpine
+FROM python:3.13
 # Install pip
 RUN python -m ensurepip
 
@@ -88,4 +88,5 @@ RUN mkdir -p inu \
     && chown -R inu:inu inu
 USER inu
 
-CMD ["python3", "-O", "inu/main.py"]
+#CMD ["python3", "-O", "inu/main.py"]
+CMD ["uv",  "run", "--", "python", "-O", "-m", "inu.main"]
