@@ -1,4 +1,4 @@
-FROM astral-sh/uv:alpine
+FROM astral-sh/uv:debian
 FROM python:3.13
 # Install pip
 RUN python -m ensurepip
