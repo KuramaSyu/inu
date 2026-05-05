@@ -5,7 +5,6 @@ from typing import *
 from datetime import datetime, timedelta
 from abc import ABC, abstractmethod
 import functools
-from asyncache import cached
 import attrs
 from cachetools import TTLCache
 import hikari
@@ -32,6 +31,8 @@ from .base import InuContextBase, InuContext
 
 if TYPE_CHECKING:
     from .base import InuContextBase, InuContext
+
+from inu.utils import cached
 
 log = getLogger(__name__)
 

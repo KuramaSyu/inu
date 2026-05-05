@@ -1,4 +1,5 @@
 
+from .asyncache import cached
 from .progress_bar import pacman
 from .inspection import *
 from .shortcuts import *
@@ -21,7 +22,6 @@ from .poll import Poll
 from .emojis import Emoji
 
 from .paginators import *
-from .asyncache import cached
 
 
 import logging

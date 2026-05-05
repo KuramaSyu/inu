@@ -7,12 +7,11 @@ import logging
 import os
 
 from dataclasses import dataclass
-from asyncache import cached
 from cachetools import TTLCache
 from dotenv import load_dotenv
 from inu.core import Inu
 from inu.core import getLogger
-from inu.utils import Multiple
+from inu.utils import Multiple, cached
 
 
 log = getLogger(__name__)

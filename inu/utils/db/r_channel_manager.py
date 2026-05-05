@@ -13,8 +13,6 @@ import logging
 import enum
 
 import asyncpg
-from asyncache import cached
-from cachetools import TTLCache, LRUCache
 import hikari
 from hikari import User, Member
 from numpy import column_stack

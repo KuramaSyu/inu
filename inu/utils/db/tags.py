@@ -18,14 +18,12 @@ from datetime import datetime
 import traceback
 
 import asyncpg
-from asyncache import cached
 from cachetools import TTLCache, LRUCache
 import hikari
 from hikari import ButtonStyle, Embed
 from hikari import Snowflake, User, Member
 from hikari.impl import MessageActionRowBuilder
 from numpy import column_stack
-from asyncache import cached
 from cachetools import TTLCache
 from tabulate import tabulate
 
@@ -33,6 +31,7 @@ from ..shortcuts import guild_name_or_id, get_guild_or_channel_id, user_name_or_
 from ..language import Human, Multiple
 from inu.core.db import Database, Table
 from inu.core import Inu, BotResponseError, getLogger
+from inu.utils import cached
 
 log = getLogger(__name__)
 

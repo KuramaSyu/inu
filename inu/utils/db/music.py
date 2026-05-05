@@ -2,10 +2,9 @@ import datetime
 from typing import *
 
 from cachetools import TTLCache
-from asyncache import cached
 
 from inu.core import Table, getLogger
-
+from inu.utils import cached
 
 log = getLogger(__name__)
 
