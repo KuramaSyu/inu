@@ -21,7 +21,7 @@ from .poll import Poll
 from .emojis import Emoji
 
 from .paginators import *
-
+from .asyncache import cached
 
 
 import logging
