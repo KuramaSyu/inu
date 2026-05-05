@@ -143,3 +143,18 @@ uv lock --upgrade
 ```bash
 uv pip install -e ".[dev]"
 ```
+
+## Sync dependencies with lockfile
+```bash
+uv sync
+```
+
+or to keep dev dependencies:
+```bash
+uv sync --extra dev
+```
+
+## run tests
+```bash
+PYTHONPATH=. pytest
+```
