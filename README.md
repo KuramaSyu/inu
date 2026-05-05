@@ -138,3 +138,8 @@ or
 ```bash
 uv lock --upgrade
 ```
+
+## Install dev dependencies
+```bash
+uv pip install -e ".[dev]"
+```
