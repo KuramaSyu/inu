@@ -130,3 +130,11 @@ uv run -- python -O -m inu.main
 ```
 `scripts/run.sh` can also be used to run the bot with uv. 
 
+### Upgrading dependencies with uv
+```bash
+uv lock --upgrade-package <package-name>
+```
+or 
+```bash
+uv lock --upgrade
+```
