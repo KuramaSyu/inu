@@ -3,7 +3,7 @@ name = "inu"
 version = "0.1.0"
 description = "A Discord Bot to do all the tasks where I am to lazy for"
 readme = "README.md"
-requires-python = ">=3.13"
+requires-python = ">=3.14"
 dependencies = [
     "aiohttp>=3.13.5",
     "apscheduler>=3.11.2",
@@ -24,7 +24,7 @@ dependencies = [
     "hikari-miru>=4.2.0",
     "humanize>=4.15.0",
     "jikanpy>=4.3.2",
-    "lavalink-rs>=0.15.0",
+    "lavalink-rs==0.15.0",
     "matplotlib>=3.10.9",
     "mock>=5.2.0",
     "mplcyberpunk==0.7.6",
