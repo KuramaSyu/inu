@@ -57,7 +57,16 @@ class CheckForTagType:
     
     @property
     def is_list(self) -> bool:
-        return ListParser.check_if_list(self.queue)
+        try:
+            # dont use \n
+            parser = ListParser(separator_order=["; ", ";", ", ", ",", "->"])
+            parser.parse(self.queue)
+            # assert, that a list sequence has at least 5 elements
+            if parser.count_seperators.most_common(1)[0][1] >= 5:
+                return True
+            return False
+        except ValueError:
+            return False
         
 
     def check(self) -> Optional[TagType]:
@@ -563,6 +572,7 @@ async def _tag_add(
     except RuntimeError as e:
         raise BotResponseError(bot_message=e.args[0], ephemeral=True)
 
+    # check for often used tag-types (link for /play or list for /random) and ask if user wants to use the tag for this type
     check = CheckForTagType("\n".join(tag.value))
     if check.check() is not None and not tag_type:
         try:
