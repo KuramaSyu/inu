@@ -2,7 +2,7 @@ import asyncio
 
 import pytest
 
-from inu.utils.asyncache import cached
+from inu.core.asyncache import cached
 
 
 def test_cached_sync_hits_cache():

@@ -32,7 +32,7 @@ from .base import InuContextBase, InuContext
 if TYPE_CHECKING:
     from .base import InuContextBase, InuContext
 
-from inu.utils import cached
+from inu.core.asyncache import cached
 
 log = getLogger(__name__)
 

@@ -31,7 +31,7 @@ from ..shortcuts import guild_name_or_id, get_guild_or_channel_id, user_name_or_
 from ..language import Human, Multiple
 from inu.core.db import Database, Table
 from inu.core import Inu, BotResponseError, getLogger
-from inu.utils import cached
+from inu.core import cached
 
 log = getLogger(__name__)
 

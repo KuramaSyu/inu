@@ -11,7 +11,8 @@ from cachetools import TTLCache
 from dotenv import load_dotenv
 from inu.core import Inu
 from inu.core import getLogger
-from inu.utils import Multiple, cached
+from inu.core import cached
+from inu.utils import Multiple
 
 
 log = getLogger(__name__)

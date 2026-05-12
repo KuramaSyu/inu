@@ -1,5 +1,4 @@
 
-from .asyncache import cached
 from .progress_bar import pacman
 from .inspection import *
 from .shortcuts import *

@@ -4,7 +4,7 @@ from typing import *
 from cachetools import TTLCache
 
 from inu.core import Table, getLogger
-from inu.utils import cached
+from inu.core import cached
 
 log = getLogger(__name__)
 
