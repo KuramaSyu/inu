@@ -142,7 +142,7 @@ class SimpleStringSplitStrategy(ListStrategy):
 
 
 class ListParser:
-    _separator_order = [
+    _default_separator_order = [
         "; ",
         ";", 
         ", ",
@@ -150,10 +150,12 @@ class ListParser:
         "->", 
         "\n",
     ]
+    _separator_order = []
     
-    def __init__(self):
+    def __init__(self, separator_order: Optional[List[str]] = None):
         self._parsed_lines: List[Tuple[str, List[str]]] = []
-        
+        self._separator_order = separator_order or self._default_separator_order.copy() 
+
     @property
     def parsed_lines(self) -> List[Tuple[str, List[str]]]:
         """
@@ -170,6 +172,7 @@ class ListParser:
          3. SimpleStringSplitStrategy for each separator in order:
             "\n" (8), ";" (7), "," (6), "->" (5), " " (4)
         
+            
         Args:
         -----
         value: str
@@ -177,31 +180,41 @@ class ListParser:
         processed: bool
             whether the return list will be processed (e.g. 1. 2. 3. or - at start of line stripped)
             
+
+        Raises:
+        -------
+        ValueError:
+            If no strategy is usable for the given string.
+        
+            
         Returns:
         --------
-        List[str]
+        List[str]:
             the parsed list
         """
         strategy = None
+
         # try strategies in order
-        candidate = EnumerationMarkdownStrategy(value)
-        if candidate.is_usable():
-            strategy = candidate
-        else:
-            candidate = MarkdownListStrategy(value)
+        # markdown first
+        canditates = [EnumerationMarkdownStrategy(value), MarkdownListStrategy(value)]
+        for candidate in canditates:
             if candidate.is_usable():
                 strategy = candidate
-            else:
-                for sep in self._separator_order:
-                    candidate = SimpleStringSplitStrategy(value, sep)
-                    if candidate.is_usable():
-                        strategy = candidate
-                        break
-        print(f"use strategy: {strategy}")
+                break
+        
+        # neither markdown enumeration nor list
+        # test normal lists by trying given separators
+        if strategy is None:
+            for sep in self._separator_order:
+                candidate = SimpleStringSplitStrategy(value, sep)
+                if candidate.is_usable():
+                    strategy = candidate
+                    break
         if strategy is None:
             raise ValueError("No strategy (markdown enumeration, markdown list, simple strings) found to parse the given string.")
         parsed = strategy.parse()
-        # Identify the strategy by its regex (for markdown ones) or by the splitting string.
+
+        # get identifier (the splitting part, either normal symbols or regex for markdown) and save it with the parsed lines
         if isinstance(strategy, MarkDownStrategy):
             identifier = strategy.regex
         elif isinstance(strategy, SimpleStringSplitStrategy):
