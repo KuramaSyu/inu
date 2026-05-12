@@ -25,8 +25,6 @@ WORKDIR /home/inu
 ENV PIPX_HOME="/home/inu/.local/pipx"
 ENV PIPX_BIN_DIR="/home/inu/.local/bin"
 ENV PATH="/home/inu/.local/bin:${PATH}"
-RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | bash -s -- -y
-ENV PATH="/home/inu/.cargo/bin:${PATH}"
 RUN pipx install uv
 
 # Copy project metadata and install dependencies with uv
