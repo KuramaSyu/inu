@@ -148,7 +148,7 @@ class MusicPlayer:
     
     @property
     def ctx_avatar_url(self) -> str:
-        url = self.ctx.author.avatar_url or self.bot.me.avatar_url
+        url = self.ctx.author.display_avatar_url or self.bot.me.avatar_url
         assert isinstance(url, str)
         return url
 
@@ -292,12 +292,12 @@ class MusicPlayer:
         if amount > 1:
             self._queue.add_footer_info(
                 f"🎵 Skipped {Human.plural_('song', amount, True)}", 
-                self.ctx.author.avatar_url  # type: ignore
+                self.ctx.author.display_avatar_url  # type: ignore
             )
         else:
             self._queue.add_footer_info(
                 f"🎵 Skipped {player.track.info.author} - {player.track.info.title}",   
-                self.ctx.author.avatar_url  # type: ignore
+                self.ctx.author.display_avatar_url  # type: ignore
             )
 
         if not player.track:
@@ -778,7 +778,7 @@ class MusicPlayer:
         queue_ref.replace(queue)
         self._queue.add_footer_info(
             f"🔀 Queue shuffled by {self.ctx.author.username}", 
-            self.ctx.author.avatar_url  # type: ignore
+            self.ctx.author.display_avatar_url  # type: ignore
         )
 
     @staticmethod
@@ -793,7 +793,7 @@ class MusicPlayer:
         Pauses the player, updates the queue message and sends the leave embed
         """
         await self.pause(suppress_info=True)
-        self._queue.add_footer_info(f"🛑 stopped by {self.ctx.display_name}", icon=self.ctx.author.avatar_url)  # type: ignore
+        self._queue.add_footer_info(f"🛑 stopped by {self.ctx.display_name}", icon=self.ctx.author.display_avatar_url)  # type: ignore
         await self.send_queue(force_resend=force_resend, disable_components=True, force_lock=True)
         assert(self.ctx.member is not None)
         await self.ctx.execute(embed=self.create_leave_embed(self.ctx.member), delete_after=30)

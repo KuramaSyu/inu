@@ -447,7 +447,7 @@ class ProbabilityCommand(
             name='You got:', 
             value=f'{symbol[0] if random.choice(probabilities) else symbol[1]}'
         )
-        embed.set_thumbnail(ctx.author.avatar_url)
+        embed.set_thumbnail(ctx.author.display_avatar_url)
         embed.color = hikari.Color(0x2A48A8)
         if footer:
             embed.set_footer(footer)

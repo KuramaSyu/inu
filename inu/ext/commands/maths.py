@@ -497,7 +497,7 @@ async def execute_task(ctx: InuContext, c: CalculationBlueprint) -> Tuple[int, t
             pass
         embed.add_field("Time per Task:", f"```\n{time_per_task:.2f} seconds / Task```")
         embed.add_field("Last Task:", f"Task: {current_task_beautiful}\nResult: {Human.number(c.get_result(current_task))}")
-        embed.set_thumbnail(ctx.author.avatar_url)
+        embed.set_thumbnail(ctx.author.display_avatar_url)
         final_response = await ctx.respond(embed=embed, components=purge_delete_button)
 
     async def maybe_clean_up(messages: List[hikari.Snowflake], message_id: int, channel_id: int):

@@ -112,7 +112,7 @@ async def on_error(exc: lightbulb.exceptions.ExecutionPipelineFailedException) -
     #         embeds: List[Embed] = [Embed(title=f"Bug #{error_id}", description=str(error)[:2000])]
     #         embeds[0].set_author(
     #             name=f'Invoked by: {ctx.user.username}',
-    #             icon=ctx.author.avatar_url
+    #             icon=ctx.author.display_avatar_url
     #         )
     #         embeds[0].add_field(
     #             "invoked with", 

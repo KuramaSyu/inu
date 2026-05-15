@@ -349,7 +349,7 @@ class LeaveCommand(
     async def callback(self, _: lightbulb.Context, ctx: InuContext):
         await ctx.defer()
         player = MusicPlayerManager.player_factory(ctx)
-        player._queue.add_footer_info(f"🛑 Stopped by {ctx.author.username}", str(ctx.author.avatar_url))
+        player._queue.add_footer_info(f"🛑 Stopped by {ctx.author.username}", str(ctx.author.display_avatar_url))
         await player.send_queue(True)
         await player.leave()
 
