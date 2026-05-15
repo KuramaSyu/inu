@@ -8,14 +8,23 @@ server: # REST and WS server
 
 plugins:
   youtube:
-    enabled: true
-    clients: ['MUSIC', 'ANDROID', 'WEB', 'WEBEMBEDDED']
+    enabled: true # Whether this source can be used.
+    allowSearch: true # Whether "ytsearch:" and "ytmsearch:" can be used.
+    allowDirectVideoIds: true # Whether just video IDs can match. If false, only complete URLs will be loaded.
+    allowDirectPlaylistIds: true # Whether just playlist IDs can match. If false, only complete URLs will be loaded.
+    # The clients to use for track loading. See below for a list of valid clients.
+    # Clients are queried in the order they are given (so the first client is queried first and so on...)
+    clients:
+      - MUSIC
+      - ANDROID_VR
+      - WEB
+      - WEBEMBEDDED 
 
 lavalink:
   plugins:
     # Replace VERSION with the current version as shown by the Releases tab or a long commit hash for snapshots.
     # https://github.com/lavalink-devs/youtube-source/releases
-    - dependency: 'dev.lavalink.youtube:youtube-plugin:1.13.2'
+    - dependency: 'dev.lavalink.youtube:youtube-plugin:1.18.1'
       snapshot: false # Set to true if you want to use a snapshot version.
   pluginsDir: './plugins'
   server:
