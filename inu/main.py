@@ -101,34 +101,23 @@ def create_inu() -> Inu:
     async def on_bot_ready(event: hikari.StartedEvent):
         async def fetch_response(number: int):
             """Fetches a response from the numbersapi.com API"""
-            async with aiohttp.ClientSession() as session:
-                async with session.get(f"http://numbersapi.com/{number}") as resp:
-                    return (await resp.read()).decode("utf-8")
+            # WEBSITE IS OFFLINE
+            # async with aiohttp.ClientSession() as session:
+            #     async with session.get(f"http://numbersapi.com/{number}") as resp:
+            #         return (await resp.read()).decode("utf-8")
+            pass
 
         log.info("Loading start number", prefix="init")
         table = Table("bot")
         record = await table.select_row(["key"], ["restart_count"])
-        activity = str(record["value"]) if record else 0
-        bot_description = ""
-        try:
-            negative_answers = ["an uninteresting number", "a boring number", "we're missing a fact", "an unremarkable number"]
-            number_fact = await fetch_response(int(activity))
-            if any(answer in number_fact for answer in negative_answers):
-                new_number = int(activity) % 100
-                number_fact = (await fetch_response(new_number)).replace(str(new_number), "")
-                pattern = re.compile(str(new_number) + r"\b")
-                sub_number = pattern.sub(f"-{new_number}-", str(activity))
-                bot_description = f"{sub_number}{' Well its looking empty this time' if len(str(activity)) > len(number_fact) else number_fact}"
-            else:
-                bot_description = f"{number_fact}"
-        except Exception:
-            log.error(traceback.format_exc())
+        restart_number = str(record["value"]) if record else 0
+        bot_description = f"Reboot Seq {restart_number}"
         log.info(f"Bot is online: {bot_description}", prefix="init")
         try:
             await event.app.update_presence(
                 status=hikari.Status.IDLE,
                 activity=hikari.Activity(
-                    name=f"Restart Nr {activity}",
+                    name=f"Reboot Seq {restart_number}",
                     state=Human.short_text(bot_description, 128),
                     type=hikari.ActivityType.CUSTOM
                 )
