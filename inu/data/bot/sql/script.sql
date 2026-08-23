@@ -211,3 +211,38 @@ CREATE EXTENSION IF NOT EXISTS pg_trgm;
 CREATE OR REPLACE FUNCTION ts_round( timestamptz, INT4 ) RETURNS TIMESTAMPTZ AS $$
     SELECT 'epoch'::timestamptz + '1 second'::INTERVAL * ( $2 * ( extract( epoch FROM $1 )::INT4 / $2 ) );
 $$ LANGUAGE SQL;
+
+-- stores the historic Anime Corner "Anime of the Week" rankings
+-- one row per anime per weekly ranking poll
+CREATE TABLE IF NOT EXISTS anime_of_the_week_history (
+    id SERIAL PRIMARY KEY,
+    mal_id BIGINT
+        REFERENCES myanimelist(mal_id)
+        ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    score FLOAT NOT NULL,
+    rank INT NOT NULL,
+    season TEXT NOT NULL,
+    date TIMESTAMP NOT NULL,
+    CONSTRAINT season_check CHECK (season IN ('spring', 'summer', 'fall', 'winter')),
+    CONSTRAINT unique_rank_date UNIQUE (rank, date)
+);
+CREATE INDEX IF NOT EXISTS idx_aotw_history_mal_id ON anime_of_the_week_history(mal_id);
+CREATE INDEX IF NOT EXISTS idx_aotw_history_date ON anime_of_the_week_history(date);
+
+-- Tracks which (season, year, week_index) triples have been observed from
+-- Anime Corner. Otherwise the scaper would try to fetch a whole season again, just because it has 11 weeks instead of 12
+-- and hence reports 1 missing week, resulting in fetching all weeks again
+CREATE TABLE IF NOT EXISTS anime_of_the_week_known_weeks (
+    season TEXT NOT NULL,
+    year INT NOT NULL,
+    week_index INT NOT NULL,
+    state TEXT NOT NULL,
+    first_seen TIMESTAMP NOT NULL DEFAULT NOW(),
+    last_seen TIMESTAMP NOT NULL DEFAULT NOW(),
+    PRIMARY KEY (season, year, week_index),
+    CONSTRAINT known_week_state_check CHECK (state IN ('present', 'absent')),
+    CONSTRAINT known_week_season_check CHECK (season IN ('spring', 'summer', 'fall', 'winter'))
+);
+CREATE INDEX IF NOT EXISTS idx_aotw_known_weeks_season_year
+    ON anime_of_the_week_known_weeks(season, year);
