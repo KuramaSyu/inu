@@ -376,13 +376,19 @@ class AnimeCornerHistoryManager:
 
         Weeks that have already been probed and confirmed empty by
         :meth:`mark_week_absent` are excluded so the backfill task stops
-        re-trying them forever.
+        re-trying them forever. The exclusion is applied per ``(season,
+        year)``: each generated Monday is classified into its own season
+        (using Anime Corner's convention that December belongs to the
+        *next* year's winter) and matched against the corresponding
+        ``anime_of_the_week_known_weeks`` row.
         """
         table = Table(cls.table_name)
         until = until or datetime.now()
-        # We anti-join against two tables: the history rows themselves (a row
-        # exists for that date -> not missing) and the known-weeks table
-        # marked 'absent' (already tried, came back empty -> skip).
+        # Each generated Monday is classified into its own (season, year)
+        # and a per-season base date is computed (December for winter,
+        # March/June/September for the rest). The week_index used to match
+        # the known-weeks table mirrors :func:`_season_week_index` in
+        # ``inu/ext/tasks/anime_corner.py``.
         sql = (
             "WITH weeks AS ("
             "  SELECT generate_series("
@@ -390,38 +396,52 @@ class AnimeCornerHistoryManager:
             "    date_trunc('week', $2::TIMESTAMP),"
             "    interval '7 days'"
             "  ) AS week_start"
+            "),"
+            "classified AS ("
+            "  SELECT"
+            "    w.week_start,"
+            "    CASE"
+            "      WHEN EXTRACT(MONTH FROM w.week_start) IN (12, 1, 2) THEN 'winter'"
+            "      WHEN EXTRACT(MONTH FROM w.week_start) IN (3, 4, 5)  THEN 'spring'"
+            "      WHEN EXTRACT(MONTH FROM w.week_start) IN (6, 7, 8)  THEN 'summer'"
+            "      ELSE 'fall'"
+            "    END AS season,"
+            "    CASE"
+            "      WHEN EXTRACT(MONTH FROM w.week_start) = 12"
+            "        THEN EXTRACT(YEAR FROM w.week_start)::INT + 1"
+            "      ELSE EXTRACT(YEAR FROM w.week_start)::INT"
+            "    END AS year"
+            "  FROM weeks w"
+            "),"
+            "indexed AS ("
+            "  SELECT"
+            "    c.week_start,"
+            "    c.season,"
+            "    c.year,"
+            "    GREATEST(1,"
+            "      (EXTRACT(DAY FROM (c.week_start::TIMESTAMP - CASE"
+            "        WHEN c.season = 'winter' THEN make_timestamp(c.year - 1, 12, 1, 0, 0, 0)"
+            "        WHEN c.season = 'spring' THEN make_timestamp(c.year,     3, 1, 0, 0, 0)"
+            "        WHEN c.season = 'summer' THEN make_timestamp(c.year,     6, 1, 0, 0, 0)"
+            "        ELSE                          make_timestamp(c.year,     9, 1, 0, 0, 0)"
+            "      END)))::INT / 7 + 1"
+            "    ) AS week_index"
+            "  FROM classified c"
             ")"
-            "SELECT w.week_start::TIMESTAMP AS week_start "
-            "FROM weeks w "
+            "SELECT i.week_start::TIMESTAMP AS week_start "
+            "FROM indexed i "
             "LEFT JOIN anime_of_the_week_history h "
-            "  ON date_trunc('day', h.date) = w.week_start::TIMESTAMP "
+            "  ON date_trunc('day', h.date) = i.week_start::TIMESTAMP "
             "LEFT JOIN anime_of_the_week_known_weeks k "
-            "  ON k.season = $3 AND k.year = $4 AND k.state = 'absent' "
-            "    AND date_trunc('week', ("
-            "      date_trunc('year', w.week_start::TIMESTAMP)"
-            "      + ($4::INT - EXTRACT(YEAR FROM w.week_start)::INT) * interval '1 year'"
-            "    )) + (k.week_index - 1) * interval '7 days' = w.week_start "
+            "  ON k.season = i.season "
+            "    AND k.year = i.year "
+            "    AND k.state = 'absent' "
+            "    AND k.week_index = i.week_index "
             "WHERE h.date IS NULL AND k.season IS NULL "
-            "ORDER BY w.week_start"
+            "ORDER BY i.week_start"
         )
-        # The SQL above is intentionally simple and conservative: it only
-        # filters out absent weeks for the *current* (season, year) so we
-        # don't accidentally suppress legitimate backfill work in other
-        # seasons. Most calls only target one season at a time anyway.
-        season, year = cls._season_year_for_range(since, until)
-        records = await table.fetch(sql, since, until, season, year)
+        records = await table.fetch(sql, since, until)
         return [r["week_start"] for r in records]
-
-    @staticmethod
-    def _season_year_for_range(since: datetime, until: datetime) -> Tuple[str, int]:
-        """Picks a single ``(season, year)`` for the given range.
-
-        Used by :meth:`missing_weeks` to decide which season's "absent"
-        markers to honour. Falls back to ``("fall", until.year)`` when the
-        range is empty.
-        """
-        anchor = until or since
-        return get_season(anchor), anchor.year
 
     @classmethod
     async def mark_week_present(

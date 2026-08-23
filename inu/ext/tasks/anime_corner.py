@@ -230,12 +230,43 @@ async def _backfill_missing_weeks() -> None:
                 # the delta between consecutive missing weeks (or the season
                 # start) to assign a stable index.
                 week_index = _season_week_index(season, year, week_start)
-                if week_index is None or week_index > max_week:
+                if week_index is None:
+                    # week_start is before the season's base date. The PK
+                    # of `anime_of_the_week_known_weeks` is on
+                    # `week_index`, so we can't persist a meaningful
+                    # absent marker for this row. Just skip — the
+                    # ``BACKFILL_LOOKBACK`` upper bound keeps this rare.
                     log.debug(
-                        f"Skipping week {week_start:%Y-%m-%d}: beyond known "
-                        f"weeks for {season}-{year} (latest is week {max_week}).",
+                        f"Skipping week {week_start:%Y-%m-%d}: before the "
+                        f"start of {season}-{year}.",
                         prefix="task",
                     )
+                    continue
+                if week_index > max_week:
+                    # The season ended at week <max_week>; week_index is
+                    # past the end and we already know the URL is empty
+                    # (`find_latest_week_with_ranking` returned the first
+                    # empty one as the break condition). Persist the
+                    # marker so we don't re-list this week as missing on
+                    # every subsequent run.
+                    log.debug(
+                        f"Skipping week {week_start:%Y-%m-%d}: beyond known "
+                        f"weeks for {season}-{year} (latest is week "
+                        f"{max_week}).",
+                        prefix="task",
+                    )
+                    try:
+                        await AnimeCornerHistoryManager.mark_week_absent(
+                            season=season, year=year, week_index=week_index,
+                        )
+                        absent_indices.add(week_index)
+                    except Exception:
+                        log.warning(
+                            "Failed to persist absent marker for "
+                            f"{season}-{year} w{week_index:02d}:\n"
+                            + traceback.format_exc(),
+                            prefix="task",
+                        )
                     continue
                 if week_index in absent_indices:
                     log.debug(
