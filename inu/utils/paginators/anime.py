@@ -640,6 +640,7 @@ class AnimeMatch(TypedDict):
 
 
 class AnimeCornerPaginator(Paginator):
+    """Anime Corner paginator which displays animes with tradiational menu - currently not used"""
     anime_matches: List[AnimeMatch]
     submission: asyncpraw.models.Submission
     anime_paginators: List[AnimePaginator | None]
@@ -788,6 +789,9 @@ class AnimeCornerPaginator(Paginator):
 
 
 class AnimeCornerPaginator2(AnimePaginator):
+    """Anime Corner Paginator, which displays numbers 1-11. 1-10 are
+    the animes displayed in the top 10 ranking. 11 is the ranking itself. 
+    """
     anime_matches: List[AnimeMatch]
     submission: asyncpraw.models.Submission
     anime_paginators: List[AnimePaginator | None]
@@ -1046,9 +1050,6 @@ class AnimeCornerPaginator2(AnimePaginator):
         return components
 
 
-
-
-
 if __name__ == "__main__":
     embeds = []
     for _ in range(10):
@@ -1059,3 +1060,5 @@ if __name__ == "__main__":
     pag._sort_embeds(SortTypes.BY_SCORE)
     for e in pag._pages:
         print(e.fields)
+
+
