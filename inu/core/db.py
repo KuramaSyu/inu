@@ -295,7 +295,7 @@ class Table():
     @logging()
     @formatter
     async def upsert(
-        self, 
+        self,
         which_columns: List[str] | None = None,
         values: List[Any] | None = None,
         where: OrderedDict[str, Any] | None = None,
@@ -303,37 +303,81 @@ class Table():
         returning: str = ""
     ) -> Optional[asyncpg.Record]:
         """
-        NOTE
-        ----
-            - the first value of `which_columns` and `values` should be the id!
-            - if the id is a compound, then pass these first into `which_columns` and `values`
-              and set `compound_of` to the number, how many values count 
-              (until wich index + 1) to that compound
+        Insert with a `DO UPDATE` clause driven by `which_columns` /
+        `values`, falling back to `where` for the conflict target.
+
+        Note:
+            - `which_columns` and `values` describe the rows that are
+              actually INSERT-ed (and on conflict UPDATE-ed). They are
+              **not** overridden by `where`.
+            - If `where` is provided **and** `which_columns`/`values` were
+              also provided, `where` only specifies the columns that trigger
+              the ON CONFLICT clause (the explicit columns are still used
+              for the INSERT/UPDATE).
+            - If `where` is provided **alone** (no explicit `which_columns`/
+              `values`) it doubles as both the data and the conflict target –
+              this preserves compatibility with the original single-purpose
+              call sites such as `bot.restart_count`.
+
+            - If `where` isn't supplied the first column of `which_columns`
+              is used as the conflict target (or the first `compound_of`
+              columns for a compound key).
         """
-        if where:
+        # Decide whether the caller used the legacy "where-only" mode.
+        explicit_data = bool(which_columns) and bool(values)
+        if not explicit_data and where:
             which_columns = list(where.keys())
             values = list(where.values())
-        values_chain = [f'${num}' for num in range(1, len(values)+1)]
+        if not which_columns:
+            which_columns = []
+        if values is None:
+            values = []
+        # Snapshot the explicitly passed-in INSERT/UPDATE columns. The
+        # old behaviour replaced `which_columns`/`values` with `where`
+        # *even when the caller had supplied columns of their own*, which
+        # silently dropped every non-conflict column and broke the upsert
+        # for any table with NOT NULL columns beyond the key.
+        insert_columns = list(which_columns)
+        insert_values = list(values)
+        values_chain = [f'${num}' for num in range(1, len(insert_values)+1)]
+        # Did the caller tell us *which* columns should trigger the
+        # conflict? Use `where` keys if they did (overrides the implicit
+        # `compound_of` / first-column behaviour).
+        on_conflict_target: Optional[List[str]] = list(where.keys()) if (where and explicit_data) else None
         update_set_query = ""
-        for i, item in enumerate(zip(which_columns, values_chain)):
-            if i == 0:
+        for i, item in enumerate(zip(insert_columns, values_chain)):
+            # Skip the leading primary key column when no conflict
+            # compound_of is set and no explicit `where` was provided –
+            # this matches the historical "don't update the PK to itself"
+            # behaviour. When the caller supplies `where`, they expect
+            # every column to be UPDATEd on conflict.
+            if i == 0 and not compound_of and on_conflict_target is None:
                 continue
             update_set_query += f"{item[0]}={item[1]}, "
-        update_set_query = update_set_query[:-2]  # remove last ","
-        on_conflict_values = which_columns[0]
-        if compound_of:
-            on_conflict_values = ", ".join(c for c in which_columns[:compound_of])
+        if update_set_query:
+            update_set_query = update_set_query[:-2]  # remove last ","
+            if on_conflict_target is not None:
+                target_cols = on_conflict_target
+            elif compound_of:
+                target_cols = insert_columns[:compound_of]
+            else:
+                target_cols = [insert_columns[0]]
+            on_conflict_sql = (
+                f"({', '.join(target_cols)}) DO UPDATE SET {update_set_query}"
+            )
+        else:
+            # nothing to update – fall back to a DO NOTHING upsert.
+            on_conflict_sql = "DO NOTHING"
         sql = (
-            f"INSERT INTO {self.name} ({', '.join(which_columns)}) \n"
+            f"INSERT INTO {self.name} ({', '.join(insert_columns)}) \n"
             f"VALUES ({', '.join(values_chain)}) \n"
-            f"ON CONFLICT ({on_conflict_values}) DO UPDATE \n"
-            f"SET {update_set_query} \n"
+            f"ON CONFLICT {on_conflict_sql} \n"
         )
         if returning:
             sql += f"RETURNING {returning} \n"
         self._create_sql_log_message(sql, values)
         return_values = await self.db.execute(sql, *values)
-        return return_values   
+        return return_values
 
     @logging()
     @formatter
