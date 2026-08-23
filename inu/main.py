@@ -59,6 +59,27 @@ def create_inu() -> Inu:
     )
 
     inu.client = client
+
+    # IMPORTANT: this listener must be subscribed *before* `client.start`
+    # below. Hikari dispatches StartingEvent listeners in registration order,
+    # and `client.start` is what calls `sync_application_commands` — by the
+    # time it runs the dynamic slash-command choice lists (e.g. the season
+    # picker for /anime-of-the-week-history) need to be fully populated.
+    @inu.listen(hikari.StartingEvent)
+    async def _populate_dynamic_choices(event: hikari.StartingEvent):
+        try:
+            await inu.init_db()
+            # Imported lazily so the commands module is only pulled in if
+            # the bot actually starts (otherwise unit tests / type checkers
+            # would need the full commands tree loaded just to import main).
+            from inu.ext.commands.anime import refresh_season_choices
+            await refresh_season_choices()
+        except Exception:
+            log.critical(
+                f"Failed to populate dynamic slash-command choices:\n"
+                f"{traceback.format_exc()}"
+            )
+
     inu.subscribe(hikari.StartingEvent, client.start)
 
     @inu.listen(hikari.StartingEvent)
@@ -66,6 +87,9 @@ def create_inu() -> Inu:
         log.info("Connecting Database to classes", prefix="init")
         try:
             set_bot(inu)
+            # init_db() is idempotent and was already invoked by
+            # `_populate_dynamic_choices` above; calling it again here is a
+            # no-op once the pool is open.
             await inu.init_db()
             InvokationStats.init_db(inu)
             await Reminders.init_bot(inu)
