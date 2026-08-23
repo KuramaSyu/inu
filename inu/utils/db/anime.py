@@ -541,6 +541,40 @@ class MyAnimeList:
         pass
 
     @classmethod
+    async def ensure_placeholder(cls, mal_id: int, name: str) -> None:
+        """Make sure a row with ``mal_id`` exists in the ``myanimelist`` table.
+
+        If no row is present yet, inserts a minimal placeholder row carrying
+        only ``mal_id``, ``title`` and ``cached_until``. The placeholder is
+        immediately marked as expired (``cached_until = datetime.now()``) so
+        any subsequent lookup of this anime triggers a real fetch via
+        :meth:`_fetch_anime_by_id_rest`.
+
+        This is meant to satisfy the foreign key from
+        ``anime_of_the_week_history.mal_id`` to ``myanimelist.mal_id`` when
+        we have a ``mal_id`` (e.g. from a fuzzy/REST lookup) but no local
+        cache entry to back it up.
+
+        Args:
+            mal_id: the MyAnimeList id that should have a row.
+            name: the anime title as we know it (Anime Corner spelling);
+                used as the placeholder's ``title``.
+        """
+        table = Table("myanimelist")
+        existing = await table.fetch_by_id("mal_id", mal_id)
+        if existing is not None:
+            return
+        await table.upsert(
+            which_columns=["mal_id", "title", "cached_until"],
+            values=[mal_id, name, datetime.now()],
+            where={"mal_id": mal_id},
+        )
+        log.debug(
+            f"Inserted placeholder myanimelist row for "
+            f"mal_id={mal_id} ({name!r}); marked as expired."
+        )
+
+    @classmethod
     async def _cache_anime(cls, anime: Anime):
         """
         Args:
@@ -550,26 +584,26 @@ class MyAnimeList:
         table = Table("myanimelist")
         r = await table.upsert(
             which_columns=[
-                "mal_id", "title", "title_english", 
-                "title_japanese", "title_synonyms", "synopsis", 
+                "mal_id", "title", "title_english",
+                "title_japanese", "title_synonyms", "synopsis",
                 "background", "related",
-                "genres", "type", "episodes", "ending_themes", 
-                "opening_themes", "duration", "rating", "rank", 
-                "score", "popularity", "source", 
-                "status", "airing_start", "airing_stop", 
+                "genres", "type", "episodes", "ending_themes",
+                "opening_themes", "duration", "rating", "rank",
+                "score", "popularity", "source",
+                "status", "airing_start", "airing_stop",
                 "image_url", "studios", "cached_until", "statistics", "recommendations"
             ],
             values=[
                 anime.mal_id, anime.origin_title, anime.title_english, anime.title_japanese,
                 anime.title_synonyms, anime.synopsis, anime.background,
                 json.dumps(anime.related),
-                [json.dumps(x) for x in anime.genres], anime.type_, 
-                anime.episodes, anime.ending_themes, anime.opening_themes, anime.duration, 
+                [json.dumps(x) for x in anime.genres], anime.type_,
+                anime.episodes, anime.ending_themes, anime.opening_themes, anime.duration,
                 anime._rating, anime.rank, anime.score, anime.popularity, anime._source,
                 anime.status,
                 anime.airing_start, anime.airing_stop, anime.image_url,
-                [json.dumps(x) for x in anime.studios], 
-                anime.create_cached_until, json.dumps(anime._statistics), 
+                [json.dumps(x) for x in anime.studios],
+                anime.create_cached_until, json.dumps(anime._statistics),
                 [json.dumps(r) for r in anime._recommendations]
             ]
         )

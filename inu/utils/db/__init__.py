@@ -1,4 +1,5 @@
 from .anime import *
+from .anime_corner_history import AnimeCornerHistoryManager, get_season
 from .key_value import *
 from .maths import *
 from .prefixes import *
