@@ -8,6 +8,7 @@ from .base import (
 )
 from .tag import TagHandler, TagCustomID, TagViewPaginator
 from .anime import AnimePaginator, AnimeCornerPaginator, AnimeCornerPaginator2
+from .anime_corner_history import AnimeCornerHistoryPaginator
 from .anime_character import AnimeCharacterPaginator
 from .manga import MangaPaginator
 from .show import ShowPaginator, MoviePaginator, tmdb_setup
