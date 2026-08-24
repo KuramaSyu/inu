@@ -133,14 +133,24 @@ class AnimeCornerAPI:
         self,
         season: str,
         year: int,
+        start_week: int = 1,
         max_week_number: int = MAX_WEEK_NUMBER,
     ) -> Optional[int]:
-        """Probe URLs for `season`+`year` starting at week 1 and return the
-        highest ``week_number`` that actually returns a non-empty ranking.
+        """Probe URLs for `season`+`year` starting at ``start_week`` and
+        return the highest ``week_number`` that actually returns a
+        non-empty ranking.
 
         Args:
             season: one of winter/spring/summer/fall
             year: calendar year
+            start_week: 1-based week index to start probing from. Pass the
+                highest ``week_index`` the backfill has already recorded
+                for this season (e.g. via
+                :meth:`AnimeCornerHistoryManager.max_known_week_index`)
+                to avoid re-probing every week from 1 on every run – the
+                common case is a season that's been rolling for weeks and
+                we only need to check whether a new week has been added.
+                Defaults to 1 (probe every week).
             max_week_number: upper bound to probe (defaults to
                 :data:`MAX_WEEK_NUMBER`)
         Returns:
@@ -162,7 +172,10 @@ class AnimeCornerAPI:
         last_valid: Optional[int] = None
         consecutive_failures = 0
         MAX_CONSECUTIVE_FAILURES = 4  # bail out early if scraping is broken
-        for w in range(1, max_week_number + 1):
+        # clamp to a sane range; callers may pass 0 (no known weeks) or
+        # values > max_week_number from a stale DB row.
+        start_week = max(1, min(start_week, max_week_number))
+        for w in range(start_week, max_week_number + 1):
             url = build_anime_corner_url(season, year, w)
             ranking = await self.fetch_ranking(url)
             if ranking:
