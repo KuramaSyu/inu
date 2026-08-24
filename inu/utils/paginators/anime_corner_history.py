@@ -39,8 +39,7 @@ TABLE_MAX_WIDTH = 52
 # After accounting for the fixed columns (header text + cell padding + the
 # borders and " │ " separators the rounded_outline tablefmt always emits),
 # the anime-name cell is allowed 53 characters. This was measured empirically
-# against `tabulate(..., maxcolwidths=[53, 7, 7])` which renders exactly 80
-# chars wide.
+# against tabulate settings that render exactly 80 characters wide.
 ANIME_NAME_MAX_LEN = 42
 
 # Seasons in chronological order (winter comes first because it's the
@@ -202,9 +201,11 @@ class AnimeCornerHistoryPaginator(Paginator):
         ctx = ctx or self.ctx
         self.ctx = ctx
 
+        # Load the requested history data.
         self.df = await AnimeCornerHistoryManager.fetch_for_chart(self.since)
         if not self.df.empty and self.until is not None:
-            self.df = self.df[self.df["date"] <= self.until]
+            # Exclude the first day of the next season.
+            self.df = self.df[self.df["date"] < self.until]
 
         # Build the sns plot from whatever data we have inside the requested
         # range. If the range is empty (or only partially covered), the chart
@@ -219,23 +220,26 @@ class AnimeCornerHistoryPaginator(Paginator):
         self._pages = [self._build_summary_embed()]
 
         if not self.df.empty:
-            # pick the animes which appeared most often within the time window
+            # Ignore rows without IDs when grouping anime by ID.
             appearance_counts = (
                 self.df.dropna(subset=["mal_id"])
                 .groupby("mal_id")["name"]
                 .agg(lambda s: s.value_counts().idxmax())
             )
+            # Count appearances using only rows with IDs.
             counts = (
                 self.df.dropna(subset=["mal_id"])
                 .groupby("mal_id").size()
                 .sort_values(ascending=False)
             )
+            # Select the IDs with the most appearances.
             top_ids = list(counts.head(self.GRID_MAX_LINES).index)
             for mal_id in top_ids:
                 self._animes.append({
                     "mal_id": int(mal_id),
                     "name": appearance_counts[mal_id],
                 })
+            # Select rows without IDs for the name-based fallback.
             for name in (
                 self.df[self.df["mal_id"].isna()]["name"]
                 .value_counts()
@@ -251,10 +255,7 @@ class AnimeCornerHistoryPaginator(Paginator):
         # first page gets an overview chart
         self._graphs[0] = await asyncio.to_thread(self._build_overview_graph)
 
-        # Base `Paginator.start()` sends the first message via
-        # `ctx.respond(..., **kwargs)` directly, bypassing our overridden
-        # `send()` and its `_graphs` attachment. Seed `_download` so the
-        # overview chart ships with page 1 instead of only after paginating.
+        # Seed the download fields so the overview chart ships with page 1.
         if self._graphs.get(0) is not None:
             self._download = self._graphs[0].getvalue()
             self._download_name = self._attachment_name()
@@ -337,26 +338,26 @@ class AnimeCornerHistoryPaginator(Paginator):
             return embed
 
         weeks = int(self.df["date"].nunique())
-        animes_tracked = int(self.df["mal_id"].nunique())
+        animes_tracked = int(self.df["name"].nunique())
 
         # ---- top animes (with average rank, name truncated to fit table) ----
-        ranked = self.df.dropna(subset=["mal_id"]).copy()
+        # Copy the data before changing it.
+        ranked = self.df.copy()
+        # Use the name when a database row has no MyAnimeList ID.
+        ranked["_key"] = ranked["mal_id"].fillna(ranked["name"])
+        # Remove rows without a usable key or rank.
+        ranked = ranked.dropna(subset=["_key", "rank"])
         if not ranked.empty:
-            # Average rank per anime across the (potentially clipped)
-            # dataframe
-            avg_rank_by_id = (
-                ranked.groupby("mal_id")["rank"].mean().sort_values().head(10)
+            avg_rank_by_key = (
+                ranked.groupby("_key")["rank"].mean().sort_values().head(10)
             )
-            top_names = (
-                ranked.drop_duplicates("mal_id")[["mal_id", "name"]]
-                .set_index("mal_id")["name"]
-            )
+            top_names = ranked.drop_duplicates("_key").set_index("_key")["name"]
             rows_for_table = [
                 (
-                    _truncate_anime_name(str(top_names.get(mid, f"[{mid}]"))),
+                    _truncate_anime_name(str(top_names.get(key, f"[{key}]"))),
                     f"{avg:.1f}",
                 )
-                for mid, avg in avg_rank_by_id.items()
+                for key, avg in avg_rank_by_key.items()
             ]
             table = tabulate(
                 rows_for_table,
@@ -365,7 +366,6 @@ class AnimeCornerHistoryPaginator(Paginator):
                 # Cap to properly display it on discord
                 maxcolwidths=[ANIME_NAME_MAX_LEN, 4],
             )
-            # Sanity-check
             if _table_total_width(table) > TABLE_MAX_WIDTH:
                 log.warning(
                     f"Anime of the Week overview table is "
@@ -383,9 +383,7 @@ class AnimeCornerHistoryPaginator(Paginator):
         latest_date = self.df["date"].max().to_pydatetime()
         season_start = season_info.get("season_start")
         if season_start is not None:
-            # ``week_index`` mirrors the X-axis numbering on the overview
-            # chart so the "Current week" field is unambiguous when the
-            # season is partial.
+            # week_index mirrors the X-axis numbering on the overview chart.
             week_index = max(
                 1,
                 (pd.Timestamp(latest_date) - pd.Timestamp(season_start)).days // 7 + 1,
@@ -466,10 +464,7 @@ class AnimeCornerHistoryPaginator(Paginator):
 
     @property
     def download(self) -> Optional[bytes]:
-        # The base `Paginator.download` property only treats ``str`` values
-        # as content; raw ``bytes`` are silently treated as "no download"
-        # and the first message goes out without the overview chart.
-        # Hence the override to extend bytes support
+        # Preserve raw bytes so the overview image is included in the first response.
         value = self._download
         if isinstance(value, (bytes, bytearray)):
             return bytes(value)
@@ -501,7 +496,7 @@ class HistoryView:
     """
 
     # Keep an isolated copy of plt.rcParams so we don't mutate the global
-    # style when we tweak context settings — same trick as ``GameViews``.
+    # style when we tweak context settings, like the GameViews implementation.
     _RC_PARAMS = deepcopy(plt.rcParams)
 
     def __init__(
@@ -543,16 +538,26 @@ class HistoryView:
         """
         season_start = self.season_info.get("season_start")
         if season_start is not None and "date" in df.columns:
+            # Copy the data before adding the week index.
             df = df.copy()
+            dates = pd.to_datetime(df["date"])
+            start = pd.Timestamp(season_start)
+            # Compare calendar days, not time zones, to avoid DST shifts.
+            if dates.dt.tz is not None and start.tzinfo is None:
+                start = start.tz_localize(dates.dt.tz)
+            elif dates.dt.tz is None and start.tzinfo is not None:
+                dates = dates.dt.tz_localize(start.tzinfo)
+            if dates.dt.tz is not None:
+                start = start.tz_convert(dates.dt.tz)
+            dates = dates.dt.tz_localize(None)
+            start = start.tz_localize(None)
+            # Add whole-number week indexes relative to the season start.
             df["week_index"] = (
-                (pd.to_datetime(df["date"]) - pd.Timestamp(season_start)).dt.days // 7 + 1
+                (dates.dt.normalize() - start.normalize()).dt.days // 7 + 1
             ).astype(int)
             season = self.season_info.get("season")
             year = self.season_info.get("year")
-            label = (
-                f"Week in {season.title()} {year}"
-                if season else "Season week"
-            )
+            label = f"Week in {season.title()} {year}" if season else "Season week"
             return df["week_index"], label
         return pd.to_datetime(df["date"]), "Week"
 
@@ -631,43 +636,55 @@ class HistoryView:
         Uses :func:`seaborn.lineplot` with ``hue="name"`` so the colour
         palette is centralised the same way :class:`GameViews` does it.
         """
-        df = self.df
+        # Copy the source data before preparing the overview chart.
+        df = self.df.copy() if self.df is not None else None
         if df is None or df.empty:
             return None
-        df = df.dropna(subset=["mal_id"]).copy()
+        required = {"mal_id", "name", "rank", "date"}
+        if not required.issubset(df.columns):
+            return None
+        # Use a name as the key when a row has no MyAnimeList ID.
+        df["_anime_key"] = df["mal_id"].fillna(df["name"])
+        # Remove rows without a usable key or rank.
+        df = df.dropna(subset=["_anime_key", "rank"])
         if df.empty:
             return None
 
-        # Pick every anime that has reached the top 10 at least once
-        # (so far), then break ties by their best rank. Without the
-        # ``min(rank) <= 10`` filter this used to take the top-N most
-        # *frequent* animes, which favoured shows that appeared in many
-        # weeks even when they polled poorly — and dropped any anime
-        # that briefly hit the top 10 unless they also appeared a lot.
+        # Prefer the best rank, then the number of appearances.
         candidates = (
-            df.groupby("mal_id")["rank"].agg(["min", "size"])
+            df.groupby("_anime_key")["rank"]
+            .agg(["min", "size"])
             .query("min <= 10")
             .sort_values(by=["min", "size"], ascending=[True, False])
         )
-        top_ids = candidates.head(self.top_n).index
-        df = df[df["mal_id"].isin(top_ids)].copy()
+        top_keys = candidates.head(self.top_n).index
+        # Keep only the anime selected for the overview.
+        df = df[df["_anime_key"].isin(top_keys)].copy()
         if df.empty:
             return None
-        # Collapse ``name`` to the most-frequent spelling per ``mal_id`` so
-        # ``hue="name"`` produces one line per anime even when the same
-        # mal_id appears under slightly different spellings over time.
         name_lookup = (
-            df.groupby("mal_id")["name"]
+            df.groupby("_anime_key")["name"]
             .agg(lambda s: s.value_counts().idxmax())
         )
-        df["name"] = df["mal_id"].map(name_lookup).astype(str)
-        # Cap legend labels 
+        # Use the most common spelling for each anime.
+        df["name"] = df["_anime_key"].map(name_lookup).astype(str)
         LEGEND_NAME_MAX_LEN = 40
+        # Keep legend labels readable.
         df["name"] = df["name"].map(
             lambda n: (n[: LEGEND_NAME_MAX_LEN - 1] + "…")
             if len(n) > LEGEND_NAME_MAX_LEN else n
         )
+        # Sort points chronologically for the line chart.
         df.sort_values(by="date", inplace=True)
+
+        # Keep the anime ordered by rank on its final recorded week.
+        last_week = (
+            df.drop_duplicates("_anime_key", keep="last")
+            .sort_values("rank", kind="stable")
+        )
+        # Match the legend order to the final week.
+        top_keys = last_week["_anime_key"].tolist()
+        hue_order = last_week["name"].tolist()
 
         x_values, x_label = self._label_week_axis(df)
 
@@ -681,17 +698,16 @@ class HistoryView:
         cap = self.overview_rank_cap
         y_top = min(max(max_rank, 1), cap)
 
-        palette = sn.color_palette("husl", n_colors=len(top_ids))
-        # ``errorbar=None`` keeps seaborn from drawing the default confidence
-        # band ("fill below the line"). Markers are dots like the per-anime
-        # chart for visual consistency.
-        # Map rank → y so rank 1 ends up at the top of the axis; the
-        # y-tick labels still display ``1, 2, 3, …`` via _invert_rank_axis.
+        palette = sn.color_palette("husl", n_colors=len(top_keys))
+        # Keep confidence bands disabled and use dots for each point.
+        # Map rank to y so rank 1 ends up at the top of the axis.
+        # Store the transformed rank for plotting.
         df["_plot_rank"] = self._y_for_rank(df["rank"], y_top)
         sn.lineplot(
             x=x_values,
             y="_plot_rank",
             hue="name",
+            hue_order=hue_order,
             data=df,
             ax=ax,
             marker="o",
@@ -728,11 +744,14 @@ class HistoryView:
         if df is None or df.empty:
             return None
         if anime.get("mal_id") is not None:
+            # Filter by ID when an ID is available.
             df = df[df["mal_id"] == anime["mal_id"]].copy()
         else:
+            # Filter by raw name when no ID is available.
             df = df[df["name"] == anime["name"]].copy()
         if df.empty or df["rank"].isna().all():
             return None
+        # Sort the selected anime points chronologically.
         df.sort_values(by="date", inplace=True)
 
         x_values, x_label = self._label_week_axis(df)
@@ -746,9 +765,9 @@ class HistoryView:
         fig, ax = plt.subplots(figsize=(15, 7))
         sn.despine(offset=10)
 
-        # Map rank → y so rank 1 ends up at the top of the axis; the
-        # y-tick labels still display ``1, 2, 3, …`` via _invert_rank_axis.
+        # Map rank to y so rank 1 ends up at the top of the axis.
         plot_y = self._y_for_rank(df["rank"], y_top)
+        # Add the transformed rank without mutating the source data.
         df_for_plot = df.assign(_plot_rank=plot_y)
         sn.lineplot(
             x=x_values,
