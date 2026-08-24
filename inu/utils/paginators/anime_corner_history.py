@@ -14,6 +14,7 @@ import mplcyberpunk
 import pandas as pd
 import seaborn as sn
 from hikari import ComponentInteraction, Embed
+from hikari.impl import MessageActionRowBuilder
 from humanize import naturaldelta
 from matplotlib.axes import Axes
 from matplotlib.figure import Figure
@@ -24,7 +25,8 @@ from inu.core import InuContext, getLogger
 from inu.utils import Colors
 from inu.utils.db import AnimeCornerHistoryManager, get_season
 
-from .base import Paginator
+from .anime import AnimePaginator
+from .base import Paginator, listener
 
 log = getLogger(__name__)
 register_matplotlib_converters()
@@ -45,6 +47,7 @@ ANIME_NAME_MAX_LEN = 42
 # Seasons in chronological order (winter comes first because it's the
 # Dec(prev)/Jan/Feb quarter that opens the year).
 SEASON_ORDER = ("winter", "spring", "summer", "fall")
+TOP_ANIME_COUNT = 20
 
 
 def _season_first_monday(year: int, season: str) -> datetime:
@@ -266,6 +269,48 @@ class AnimeCornerHistoryPaginator(Paginator):
 
         return await super().start(ctx)
 
+    def build_default_components(
+        self,
+        position: Optional[int] = None,
+    ) -> List["MessageActionRowBuilder"]:
+        components = super().build_default_components(position)
+        if position != 0:
+            return components
+        if not components or len(components[-1]._components) >= 5:
+            components.append(MessageActionRowBuilder())
+        components[-1] = components[-1].add_interactive_button(
+            hikari.ButtonStyle.PRIMARY,
+            "anime_corner_top_20",
+            label="Top 20",
+            emoji="🏆",
+        )
+        return components
+
+    @listener(hikari.ComponentInteractionCreateEvent)
+    async def on_component_interaction(self, event: hikari.InteractionCreateEvent) -> None:
+        if not isinstance(event.interaction, ComponentInteraction):
+            return
+        if event.interaction.custom_id != "anime_corner_top_20":
+            return
+        if not self.interaction_pred(event.interaction):
+            return
+        self.set_context(interaction=event.interaction)
+        top_pag = AnimePaginator()
+        mal_ids = self._top_20_mal_ids()
+        results = [{"node": {"id": mal_id}} for mal_id in mal_ids]
+        try:
+            self.ctx._interaction = event.interaction
+            self.ctx._responded = False
+        except attributeError:
+            pass
+        asyncio.create_task(
+            top_pag.start(
+                self.ctx,
+                anime_name=None,
+                results=results,
+            )
+        )
+
     # ----------------------------------------------------------------- helpers
 
     def _resolve_season_info(self, df: "pd.DataFrame") -> Dict[str, Any]:
@@ -427,6 +472,18 @@ class AnimeCornerHistoryPaginator(Paginator):
             )
         embed.set_footer(text=f"page {page_index + 1}/{len(self._pages)}")
         return embed
+
+    def _top_20_mal_ids(self) -> List[int]:
+        """Return the MAL IDs for the top 20 anime in the latest week."""
+        if self.df is None or self.df.empty:
+            return []
+        latest_date = self.df["date"].max()
+        # Select the latest week's rows that have a MAL ID.
+        latest = self.df[
+            (self.df["date"] == latest_date) & self.df["mal_id"].notna()
+        ].sort_values(by="rank")
+        # Keep only the first 20 MAL IDs.
+        return [int(mal_id) for mal_id in latest["mal_id"].head(TOP_ANIME_COUNT)]
 
     # ---------------------------------------------------- graph generation ---
 
