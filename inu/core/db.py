@@ -54,7 +54,7 @@ def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
 
 
 class Database(metaclass=Singleton):
-    __slots__: Sequence[str] = ("_bot", "_connected", "_pool", "calls", "log")
+    __slots__: Sequence[str] = ("_bot", "_connected", "_pool", "calls", "log", "_connecting")
     instance = None
 
     def __init__(self, bot: Optional["Inu"] = None) -> None:
@@ -64,6 +64,13 @@ class Database(metaclass=Singleton):
         typing.cast(Inu, bot)
         self._bot: Inu #type: ignore
         self._connected = asyncio.Event()
+        # Set while `connect()` is in flight. Lets concurrent callers
+        # wait for the first connection attempt to finish instead of
+        # racing against it (which used to call `asyncpg.create_pool`
+        # twice and run `script.sql` twice in parallel, tripping
+        # `pg_type_typname_nsp_index`).
+        self._connecting = asyncio.Event()
+        self._connecting.set()  # initially "no connection in flight"
         self.calls = 0
         self.log = getLogger(__name__, self.__class__.__name__)
 
@@ -90,31 +97,50 @@ class Database(metaclass=Singleton):
         return self._pool # normally its called ()
 
     async def connect(self) -> None:
-        #assert not self.is_connected, "Already connected."
-        pool = None
+        # Fast path: already connected, skip entirely.
         if self.is_connected:
             return
-        for i in range(10):
-            try:
-                pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.db.DSN)
-                if not isinstance(pool, asyncpg.Pool):
-                    raise RuntimeError("Pool is not a pool")
-                break
-            except Exception as e:
-                await asyncio.sleep(2)
-                continue
-        if pool is None:
-            msg = (
-                f"Requsting a pool from DSN `{self.bot.conf.DSN}` is not possible. "
-                f"Try to change DSN"
-            )
-            self.log.critical(msg)
-            raise RuntimeError(msg)
-        self._pool: asyncpg.Pool = pool
-        self._connected.set()
-        self.log.info(f"Connected to database: {self.bot.conf.db.DSN}", prefix="init")
-        await self.sync()
+        # `_connecting` is "set" while no one is currently inside
+        # connect(). If a peer caller grabbed it first (cleared it),
+        # wait for them to finish — they'll set `_connected`, after
+        # which the fast path at the top of this function will return
+        # immediately on the next call.
+        await self._connecting.wait()
+        # We hold the slot now. Anyone who arrives while we're inside
+        # this block will block on `_connecting.wait()` above.
+        self._connecting.clear()
+        try:
+            # Re-check inside the critical section: the first caller
+            # may have already finished before we woke up.
+            if self.is_connected:
+                return
+            pool = None
+            for i in range(10):
+                try:
+                    pool: Optional[asyncpg.Pool] = await asyncpg.create_pool(dsn=self.bot.conf.db.DSN)
+                    if not isinstance(pool, asyncpg.Pool):
+                        raise RuntimeError("Pool is not a pool")
+                    break
+                except Exception as e:
+                    await asyncio.sleep(2)
+                    continue
+            if pool is None:
+                msg = (
+                    f"Requsting a pool from DSN `{self.bot.conf.db.DSN}` is not possible. "
+                    f"Try to change DSN"
+                )
+                self.log.critical(msg)
+                raise RuntimeError(msg)
+            self._pool: asyncpg.Pool = pool
+            self._connected.set()
+            self.log.info(f"Connected to database: {self.bot.conf.db.DSN}", prefix="init")
+            await self.sync()
+        finally:
+            # Release the slot so any waiters can re-check and return.
+            self._connecting.set()
         return
+
+
 
     async def close(self) -> None:
         assert self.is_connected, "Not connected."
