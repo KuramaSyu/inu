@@ -251,6 +251,14 @@ class AnimeCornerHistoryPaginator(Paginator):
         # first page gets an overview chart
         self._graphs[0] = await asyncio.to_thread(self._build_overview_graph)
 
+        # Base `Paginator.start()` sends the first message via
+        # `ctx.respond(..., **kwargs)` directly, bypassing our overridden
+        # `send()` and its `_graphs` attachment. Seed `_download` so the
+        # overview chart ships with page 1 instead of only after paginating.
+        if self._graphs.get(0) is not None:
+            self._download = self._graphs[0].getvalue()
+            self._download_name = self._attachment_name()
+
         # generate per-anime graphs up front in the background
         for index, anime in enumerate(self._animes, start=1):
             asyncio.create_task(self._render_graph_for(index, anime))
@@ -334,43 +342,30 @@ class AnimeCornerHistoryPaginator(Paginator):
         # ---- top animes (with average rank, name truncated to fit table) ----
         ranked = self.df.dropna(subset=["mal_id"]).copy()
         if not ranked.empty:
-            summary_rows = (
-                ranked.groupby("mal_id")
-                .size()
-                .sort_values(ascending=False)
-                .head(10)
+            # Average rank per anime across the (potentially clipped)
+            # dataframe
+            avg_rank_by_id = (
+                ranked.groupby("mal_id")["rank"].mean().sort_values().head(10)
             )
             top_names = (
                 ranked.drop_duplicates("mal_id")[["mal_id", "name"]]
                 .set_index("mal_id")["name"]
             )
-            # Average rank per anime across the (potentially clipped)
-            # dataframe. ``mean()`` ignores NaNs so animes with occasional
-            # missing ranks still report a stable average.
-            avg_rank_by_id = ranked.groupby("mal_id")["rank"].mean()
             rows_for_table = [
                 (
                     _truncate_anime_name(str(top_names.get(mid, f"[{mid}]"))),
-                    # int(summary_rows[mid]),
-                    f"{avg_rank_by_id[mid]:.1f}",
+                    f"{avg:.1f}",
                 )
-                for mid in summary_rows.index
+                for mid, avg in avg_rank_by_id.items()
             ]
-            # avg symbole: 
-            # 
             table = tabulate(
                 rows_for_table,
                 headers=["Anime", "Avg"],
                 tablefmt="rounded_outline",
-                # Caps column widths so the rendered table is bounded even
-                # when the values would otherwise let it grow. The anime
-                # name column is the one we *truncate* the data for; the
-                # other two are just safety nets.
+                # Cap to properly display it on discord
                 maxcolwidths=[ANIME_NAME_MAX_LEN, 4],
             )
-            # Sanity-check: the truncation + maxcolwidths caps should keep
-            # us at <= 80 chars; warn if some future tabulate change breaks
-            # that contract so the embed doesn't get clipped in Discord.
+            # Sanity-check
             if _table_total_width(table) > TABLE_MAX_WIDTH:
                 log.warning(
                     f"Anime of the Week overview table is "
@@ -468,6 +463,23 @@ class AnimeCornerHistoryPaginator(Paginator):
             if buffer is not None and not kwargs.get("attachment"):
                 kwargs["attachment"] = hikari.Bytes(buffer.getvalue(), self._attachment_name())
         return await super().send(content, interaction=interaction, **kwargs)
+
+    @property
+    def download(self) -> Optional[bytes]:
+        # The base `Paginator.download` property only treats ``str`` values
+        # as content; raw ``bytes`` are silently treated as "no download"
+        # and the first message goes out without the overview chart.
+        # Hence the override to extend bytes support
+        value = self._download
+        if isinstance(value, (bytes, bytearray)):
+            return bytes(value)
+        if callable(value):
+            return value(self)
+        if isinstance(value, str):
+            return value
+        if value is True:
+            return self._pages_to_str()
+        return None
 
     def _attachment_name(self) -> str:
         if self._position == 0:
@@ -626,13 +638,18 @@ class HistoryView:
         if df.empty:
             return None
 
-        # Pick the top-N most-frequent animes so the chart stays readable.
-        top_ids = (
-            df.groupby("mal_id").size()
-            .sort_values(ascending=False)
-            .head(self.top_n)
-            .index
+        # Pick every anime that has reached the top 10 at least once
+        # (so far), then break ties by their best rank. Without the
+        # ``min(rank) <= 10`` filter this used to take the top-N most
+        # *frequent* animes, which favoured shows that appeared in many
+        # weeks even when they polled poorly — and dropped any anime
+        # that briefly hit the top 10 unless they also appeared a lot.
+        candidates = (
+            df.groupby("mal_id")["rank"].agg(["min", "size"])
+            .query("min <= 10")
+            .sort_values(by=["min", "size"], ascending=[True, False])
         )
+        top_ids = candidates.head(self.top_n).index
         df = df[df["mal_id"].isin(top_ids)].copy()
         if df.empty:
             return None
@@ -644,6 +661,12 @@ class HistoryView:
             .agg(lambda s: s.value_counts().idxmax())
         )
         df["name"] = df["mal_id"].map(name_lookup).astype(str)
+        # Cap legend labels 
+        LEGEND_NAME_MAX_LEN = 40
+        df["name"] = df["name"].map(
+            lambda n: (n[: LEGEND_NAME_MAX_LEN - 1] + "…")
+            if len(n) > LEGEND_NAME_MAX_LEN else n
+        )
         df.sort_values(by="date", inplace=True)
 
         x_values, x_label = self._label_week_axis(df)
@@ -689,7 +712,7 @@ class HistoryView:
         ax.legend(
             loc="upper left",
             bbox_to_anchor=(1.01, 1.0),
-            fontsize=8,
+            fontsize=14,
         )
         self._add_glow(ax)
         return self._save(fig), df
