@@ -836,7 +836,7 @@ requires-dist = [
     { name = "humanize", specifier = ">=4.15.0" },
     { name = "jikanpy", specifier = ">=4.3.2" },
     { name = "lavalink-rs", specifier = "==0.15.0" },
-    { name = "matplotlib", specifier = ">=3.10.9" },
+    { name = "matplotlib", specifier = ">=3.10.9,<3.11" },
     { name = "mock", specifier = ">=5.2.0" },
     { name = "mplcyberpunk", specifier = "==0.7.6" },
     { name = "numpy", specifier = ">=2.4.4" },
