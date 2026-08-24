@@ -11,6 +11,13 @@ from inu.utils.db.anime import MyAnimeList
 
 log = getLogger(__name__)
 
+# How many times a known-failing URL is retried across consecutive
+# backfill runs before it is locked as ``absent`` in
+# `anime_of_the_week_known_weeks`. Kept here (instead of in the task
+# module) because the threshold appears directly in the SQL of
+# :meth:`AnimeCornerHistoryManager.mark_week_pending`.
+MAX_FAILURE_COUNT: int = 3
+
 
 def get_season(dt: datetime) -> str:
     """Returns the season string for the given datetime.
@@ -451,15 +458,17 @@ class AnimeCornerHistoryManager:
         week_index: int,
     ) -> None:
         """Records that ``(season, year, week_index)`` successfully produced
-        ranking rows. Idempotent — re-marking bumps ``last_seen``.
+        ranking rows. Idempotent — re-marking bumps ``last_seen`` and
+        resets ``failure_count`` (a previously-pending URL that recovers
+        shouldn't carry over its old failure tally).
         """
         table = Table("anime_of_the_week_known_weeks")
         sql = (
             "INSERT INTO anime_of_the_week_known_weeks "
-            "  (season, year, week_index, state) "
-            "VALUES ($1, $2, $3, 'present') "
+            "  (season, year, week_index, state, failure_count) "
+            "VALUES ($1, $2, $3, 'present', 0) "
             "ON CONFLICT (season, year, week_index) DO UPDATE "
-            "  SET state = 'present', last_seen = NOW()"
+            "  SET state = 'present', failure_count = 0, last_seen = NOW()"
         )
         await table.fetch(sql, season, year, week_index)
 
@@ -476,12 +485,88 @@ class AnimeCornerHistoryManager:
         table = Table("anime_of_the_week_known_weeks")
         sql = (
             "INSERT INTO anime_of_the_week_known_weeks "
-            "  (season, year, week_index, state) "
-            "VALUES ($1, $2, $3, 'absent') "
+            "  (season, year, week_index, state, failure_count) "
+            "VALUES ($1, $2, $3, 'absent', 0) "
             "ON CONFLICT (season, year, week_index) DO UPDATE "
-            "  SET state = 'absent', last_seen = NOW()"
+            "  SET state = 'absent', failure_count = 0, last_seen = NOW()"
         )
         await table.fetch(sql, season, year, week_index)
+
+    @classmethod
+    async def mark_week_pending(
+        cls,
+        season: str,
+        year: int,
+        week_index: int,
+    ) -> int:
+        """Records that ``(season, year, week_index)`` failed to fetch but
+        has not yet crossed the :data:`MAX_FAILURE_COUNT` threshold.
+        Increments ``failure_count``; if the new count meets or exceeds
+        the threshold the row is transitioned to ``absent`` instead.
+        Returns the new ``failure_count``.
+        """
+        table = Table("anime_of_the_week_known_weeks")
+        # Upsert into pending, increment failure_count atomically; if we
+        # cross the threshold in the same statement, flip to absent so the
+        # next backfill run skips the URL entirely.
+        sql = (
+            "INSERT INTO anime_of_the_week_known_weeks "
+            "  (season, year, week_index, state, failure_count) "
+            "VALUES ($1, $2, $3, 'pending', 1) "
+            "ON CONFLICT (season, year, week_index) DO UPDATE "
+            "  SET state = CASE "
+            "    WHEN anime_of_the_week_known_weeks.failure_count + 1 >= $4 "
+            "      THEN 'absent' "
+            "    ELSE 'pending' "
+            "    END, "
+            "    failure_count = anime_of_the_week_known_weeks.failure_count + 1, "
+            "    last_seen = NOW() "
+            "  RETURNING failure_count, state"
+        )
+        records = await table.fetch(
+            sql, season, year, week_index, MAX_FAILURE_COUNT,
+        )
+        if not records:
+            return 0
+        return int(records[0]["failure_count"])
+
+    @classmethod
+    async def get_failure_count(
+        cls,
+        season: str,
+        year: int,
+        week_index: int,
+    ) -> int:
+        """Returns the recorded ``failure_count`` for ``(season, year,
+        week_index)`` or 0 if the row does not exist."""
+        table = Table("anime_of_the_week_known_weeks")
+        sql = (
+            "SELECT failure_count FROM anime_of_the_week_known_weeks "
+            "WHERE season = $1 AND year = $2 AND week_index = $3"
+        )
+        records = await table.fetch(sql, season, year, week_index)
+        return int(records[0]["failure_count"]) if records else 0
+
+    @classmethod
+    async def max_known_week_index(
+        cls,
+        season: str,
+        year: int,
+    ) -> int:
+        """Returns the largest ``week_index`` we have ever probed for
+        ``(season, year)`` regardless of state. Used by the backfill task
+        to skip weeks it has already covered when re-running
+        ``find_latest_week_with_ranking``."""
+        table = Table("anime_of_the_week_known_weeks")
+        sql = (
+            "SELECT MAX(week_index) AS max_idx "
+            "FROM anime_of_the_week_known_weeks "
+            "WHERE season = $1 AND year = $2"
+        )
+        records = await table.fetch(sql, season, year)
+        if not records or records[0]["max_idx"] is None:
+            return 0
+        return int(records[0]["max_idx"])
 
     @classmethod
     async def known_absent_week_indices(
