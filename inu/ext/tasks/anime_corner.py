@@ -19,6 +19,7 @@ from inu.utils import (
     build_anime_corner_url,
 )
 from inu.utils.db import AnimeCornerHistoryManager, get_season
+from inu.utils.db.anime_corner_history import MAX_FAILURE_COUNT
 
 
 
@@ -197,6 +198,8 @@ async def _backfill_missing_weeks() -> None:
         api = AnimeCornerAPI()
         total_inserted = 0
         total_errors = 0
+        total_skipped_absent = 0
+        total_skipped_beyond_season = 0
         # Sort to get deterministic, chronological logs.
         for (season, year), weeks in sorted(grouped.items()):
             weeks_sorted = sorted(weeks)
@@ -205,7 +208,18 @@ async def _backfill_missing_weeks() -> None:
                 f"`{season}-{year}`.",
                 prefix="task",
             )
-            max_week = await api.find_latest_week_with_ranking(season, year)
+            # Optimization: only probe URLs we haven't covered yet.
+            # `max_known_week_index` is the highest week_index we ever
+            # inserted into `anime_of_the_week_known_weeks` for this
+            # `(season, year)` regardless of state, so a season that's
+            # been running for weeks costs only a handful of probes
+            # instead of all 14.
+            start_week = await AnimeCornerHistoryManager.max_known_week_index(
+                season=season, year=year,
+            )
+            max_week = await api.find_latest_week_with_ranking(
+                season, year, start_week=start_week,
+            )
             if max_week is None:
                 log.warning(
                     f"No weekly rankings were ever published for "
@@ -267,6 +281,7 @@ async def _backfill_missing_weeks() -> None:
                             + traceback.format_exc(),
                             prefix="task",
                         )
+                    total_skipped_beyond_season += 1
                     continue
                 if week_index in absent_indices:
                     log.debug(
@@ -275,6 +290,7 @@ async def _backfill_missing_weeks() -> None:
                         "marked as absent in a previous backfill.",
                         prefix="task",
                     )
+                    total_skipped_absent += 1
                     continue
                 url = build_anime_corner_url(season, year, week_index)
                 log.debug(
@@ -282,6 +298,8 @@ async def _backfill_missing_weeks() -> None:
                     f"week {week_index:02d} ({week_start:%Y-%m-%d}) from {url}.",
                     prefix="task",
                 )
+                ranking: List[Dict[str, Any]] = []
+                fetch_failed = False
                 try:
                     ranking = await api.fetch_ranking(url)
                 except Exception:
@@ -289,30 +307,46 @@ async def _backfill_missing_weeks() -> None:
                         f"Failed to fetch `{url}`:\n{traceback.format_exc()}",
                         prefix="task",
                     )
-                    total_errors += 1
-                    continue
-                if not ranking:
-                    # The URL returned zero rows. Remember that this week
-                    # index has no data so the next backfill run won't
-                    # re-probe it. Without this, a 12-week season that only
-                    # published 11 weeks would keep fetching "w12" forever.
-                    log.info(
-                        f"`{url}` returned no ranking rows – marking "
-                        f"{season}-{year} w{week_index:02d} as absent.",
-                        prefix="task",
-                    )
+                    fetch_failed = True
+                if fetch_failed or not ranking:
+                    # The URL returned zero rows (or crashed). Don't mark
+                    # it absent immediately — Anime Corner occasionally
+                    # returns empty rows for a known good URL during
+                    # scraping hiccups, and a season that genuinely ends
+                    # at week N would otherwise keep us re-fetching the
+                    # same week N+1 on every run. Increment
+                    # ``failure_count`` instead; once it crosses
+                    # ``MAX_FAILURE_COUNT`` the row is flipped to
+                    # ``absent`` (handled inside mark_week_pending).
                     try:
-                        await AnimeCornerHistoryManager.mark_week_absent(
+                        new_count = await AnimeCornerHistoryManager.mark_week_pending(
                             season=season, year=year, week_index=week_index,
                         )
-                        absent_indices.add(week_index)
                     except Exception:
                         log.warning(
-                            "Failed to persist absent marker for "
+                            "Failed to persist pending/failure marker for "
                             f"{season}-{year} w{week_index:02d}:\n"
                             + traceback.format_exc(),
                             prefix="task",
                         )
+                        new_count = 0
+                    if new_count >= MAX_FAILURE_COUNT:
+                        log.info(
+                            f"`{url}` returned no ranking rows "
+                            f"{new_count}× in a row – locking "
+                            f"{season}-{year} w{week_index:02d} as absent.",
+                            prefix="task",
+                        )
+                        absent_indices.add(week_index)
+                    else:
+                        log.info(
+                            f"`{url}` returned no ranking rows "
+                            f"(attempt {new_count}/{MAX_FAILURE_COUNT}) "
+                            f"– will retry {season}-{year} w{week_index:02d} "
+                            "on the next backfill run.",
+                            prefix="task",
+                        )
+                    total_errors += 1
                     continue
                 inserted = await _persist_week_ranking(
                     ranking=ranking,
@@ -346,9 +380,10 @@ async def _backfill_missing_weeks() -> None:
                     )
         log.info(
             "Anime Corner backfill summary: "
-            f"{total_inserted} row(s) inserted across "
-            f"{len(missing_weeks) - total_errors} attempted week(s), "
-            f"{total_errors} failure(s).",
+            f"{total_inserted} row(s) inserted, "
+            f"{total_errors} fetch failure(s), "
+            f"{total_skipped_absent} week(s) already known absent, "
+            f"{total_skipped_beyond_season} week(s) past the season end.",
             prefix="task",
         )
     except Exception:
