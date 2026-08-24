@@ -238,10 +238,11 @@ CREATE TABLE IF NOT EXISTS anime_of_the_week_known_weeks (
     year INT NOT NULL,
     week_index INT NOT NULL,
     state TEXT NOT NULL,
+    failure_count INT NOT NULL DEFAULT 0,
     first_seen TIMESTAMP NOT NULL DEFAULT NOW(),
     last_seen TIMESTAMP NOT NULL DEFAULT NOW(),
     PRIMARY KEY (season, year, week_index),
-    CONSTRAINT known_week_state_check CHECK (state IN ('present', 'absent')),
+    CONSTRAINT known_week_state_check CHECK (state IN ('present', 'absent', 'pending')),
     CONSTRAINT known_week_season_check CHECK (season IN ('spring', 'summer', 'fall', 'winter'))
 );
 CREATE INDEX IF NOT EXISTS idx_aotw_known_weeks_season_year
