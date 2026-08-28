@@ -46,9 +46,23 @@ def acquire(func: Callable[..., Any]) -> Callable[..., Any]:
         assert self.is_connected, "Not connected."
         self.calls += 1
         cxn: asyncpg.Connection
-        async with self._pool.acquire() as cxn:
-            async with cxn.transaction():
-                return await func(self, *args, _cxn=cxn, **kwargs)
+        try:
+            async with self._pool.acquire() as cxn:
+                async with cxn.transaction():
+                    return await func(self, *args, _cxn=cxn, **kwargs)
+        except RuntimeError as e:
+            # if bot crashed and reconnected, then we will have 
+            # a new event loop and the old one will crash -> create a new event + pool
+            if "Event loop is closed" not in str(e):
+                raise
+            self.log.warning(
+                "Stale asyncpg pool detected (closed event loop) — reconnecting",
+                prefix="db",
+            )
+            await self._reset_and_reconnect()
+            async with self._pool.acquire() as cxn:
+                async with cxn.transaction():
+                    return await func(self, *args, _cxn=cxn, **kwargs)
 
     return wrapper
 
@@ -64,11 +78,8 @@ class Database(metaclass=Singleton):
         typing.cast(Inu, bot)
         self._bot: Inu #type: ignore
         self._connected = asyncio.Event()
-        # Set while `connect()` is in flight. Lets concurrent callers
-        # wait for the first connection attempt to finish instead of
-        # racing against it (which used to call `asyncpg.create_pool`
-        # twice and run `script.sql` twice in parallel, tripping
-        # `pg_type_typname_nsp_index`).
+
+        # this way concurrent callers just wait for the same result
         self._connecting = asyncio.Event()
         self._connecting.set()  # initially "no connection in flight"
         self.calls = 0
@@ -97,21 +108,18 @@ class Database(metaclass=Singleton):
         return self._pool # normally its called ()
 
     async def connect(self) -> None:
-        # Fast path: already connected, skip entirely.
         if self.is_connected:
             return
         # `_connecting` is "set" while no one is currently inside
-        # connect(). If a peer caller grabbed it first (cleared it),
-        # wait for them to finish — they'll set `_connected`, after
-        # which the fast path at the top of this function will return
-        # immediately on the next call.
+        # connect(). If this function already runs, then the following will
+        # return, when the first caller is done (connected.set()).
         await self._connecting.wait()
-        # We hold the slot now. Anyone who arrives while we're inside
-        # this block will block on `_connecting.wait()` above.
+
+        # clear/block, so that next callers have to wait again
         self._connecting.clear()
         try:
-            # Re-check inside the critical section: the first caller
-            # may have already finished before we woke up.
+            # if a previous run already connected, then we can 
+            # early return
             if self.is_connected:
                 return
             pool = None
@@ -140,8 +148,6 @@ class Database(metaclass=Singleton):
             self._connecting.set()
         return
 
-
-
     async def close(self) -> None:
         assert self.is_connected, "Not connected."
         await self._pool.close()
@@ -157,7 +163,7 @@ class Database(metaclass=Singleton):
     @acquire
     async def execute(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> Optional[asyncpg.Record]:
         return await _cxn.execute(query, *values)
-        
+
 
     @acquire
     async def execute_many(self, query: str, valueset: List[Any], _cxn: asyncpg.Connection) -> None:
@@ -183,6 +189,19 @@ class Database(metaclass=Singleton):
     async def fetch(self, query: str, *values: Any, _cxn: asyncpg.Connection) -> List[asyncpg.Record]:
         """Executes and returns (if specified) a given `query`"""
         return await _cxn.fetch(query, *values)
+
+    async def _reset_and_reconnect(self) -> None:
+        """Drop the loop-bound pool + Events and build a fresh connection
+        on the currently running event loop. Used when the old loop has
+        been closed (e.g. between bot reboots in main())."""
+        # Drop references to objects that were bound to the old loop.
+        self._pool = None  # type: ignore[assignment]
+        # asyncio.Event() binds itself to whichever loop is currently
+        # running, so recreating them here puts them on the new loop.
+        self._connected = asyncio.Event()
+        self._connecting = asyncio.Event()
+        self._connecting.set()
+        await self.connect()
 
     @acquire
     async def execute_script(self, path: str, *args: Any, _cxn: asyncpg.Connection) -> None:
