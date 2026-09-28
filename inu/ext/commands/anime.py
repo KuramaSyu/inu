@@ -5,6 +5,7 @@ import hikari
 import lightbulb
 import traceback
 
+from cachetools import TTLCache
 from fuzzywuzzy import fuzz
 from hikari import (
     Embed,
@@ -34,50 +35,65 @@ from inu.core import BotResponseError, getLogger, get_context, InuContext
 log = getLogger(__name__)
 loader = lightbulb.Loader()
 
-# Discord caps a single slash-command option at 25 choices. We reserve the
-# first slot for the synthetic "current" entry (the default) and fill the
-# remaining 24 with the most recent (season, year) pairs the history table
-# actually has data for. The list is mutated in-place by
-# :func:`refresh_season_choices` once the database is reachable at bot
-# startup — lightbulb reads the choices by reference at sync time, so
-# mutating the list before Discord sync produces the right registration
-# payload.
-ANIME_OF_WEEK_SEASON_CHOICES: List[lightbulb.Choice] = [
-    lightbulb.Choice("Current season", "current"),
-]
+# Discord caps a single slash-command option at 25 choices. Slot 0 is the
+# synthetic "current" entry; the remaining 24 are the most recent
+# (season, year) pairs the history table actually has data for.
+# AnimeCorner runs weekly, so a short TTL keeps the list current without
+# hammering the DB on every autocomplete interaction.
+_SEASON_CHOICES_TTL_S = 300
+_season_choices_cache: TTLCache = TTLCache(maxsize=1, ttl=_SEASON_CHOICES_TTL_S)
+_CURRENT_CHOICE = lightbulb.Choice("Current season", "current")
 
 
-async def refresh_season_choices() -> None:
-    """Populate :data:`ANIME_OF_WEEK_SEASON_CHOICES` from the history DB.
-
-    Called once during bot startup (after the DB is connected, before the
-    slash commands are synced to Discord). Discord caps a single option at
-    25 choices, so we keep the first slot for the synthetic ``"current"``
-    entry and fill the remaining 24 with the most recent (season, year)
-    pairs in the database.
-    """
+async def _load_season_choices() -> List[lightbulb.Choice]:
+    """Build the season choice list from the history DB."""
     try:
         seasons = await AnimeCornerHistoryManager.list_available_seasons()
     except Exception:
         log.warning(
-            "Failed to load season list for the anime-of-the-week-history "
-            "command; only the 'current' choice will be available:\n"
+            "Failed to load seasons for the anime-of-the-week-history "
+            "autocomplete; only 'current' will be offered:\n"
             + traceback.format_exc()
         )
-        return
-    max_extra = 24  # 25 slots - 1 reserved for the "current" choice
-    ANIME_OF_WEEK_SEASON_CHOICES[:] = [
-        lightbulb.Choice("Current season", "current"),
-    ]
-    for season, year in seasons[:max_extra]:
-        label = f"{season.title()} {year}"
-        value = f"{season} {year}"
-        ANIME_OF_WEEK_SEASON_CHOICES.append(lightbulb.Choice(label, value))
-    log.debug(
-        f"anime-of-the-week-history: loaded {len(ANIME_OF_WEEK_SEASON_CHOICES)} "
-        f"season choice(s) from the database.",
-        prefix="init",
-    )
+        return [_CURRENT_CHOICE]
+    choices: List[lightbulb.Choice] = [_CURRENT_CHOICE]
+    for season, year in seasons[:24]:
+        choices.append(
+            lightbulb.Choice(f"{season.title()} {year}", f"{season} {year}")
+        )
+    return choices
+
+
+async def anime_of_the_week_season_autocomplete(
+    ctx: lightbulb.AutocompleteContext,
+) -> None:
+    """Season autocomplete for /anime-of-the-week-history."""
+    try:
+        choices = _season_choices_cache.get("seasons")
+        if choices is None:
+            choices = await _load_season_choices()
+            _season_choices_cache["seasons"] = choices
+        needle = (ctx.focused.value or "").lower()
+        if not needle:
+            await ctx.respond(choices)
+            return
+        # Always keep "current" reachable, then append needle matches.
+        filtered: List[lightbulb.Choice] = []
+        if needle in _CURRENT_CHOICE.value or needle in _CURRENT_CHOICE.name.lower():
+            filtered.append(_CURRENT_CHOICE)
+        for c in choices[1:]:
+            if len(filtered) >= 25:
+                break
+            if needle in c.value.lower() or needle in c.name.lower():
+                filtered.append(c)
+        await ctx.respond(filtered or choices)
+    except Exception:
+        log.warning(
+            f"anime-of-the-week-history season autocomplete failed:\n"
+            f"{traceback.format_exc()}"
+        )
+        await ctx.respond([_CURRENT_CHOICE])
+
 
 @loader.command
 class Anime(
@@ -124,7 +140,7 @@ class AnimeOfTheWeekHistory(
     season = lightbulb.string(
         "season",
         "Which season of Anime of the Week history to show (defaults to the current season)",
-        choices=ANIME_OF_WEEK_SEASON_CHOICES,
+        autocomplete=anime_of_the_week_season_autocomplete,
         default="current",
     )
 
