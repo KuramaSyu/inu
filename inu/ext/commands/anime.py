@@ -39,13 +39,16 @@ loader = lightbulb.Loader()
 # synthetic "current" entry; the remaining 24 are the most recent
 # (season, year) pairs the history table actually has data for.
 # AnimeCorner runs weekly, so a short TTL keeps the list current without
-# hammering the DB on every autocomplete interaction.
+# hammering the DB on every autocomplete interaction. Entries are stored
+# as (name, value) tuples, which is the shape lightbulb's AutocompleteContext
+# expects (lightbulb.Choice is for slash-command option choices, not
+# autocomplete responses).
 _SEASON_CHOICES_TTL_S = 300
 _season_choices_cache: TTLCache = TTLCache(maxsize=1, ttl=_SEASON_CHOICES_TTL_S)
-_CURRENT_CHOICE = lightbulb.Choice("Current season", "current")
+_CURRENT_CHOICE: Tuple[str, str] = ("Current season", "current")
 
 
-async def _load_season_choices() -> List[lightbulb.Choice]:
+async def _load_season_choices() -> List[Tuple[str, str]]:
     """Build the season choice list from the history DB."""
     try:
         seasons = await AnimeCornerHistoryManager.list_available_seasons()
@@ -56,11 +59,9 @@ async def _load_season_choices() -> List[lightbulb.Choice]:
             + traceback.format_exc()
         )
         return [_CURRENT_CHOICE]
-    choices: List[lightbulb.Choice] = [_CURRENT_CHOICE]
+    choices: List[Tuple[str, str]] = [_CURRENT_CHOICE]
     for season, year in seasons[:24]:
-        choices.append(
-            lightbulb.Choice(f"{season.title()} {year}", f"{season} {year}")
-        )
+        choices.append((f"{season.title()} {year}", f"{season} {year}"))
     return choices
 
 
@@ -78,13 +79,13 @@ async def anime_of_the_week_season_autocomplete(
             await ctx.respond(choices)
             return
         # Always keep "current" reachable, then append needle matches.
-        filtered: List[lightbulb.Choice] = []
-        if needle in _CURRENT_CHOICE.value or needle in _CURRENT_CHOICE.name.lower():
+        filtered: List[Tuple[str, str]] = []
+        if needle in _CURRENT_CHOICE[1] or needle in _CURRENT_CHOICE[0].lower():
             filtered.append(_CURRENT_CHOICE)
         for c in choices[1:]:
             if len(filtered) >= 25:
                 break
-            if needle in c.value.lower() or needle in c.name.lower():
+            if needle in c[1].lower() or needle in c[0].lower():
                 filtered.append(c)
         await ctx.respond(filtered or choices)
     except Exception:
