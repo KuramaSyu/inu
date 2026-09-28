@@ -4,9 +4,6 @@ networks:
   inu_net:
     enable_ipv6: true
     driver: bridge
-    ipam:
-      config:
-        - subnet: 172.21.0.0/16  # IPv4 subnet
 
 services:
   db:
