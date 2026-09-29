@@ -102,7 +102,11 @@ async def method():
 async def _store_history(pag: AnimeCornerPaginator2) -> None:
     """Saves the fetched Anime Corner ranking into the history table. duplicates are prevented
     """
-    ranking_date: datetime = pag.submission.created_utc or datetime.now()
+    # asyncpraw returns created_utc as a Unix timestamp (float), not a datetime
+    created_utc = pag.submission.created_utc
+    ranking_date: datetime = (
+        datetime.fromtimestamp(created_utc) if created_utc else datetime.now()
+    )
     # AniList-style: only keep the date, drop the time
     ranking_date = datetime(ranking_date.year, ranking_date.month, ranking_date.day)
     if await AnimeCornerHistoryManager.has_entry_for(ranking_date):
