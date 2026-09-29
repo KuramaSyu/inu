@@ -16,6 +16,7 @@ from inu.utils import (
     AnimeCornerAPI,
     AnimeCornerPaginator2,
     AnimeCornerView,
+    MAX_WEEK_NUMBER,
     build_anime_corner_url,
 )
 from inu.utils.db import AnimeCornerHistoryManager, get_season
@@ -200,6 +201,10 @@ async def _backfill_missing_weeks() -> None:
             grouped.setdefault((season, year), []).append(week_start)
 
         api = AnimeCornerAPI()
+        # Fetch the polls index once per backfill run so the per-season
+        # probe loop can pick the new URL scheme when the index knows
+        # about `(season, year)`.
+        polls_index = await AnimeCornerAPI.fetch_polls_index()
         total_inserted = 0
         total_errors = 0
         total_skipped_absent = 0
@@ -222,7 +227,7 @@ async def _backfill_missing_weeks() -> None:
                 season=season, year=year,
             )
             max_week = await api.find_latest_week_with_ranking(
-                season, year, start_week=start_week,
+                season, year, start_week=start_week, polls_index=polls_index,
             )
             if max_week is None:
                 log.warning(
@@ -296,7 +301,9 @@ async def _backfill_missing_weeks() -> None:
                     )
                     total_skipped_absent += 1
                     continue
-                url = build_anime_corner_url(season, year, week_index)
+                url = build_anime_corner_url(
+                    season, year, week_index, scheme="auto", polls_index=polls_index,
+                )
                 log.debug(
                     f"Fetching Anime Corner ranking for {season}-{year} "
                     f"week {week_index:02d} ({week_start:%Y-%m-%d}) from {url}.",
@@ -442,7 +449,9 @@ def _season_week_index(season: str, year: int, week_start: datetime) -> Optional
 
     Anime Corner typically publishes one ranking per ISO week, so we can
     approximate the index by taking the number of weeks since the season
-    began (rounded down).
+    began (rounded down). Returns ``None`` when the date is clearly outside
+    the season (before its start, or far enough past it that we'd be probing
+    weeks that don't exist).
     """
     season = season.lower()
     if season not in _SEASON_START_MONTHS:
@@ -459,9 +468,15 @@ def _season_week_index(season: str, year: int, week_start: datetime) -> Optional
     else:
         base = datetime(year, _SEASON_START_MONTHS[season], 1)
         candidate_year = year
-    # Normalise to Monday so ISO weeks line up.
     days_since_start = (week_start - base).days
     if days_since_start < 0:
+        return None
+    # The season never runs longer than MAX_WEEK_NUMBER weeks. Any index
+    # past that means the caller routed a date that belongs to a different
+    # season through this one (e.g. an early-September Monday tagged as
+    # "summer" but really belonging to "fall"). Bail rather than probe a
+    # bogus week number.
+    if days_since_start >= MAX_WEEK_NUMBER * 7:
         return None
     return max(1, days_since_start // 7 + 1)
 
